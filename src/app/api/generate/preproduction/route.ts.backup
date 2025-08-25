@@ -1,0 +1,1323 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { generateContent } from '@/services/azure-openai';
+// Import the GoogleGenerativeAI directly to avoid the linter issue
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { cleanAndParseJSON, createFallbackJSON } from '@/lib/json-utils';
+// 🎭 NEW: Murphy Pillar Integration - Invisible Enhancement
+import { MasterConductorInstance } from '@/services/master-conductor';
+
+// Helper function to get API key
+const getGeminiKey = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured');
+  }
+  
+  return apiKey;
+};
+
+// Configure system prompt for pre-production generation
+const systemPrompt = `You are ReelGen AI, an expert pre-production assistant for TV and film productions. 
+Your task is to generate detailed pre-production materials based on EXISTING workspace episodes from a user's interactive story series.
+
+CRITICAL FOUNDATION REQUIREMENT:
+You will be provided with actual workspace episodes that the user has already generated through their story choices. Your job is to CREATE PRE-PRODUCTION MATERIALS BASED STRICTLY ON THESE EXISTING EPISODES. DO NOT create new stories, scenarios, or content. Use the provided workspace episodes as your source material.
+
+You will be provided with:
+1. A story bible containing series information, characters, and narrative arcs
+2. ACTUAL WORKSPACE EPISODES - These contain the user's chosen story path and must be your primary source
+3. The specific pre-production category requested (script, storyboard, casting, etc.)
+
+WORKSPACE EPISODE ADHERENCE REQUIREMENTS:
+- Use ONLY the story content, scenes, and narrative from the provided workspace episodes
+- Transform workspace episode content into professional pre-production format
+- Generate dialogue based on the existing scenes and narrative from workspace episodes
+- Maintain exact story coherence with the workspace episodes
+- Reference the same characters, locations, and plot points from workspace episodes
+- DO NOT invent new plot points, scenes, or story developments
+
+Generate professional pre-production content that transforms the existing workspace episodes into production-ready materials.
+
+CRITICAL JSON OUTPUT REQUIREMENTS:
+- Return responses in valid JSON format ONLY
+- NO markdown formatting (no triple backticks or code blocks)
+- NO additional text, explanations, or comments
+- NO line breaks within string values
+- Start response directly with { and end with }
+- Ensure all strings are properly quoted and escaped
+- Use double quotes for all property names and string values
+- Do not include any text before or after the JSON object
+- Replace any line breaks in content with spaces or newline escape sequences
+- Ensure all JSON is properly formatted and parseable`;
+
+// Configure model parameters
+const gptParams = {
+  maxTokens: 8000,
+  temperature: 0.7,
+};
+
+export async function POST(request: NextRequest) {
+  try {
+    // Parse request body
+    const body = await request.json();
+    const { storyBible, arcIndex, arcEpisodes, contentType, episodeIndex, mode = 'beast' } = body;
+
+    // Validate required parameters - support both old and new parameter structures
+    if (!storyBible || !contentType) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: storyBible and contentType are required' },
+        { status: 400 }
+      );
+    }
+
+    // Handle both old (arcIndex-based) and new (workspace-based) parameter structures
+    const resolvedArcIndex = arcIndex !== undefined ? arcIndex : 0; // Default to first arc if not specified
+
+    const episodeText = episodeIndex !== undefined ? ` for Episode ${episodeIndex + 1}` : '';
+    console.log(`Generating ${contentType} for Arc ${resolvedArcIndex + 1}${episodeText} with mode: ${mode}`);
+
+    // Get arc title safely
+    const arcTitle = storyBible?.narrativeArcs?.[resolvedArcIndex]?.title || `Arc ${resolvedArcIndex + 1}`;
+    const seriesTitle = storyBible?.seriesTitle || "Untitled Series";
+
+    // ENHANCED: Load actual workspace episodes - prioritize workspace data over arc index calculation
+    let actualEpisodes = arcEpisodes || [];
+    
+    // Try to get real episode data from the workspace if available
+    if (body.workspaceEpisodes) {
+      if (Object.keys(body.workspaceEpisodes).length > 0) {
+        // Use all provided workspace episodes (they're already filtered by the caller)
+        actualEpisodes = Object.values(body.workspaceEpisodes).sort((a: any, b: any) => a.episodeNumber - b.episodeNumber);
+        console.log(`Using ${actualEpisodes.length} actual workspace episodes for pre-production`);
+      } else {
+        // Fallback: Filter workspace episodes for this specific arc using the resolved arc index
+        const arcStartEpisode = resolvedArcIndex * 10 + 1;
+        const arcEndEpisode = resolvedArcIndex * 10 + 10;
+        const workspaceArcEpisodes = Object.values(body.workspaceEpisodes)
+          .filter((ep: any) => ep.episodeNumber >= arcStartEpisode && ep.episodeNumber <= arcEndEpisode)
+          .sort((a: any, b: any) => a.episodeNumber - b.episodeNumber);
+        
+        if (workspaceArcEpisodes.length > 0) {
+          console.log(`Using ${workspaceArcEpisodes.length} filtered workspace episodes for pre-production`);
+          actualEpisodes = workspaceArcEpisodes;
+        }
+      }
+    }
+
+    // Get episode-specific information if generating for a specific episode
+    const targetEpisode = episodeIndex !== undefined ? actualEpisodes[episodeIndex] : null;
+    const episodeTitle = targetEpisode?.episodeTitle || targetEpisode?.title || `Episode ${(episodeIndex || 0) + 1}`;
+
+    // ENHANCED: Build comprehensive context from story bible AND workspace data
+    const comprehensiveContext = {
+      storyBible,
+      actualEpisodes,
+      userChoices: body.userChoices || [],
+      newCharacters: storyBible.newCharacters || [],
+      newLocations: storyBible.newLocations || [],
+      characterDevelopments: storyBible.characterDevelopments || [],
+      plotThreads: storyBible.plotThreads || []
+    };
+
+    // Build the user prompt based on content type requested
+    let userPrompt = '';
+    let responseFormat = '';
+
+    switch (contentType) {
+    case 'script-expansion':
+        const { episodeData, genreInfo } = body;
+        
+        if (episodeIndex !== undefined && episodeData && genreInfo) {
+          // Genre-specific dialogue guidance
+          const genreGuidance = {
+            'Drama': 'Focus on emotional depth, character development, and meaningful exchanges. Include internal conflicts and relationship dynamics.',
+            'Comedy': 'Add witty banter, comedic timing, rapid-fire exchanges, and character-driven humor. Include comedic beats and timing.',
+            'Thriller': 'Build tension through dialogue, add suspenseful conversations, and include exposition that advances the mystery.',
+            'Business/Tech': 'Include technical discussions, business meetings, pitch presentations, and professional negotiations.',
+            'Action': 'Keep dialogue punchy and purposeful. Focus on clear communication during high-stakes moments.',
+            'Sci-Fi/Fantasy': 'Include world-building through dialogue, technical explanations, and character interactions with fantastical elements.',
+            'Horror': 'Build atmospheric tension, include fearful exchanges, and use dialogue to create unease.',
+            'General Drama': 'Focus on character development and emotional storytelling through natural conversations.'
+          };
+          
+          const guidance = genreGuidance[genreInfo.genre as keyof typeof genreGuidance] || genreGuidance['General Drama'];
+          
+          // ENHANCED: Build comprehensive character context from story bible
+          const mainCharactersContext = storyBible.mainCharacters && storyBible.mainCharacters.length > 0
+            ? `\n\nMAIN CHARACTERS FROM STORY BIBLE:\n${storyBible.mainCharacters.map((char: any) =>
+                `${char.name} - ${char.role || 'Character'}: ${char.personalityTraits?.join(', ') || 'No traits listed'}\n  Background: ${char.backstory || char.background || 'No background provided'}\n  Motivation: ${char.motivation || 'Not specified'}`).join('\n\n')}`
+            : '';
+
+          // ENHANCED: Include user choices and character developments in context
+          const choiceContext = comprehensiveContext.userChoices.length > 0
+            ? `\n\nUSER CHOICES CONTEXT:\n${comprehensiveContext.userChoices.map((choice: any) =>
+                `Episode ${choice.episodeNumber}: "${choice.choiceText}"`).join('\n')}`
+            : '';
+
+          const characterContext = comprehensiveContext.newCharacters.length > 0
+            ? `\n\nNEW CHARACTERS TO INCLUDE:\n${comprehensiveContext.newCharacters.map((char: any) =>
+                `${char.name} - ${char.description} (Introduced Episode ${char.introducedInEpisode})`).join('\n')}`
+            : '';
+
+            // ENHANCED: Add character voice consistency context
+            const characterVoiceContext = storyBible.characterVoices && storyBible.characterVoices.length > 0
+              ? `\n\nCHARACTER VOICE CONSISTENCY:\n${storyBible.characterVoices.map((voice: any) =>
+                  `${voice.character}: ${voice.voiceNotes} (Sample: "${voice.sampleDialogue?.[0] || 'No sample'}")`).join('\n')}`
+              : '';
+
+            // ENHANCED: Add plot thread continuity context
+            const plotThreadContext = comprehensiveContext.plotThreads.length > 0
+              ? `\n\nONGOING PLOT THREADS:\n${comprehensiveContext.plotThreads.map((thread: any) =>
+                  `Episode ${thread.episode}: ${thread.threads.join(', ')}`).join('\n')}`
+              : '';
+
+            // ENHANCED: Add actual workspace episode content with FULL CONTENT
+            const workspaceEpisodeContext = comprehensiveContext.actualEpisodes.length > 0
+              ? `\n\nACTUAL WORKSPACE EPISODES:\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+                  `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nSynopsis: ${ep.synopsis}\nChosen Path: ${ep.chosenPath || 'None'}\nScenes: ${ep.scenes?.length || 0} scenes\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+              : '';
+
+            // ENHANCED: Build comprehensive world-building context
+            const worldBuildingContext = storyBible.worldBuilding
+              ? `\n\nWORLD BUILDING:\n- Setting: ${storyBible.worldBuilding.setting || 'Not specified'}\n- Time Period: ${storyBible.worldBuilding.timeframe || storyBible.worldBuilding.timePeriod || 'Not specified'}\n- Key Locations: ${storyBible.worldBuilding.keyLocations?.join(', ') || 'Not specified'}`
+              : '';
+
+          userPrompt = `Transform the existing workspace Episode ${episodeIndex + 1} titled "${episodeTitle}" into a COMPLETE professional 5-minute ${genreInfo.genre.toLowerCase()} script with extensive, rich dialogue.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided COMPLETE workspace episode content as your ONLY source material. This episode already exists in the user's story. Your job is to transform the ENTIRE narrative scene content into a professional screenplay format with comprehensive dialogue.
+
+CRITICAL DIALOGUE EXPANSION REQUIREMENTS:
+- Transform EVERY narrative element from workspace scenes into detailed character dialogue
+- Expand brief narrative descriptions into full conversational exchanges
+- Create substantial back-and-forth conversations between characters
+- Use the ENTIRE scene content, not just excerpts or summaries
+- ADAPT dialogue quantity dynamically based on scene content and narrative importance
+- Make characters discuss, react to, and explore every plot point from the workspace episode
+- Include emotional reactions, character thoughts, and relationship dynamics through dialogue
+- Transform action descriptions into character observations and reactions
+
+DYNAMIC DIALOGUE SCALING BASED ON SCENE CONTENT:
+- SHORT SCENES (under 200 words): Generate 8-12 dialogue exchanges - focus on essential story beats
+- MEDIUM SCENES (200-500 words): Generate 12-20 dialogue exchanges - develop character interactions
+- LONG SCENES (500-800 words): Generate 20-35 dialogue exchanges - full conversational development
+- COMPLEX SCENES (800+ words): Generate 35-50+ dialogue exchanges - comprehensive character exploration
+
+ADAPTIVE DIALOGUE REQUIREMENTS BY SCENE TYPE:
+- ACTION SCENES: Shorter, punchy exchanges focused on immediate reactions and decisions
+- EMOTIONAL SCENES: Extended dialogue exploring feelings, relationships, and character development
+- EXPOSITION SCENES: Balanced dialogue that reveals information through natural conversation
+- GROUP SCENES: Multiple character interactions with layered conversations and dynamics
+- INTIMATE SCENES: Deep, personal exchanges that reveal character depth and vulnerability
+- CONFLICT SCENES: Heated exchanges, arguments, and tension-building dialogue
+- REVELATION SCENES: Build-up dialogue leading to major story revelations and character reactions
+
+SCENE COMPLEXITY ANALYSIS FOR DIALOGUE SCALING:
+- Analyze workspace episode scene content length and narrative density
+- Identify number of characters present and their relationship dynamics
+- Determine emotional weight and story importance of the scene
+- Scale dialogue quantity to serve the specific narrative needs
+- Ensure every significant plot point and character moment gets proper dialogue treatment
+
+CRITICAL CHARACTER REQUIREMENTS:
+- Use ONLY characters from the story bible main characters list
+- Each character must speak and act according to their established personality traits
+- Maintain character consistency throughout the script
+- NO generic or placeholder character names${mainCharactersContext}
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Characters must be consistent with established personalities and developments
+- Reference previous episode events and user choices when relevant${choiceContext}${characterContext}${characterVoiceContext}${plotThreadContext}${workspaceEpisodeContext}${worldBuildingContext}
+
+COMPREHENSIVE NARRATIVE EXPANSION INSTRUCTIONS:
+1. Read the COMPLETE workspace episode scene content (not just excerpts)
+2. Identify every character interaction, emotional moment, and plot development
+3. Transform narrative descriptions into character dialogue and reactions
+4. Create conversations around every significant event or revelation
+5. Add character backstory and personality through dialogue
+6. Include subtext, conflict, and relationship dynamics
+7. Expand brief moments into full conversational scenes
+8. Use dialogue to show character thoughts and internal conflicts
+
+PROFESSIONAL SCREENPLAY REQUIREMENTS:
+1. Follow industry-standard formatting (character names in ALL CAPS, proper scene headings)
+2. Transform existing workspace episode scenes into 3-4 scenes with extensive dialogue (approximately 800-1200 words)
+3. Include detailed scene descriptions and stage directions based on existing content
+4. Build dramatic tension and character development from the existing narrative
+5. Use the existing plot progression from the workspace episode
+6. Include subtext and conflict in dialogue that reflects the existing story
+7. Use specific, visual action descriptions from the existing scenes
+8. Maintain the story progression and conclusion from the workspace episode
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Use exact episode title from workspace: "${episodeTitle}"
+- Transform COMPLETE workspace episode scenes into dialogue format (not excerpts)
+- Maintain the exact story progression from the workspace episode
+- Use established character relationships from workspace content
+- Follow the narrative arc established in the workspace episode
+
+EXTENSIVE DIALOGUE REQUIREMENTS:
+- ADAPT dialogue quantity dynamically based on each scene's content and narrative importance
+- Characters should discuss and react to every plot point from workspace scenes
+- Include emotional responses, questions, concerns, and character development
+- Transform every narrative beat into conversational content
+- Add character-specific reactions and personality-driven responses
+- Create realistic pacing with natural conversation flow
+
+DYNAMIC DIALOGUE SCALING PER SCENE:
+- SHORT SCENES (under 200 words): 8-12 dialogue exchanges focused on essential story beats
+- MEDIUM SCENES (200-500 words): 12-20 dialogue exchanges with character interaction development
+- LONG SCENES (500-800 words): 20-35 dialogue exchanges with full conversational exploration
+- COMPLEX SCENES (800+ words): 35-50+ dialogue exchanges with comprehensive character depth
+
+ADAPTIVE SCENE-BASED DIALOGUE APPROACH:
+- Analyze each workspace scene's content length, character count, and narrative weight
+- Scale dialogue quantity to serve the specific story needs of each scene
+- Ensure natural pacing that matches the scene's emotional and narrative requirements
+- Focus on quality character interactions rather than arbitrary dialogue counts
+
+TARGET: Transform this existing episode into a professional screenplay with ${genreInfo.targetWords} words and ${genreInfo.targetLines} dialogue lines. Use the COMPLETE scenes and narrative as your foundation - extract dialogue opportunities dynamically based on each scene's content complexity and narrative importance.`;
+        
+        // Add response format for script-expansion
+        responseFormat = `{
+          "episode": "Episode number",
+          "title": "Episode title", 
+          "scenes": [
+            {
+              "number": "Scene number",
+              "location": "Scene location (e.g., 'INT. OFFICE - DAY')",
+              "description": "Detailed scene description and action (2-3 sentences minimum)",
+              "dialogue": [
+                {
+                  "character": "CHARACTER NAME (from story bible)",
+                  "direction": "(Optional stage direction/parenthetical)",
+                  "line": "Character's dialogue line with personality and subtext"
+                }
+              ]
+            }
+          ]
+        }`;
+        } else {
+          return NextResponse.json(
+            { error: 'Episode data required for script expansion' },
+            { status: 400 }
+          );
+        }
+        break;
+        
+    case 'storyboard':
+        // ENHANCED: Build comprehensive character context from story bible
+        const storyboardMainCharactersContext = storyBible.mainCharacters && storyBible.mainCharacters.length > 0
+          ? `\n\nMAIN CHARACTERS FROM STORY BIBLE:\n${storyBible.mainCharacters.map((char: any) =>
+              `${char.name} - ${char.role || 'Character'}: ${char.personalityTraits?.join(', ') || 'No traits listed'}\n  Background: ${char.backstory || char.background || 'No background provided'}\n  Visual Description: ${char.appearance || 'Not specified'}`).join('\n\n')}`
+          : '';
+
+        // ENHANCED: Use actual episode content for storyboards
+        const storyboardContext = comprehensiveContext.actualEpisodes.length > 0 
+          ? `\n\nACTUAL EPISODE CONTENT:\n${comprehensiveContext.actualEpisodes.map((ep: any) => 
+              `Episode ${ep.episodeNumber}: ${ep.episodeTitle || ep.title}\n${ep.synopsis}\nChosen Path: ${ep.chosenPath || 'None'}`
+            ).join('\n\n')}`
+          : '';
+
+        // ENHANCED: Add character appearance continuity with choice references
+        const characterAppearanceContext = comprehensiveContext.characterDevelopments.length > 0
+          ? `\n\nCHARACTER DEVELOPMENT FOR VISUALS:\n${comprehensiveContext.characterDevelopments
+              .filter((dev: any) => dev.episode <= (episodeIndex !== undefined ? episodeIndex + 1 : 999))
+              .map((dev: any) => `${dev.character}: ${dev.development}`)
+              .join('\n')}`
+          : '';
+
+        // ENHANCED: User choices context for storyboard - CRITICAL FOR COHERENCE
+        const storyboardChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nCRITICAL USER CHOICES FOR VISUAL REPRESENTATION:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - Visual scenes must show consequences of this choice`).join('\n')}\n\nMANDATORY: Storyboard must visually represent these user choices and their impact on character actions/environments.`
+          : '';
+
+        // ENHANCED: Add location consistency  
+        const locationContext = comprehensiveContext.newLocations.length > 0
+          ? `\n\nESTABLISHED LOCATIONS:\n${comprehensiveContext.newLocations.map((loc: any) => 
+              `${loc.name} - ${loc.description} (First seen: Episode ${loc.introducedInEpisode})`).join('\n')}`
+          : '';
+
+        // ENHANCED: Build world-building context for visual consistency
+        const storyboardWorldBuildingContext = storyBible.worldBuilding
+          ? `\n\nWORLD BUILDING FOR VISUALS:\n- Setting: ${storyBible.worldBuilding.setting || 'Not specified'}\n- Time Period: ${storyBible.worldBuilding.timeframe || storyBible.worldBuilding.timePeriod || 'Not specified'}\n- Key Locations: ${storyBible.worldBuilding.keyLocations?.join(', ') || 'Not specified'}`
+          : '';
+
+        // ENHANCED: Add actual workspace episode content for visuals with FULL CONTENT
+        const workspaceVisualContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODES FOR VISUAL REFERENCE (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        if (episodeIndex !== undefined) {
+          userPrompt = `Create a COMPREHENSIVE professional storyboard for the existing workspace Episode ${episodeIndex + 1} titled "${episodeTitle}" from Arc ${arcIndex + 1} ("${arcTitle}").
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for visual storyboarding. This episode already exists in the user's story. Your job is to create detailed visual storyboards BASED ON the existing workspace episode scenes and narrative.
+
+CRITICAL CHARACTER REQUIREMENTS:
+- Use ONLY characters from the story bible main characters list
+- Each character must appear according to their established visual descriptions
+- Maintain character visual consistency throughout all scenes
+- NO generic or placeholder character names${storyboardMainCharactersContext}
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base visual storyboards on the existing workspace episode scenes and narrative
+- Reference user choices and their visual consequences from workspace content
+- Maintain visual consistency with the established world${storyboardContext}${characterAppearanceContext}${locationContext}${storyboardWorldBuildingContext}${workspaceVisualContext}${storyboardChoiceContext}
+
+PROFESSIONAL STORYBOARD REQUIREMENTS:
+1. Create detailed visual breakdowns for each scene from the existing workspace episode
+2. Each scene must have 3-5 detailed key shots with specific camera angles based on the existing narrative
+3. Include comprehensive visual descriptions that match the workspace episode content
+4. Specify character blocking and movement based on the existing scene descriptions
+5. Detail camera movements, angles, and compositions that serve the existing story
+6. Include lighting and mood specifications that match the workspace episode tone
+7. Reference established character appearances and locations from workspace content
+8. Create production-ready visual guidance for the existing story
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Use exact episode title from workspace: "${episodeTitle}"
+- Base storyboard scenes on the exact workspace episode scenes and content
+- Show visual representation of the existing workspace episode narrative
+- Maintain visual consistency with characters/locations from workspace content
+- Use established character appearances and location designs from workspace episodes
+
+VISUAL STORYTELLING REQUIREMENTS:
+- Each shot should visually represent the existing workspace episode narrative
+- Character blocking should reflect relationships and emotions from workspace scenes
+- Camera work should support the dramatic tension established in workspace content
+- Visual continuity between scenes based on workspace episode flow
+- Genre-appropriate cinematography that matches the existing story tone
+- Specific shot compositions that enhance the existing workspace episode narrative
+
+WORKSPACE EPISODE CONTENT TO VISUALIZE:
+${workspaceVisualContext}
+
+TARGET: Create a complete professional storyboard with detailed visual breakdowns that represents the existing workspace episode content for production team filming guidance.
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Create comprehensive visual guidance for the existing workspace episode with specific camera work and character direction based on the established narrative.`;
+        } else {
+          userPrompt = `Create COMPREHENSIVE professional storyboards for all existing workspace episodes of Arc ${arcIndex + 1} titled "${arcTitle}".
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for visual storyboarding. These episodes already exist in the user's story. Your job is to create detailed visual storyboards BASED ON the existing workspace episode scenes and narratives.
+
+CRITICAL CHARACTER REQUIREMENTS:
+- Use ONLY characters from the story bible main characters list
+- Each character must appear according to their established visual descriptions
+- Maintain character visual consistency throughout all episodes
+- NO generic or placeholder character names${storyboardMainCharactersContext}
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base visual storyboards on the existing workspace episode scenes and narratives
+- Show progression from user choices made in previous episodes  
+- Maintain visual consistency with the established world${storyboardContext}${characterAppearanceContext}${locationContext}${storyboardWorldBuildingContext}
+
+PROFESSIONAL STORYBOARD REQUIREMENTS:
+1. Create detailed visual breakdowns for each scene from the existing workspace episodes
+2. Each scene must have 3-5 detailed key shots with specific camera angles based on existing narratives
+3. Include comprehensive visual descriptions that match workspace episode content
+4. Specify character blocking and movement based on existing scene descriptions
+5. Detail camera movements, angles, and compositions that serve the existing stories
+6. Include lighting and mood specifications that match workspace episode tones
+7. Reference established character appearances and locations from workspace content
+8. Create production-ready visual guidance for the existing stories
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference exact episode titles from workspace episodes
+- Base storyboard scenes on exact workspace episode scenes and content
+- Show visual consequences of user choices from workspace episodes
+- Maintain visual consistency with workspace content
+
+VISUAL STORYTELLING REQUIREMENTS:
+- Each shot should advance the narrative from existing workspace episodes
+- Character blocking should reflect relationship developments from workspace content
+- Camera work should support dramatic tension and arc progression from existing episodes
+- Visual continuity between episodes based on workspace episode flow
+- Genre-appropriate cinematography that matches existing story tones
+- Specific shot compositions for each scene from workspace episodes
+
+WORKSPACE EPISODES TO VISUALIZE:
+${workspaceVisualContext}
+
+Transform each existing workspace episode into comprehensive production-ready storyboards with detailed visual guidance based on the established narrative content.`;
+        }
+        
+        responseFormat = `{
+          "episodes": [
+            {
+              "number": "Episode number",
+              "title": "Episode title from story bible",
+              "summary": "Brief episode summary",
+              "scenes": [
+                {
+                  "sceneNumber": "Scene number (1, 2, 3, etc.)",
+                  "location": "Scene location (e.g., 'INT. OFFICE - DAY')",
+                  "description": "Comprehensive scene description (3-4 sentences)",
+                  "characters": ["CHARACTER NAME 1 (from story bible)", "CHARACTER NAME 2"],
+                  "blocking": "Detailed character blocking and movement notes",
+                  "emotionalState": "Key character emotions and visual representation",
+                  "keyShots": [
+                    {
+                      "shotDescription": "Detailed description of what the shot shows",
+                      "cameraAngle": "Specific camera angle (e.g., 'Low Angle', 'High Angle', 'Eye Level')",
+                      "movement": "Camera movement (e.g., 'Static', 'Pan Left', 'Dolly In', 'Tracking Shot')",
+                      "composition": "Shot composition (e.g., 'Close-up', 'Medium Shot', 'Wide Shot', 'Over-the-shoulder')",
+                      "purpose": "Narrative purpose and visual storytelling goal of this shot"
+                    }
+                  ],
+                  "visualReferences": "Notes on visual callbacks, foreshadowing, or continuity",
+                  "continuityNotes": "Visual consistency notes for characters and locations",
+                  "imagePrompt": "Detailed prompt for AI image generation of this scene"
+                }
+              ]
+            }
+          ],
+          "visualStyle": {
+            "description": "Overall visual style and aesthetic for the arc/episode",
+            "cinematicReferences": ["Film reference 1", "Director reference 2", "Visual style reference 3"]
+          }
+        }`;
+        break;
+      
+    case 'script':
+        // ENHANCED: Add workspace episode content with FULL CONTENT
+        const mainCharactersContext = storyBible.mainCharacters && storyBible.mainCharacters.length > 0
+          ? `\n\nMAIN CHARACTERS FROM STORY BIBLE:\n${storyBible.mainCharacters.map((char: any) =>
+              `${char.name} - ${char.role || 'Character'}: ${char.personalityTraits?.join(', ') || 'No traits listed'}\n  Background: ${char.backstory || char.background || 'No background provided'}\n  Motivation: ${char.motivation || 'Not specified'}`).join('\n\n')}`
+          : '';
+
+        // ENHANCED: Include user choices and character developments - CRITICAL FOR COHERENCE
+        const choiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nCRITICAL USER CHOICES THAT MUST BE REFERENCED IN SCRIPT:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - THIS CHOICE MUST BE REFLECTED IN DIALOGUE/ACTIONS`).join('\n')}\n\nMANDATORY: Script dialogue must explicitly reference these user choices and their consequences.`
+          : '';
+
+        const characterContext = comprehensiveContext.newCharacters.length > 0
+          ? `\n\nNEW CHARACTERS TO INCLUDE:\n${comprehensiveContext.newCharacters.map((char: any) =>
+              `${char.name} - ${char.description} (Introduced Episode ${char.introducedInEpisode})`).join('\n')}`
+          : '';
+
+        // ENHANCED: Add workspace episode content with FULL CONTENT
+        const workspaceEpisodeContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nACTUAL WORKSPACE EPISODES TO TRANSFORM (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nSynopsis: ${ep.synopsis}\nChosen Path: ${ep.chosenPath || 'None'}\nScenes: ${ep.scenes?.length || 0} scenes\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        // ENHANCED: Build world-building context
+        const worldBuildingContext = storyBible.worldBuilding
+          ? `\n\nWORLD BUILDING:\n- Setting: ${storyBible.worldBuilding.setting || 'Not specified'}\n- Time Period: ${storyBible.worldBuilding.timeframe || storyBible.worldBuilding.timePeriod || 'Not specified'}\n- Key Locations: ${storyBible.worldBuilding.keyLocations?.join(', ') || 'Not specified'}`
+          : '';
+
+        if (episodeIndex !== undefined) {
+          userPrompt = `Transform the existing workspace Episode ${episodeIndex + 1} titled "${episodeTitle}" from Arc ${arcIndex + 1} ("${arcTitle}") into a COMPLETE professional 5-minute screenplay with extensive, rich dialogue.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided COMPLETE workspace episode content as your ONLY source material. This episode already exists in the user's story. Your job is to transform the ENTIRE narrative scene content into a professional screenplay format with comprehensive dialogue.
+
+CRITICAL DIALOGUE EXPANSION REQUIREMENTS:
+- Transform EVERY narrative element from workspace scenes into detailed character dialogue
+- Expand brief narrative descriptions into full conversational exchanges
+- Create substantial back-and-forth conversations between characters
+- Use the ENTIRE scene content, not just excerpts or summaries
+- ADAPT dialogue quantity dynamically based on scene content and narrative importance
+- Make characters discuss, react to, and explore every plot point from the workspace episode
+- Include emotional reactions, character thoughts, and relationship dynamics through dialogue
+- Transform action descriptions into character observations and reactions
+
+DYNAMIC DIALOGUE SCALING BASED ON SCENE CONTENT:
+- SHORT SCENES (under 200 words): Generate 8-12 dialogue exchanges - focus on essential story beats
+- MEDIUM SCENES (200-500 words): Generate 12-20 dialogue exchanges - develop character interactions
+- LONG SCENES (500-800 words): Generate 20-35 dialogue exchanges - full conversational development
+- COMPLEX SCENES (800+ words): Generate 35-50+ dialogue exchanges - comprehensive character exploration
+
+ADAPTIVE DIALOGUE REQUIREMENTS BY SCENE TYPE:
+- ACTION SCENES: Shorter, punchy exchanges focused on immediate reactions and decisions
+- EMOTIONAL SCENES: Extended dialogue exploring feelings, relationships, and character development
+- EXPOSITION SCENES: Balanced dialogue that reveals information through natural conversation
+- GROUP SCENES: Multiple character interactions with layered conversations and dynamics
+- INTIMATE SCENES: Deep, personal exchanges that reveal character depth and vulnerability
+- CONFLICT SCENES: Heated exchanges, arguments, and tension-building dialogue
+- REVELATION SCENES: Build-up dialogue leading to major story revelations and character reactions
+
+SCENE COMPLEXITY ANALYSIS FOR DIALOGUE SCALING:
+- Analyze workspace episode scene content length and narrative density
+- Identify number of characters present and their relationship dynamics
+- Determine emotional weight and story importance of the scene
+- Scale dialogue quantity to serve the specific narrative needs
+- Ensure every significant plot point and character moment gets proper dialogue treatment
+
+CRITICAL CHARACTER REQUIREMENTS:
+- Use ONLY characters from the story bible main characters list
+- Each character must speak and act according to their established personality traits
+- Maintain character consistency throughout the script
+- NO generic or placeholder character names${mainCharactersContext}
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Characters must be consistent with established personalities and developments
+- Reference previous episode events and user choices when relevant${choiceContext}${characterContext}${workspaceEpisodeContext}${worldBuildingContext}
+
+COMPREHENSIVE NARRATIVE EXPANSION INSTRUCTIONS:
+1. Read the COMPLETE workspace episode scene content (not just excerpts)
+2. Identify every character interaction, emotional moment, and plot development
+3. Transform narrative descriptions into character dialogue and reactions
+4. Create conversations around every significant event or revelation
+5. Add character backstory and personality through dialogue
+6. Include subtext, conflict, and relationship dynamics
+7. Expand brief moments into full conversational scenes
+8. Use dialogue to show character thoughts and internal conflicts
+
+PROFESSIONAL SCREENPLAY REQUIREMENTS:
+1. Follow industry-standard formatting (character names in ALL CAPS, proper scene headings)
+2. Transform existing workspace episode scenes into 3-4 scenes with extensive dialogue (approximately 800-1200 words)
+3. Include detailed scene descriptions and stage directions based on existing content
+4. Build dramatic tension and character development from the existing narrative
+5. Use the existing plot progression from the workspace episode
+6. Include subtext and conflict in dialogue that reflects the existing story
+7. Use specific, visual action descriptions from the existing scenes
+8. Maintain the story progression and conclusion from the workspace episode
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Use exact episode title from workspace: "${episodeTitle}"
+- Transform COMPLETE workspace episode scenes into dialogue format (not excerpts)
+- Maintain the exact story progression from the workspace episode
+- Use established character relationships from workspace content
+- Follow the narrative arc established in the workspace episode
+
+EXTENSIVE DIALOGUE REQUIREMENTS:
+- ADAPT dialogue quantity dynamically based on each scene's content and narrative importance
+- Characters should discuss and react to every plot point from workspace scenes
+- Include emotional responses, questions, concerns, and character development
+- Transform every narrative beat into conversational content
+- Add character-specific reactions and personality-driven responses
+- Create realistic pacing with natural conversation flow
+
+DYNAMIC DIALOGUE SCALING PER SCENE:
+- SHORT SCENES (under 200 words): 8-12 dialogue exchanges focused on essential story beats
+- MEDIUM SCENES (200-500 words): 12-20 dialogue exchanges with character interaction development
+- LONG SCENES (500-800 words): 20-35 dialogue exchanges with full conversational exploration
+- COMPLEX SCENES (800+ words): 35-50+ dialogue exchanges with comprehensive character depth
+
+ADAPTIVE SCENE-BASED DIALOGUE APPROACH:
+- Analyze each workspace scene's content length, character count, and narrative weight
+- Scale dialogue quantity to serve the specific story needs of each scene
+- Ensure natural pacing that matches the scene's emotional and narrative requirements
+- Focus on quality character interactions rather than arbitrary dialogue counts
+
+TARGET: Transform the existing workspace episode into a production-ready screenplay with dialogue that dynamically adapts to each scene's narrative needs and complexity based on the COMPLETE existing narrative while maintaining the established story structure.
+
+Transform the provided COMPLETE workspace episode content into a production-ready screenplay with proper professional formatting, rich character development, and engaging dialogue that maintains narrative coherence with the established story bible and workspace episode content.`;
+          
+          responseFormat = `{
+            "scenes": [
+              {
+                "number": "Scene number",
+                "location": "Scene location (e.g., 'INT. OFFICE - DAY')",
+                "description": "Detailed scene description and action (2-3 sentences minimum)",
+                "dialogue": [
+                  {
+                    "character": "CHARACTER NAME (from story bible)",
+                    "line": "Character's dialogue line with personality and subtext",
+                    "direction": "(Optional stage direction/parenthetical)"
+                  }
+                ]
+              }
+            ]
+          }`;
+        } else {
+          userPrompt = `Transform the existing workspace episodes of Arc ${arcIndex + 1} titled "${arcTitle}" into detailed professional 5-minute screenplays.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material. These episodes already exist in the user's story. Your job is to transform the existing narrative scenes into professional screenplay format with full dialogue.
+
+CRITICAL CHARACTER REQUIREMENTS:
+- Use ONLY characters from the story bible main characters list
+- Each character must speak and act according to their established personality traits
+- Maintain character consistency throughout all episodes
+- NO generic or placeholder character names${mainCharactersContext}
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Characters must be consistent with established personalities and developments${choiceContext}${characterContext}${workspaceEpisodeContext}${worldBuildingContext}
+
+PROFESSIONAL SCREENPLAY REQUIREMENTS:
+1. Follow industry-standard formatting (character names in ALL CAPS, proper scene headings)
+2. Transform existing workspace episode scenes into 3-4 scenes per episode with full dialogue
+3. Include detailed scene descriptions and stage directions based on existing content
+4. Build dramatic tension and character development from the existing narratives
+5. Use the existing plot progression from the workspace episodes
+6. Include subtext and conflict in dialogue that reflects the existing stories
+7. Use specific, visual action descriptions from the existing scenes
+8. Maintain each episode's story progression and conclusion from the workspace content
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Use exact episode titles from workspace episodes
+- Transform existing workspace episode scenes into dialogue format
+- Maintain the exact story progression from each workspace episode
+- Use established character relationships from workspace content
+- Follow the narrative arcs established in the workspace episodes
+
+Transform each provided workspace episode into production-ready screenplays with proper formatting, character development, and narrative coherence based on the existing workspace content.`;
+          
+          responseFormat = `{
+            "script": {
+              "episodes": [
+                {
+                  "number": "Episode number",
+                  "title": "Episode title",
+                  "scenes": [
+                    {
+                      "number": "Scene number",
+                      "location": "Scene location (e.g., 'INT. OFFICE - DAY')",
+                      "description": "Detailed scene description and action (2-3 sentences minimum)",
+                      "dialogue": [
+                        {
+                          "character": "CHARACTER NAME (from story bible)",
+                          "line": "Character's dialogue line with personality and subtext",
+                          "direction": "(Optional stage direction/parenthetical)"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }`;
+        }
+        break;
+
+      case 'casting':
+        // ENHANCED: Add workspace context for casting with FULL CONTENT
+        const castingWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE CHARACTERS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nCharacters featured: ${ep.scenes?.map((scene: any) => scene.dialogue?.map((d: any) => d.character).join(', ')).filter(Boolean).join(', ') || 'No dialogue characters'}\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const castingChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE IMPACTS ON CHARACTERS:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice affects character relationships and casting needs`).join('\n')}`
+          : '';
+
+        userPrompt = `Create comprehensive casting guidelines for Arc ${arcIndex + 1} titled "${arcTitle}" of "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for casting requirements. These episodes already exist in the user's story. Your job is to create casting guidelines BASED ON how characters appear and develop in the existing workspace episodes.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base casting requirements on actual character usage in workspace episodes
+- Use character developments from user choices and workspace episodes
+- Ensure casting reflects character relationships established in workspace episodes${castingWorkspaceContext}${castingChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference characters exactly as they appear in workspace episodes
+- Account for character developments resulting from user choices in workspace episodes
+- Ensure casting reflects character relationships from workspace content
+- Use character descriptions from the established story bible and workspace usage
+- Base casting needs on actual character screen time and importance in workspace episodes
+
+For each main character that appears in the workspace episodes, provide:
+1. Character name (exactly as appears in workspace)
+2. Physical description and casting notes based on workspace episode descriptions
+3. Age range and demographic inferred from workspace character usage
+4. Personality traits and acting requirements based on workspace episode behavior
+5. Character arc and emotional range needed based on workspace episode development
+6. Key relationships with other characters as shown in workspace episodes
+7. Special skills or requirements based on workspace episode actions
+8. Character evolution through user choices reflected in workspace episodes
+
+WORKSPACE EPISODES FOR CASTING REFERENCE:
+${castingWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Base all casting requirements on the actual character usage and development shown in the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "casting": {
+            "arcTitle": "Arc title",
+            "characters": [
+              {
+                "name": "Character Name",
+                "importance": "Main/Supporting/Guest",
+                "physicalDescription": "Detailed physical description for casting",
+                "age": "Age range",
+                "personality": "Key personality traits for actors",
+                "actingRequirements": "Specific acting skills needed",
+                "characterArc": "Character development through the arc",
+                "relationships": ["Character relationships"],
+                "specialSkills": "Any special skills required",
+                "wardrobe": "Key wardrobe considerations",
+                "userChoiceImpacts": "How user choices affect this character"
+              }
+            ]
+          }
+        }`;
+        break;
+
+      case 'props':
+        // ENHANCED: Add workspace context for props with FULL CONTENT
+        const propsWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE PROPS & SETTINGS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const propsChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE PROP IMPLICATIONS:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice may require specific props, costumes, or set pieces`).join('\n')}`
+          : '';
+
+        userPrompt = `Create a detailed props and wardrobe list for Arc ${arcIndex + 1} titled "${arcTitle}" of "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for props and wardrobe requirements. These episodes already exist in the user's story. Your job is to create props and wardrobe lists BASED ON what is actually needed for the existing workspace episode scenes and narratives.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base props and costumes on actual workspace episodes and user choices
+- Ensure consistency with established locations and character developments from workspace episodes${propsWorkspaceContext}${propsChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference exact scenes and locations from workspace episodes
+- Include props needed for specific user choice consequences shown in workspace episodes
+- Ensure costumes reflect character developments from workspace content
+- Use established locations and their set dressing requirements from workspace episodes
+- Base all requirements on actual scene content from workspace episodes
+
+        Include:
+1. Essential props organized by workspace episode and scene based on actual content
+2. Character-specific costume requirements based on user choices reflected in workspace episodes
+3. Set dressing elements for established locations shown in workspace episodes
+4. Special/practical effects items needed for specific workspace scenes as described
+
+WORKSPACE EPISODES FOR PROPS REFERENCE:
+${propsWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Make this list comprehensive and practical for filming the specific scenes and narratives from the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "props": {
+            "essentialProps": [
+              {
+                "name": "Prop name",
+                "description": "Prop description",
+                "episodes": "Episodes where prop appears",
+                "scenes": "Specific scenes where prop appears",
+                "importance": "Importance to story/character"
+              }
+            ],
+            "costumes": [
+              {
+                "character": "Character name",
+                "outfits": [
+                  {
+                    "name": "Outfit name",
+                    "description": "Outfit description",
+                    "episodes": "Episodes where outfit appears",
+                    "notes": "Any special notes/requirements"
+                  }
+                ]
+              }
+            ],
+            "setDressing": [
+              {
+                "location": "Location name",
+                "items": ["Item 1", "Item 2"],
+                "notes": "Set dressing notes"
+              }
+            ],
+            "specialEffects": [
+              {
+                "name": "Effect name",
+                "description": "Effect description",
+                "episodes": "Episodes where effect appears",
+                "requirements": "Technical requirements"
+              }
+            ]
+          }
+        }`;
+        break;
+
+      case 'marketing':
+        // ENHANCED: Add workspace context for marketing with FULL CONTENT
+        const marketingWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE MARKETING HOOKS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nSynopsis: ${ep.synopsis}\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const marketingChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE MARKETING ANGLES:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice creates unique marketing opportunities and audience engagement`).join('\n')}`
+          : '';
+
+        userPrompt = `Create a comprehensive marketing guide for Arc ${arcIndex + 1} titled "${arcTitle}" of the series "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for marketing requirements. These episodes already exist in the user's story. Your job is to create marketing guides BASED ON the existing workspace episode content and user choice narratives.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base marketing on actual workspace episodes and user choice narratives
+- Highlight unique aspects from user-driven story developments reflected in workspace episodes${marketingWorkspaceContext}${marketingChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference exact episode titles and synopses from workspace
+- Create marketing hooks based on specific user choice consequences shown in workspace episodes
+- Highlight unique narrative elements from workspace episodes
+- Use character developments and plot points from established workspace content
+
+        Include:
+1. Target audience analysis based on workspace content themes shown in actual episodes
+2. Key marketing hooks derived from workspace episodes and user choice outcomes
+3. Social media strategy highlighting user choice impacts reflected in workspace episodes
+4. Promotional assets showcasing workspace episode highlights and user choice consequences
+5. Press release content featuring specific workspace developments and story arcs
+6. Trailer concepts using actual workspace episode moments and character developments
+
+WORKSPACE EPISODES FOR MARKETING REFERENCE:
+${marketingWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Make this guide practical and actionable for marketing the specific story developments and character arcs shown in the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "marketing": {
+            "targetAudience": {
+              "primaryDemographic": "Primary demographic description",
+              "secondaryDemographics": ["Secondary demographic 1", "Secondary demographic 2"],
+              "audienceInterests": ["Interest 1", "Interest 2"]
+            },
+            "marketingHooks": [
+              {
+                "tagline": "Main tagline",
+                "supportingCopy": "Supporting copy"
+              }
+            ],
+            "socialMedia": {
+              "strategy": "Overall social media strategy",
+              "platforms": [
+                {
+                  "platform": "Platform name",
+                  "contentStrategy": "Platform-specific strategy",
+                  "postIdeas": ["Idea 1", "Idea 2"]
+                }
+              ]
+            },
+            "promotionalAssets": [
+              {
+                "asset": "Asset type",
+                "description": "Asset description",
+                "purpose": "Marketing purpose"
+              }
+            ],
+            "pressRelease": "Press release content",
+            "trailerConcepts": [
+              {
+                "concept": "Trailer concept",
+                "keyScenes": ["Scene 1", "Scene 2"],
+                "duration": "Recommended duration"
+              }
+            ]
+          }
+        }`;
+        break;
+
+      case 'scheduling':
+        // ENHANCED: Add workspace context for scheduling with FULL CONTENT
+        const schedulingWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE SCHEDULING REQUIREMENTS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nScene count: ${ep.scenes?.length || 0} scenes\nComplexity: ${ep.scenes?.some((scene: any) => scene.content?.length > 500) ? 'High' : ep.scenes?.some((scene: any) => scene.content?.length > 300) ? 'Medium' : 'Standard'}\nCharacters: ${ep.scenes?.flatMap((scene: any) => scene.dialogue?.map((d: any) => d.character)).filter(Boolean).join(', ') || 'No dialogue characters'}\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const schedulingChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE SCHEDULING IMPACTS:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice may affect casting, locations, and scheduling complexity`).join('\n')}`
+          : '';
+
+        userPrompt = `Create a detailed production schedule for filming Arc ${arcIndex + 1} titled "${arcTitle}" episodes from "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for scheduling requirements. These episodes already exist in the user's story. Your job is to create production schedules BASED ON the existing workspace episode content and their specific requirements.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base scheduling on actual workspace episodes and their specific requirements
+- Account for complexity and cast requirements from workspace content${schedulingWorkspaceContext}${schedulingChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Schedule based on actual workspace episode count and complexity
+- Account for specific cast requirements from workspace episodes
+- Consider location needs from workspace scenes
+- Factor in user choice consequences that affect production complexity shown in workspace episodes
+
+        Include:
+1. Recommended filming order (grouped by location) for workspace episodes based on actual content
+2. Estimated shooting days per workspace episode based on scene count/complexity from actual episodes
+3. Key actor availability requirements for workspace episode characters as they appear
+4. Location-specific scheduling for workspace scenes based on actual requirements
+5. Technical setup times for workspace episode requirements based on user choice consequences
+
+WORKSPACE EPISODES FOR SCHEDULING REFERENCE:
+${schedulingWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Make this schedule realistic and practical for filming the specific content, scenes, and narrative requirements from the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "scheduling": {
+            "shootingPlan": {
+              "totalDuration": "Total filming duration estimate",
+              "locationGroups": [
+                {
+                  "location": "Location name",
+                  "scenes": [
+                    {
+                      "episodeNumber": "Episode number",
+                      "sceneNumber": "Scene number",
+                      "description": "Brief scene description",
+                      "estimatedTime": "Estimated filming time"
+                    }
+                  ],
+                  "setupRequirements": "Technical setup notes"
+                }
+              ]
+            },
+            "actorScheduling": [
+              {
+                "character": "Character name",
+                "actor": "Actor name placeholder",
+                "requiredDays": "Number of required days",
+                "scenes": ["Episode X Scene Y", "Episode Z Scene W"]
+              }
+            ],
+            "specialRequirements": [
+              {
+                "requirement": "Requirement description",
+                "affectedScenes": ["Episode X Scene Y", "Episode Z Scene W"],
+                "notes": "Additional notes"
+              }
+            ]
+          }
+        }`;
+        break;
+
+      case 'postProduction':
+        // ENHANCED: Add workspace context for post-production with FULL CONTENT
+        const postProdWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE POST-PRODUCTION NEEDS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nMood: ${ep.synopsis}\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => `Scene ${idx + 1}: ${scene.content || 'No content available'}`).join('\n\n') || 'No scene details'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const postProdChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE POST-PRODUCTION IMPACTS:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice affects mood, pacing, and post-production style`).join('\n')}`
+          : '';
+
+        userPrompt = `Create a comprehensive post-production guide for Arc ${arcIndex + 1} titled "${arcTitle}" of the series "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for post-production requirements. These episodes already exist in the user's story. Your job is to create post-production guides BASED ON the existing workspace episode content and user choice emotional impacts.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base post-production style on actual workspace episodes and user choice emotional impacts
+- Ensure visual/audio style reflects the narrative developed through user choices and shown in workspace episodes${postProdWorkspaceContext}${postProdChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference exact episode titles and emotional tones from workspace
+- Adjust post-production style based on user choice consequences shown in workspace episodes
+- Ensure visual continuity with character/story developments from workspace
+- Use specific scene moods and pacing from workspace episodes
+
+        Include:
+1. Overall post-production style and approach based on workspace content and established tone
+2. Color grading guidelines reflecting user choice emotional impacts shown in workspace episodes
+3. Music and sound design direction for specific workspace scenes and character moments
+4. Editing style and pacing notes for each workspace episode based on narrative flow
+5. Visual effects requirements for workspace-specific moments and user choice consequences
+6. Scene-specific post-production notes for actual workspace scenes and character developments
+
+WORKSPACE EPISODES FOR POST-PRODUCTION REFERENCE:
+${postProdWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Make this guide practical for editors, colorists, and sound designers working with the specific mood, pacing, and narrative content from the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "postProduction": {
+            "overallStyle": {
+              "colorGrading": "Color grading approach and palette",
+              "musicGenre": "Music style and genre",
+              "editingStyle": "Editing pace and style description"
+            },
+            "scenes": [
+              {
+                "episodeNumber": "Episode number",
+                "sceneNumber": "Scene number",
+                "colorNotes": "Color grading notes for this scene",
+                "musicNotes": "Music and sound design notes",
+                "editingNotes": "Editing and pacing notes",
+                "vfxNotes": "Visual effects requirements"
+              }
+            ]
+          }
+        }`;
+        break;
+
+      case 'location':
+        // ENHANCED: Add workspace context for locations with FULL CONTENT
+        const locationWorkspaceContext = comprehensiveContext.actualEpisodes.length > 0
+          ? `\n\nWORKSPACE EPISODE LOCATIONS (COMPLETE CONTENT):\n${comprehensiveContext.actualEpisodes.map((ep: any) =>
+              `Episode ${ep.episodeNumber}: "${ep.episodeTitle || ep.title}"\nLocations from scenes:\n\nFULL SCENE CONTENT:\n${ep.scenes?.map((scene: any, idx: number) => {
+                const locationMatch = scene.content?.match(/(?:INT\.|EXT\.)\s*([^-\n]+)/);
+                const location = locationMatch ? locationMatch[1].trim() : `Scene ${idx + 1} location`;
+                return `Scene ${idx + 1} (${location}): ${scene.content || 'No content available'}`;
+              }).join('\n\n') || 'No specific locations identified'}\n\nEND OF EPISODE ${ep.episodeNumber}\n`).join('\n' + '='.repeat(80) + '\n')}`
+          : '';
+
+        const locationChoiceContext = comprehensiveContext.userChoices.length > 0
+          ? `\n\nUSER CHOICE LOCATION IMPACTS:\n${comprehensiveContext.userChoices.map((choice: any) =>
+              `Episode ${choice.episodeNumber}: "${choice.choiceText}" - This choice may require specific locations or modify location requirements`).join('\n')}`
+          : '';
+
+        userPrompt = `Create a detailed location guide for Arc ${arcIndex + 1} titled "${arcTitle}" of the series "${seriesTitle}" based on the existing workspace episodes.
+
+CRITICAL WORKSPACE EPISODE FOUNDATION:
+You must use the provided workspace episode content as your ONLY source material for location requirements. These episodes already exist in the user's story. Your job is to create location guides BASED ON the existing workspace episode content and user choice narratives.
+
+STORY COHERENCE CONTEXT:
+- Series: ${seriesTitle}
+- Arc: ${arcTitle}
+- Base location requirements on actual workspace episodes and user choice narratives
+- Ensure locations support the story developments from user choices shown in workspace episodes${locationWorkspaceContext}${locationChoiceContext}
+
+CRITICAL WORKSPACE INTEGRATION REQUIREMENTS:
+- Reference exact locations mentioned/implied in workspace episodes
+- Account for location changes due to user choice consequences shown in workspace episodes
+- Ensure locations support the specific scenes from workspace episodes
+- Use established locations from the story bible and workspace content
+
+        Include:
+1. All filming locations needed for workspace episodes based on actual scene content
+2. Location descriptions matching workspace episode requirements and narrative context
+3. Practical considerations for each workspace-specific location shown in episodes
+4. Alternative backup locations for workspace scenes based on actual requirements
+5. Permits and logistics needed for specific workspace episodes and their locations
+6. Equipment requirements per location based on workspace scenes and user choice consequences
+
+WORKSPACE EPISODES FOR LOCATION REFERENCE:
+${locationWorkspaceContext}
+
+CRITICAL: Output ONLY clean, valid JSON with no markdown, no explanations, no extra text. Start directly with { and end with }.
+
+Make this guide practical for location scouts and production managers working with the specific locations and scene requirements from the existing workspace episodes.`;
+        
+        responseFormat = `{
+          "location": {
+            "locations": [
+              {
+                "name": "Location name",
+                "type": "Location type (interior/exterior)",
+                "description": "Detailed location description",
+                "episodes": ["Episode numbers where used"],
+                "scenes": ["Scene descriptions"],
+                "requirements": {
+                  "size": "Space requirements",
+                  "lighting": "Lighting needs",
+                  "sound": "Sound considerations",
+                  "accessibility": "Access requirements"
+                },
+                "logistics": {
+                  "permits": "Permit requirements",
+                  "equipment": "Equipment access",
+                  "parking": "Parking availability",
+                  "catering": "Catering space"
+                },
+                "alternatives": ["Backup location options"]
+              }
+            ]
+          }
+        }`;
+        break;
+
+      default:
+      return NextResponse.json(
+          { error: 'Invalid content type requested' },
+        { status: 400 }
+      );
+    }
+    
+    // Add information about the episodes
+    let episodeInfo = '';
+    if (episodeIndex !== undefined && targetEpisode) {
+      // For specific episode generation, include detailed episode info
+      episodeInfo = `\n\nTarget Episode Information:
+Episode ${episodeIndex + 1}: ${episodeTitle}
+Summary: ${targetEpisode.summary || 'No summary available'}
+${targetEpisode.content ? `Content: ${targetEpisode.content.substring(0, 500)}...` : ''}
+${targetEpisode.choices ? `Available Choices: ${targetEpisode.choices.map((c: any) => c.text).join(', ')}` : ''}`;
+    } else if (Array.isArray(actualEpisodes) && actualEpisodes.length > 0) {
+      // For arc-level generation, include all episodes
+      episodeInfo = `\n\nEpisodes information:\n${actualEpisodes.map((ep, index) => 
+        `Episode ${ep.episodeNumber || index + 1}: ${ep.episodeTitle || ep.title || 'Untitled'}`
+      ).join('\n')}`;
+    }
+
+    // Add response format instructions
+    userPrompt += `${episodeInfo}\n\nIMPORTANT: Output ONLY valid, clean JSON with no additional text, comments, or formatting. Ensure all strings are properly quoted and escaped. Do not include any explanatory text before or after the JSON.\n\nJSON Format:\n${responseFormat}`;
+
+    // 🎭 MURPHY PILLAR PREPRODUCTION ENHANCEMENT - Invisible Behind-the-Scenes Magic
+    console.log('🏛️ Murphy Pillar Master Conductor Activated for Preproduction')
+    console.log(`🎼 Orchestrating specialized engines for ${contentType} generation...`)
+    
+    try {
+      // Try Murphy Pillar enhanced preproduction generation
+      const enhancedContent = await MasterConductorInstance.enhancePreproductionGeneration(
+        storyBible,
+        contentType,
+        resolvedArcIndex,
+        episodeIndex
+      )
+      
+      if (enhancedContent && typeof enhancedContent === 'object') {
+        console.log('✅ Murphy Pillar preproduction enhancement successful')
+        console.log(`🎯 Enhanced ${contentType} generated with 14-engine coordination`)
+        
+        // Return enhanced content immediately
+        return NextResponse.json(enhancedContent);
+      }
+    } catch (murphyError) {
+      console.log('⚠️ Murphy Pillar preproduction fallback - using original generation system')
+      console.log('Murphy Pillar Error:', murphyError instanceof Error ? murphyError.message : 'Unknown error')
+    }
+
+    // Select the appropriate AI model based on mode
+    let generatedContent;
+    
+    if (mode === 'beast' || mode === 'stable') {
+      // Use Azure OpenAI for both beast and stable mode (Gemini having issues)
+      console.log('🚀 Using Azure OpenAI GPT-4.1 (Gemini fallback)');
+      
+      // Check Azure configuration first
+      const azureKey = process.env.AZURE_OPENAI_API_KEY
+      const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT
+      
+      if (!azureKey || !azureEndpoint) {
+        console.error('❌ AZURE OPENAI CONFIGURATION MISSING!')
+        console.error(`❌ AZURE_OPENAI_API_KEY: ${azureKey ? 'SET' : 'MISSING'}`)
+        console.error(`❌ AZURE_OPENAI_ENDPOINT: ${azureEndpoint ? 'SET' : 'MISSING'}`)
+        throw new Error('Beast mode requires Azure OpenAI configuration. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.')
+      }
+      
+      console.log('Generating pre-production content with Azure OpenAI...');
+      // Create a combined prompt to avoid passing 3 arguments
+      const azurePrompt = `${systemPrompt}\n\n${userPrompt}`;
+      try {
+        generatedContent = await generateContent(azurePrompt, gptParams);
+        console.log('✅ AZURE OPENAI GENERATION SUCCESSFUL (Beast Mode)');
+      } catch (error) {
+        console.error('❌ AZURE OPENAI FAILED IN BEAST MODE:', error);
+        console.error('🚨 USER CHOSE BEAST MODE BUT AZURE FAILED!');
+        throw error; // Don't silently fall back to Gemini when user chose Beast
+      }
+    } else {
+      // Use Gemini for "stable mode"
+      console.log('🔄 USER CHOSE STABLE MODE - Using Gemini');
+      console.log('Generating pre-production content with Gemini...');
+      const modelName = "gemini-1.5-pro";  // Using correct model name
+      console.log(`Starting Gemini generation with model: ${modelName}...`);
+
+      try {
+        // Initialize Gemini with API key
+        const genAI = new GoogleGenerativeAI(getGeminiKey());
+        
+        // Get the specified model
+        const geminiModel = genAI.getGenerativeModel({ model: modelName });
+        
+        // Combine system and user prompts for Gemini
+        const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+        
+        // Generate content
+        const result = await geminiModel.generateContent(combinedPrompt);
+        generatedContent = result.response.text();
+        console.log(`Received response from Gemini (length: ${generatedContent.length})`);
+      } catch (error) {
+        console.error('Error generating content with Gemini:', error);
+        throw new Error(`Gemini generation failed: ${(error as Error).message}`);
+      }
+    }
+
+    console.log(`Pre-production ${contentType} generation completed`);
+    
+    // Use the improved JSON parsing utility
+    try {
+      let jsonContent;
+      
+      if (typeof generatedContent === 'string') {
+        try {
+          jsonContent = cleanAndParseJSON(generatedContent);
+        } catch (parseError) {
+          console.error('JSON parsing failed, using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
+          // ENHANCED: Pass workspace context to fallback JSON
+          jsonContent = createFallbackJSON(contentType, generatedContent, comprehensiveContext);
+        }
+      } else {
+        // If generatedContent is not a string, assume it's already parsed
+        jsonContent = generatedContent;
+      }
+      
+      // Return the parsed JSON content
+      return NextResponse.json({
+        success: true,
+        contentType,
+        content: jsonContent,
+      });
+      
+    } catch (error) {
+      console.error('Error processing generated content:', error);
+      
+      // Final fallback - return a minimal structure
+      const fallbackContent = createFallbackJSON(contentType);
+      
+      return NextResponse.json({
+        success: false,
+        contentType,
+        content: fallbackContent,
+        rawContent: typeof generatedContent === 'string' ? generatedContent.substring(0, 500) + '...' : 'Non-string content',
+        error: (error as Error).message
+      });
+    }
+  } catch (error) {
+    console.error('Error generating pre-production content:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate content', details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+} 
+
+// Helper functions are now in the centralized json-utils.ts file

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure OpenAI Text Generation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        button {
+            padding: 10px;
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            max-width: 200px;
+        }
+        button:hover {
+            background-color: #0051a8;
+        }
+        .result-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .note {
+            background-color: #fff9c4;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+            border: 1px solid #ddd;
+        }
+        .tab.active {
+            background-color: #0070f3;
+            color: white;
+            border-color: #0070f3;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Azure OpenAI Text Generation Test</h1>
+    
+    <div class="note">
+        <p><strong>Note:</strong> This page tests the text generation capabilities of Azure OpenAI.</p>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="simple">Simple Text</div>
+        <div class="tab" data-tab="structured">Structured Content</div>
+        <div class="tab" data-tab="narrative">Narrative Generation</div>
+    </div>
+
+    <div class="container">
+        <!-- Simple Text Generation -->
+        <div class="tab-content active" id="simple-tab">
+            <h2>Simple Text Generation</h2>
+            <div class="form-group">
+                <label for="prompt">Prompt:</label>
+                <textarea id="prompt" rows="3" placeholder="Enter your prompt here">Write a short poem about technology.</textarea>
+            </div>
+            <div class="form-group">
+                <label for="model">Model:</label>
+                <select id="model">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4.5-preview">GPT-4.5 Preview</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="temperature">Temperature:</label>
+                <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.7">
+                <span id="temperature-value">0.7</span>
+            </div>
+            <button id="generate-simple">Generate Text</button>
+        </div>
+
+        <!-- Structured Content Generation -->
+        <div class="tab-content" id="structured-tab">
+            <h2>Structured Content Generation</h2>
+            <div class="form-group">
+                <label for="structured-prompt">Prompt:</label>
+                <textarea id="structured-prompt" rows="3" placeholder="Enter your prompt here">Generate a character profile for a sci-fi protagonist.</textarea>
+            </div>
+            <div class="form-group">
+                <label for="system-prompt">System Prompt:</label>
+                <textarea id="system-prompt" rows="3" placeholder="Enter system instructions">You are a creative writer specializing in character development. Create detailed character profiles in a structured format.</textarea>
+            </div>
+            <div class="form-group">
+                <label for="schema">Output Schema (JSON):</label>
+                <textarea id="schema" rows="10" placeholder="Enter JSON schema">{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "age": { "type": "number" },
+    "background": { "type": "string" },
+    "personality": { "type": "string" },
+    "abilities": { 
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "goals": { "type": "string" }
+  }
+}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="structured-model">Model:</label>
+                <select id="structured-model">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4.5-preview">GPT-4.5 Preview</option>
+                </select>
+            </div>
+            <button id="generate-structured">Generate Structured Content</button>
+        </div>
+
+        <!-- Narrative Generation -->
+        <div class="tab-content" id="narrative-tab">
+            <h2>Narrative Generation</h2>
+            <div class="form-group">
+                <label for="synopsis">Synopsis:</label>
+                <textarea id="synopsis" rows="3" placeholder="Enter a synopsis for your story">A group of friends discover a hidden door in their school basement that leads to a parallel universe.</textarea>
+            </div>
+            <div class="form-group">
+                <label for="theme">Theme:</label>
+                <input type="text" id="theme" placeholder="Enter the theme" value="Coming of age, friendship, discovery">
+            </div>
+            <button id="generate-narrative">Generate Narrative</button>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+        <div id="result-container" class="result-container" style="display: none;">
+            <h3>Generated Result:</h3>
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+
+        // Temperature slider
+        document.getElementById('temperature').addEventListener('input', (e) => {
+            document.getElementById('temperature-value').textContent = e.target.value;
+        });
+
+        // Simple Text Generation
+        document.getElementById('generate-simple').addEventListener('click', async () => {
+            const prompt = document.getElementById('prompt').value;
+            const model = document.getElementById('model').value;
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            
+            await generateContent('simple', { prompt, model, temperature });
+        });
+
+        // Structured Content Generation
+        document.getElementById('generate-structured').addEventListener('click', async () => {
+            const prompt = document.getElementById('structured-prompt').value;
+            const systemPrompt = document.getElementById('system-prompt').value;
+            const outputSchema = JSON.parse(document.getElementById('schema').value);
+            const model = document.getElementById('structured-model').value;
+            
+            await generateContent('structured', { prompt, systemPrompt, outputSchema, model });
+        });
+
+        // Narrative Generation
+        document.getElementById('generate-narrative').addEventListener('click', async () => {
+            const synopsis = document.getElementById('synopsis').value;
+            const theme = document.getElementById('theme').value;
+            
+            await generateContent('narrative', { synopsis, theme });
+        });
+
+        // Generic content generation function
+        async function generateContent(type, params) {
+            const statusEl = document.getElementById('status');
+            const resultContainer = document.getElementById('result-container');
+            const resultEl = document.getElementById('result');
+            
+            // Show loading status
+            statusEl.textContent = 'Generating content... This may take up to 60 seconds.';
+            statusEl.className = 'status';
+            statusEl.style.display = 'block';
+            resultContainer.style.display = 'none';
+            
+            try {
+                let endpoint, body;
+                
+                if (type === 'simple') {
+                    // Simple text generation
+                    body = {
+                        prompt: params.prompt,
+                        options: {
+                            model: params.model,
+                            temperature: params.temperature
+                        }
+                    };
+                    endpoint = '/api/generate/simple';
+                } else if (type === 'structured') {
+                    // Structured content generation
+                    body = {
+                        prompt: params.prompt,
+                        systemPrompt: params.systemPrompt,
+                        outputSchema: params.outputSchema,
+                        options: {
+                            model: params.model
+                        }
+                    };
+                    endpoint = '/api/generate/structured';
+                } else if (type === 'narrative') {
+                    // Narrative generation
+                    body = {
+                        type: 'narrative',
+                        synopsis: params.synopsis,
+                        theme: params.theme
+                    };
+                    endpoint = '/api/generate';
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Display success
+                    statusEl.textContent = 'Content generated successfully!';
+                    statusEl.className = 'status success';
+                    
+                    // Format and display the result
+                    let displayContent;
+                    
+                    if (type === 'simple' && result.result) {
+                        // Simple text results come nested in a "result" property
+                        displayContent = result.result;
+                    } else if (typeof result === 'object') {
+                        displayContent = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    } else {
+                        displayContent = result;
+                    }
+                    
+                    resultEl.innerHTML = displayContent;
+                    resultContainer.style.display = 'block';
+                } else {
+                    showError(result.error || 'Failed to generate content');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+                console.error('Full error:', error);
+            }
+        }
+        
+        function showError(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status error';
+            statusEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html> 
