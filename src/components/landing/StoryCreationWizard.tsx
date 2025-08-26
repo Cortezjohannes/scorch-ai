@@ -200,11 +200,10 @@ function SynopsisInput({ data, onComplete, onBack }: StepProps) {
           onChange={(e) => setSynopsis(e.target.value)}
           placeholder="A detective investigates mysterious disappearances in a small coastal town, uncovering secrets that challenge everything they believed about justice..."
           className="input-field h-32 mb-4 resize-none"
-          maxLength={500}
         />
         
         <div className="text-right text-caption text-medium-contrast mb-6">
-          {characterCount}/500 characters
+          {characterCount} characters
         </div>
       </div>
 
@@ -264,7 +263,6 @@ function ThemeInput({ data, onComplete, onBack }: StepProps) {
         onChange={(e) => setTheme(e.target.value)}
         placeholder="The importance of facing uncomfortable truths to find real justice..."
         className="input-field h-24 mb-4 resize-none"
-        maxLength={200}
       />
       
       <div className="mb-6">
