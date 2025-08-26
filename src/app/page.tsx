@@ -89,6 +89,7 @@ export default function LandingPage() {
     
     try {
       console.log('📡 Making API call to /api/generate/story-bible');
+      console.log('📤 Sending data:', { synopsis: synopsis.trim(), theme: theme.trim() });
       // PRESERVE EXACT SAME API CALL
       const response = await fetch('/api/generate/story-bible', {
         method: 'POST',
@@ -106,7 +107,9 @@ export default function LandingPage() {
 
       if (!response.ok) {
         console.log('❌ API response not ok:', response.status, response.statusText);
-        throw new Error('Failed to generate story bible');
+        const errorData = await response.text();
+        console.log('❌ API error response:', errorData);
+        throw new Error(`Failed to generate story bible: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -178,10 +181,16 @@ export default function LandingPage() {
     // Close the wizard
     setShowWizard(false)
     
-    // Auto-start the story creation process
+    // Auto-start the story creation process with a longer delay to ensure state is updated
     setTimeout(() => {
-      handleStart()
-    }, 500)
+      // Double-check that we have the data before starting
+      if (wizardData.synopsis?.trim() && wizardData.theme?.trim()) {
+        handleStart()
+      } else {
+        console.error('❌ Wizard data validation failed:', wizardData)
+        alert('Please ensure both synopsis and theme are provided')
+      }
+    }, 1000)
   }
   
   return (
