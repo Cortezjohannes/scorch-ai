@@ -3,14 +3,19 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { StoryOverviewDashboard } from '@/components/story-bible/StoryOverviewDashboard'
+import { CharacterGalaxy } from '@/components/story-bible/CharacterGalaxy'
+import { WorldExplorer } from '@/components/story-bible/WorldExplorer'
+
+// Enhanced view mode types
+type ViewMode = 'overview' | 'characters' | 'world' | 'arcs' | 'choices' | 'premise' | 'tension' | 'choice-arch' | 'living-world' | 'trope' | 'cohesion' | 'dialogue' | 'genre' | 'theme'
 
 export default function StoryBiblePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [storyBible, setStoryBible] = useState<any>(null)
-  // Add premise tab to the active tab state
-  const [activeTab, setActiveTab] = useState<'premise' | 'overview' | 'characters' | 'arcs' | 'world' | 'choices' | 'tension' | 'choice-arch' | 'living-world' | 'trope' | 'cohesion' | 'dialogue' | 'genre' | 'theme'>('premise')
+  const [activeTab, setActiveTab] = useState<ViewMode>('overview')
   const [loading, setLoading] = useState(true)
   const [currentCharacterIndex, setCurrentCharacterIndex] = useState(0)
   const [currentArcIndex, setCurrentArcIndex] = useState(0)
