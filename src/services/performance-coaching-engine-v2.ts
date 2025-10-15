@@ -1120,7 +1120,7 @@ export class PerformanceCoachingEngineV2 {
     const mediumIntensity = ['action', 'adventure', 'mystery'];
     const lowIntensity = ['comedy', 'romance', 'family'];
     
-    const lowerGenre = (genre || 'drama').toLowerCase();
+    const lowerGenre = genre.toLowerCase();
     
     if (highIntensity.some(g => lowerGenre.includes(g))) return 'high';
     if (mediumIntensity.some(g => lowerGenre.includes(g))) return 'medium';

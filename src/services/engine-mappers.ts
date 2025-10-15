@@ -212,7 +212,7 @@ function extractLocationsFromStoryBible(storyBible: StoryBible): string[] {
   const episodes = storyBible.narrativeArcs?.[0]?.episodes || [];
   const locations = episodes
     .map(ep => ep.setting)
-    .filter(Boolean)
+    .filter((location): location is string => Boolean(location))
     .filter((location, index, arr) => arr.indexOf(location) === index); // Remove duplicates
   
   return locations.length > 0 ? locations : ['Interior Studio', 'Exterior Urban', 'Residential'];
@@ -279,7 +279,8 @@ function estimateLocationCount(episodes: Episode[]): number {
   const uniqueLocations = new Set(
     episodes.map(ep => ep.setting).filter(Boolean)
   );
-  return Math.max(uniqueLocations.size, 5); // Minimum 5 locations
+  // Return actual count - some intimate stories may need fewer than 5 locations
+  return Math.max(uniqueLocations.size, 1); // At least 1 location
 }
 
 function determineArtisticStyle(genre?: string): string {
@@ -340,7 +341,34 @@ export function mapToNarrativeScene(
       choice: 'Take action based on core values',
       reasoning: primaryCharacter.psychology.coreValue || 'Driven by personal beliefs',
       cost: 'Risk losing something important'
-    }
+    },
+    turningPoint: {
+      type: 'decision' as const,
+      stimulus: 'Character faces a crucial decision',
+      reaction: 'Character must choose their path',
+      shift: 'Character commits to action',
+      newDirection: 'Story moves forward with new momentum'
+    },
+    location: episode.setting || 'Primary location',
+    timeOfDay: 'Day',
+    duration: '5 minutes',
+    mood: 'Tense',
+    characters: characters.map(char => ({
+      name: char.name,
+      role: 'protagonist' as const,
+      objective: char.psychology.want || 'Achieve their goal',
+      tactics: ['Direct approach', 'Strategic planning']
+    })),
+    conflict: {
+      type: 'interpersonal' as const,
+      description: 'Character development through conflict',
+      intensity: 5
+    },
+    dialogueApproach: {
+      subtext: 'Character development through conflict',
+      strategy: 'Direct confrontation',
+      conflict: 'Opposing objectives'
+    },
   };
 }
 
@@ -380,7 +408,24 @@ export function generateMockActorDatabase(): ActorProfile[] {
       representation: {
         agent: 'Major Talent Agency',
         manager: 'Professional Management'
-      } as any
+      } as any,
+      rateStructure: {
+        quote: 5000,
+        backend: 7500,
+        perks: ['Travel allowance', 'Overtime'],
+        flexibility: 0.8
+      },
+      personalBrand: {
+        image: 'Versatile Professional',
+        strengths: ['Method Acting', 'Physical Performance'],
+        associations: ['Rising Star'],
+        risks: ['Limited exposure']
+      },
+      riskFactors: [
+        { type: 'availability', probability: 0.2, impact: 0.3, mitigation: 'Backup options' },
+        { type: 'performance', probability: 0.1, impact: 0.4, mitigation: 'Coaching support' },
+        { type: 'market', probability: 0.3, impact: 0.2, mitigation: 'Diversified portfolio' }
+      ]
     }
     // Add more mock actors as needed
   ];

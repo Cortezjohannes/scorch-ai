@@ -1,0 +1,49 @@
+# Use Node.js LTS version
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy the rest of the application
+COPY . .
+
+# Build the application using the local .env file
+COPY .env.local .env.production
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Set environment to production
+ENV NODE_ENV=production
+
+# Add a non-root user to run the app
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
+
+# Copy the standalone directory
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.env.production ./
+
+# Switch to non-root user
+USER nextjs
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Set the correct environment variable for the standalone server
+ENV PORT=3000
+
+# Command to run the application
+CMD ["node", "server.js"] 

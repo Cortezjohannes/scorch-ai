@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import AnimatedBackground from './AnimatedBackground'
 
 type Step = { 
   id: string
@@ -14,17 +15,17 @@ type Step = {
 }
 
 const STEPS_ON: Step[] = [
-  { id: 'draft', name: 'Narrative Blueprint', icon: '🌊', desc: 'Structuring episode outline', weight: 0.25, minMs: 6000, maxMs: 8000 },
-  { id: 'dialogue', name: 'Strategic Dialogue', icon: '💬', desc: 'Sharpening character voice', weight: 0.20, minMs: 5000, maxMs: 7000 },
-  { id: 'tension', name: 'Tension Escalation', icon: '⚡', desc: 'Tightening dramatic beats', weight: 0.20, minMs: 5000, maxMs: 7000 },
-  { id: 'choices', name: 'Choice Quality', icon: '🔀', desc: 'Aligning stakes & outcomes', weight: 0.15, minMs: 4000, maxMs: 6000 },
-  { id: 'final', name: 'Final Synthesis', icon: '🧠', desc: 'Composing the episode', weight: 0.20, minMs: 5000, maxMs: 7000 }
+  { id: 'draft', name: 'Story Foundation', icon: '', desc: 'Creating narrative structure', weight: 0.15, minMs: 8000, maxMs: 12000 },
+  { id: 'engines', name: 'Comprehensive Enhancement', icon: '', desc: 'Running 19 AI enhancement engines', weight: 0.50, minMs: 25000, maxMs: 35000 },
+  { id: 'dialogue', name: 'Character Refinement', icon: '', desc: 'Perfecting dialogue and voice', weight: 0.12, minMs: 6000, maxMs: 9000 },
+  { id: 'tension', name: 'Dramatic Enhancement', icon: '', desc: 'Optimizing tension and pacing', weight: 0.12, minMs: 6000, maxMs: 9000 },
+  { id: 'final', name: 'Final Integration', icon: '', desc: 'Synthesizing all enhancements', weight: 0.11, minMs: 8000, maxMs: 12000 }
 ]
 
 const STEPS_OFF: Step[] = [
-  { id: 'draft', name: 'Narrative Blueprint', icon: '🌊', desc: 'Structuring episode outline', weight: 0.35, minMs: 8000, maxMs: 12000 },
-  { id: 'synth', name: 'Story-Bible Synthesis', icon: '📖', desc: 'Grounding in the bible', weight: 0.35, minMs: 8000, maxMs: 12000 },
-  { id: 'final', name: 'Final Polish', icon: '🧠', desc: 'Composing the episode', weight: 0.30, minMs: 6000, maxMs: 10000 }
+  { id: 'draft', name: 'Story Foundation', icon: '', desc: 'Creating narrative structure', weight: 0.30, minMs: 12000, maxMs: 18000 },
+  { id: 'synth', name: 'Story-Bible Integration', icon: '', desc: 'Integrating with story bible', weight: 0.40, minMs: 15000, maxMs: 22000 },
+  { id: 'final', name: 'Episode Finalization', icon: '', desc: 'Final polish and completion', weight: 0.30, minMs: 10000, maxMs: 15000 }
 ]
 
 interface EpisodeEngineLoaderProps {
@@ -53,13 +54,14 @@ export default function EpisodeEngineLoader({
   const [done, setDone] = useState(false)
   const [sessionId] = useState(() => {
     // generate once to avoid hydration mismatch
+    if (typeof window === 'undefined') return 'server'
     return Math.random().toString(36).slice(2, 8)
   })
   const startRef = useRef<number | null>(null)
   const perStepDurations = useMemo(() => steps.map(s => rand(s.minMs, s.maxMs)), [steps])
   
-  // Ensure minimum 35 seconds (35000ms) for the animation
-  const minDurationMs = 35000
+  // Ensure minimum duration covers full enhancement process
+  const minDurationMs = useEngines ? 55000 : 40000 // 55s with engines, 40s without
   const calculatedTotalMs = perStepDurations.reduce((a, b) => a + b, 0)
   const totalMs = useMemo(() => Math.max(minDurationMs, estimatedMs ?? calculatedTotalMs), [estimatedMs, calculatedTotalMs])
 
@@ -101,8 +103,10 @@ export default function EpisodeEngineLoader({
         setOverall(100)
         setTimeout(() => onDone?.(), 500)
       } else if (elapsedMs >= totalMs && !isGenerationComplete) {
-        // Animation is done but generation isn't - keep at 99% and wait
-        setOverall(99)
+        // Animation is done but generation isn't - extend loading time smoothly
+        // Keep extending the total time to prevent loading screen from resetting
+        const extensionMs = Math.min(elapsedMs * 0.5, 30000) // Extend up to 30 seconds max
+        setOverall(Math.min(99, Math.round((elapsedMs / (totalMs + extensionMs)) * 100)))
         requestAnimationFrame(tick)
       } else {
         requestAnimationFrame(tick)
@@ -124,12 +128,14 @@ export default function EpisodeEngineLoader({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-[#0a0a0a] via-[#171717] to-[#0a0a0a]"
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{ zIndex: 50 }}
       >
-        <div className="w-full max-w-4xl px-6 py-5 space-y-5">
+        <AnimatedBackground intensity="medium" />
+        <div className="w-full max-w-4xl px-6 py-5 space-y-5 relative" style={{ zIndex: 1 }}>
           {/* Header */}
           <div className="text-center space-y-1">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#e2c376] via-[#f0d995] to-[#e2c376] text-transparent bg-clip-text">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99] text-transparent bg-clip-text">
               Writing Episode {episodeNumber ?? '—'}
             </h1>
             <p className="text-xs text-[#e7e7e7]/70">{seriesTitle ?? 'Series'}</p>
@@ -138,15 +144,15 @@ export default function EpisodeEngineLoader({
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-[#e2c376]">Overall Progress</span>
+              <span className="text-sm font-semibold text-[#00FF99]">Overall Progress</span>
               <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-[#e2c376]">{overall}%</span>
+                <span className="text-lg font-bold text-[#00FF99]">{overall}%</span>
                 <span className="text-xs font-mono text-[#e7e7e7]/80">⏱️ {mm}:{ss}</span>
               </div>
             </div>
             <div className="h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#e2c376] via-[#f0d995] to-[#e2c376]"
+                className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
                 initial={{ width: 0 }}
                 animate={{ width: `${overall}%` }}
                 transition={{ duration: 0.3 }}
@@ -166,7 +172,7 @@ export default function EpisodeEngineLoader({
                   i < active
                     ? 'border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20'
                     : i === active
-                    ? 'border-[#e2c376] bg-[#e2c376]/10 shadow-lg shadow-[#e2c376]/20'
+                    ? 'border-[#00FF99] bg-[#00FF99]/10 shadow-lg shadow-[#00FF99]/20'
                     : 'border-[#2f2f2f] bg-[#121212]'
                 }`}
               >
@@ -179,7 +185,7 @@ export default function EpisodeEngineLoader({
                     i < active
                       ? 'text-green-400'
                       : i === active
-                      ? 'text-[#e2c376]'
+                      ? 'text-[#00FF99]'
                       : 'text-[#e7e7e7]/70'
                   }`}>
                     {s.name}
@@ -197,16 +203,14 @@ export default function EpisodeEngineLoader({
                       animate={{ scale: 1 }}
                       className="text-green-400 text-sm"
                     >
-                      ✅
                     </motion.span>
                   )}
                   {i === active && !done && (
                     <motion.span
                       animate={{ rotate: 360 }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      className="text-[#e2c376] text-sm"
+                      className="text-[#00FF99] text-sm"
                     >
-                      ⚡
                     </motion.span>
                   )}
                 </div>
@@ -221,10 +225,10 @@ export default function EpisodeEngineLoader({
               animate={{ y: 0, opacity: 1 }}
               className="text-center space-y-3"
             >
-              <div className="inline-flex items-center space-x-3 p-4 rounded-xl border border-[#e2c376] bg-[#e2c376]/10">
+              <div className="inline-flex items-center space-x-3 p-4 rounded-xl border border-[#00FF99] bg-[#00FF99]/10">
                 <span className="text-2xl">{steps[active].icon}</span>
                 <div>
-                  <h3 className="text-lg font-semibold text-[#e2c376]">
+                  <h3 className="text-lg font-semibold text-[#00FF99]">
                     {steps[active].name}
                   </h3>
                   <p className="text-sm text-[#e7e7e7]/80">
@@ -247,5 +251,6 @@ export default function EpisodeEngineLoader({
 }
 
 function rand(a: number, b: number): number {
+  if (typeof window === 'undefined') return a // Return minimum value on server
   return a + Math.floor(Math.random() * (b - a + 1))
 } 

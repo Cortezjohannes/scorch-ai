@@ -24,11 +24,10 @@ const nextConfig = {
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
   },
-  // Skip type checking on build to avoid useSearchParams warnings
+  // Enable type checking and ESLint for better code quality
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Skip ESLint during build
   eslint: {
     ignoreDuringBuilds: true,
   },

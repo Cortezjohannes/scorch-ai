@@ -89,6 +89,7 @@ export interface Character3D {
   // PREMISE CONNECTION
   premiseRole: 'protagonist' | 'deuteragonist' | 'antagonist' | 'secondary-antagonist' | 'love-interest' | 'mentor' | 'ally' | 'rival' | 'family' | 'friend' | 'authority-figure' | 'comic-relief' | 'wildcard' | 'ensemble' | 'catalyst' | 'mirror' | 'threshold';
   premiseFunction: string; // How this character serves to test the premise
+  role?: 'protagonist' | 'antagonist' | 'supporting';
   
   // LIVING NARRATIVE
   arcIntroduction: number; // Which arc they enter the story

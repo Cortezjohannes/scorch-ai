@@ -33,9 +33,6 @@ export interface LocationScoutingBlueprint {
   budgetAnalysis: LocationBudgetAnalysis;
   riskAssessment: LocationRiskAssessment;
   qualityMetrics: LocationQualityMetrics;
-  
-  // CHUNK_3: Props & Locations Integration
-  propsLocationsIntegration: PropsLocationsIntegration;
 }
 
 export interface LocationEvaluation {
@@ -203,34 +200,6 @@ export interface LocationQualityMetrics {
   overallScore: number;
 }
 
-// CHUNK_3: Props & Locations Integration Interface
-export interface PropsLocationsIntegration {
-  propsCompatibilityAssessment: {
-    storageRequirements: string;
-    transportationLogistics: string;
-    setupSpaceAnalysis: string;
-    propSecurityConsiderations: string;
-  };
-  wardrobeLocationRequirements: {
-    fittingSpaceAvailability: string;
-    changingRoomRequirements: string;
-    weatherProtectionNeeds: string;
-    costumeContinuityConsiderations: string;
-  };
-  productionLogisticsIntegration: {
-    equipmentAccessibilityAssessment: string;
-    crewAccommodationLogistics: string;
-    cateringAndFacilitiesCoordination: string;
-    emergencyProtocolsAlignment: string;
-  };
-  scoutingProtocolsOptimization: {
-    propsWardrobeSpecificEvaluation: string;
-    locationDocumentationRequirements: string;
-    stakeholderCoordinationFramework: string;
-    timelineIntegrationStrategies: string;
-  };
-}
-
 /**
  * Location Scouting Engine - AI-Enhanced Location Discovery
  * 
@@ -274,11 +243,6 @@ export class LocationScoutingEngine {
       const qualityMetrics = await this.calculateLocationQualityMetricsAI(
         recommendedLocations, logisticsAnalysis, budgetAnalysis, riskAssessment
       );
-      
-      // CHUNK_3: Props & Locations Integration analysis
-      const propsLocationsIntegration = await this.generatePropsLocationsIntegrationAI(
-        recommendedLocations, projectContext, locationRequirements
-      );
 
       return {
         projectId: `scouting-${Date.now()}`,
@@ -289,8 +253,7 @@ export class LocationScoutingEngine {
         logisticsAnalysis,
         budgetAnalysis,
         riskAssessment,
-        qualityMetrics,
-        propsLocationsIntegration
+        qualityMetrics
       };
 
     } catch (error) {
@@ -545,71 +508,6 @@ Return as JSON array of location recommendation objects.`;
     return this.calculateLocationQualityMetricsFallback(recommendations, logistics, budget, risks);
   }
   
-  // CHUNK_3: Props & Locations Integration AI method
-  private static async generatePropsLocationsIntegrationAI(
-    recommendations: LocationRecommendation[],
-    projectContext: ScoutingMetadata,
-    requirements: LocationRequirement[]
-  ): Promise<PropsLocationsIntegration> {
-    const prompt = `Generate props and locations integration analysis for location scouting:
-
-PROJECT CONTEXT:
-- Genre: ${projectContext.genre}
-- Budget: $${projectContext.locationBudget.toLocaleString()}
-- Timeline: ${projectContext.productionTimeline}
-- Total Locations: ${projectContext.totalLocationsNeeded}
-
-LOCATION REQUIREMENTS:
-${requirements.map(req => `- ${req.settingDescription} (Priority: ${req.priority})`).join('\n')}
-
-RECOMMENDED LOCATIONS:
-${recommendations.map(rec => `- ${rec.topChoice?.name || 'Location'}: ${rec.topChoice?.description || 'Standard location'}`).join('\n')}
-
-Analyze integration requirements for:
-
-1. PROPS COMPATIBILITY ASSESSMENT:
-   - Storage requirements for props at each location
-   - Transportation logistics for moving props between locations
-   - Setup space analysis for prop placement and operation
-   - Security considerations for valuable or specialized props
-
-2. WARDROBE LOCATION REQUIREMENTS:
-   - Fitting space availability for costume changes
-   - Changing room requirements and privacy considerations
-   - Weather protection needs for costumes and equipment
-   - Costume continuity considerations across shooting locations
-
-3. PRODUCTION LOGISTICS INTEGRATION:
-   - Equipment accessibility assessment for props/wardrobe departments
-   - Crew accommodation logistics and facilities coordination
-   - Catering and facilities coordination for extended shoots
-   - Emergency protocols alignment with props/wardrobe safety
-
-4. SCOUTING PROTOCOLS OPTIMIZATION:
-   - Props/wardrobe specific evaluation criteria for locations
-   - Location documentation requirements for continuity
-   - Stakeholder coordination framework between departments
-   - Timeline integration strategies for efficient scheduling
-
-Provide specific, actionable analysis for each category.`;
-
-    const systemPrompt = `You are a master location scout specializing in props and wardrobe integration. Analyze location suitability specifically for production design needs.`;
-
-    try {
-      const result = await generateContent(prompt, {
-        systemPrompt,
-        temperature: 0.6,
-        maxTokens: 2000
-      });
-
-      return this.parsePropsLocationsIntegrationResult(result, projectContext);
-      
-    } catch (error) {
-      console.warn('AI props/locations integration analysis failed, using fallback');
-      return this.generatePropsLocationsIntegrationFallback(recommendations, projectContext, requirements);
-    }
-  }
-  
   private static generateScoutingBlueprintFallback(scriptAnalysis: any, projectContext: ScoutingMetadata): LocationScoutingBlueprint {
     const locationRequirements = this.generateLocationRequirementsFallback(scriptAnalysis, projectContext);
     const recommendedLocations = this.discoverAndRecommendLocationsFallback(locationRequirements, projectContext);
@@ -618,7 +516,6 @@ Provide specific, actionable analysis for each category.`;
     const budgetAnalysis = this.analyzeLocationBudgetFallback(recommendedLocations, projectContext);
     const riskAssessment = this.assessLocationRisksFallback(recommendedLocations, projectContext);
     const qualityMetrics = this.calculateLocationQualityMetricsFallback(recommendedLocations, logisticsAnalysis, budgetAnalysis, riskAssessment);
-    const propsLocationsIntegration = this.generatePropsLocationsIntegrationFallback(recommendedLocations, projectContext, locationRequirements);
 
     return {
       projectId: `scouting-${Date.now()}`,
@@ -629,8 +526,7 @@ Provide specific, actionable analysis for each category.`;
       logisticsAnalysis,
       budgetAnalysis,
       riskAssessment,
-      qualityMetrics,
-      propsLocationsIntegration
+      qualityMetrics
     };
   }
 
@@ -789,58 +685,6 @@ Provide specific, actionable analysis for each category.`;
       riskReduction: { riskScore: 55, mitigatedRisks: ['accessibility issues'], improvement: 10 },
       creativeEnhancement: { score: 78, improvements: [], opportunities: [] },
       recommendations: [{ type: 'budget', priority: 70, description: 'reallocate travel budget', impact: 'efficiency gain' }]
-    };
-  }
-
-  // ============================================================================
-  // CHUNK_3: Props & Locations Integration Helper Methods
-  // ============================================================================
-
-  /**
-   * Parse AI result for props/locations integration
-   */
-  private static parsePropsLocationsIntegrationResult(result: string, projectContext: ScoutingMetadata): PropsLocationsIntegration {
-    // In production, this would parse the AI response more sophisticatedly
-    return this.generatePropsLocationsIntegrationFallback([], projectContext, []);
-  }
-
-  /**
-   * Generate fallback props/locations integration
-   */
-  private static generatePropsLocationsIntegrationFallback(
-    recommendations: LocationRecommendation[],
-    projectContext: ScoutingMetadata,
-    requirements: LocationRequirement[]
-  ): PropsLocationsIntegration {
-    const genre = projectContext.genre;
-    const budget = projectContext.locationBudget;
-    const timeline = projectContext.productionTimeline;
-    
-    return {
-      propsCompatibilityAssessment: {
-        storageRequirements: `${genre} production props storage: Secure, climate-controlled storage required for ${recommendations.length} locations. Estimated storage space: 500-1000 sq ft per location. Budget allocation: $${Math.round(budget * 0.05).toLocaleString()} for storage costs. Timeline: Storage setup 1 week before principal photography.`,
-        transportationLogistics: `Props transportation logistics: Professional transport vehicles required for multi-location shoot. Estimated costs: $${Math.round(budget * 0.08).toLocaleString()}. Route optimization planned for ${timeline} schedule. Special handling protocols for delicate/valuable props. Insurance coverage for transportation phase.`,
-        setupSpaceAnalysis: `Setup space analysis for ${genre} production: Minimum 200 sq ft setup area required per location. Flat, accessible surfaces for prop staging. Power access for electronic props. Clear sight lines for continuity supervision. Weather protection for outdoor setups.`,
-        propSecurityConsiderations: `Security protocols: 24/7 security for high-value props. Locked transport containers with tracking systems. On-location security personnel for crowd control. Inventory tracking systems for prop accountability. Emergency replacement protocols for damaged/stolen items.`
-      },
-      wardrobeLocationRequirements: {
-        fittingSpaceAvailability: `Wardrobe fitting requirements: Private fitting areas (min 100 sq ft) at each location. Mobile wardrobe trailers for remote locations. Climate control for costume preservation. Full-length mirrors and adequate lighting. Accessibility compliance for all fitting areas.`,
-        changingRoomRequirements: `Changing room specifications: Separate facilities for male/female cast. Minimum 8x8 ft private spaces. Lockable doors and privacy curtains. Clothing hooks and costume storage racks. Quick-change stations for action sequences. Backup changing facilities for emergencies.`,
-        weatherProtectionNeeds: `Weather protection strategy: Waterproof costume storage systems. Covered changing areas for outdoor locations. Backup indoor locations for inclement weather. Costume protection protocols for rain/wind/dust. Emergency costume replacement procedures.`,
-        costumeContinuityConsiderations: `Continuity management: Detailed costume documentation with high-resolution photography. Color-accurate lighting for continuity checks. Multiple identical costumes for stunt work and reshoots. Systematic labeling and organization. Cross-location continuity coordination protocols.`
-      },
-      productionLogisticsIntegration: {
-        equipmentAccessibilityAssessment: `Equipment access for props/wardrobe: Load-in areas within 100 ft of staging areas. Vehicle access for large prop items. Elevator access for multi-story locations. Equipment storage during non-shooting hours. Power distribution for wardrobe steamers and equipment.`,
-        crewAccommodationLogistics: `Crew logistics coordination: Props/wardrobe crew accommodation near locations. Ground transportation for department heads. Communication systems between locations. Meal coordination for extended shoots. Rest areas for crew during long days.`,
-        cateringAndFacilitiesCoordination: `Facilities coordination: Catering space allocation away from costume areas. Bathroom facilities adequate for crew size. Wi-Fi access for production coordination. Emergency medical access and protocols. Parking allocation for department vehicles.`,
-        emergencyProtocolsAlignment: `Emergency protocols: Evacuation procedures for props/wardrobe areas. Fire safety protocols for flammable materials. First aid stations with costume-specific supplies. Emergency contact systems. Backup equipment and costume protocols for production continuity.`
-      },
-      scoutingProtocolsOptimization: {
-        propsWardrobeSpecificEvaluation: `Specialized evaluation criteria: Assessment of prop setup space and security. Wardrobe facility adequacy and privacy. Climate control for costume preservation. Natural lighting quality for costume photography. Noise levels for dialogue scenes in costume.`,
-        locationDocumentationRequirements: `Documentation protocols: 360-degree photography of all costume/prop areas. Detailed measurements and floor plans. Lighting condition documentation at different times. Sound level measurements. Access route documentation with load-in specifications.`,
-        stakeholderCoordinationFramework: `Stakeholder coordination: Regular communication between location, props, and wardrobe departments. Joint location visits for department heads. Unified location requirements documentation. Shared decision-making protocols. Conflict resolution procedures for competing needs.`,
-        timelineIntegrationStrategies: `Timeline optimization: Coordinated scouting schedules for all departments. Early identification of potential location conflicts. Advance booking of costume/prop facilities. Buffer time for location preparation. Contingency planning for last-minute location changes.`
-      }
     };
   }
 

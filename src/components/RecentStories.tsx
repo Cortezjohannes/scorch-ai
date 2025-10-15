@@ -19,7 +19,13 @@ export function RecentStories() {
   // Load recent stories from localStorage
   useEffect(() => {
     try {
-      const savedBible = localStorage.getItem('reeled-story-bible')
+      // Check for greenlit-story-bible (new), scorched-story-bible (legacy), and reeled-story-bible (legacy)
+      const greenlitBible = localStorage.getItem('greenlit-story-bible')
+      const scorchedBible = localStorage.getItem('scorched-story-bible')
+      const reeledBible = localStorage.getItem('reeled-story-bible')
+      
+      const savedBible = greenlitBible || scorchedBible || reeledBible
+      
       if (savedBible) {
         const story = JSON.parse(savedBible)
         setRecentStories([story])
@@ -28,7 +34,7 @@ export function RecentStories() {
         const otherStories = []
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i)
-          if (key && key.startsWith('reeled-') && key !== 'reeled-user-choices' && key !== 'reeled-episodes' && key !== 'reeled-narratives') {
+          if (key && (key.startsWith('greenlit-') || key.startsWith('reeled-') || key.startsWith('scorched-')) && key !== 'reeled-user-choices' && key !== 'reeled-episodes' && key !== 'reeled-narratives') {
             try {
               const item = JSON.parse(localStorage.getItem(key) || '{}')
               if (item.storyBible && item.storyBible.seriesTitle) {
@@ -86,7 +92,7 @@ export function RecentStories() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <h2 className="text-xl font-bold mb-4 text-[#e2c376]">Recent Stories</h2>
+      <h2 className="text-xl font-bold mb-4 text-[#00FF99]">Recent Stories</h2>
       
       <div className="space-y-3">
         {recentStories.map((story, index) => {
@@ -97,7 +103,7 @@ export function RecentStories() {
           return (
             <motion.div 
               key={index}
-              className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 hover:border-[#e2c376] transition-colors"
+              className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF99] transition-colors"
               whileHover={{ y: -2 }}
             >
               <div className="flex justify-between items-start">
@@ -105,7 +111,7 @@ export function RecentStories() {
                   <h3 className="font-bold text-[#e7e7e7]">{storyTitle}</h3>
                   <p className="text-[#e7e7e7]/60 text-sm">Created: {creationDate}</p>
                   <div className="flex items-center mt-1">
-                    <span className="inline-block w-2 h-2 rounded-full mr-2 bg-[#e2c376]"></span>
+                    <span className="inline-block w-2 h-2 rounded-full mr-2 bg-[#00FF99]"></span>
                     <span className="text-xs text-[#e7e7e7]/70">Multi-Model AI</span>
                   </div>
                 </div>
@@ -113,7 +119,7 @@ export function RecentStories() {
                 <div className="flex space-x-2">
                   <button 
                     onClick={continueStory}
-                    className="px-3 py-1.5 text-sm bg-[#e2c376] text-black rounded-md hover:bg-[#d4b46a] transition-colors"
+                    className="px-3 py-1.5 text-sm bg-[#00FF99] text-black rounded-md hover:bg-[#00CC7A] transition-colors"
                   >
                     Story Bible
                   </button>

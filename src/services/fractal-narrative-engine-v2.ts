@@ -657,10 +657,10 @@ export class FractalNarrativeEngineV2 {
     const engagedNarrative = {
       ...narrative,
       engagementArchitecture: {
-        macroEngagement: this.implementMacroEngagement(narrative, engagement.macroHooks),
-        mesoEngagement: this.implementMesoEngagement(narrative, engagement.mesoHooks),
-        microEngagement: this.implementMicroEngagement(narrative, engagement.microHooks),
-        nanoEngagement: this.implementNanoEngagement(narrative, engagement.nanoHooks)
+        macroEngagement: this.implementMacroEngagement(narrative, engagement.hookBuildPayoff.macroHooks),
+        mesoEngagement: this.implementMesoEngagement(narrative, engagement.hookBuildPayoff.mesoHooks),
+        microEngagement: this.implementMicroEngagement(narrative, engagement.hookBuildPayoff.microHooks),
+        nanoEngagement: this.implementNanoEngagement(narrative, engagement.hookBuildPayoff.nanoHooks)
       }
     };
     
@@ -734,7 +734,7 @@ export class FractalNarrativeEngineV2 {
       'children': { complexityTolerance: 0.4, attentionSpan: 'low', preferredStructures: ['simple-linear'] }
     };
     
-    return considerations[targetAudience] || considerations['general'];
+    return considerations[targetAudience as keyof typeof considerations] || considerations['general'];
   }
   
   private static getGenreConventions(genre: string): any {
@@ -746,7 +746,7 @@ export class FractalNarrativeEngineV2 {
       'fantasy': { fractalComplexity: 'high', structuralFlexibility: 'high', thematicDepth: 'deep' }
     };
     
-    return conventions[genre] || conventions['drama'];
+    return conventions[genre as keyof typeof conventions] || conventions['drama'];
   }
   
   private static generateOverallArc(pattern: string): any {
@@ -759,7 +759,7 @@ export class FractalNarrativeEngineV2 {
     
     return {
       pattern: pattern,
-      stages: arcPatterns[pattern] || arcPatterns['Three-Act'],
+      stages: arcPatterns[pattern as keyof typeof arcPatterns] || arcPatterns['Three-Act'],
       progression: 'linear', // Could be 'circular', 'spiral', etc.
     };
   }
@@ -805,7 +805,7 @@ export class FractalNarrativeEngineV2 {
       'Shapeshifter': ['Appearance', 'Deception', 'Revelation', 'True Nature']
     };
     
-    return journeys[archetype] || journeys['Hero'];
+    return journeys[archetype as keyof typeof journeys] || journeys['Hero'];
   }
   
   private static getFunctionalRole(archetype: string): string {
@@ -819,7 +819,7 @@ export class FractalNarrativeEngineV2 {
       'Shadow': 'opposition-force'
     };
     
-    return roles[archetype] || 'story-participant';
+    return roles[archetype as keyof typeof roles] || 'story-participant';
   }
   
   private static generateConflictEscalation(genome: NarrativeGenome): any {
@@ -884,7 +884,7 @@ export class FractalNarrativeEngineV2 {
       'Denouement': '5-10%'
     };
     
-    return durations[stage] || '15-20%';
+    return durations[stage as keyof typeof durations] || '15-20%';
   }
   
   private static generateMesoConflicts(stage: string, genome: NarrativeGenome): any[] {
@@ -915,7 +915,7 @@ export class FractalNarrativeEngineV2 {
       'Denouement': 0.2
     };
     
-    return intensities[stage] || 0.5;
+    return intensities[stage as keyof typeof intensities] || 0.5;
   }
   
   private static getConflictManifestation(stage: string): string {
@@ -930,7 +930,7 @@ export class FractalNarrativeEngineV2 {
       'Denouement': 'new-equilibrium'
     };
     
-    return manifestations[stage] || 'general-conflict';
+    return manifestations[stage as keyof typeof manifestations] || 'general-conflict';
   }
   
   private static createMiniatureArc(stage: string, pattern: string): string[] {
@@ -1010,7 +1010,7 @@ export class FractalNarrativeEngineV2 {
       'Hero-Journey': { call: 'question-based', trials: 'action-oriented', return: 'wisdom-sharing' }
     };
     
-    return rhythms[pattern] || rhythms['Three-Act'];
+    return rhythms[pattern as keyof typeof rhythms] || rhythms['Three-Act'];
   }
   
   private static getDialogueThemes(thematicBinary: string): any {
@@ -1040,7 +1040,7 @@ export class FractalNarrativeEngineV2 {
       'Shapeshifter': { tone: 'ambiguous', rhythm: 'shifting', vocabulary: 'deceptive' }
     };
     
-    return profiles[archetype] || profiles['Hero'];
+    return profiles[archetype as keyof typeof profiles] || profiles['Hero'];
   }
   
   private static getSpeechPatterns(archetype: string): any {
@@ -1050,7 +1050,7 @@ export class FractalNarrativeEngineV2 {
       'Trickster': { questions: 'subversive', statements: 'contradictory', reactions: 'unexpected' }
     };
     
-    return patterns[archetype] || patterns['Hero'];
+    return patterns[archetype as keyof typeof patterns] || patterns['Hero'];
   }
   
   private static getEmotionalPalette(thematicBinary: string): string[] {
@@ -1060,7 +1060,7 @@ export class FractalNarrativeEngineV2 {
       'Connection vs Isolation': ['belonging', 'loneliness', 'intimacy', 'alienation', 'community', 'solitude']
     };
     
-    return palettes[thematicBinary] || ['hope', 'fear', 'love', 'loss', 'joy', 'sorrow'];
+    return palettes[thematicBinary as keyof typeof palettes] || ['hope', 'fear', 'love', 'loss', 'joy', 'sorrow'];
   }
   
   private static getExpressionPatterns(genome: NarrativeGenome): any {
@@ -1102,7 +1102,7 @@ export class FractalNarrativeEngineV2 {
       ]
     };
     
-    return actions[thematicBinary] || [
+    return actions[thematicBinary as keyof typeof actions] || [
       { action: 'reaching-out', symbolism: 'connection-desire' },
       { action: 'pulling-back', symbolism: 'self-protection' }
     ];
@@ -1122,7 +1122,7 @@ export class FractalNarrativeEngineV2 {
       'Trickster': { physicalTrait: 'sudden-movements', verbalTic: 'ironic-smiles', emotionalDefault: 'amusement' }
     };
     
-    return signatures[archetype] || signatures['Hero'];
+    return signatures[archetype as keyof typeof signatures] || signatures['Hero'];
   }
   
   // Additional quality measurement methods
@@ -1328,7 +1328,7 @@ export class FractalNarrativeEngineV2 {
       'transmedia': ['platform-coordination', 'universe-consistency', 'cross-media-continuity']
     };
     
-    return requirements[medium] || requirements['film'];
+    return requirements[medium as keyof typeof requirements] || requirements['film'];
   }
   
   private static getCreativeGuidelines(narrative: any): string[] {

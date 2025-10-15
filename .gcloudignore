@@ -1,0 +1,35 @@
+# .gcloudignore
+
+# Exclude git directory
+.git/
+.github/
+
+# Exclude build artifacts
+.next/
+node_modules/
+out/
+.cache/
+
+# Exclude test files
+__tests__/
+*.test.*
+*.spec.*
+
+# Exclude local environment files
+.env*
+.env.local
+!.env.local.example
+
+# Exclude documentation and other unnecessary files
+README.md
+LICENSE
+*.md
+deploy-instructions.md
+*.log
+
+# Backup directories
+src-phase1-backup/
+temp/
+
+# Exclude test scripts
+test-*.js 

@@ -3,7 +3,7 @@
  * 
  * This service ensures all engines use the correct AI provider based on mode:
  * - BEAST MODE: Azure OpenAI (GPT-4.1, GPT-4o)
- * - STABLE MODE: Google Gemini (gemini-1.5-pro, gemini-2.0-flash)
+ * - STABLE MODE: Google Gemini (gemini-2.5-pro, gemini-2.0-flash)
  * 
  * All engines should use this service instead of calling AI providers directly.
  */
@@ -45,7 +45,7 @@ export class AIOrchestrator {
     const {
       prompt,
       systemPrompt = 'You are a professional AI assistant specialized in film and television production.',
-      temperature = 0.7,
+      temperature = 0.85, // HIGHER FOR BETTER CREATIVITY!
       maxTokens = 2000,
       mode = 'beast', // Default to beast mode for maximum quality
       model
@@ -68,7 +68,7 @@ export class AIOrchestrator {
         response = await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens, model, engineName);
       } else {
         console.log(`🔹 [${timestamp}] ${engineName}: Engaging Gemini for stable performance...`);
-        EngineLogger.logEngineProcessing(engineName, 'gemini', model || 'gemini-1.5-pro', 'Stable performance AI processing');
+        EngineLogger.logEngineProcessing(engineName, 'gemini', model || 'gemini-2.5-pro', 'Stable performance AI processing');
         response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens, model, engineName);
       }
       
@@ -164,7 +164,7 @@ export class AIOrchestrator {
     systemPrompt: string,
     temperature: number,
     maxTokens: number,
-    model: string = 'gemini-1.5-pro',
+    model: string = 'gemini-2.5-pro',
     engineName: string
   ): Promise<AIResponse> {
     const startTime = Date.now();
@@ -258,15 +258,15 @@ export class AIOrchestrator {
   static getOptimalSettings(contentType: 'narrative' | 'technical' | 'creative' | 'analytical'): Partial<AIRequest> {
     switch (contentType) {
       case 'narrative':
-        return { temperature: 0.8, maxTokens: 3000 };
+        return { temperature: 0.9, maxTokens: 3000 }; // CRANKED UP!
       case 'technical':
-        return { temperature: 0.3, maxTokens: 2000 };
+        return { temperature: 0.5, maxTokens: 2000 }; // SLIGHTLY HIGHER FOR INNOVATION
       case 'creative':
-        return { temperature: 0.9, maxTokens: 4000 };
+        return { temperature: 0.95, maxTokens: 4000 }; // MAXIMUM CREATIVITY!
       case 'analytical':
-        return { temperature: 0.4, maxTokens: 2500 };
+        return { temperature: 0.6, maxTokens: 2500 }; // HIGHER FOR INSIGHTFUL ANALYSIS
       default:
-        return { temperature: 0.7, maxTokens: 2000 };
+        return { temperature: 0.85, maxTokens: 2000 }; // MUCH HIGHER DEFAULT!
     }
   }
 }

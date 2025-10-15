@@ -618,6 +618,170 @@ Return only the translated script.`;
   }
 
   /**
+   * AUTO-TRIGGER: Automatically apply appropriate Filipino language transformation based on detected themes
+   */
+  static async autoApplyLanguageTransformation(
+    content: string,
+    detectedStyle: 'tagalog' | 'taglish' | 'conyo' | 'manila' | null,
+    confidence: number,
+    context: {
+      genre?: string;
+      setting?: string;
+      characters?: Character3D[];
+      culturalKeywords?: string[];
+    } = {}
+  ): Promise<{ transformedContent: string; appliedTransformation: string; confidence: number }> {
+    
+    console.log(`🌏 AUTO-LANGUAGE ENGINE: Applying ${detectedStyle} transformation with ${(confidence * 100).toFixed(1)}% confidence`);
+    
+    if (!detectedStyle || confidence < 0.3) {
+      console.log(`🌏 AUTO-LANGUAGE ENGINE: Confidence too low (${confidence}), skipping transformation`);
+      return {
+        transformedContent: content,
+        appliedTransformation: 'none',
+        confidence: 0
+      };
+    }
+    
+    try {
+      let transformedContent = content;
+      let appliedTransformation = detectedStyle;
+      
+      switch (detectedStyle) {
+        case 'taglish':
+          transformedContent = await this.quickTaglishTranslation(content, 'Moderate');
+          appliedTransformation = 'taglish_moderate';
+          break;
+          
+        case 'conyo':
+          transformedContent = await this.applyConoylishTransformation(content, context);
+          appliedTransformation = 'conyo_style';
+          break;
+          
+        case 'tagalog':
+          transformedContent = await this.applyTagalogTransformation(content, context);
+          appliedTransformation = 'tagalog_authentic';
+          break;
+          
+        case 'manila':
+          transformedContent = await this.applyManilaStyleTransformation(content, context);
+          appliedTransformation = 'manila_urban';
+          break;
+          
+        default:
+          console.log(`🌏 AUTO-LANGUAGE ENGINE: Unknown style ${detectedStyle}, applying light Taglish`);
+          transformedContent = await this.quickTaglishTranslation(content, 'Light');
+          appliedTransformation = 'taglish_light';
+      }
+      
+      console.log(`✅ AUTO-LANGUAGE ENGINE: Applied ${appliedTransformation} transformation successfully`);
+      
+      return {
+        transformedContent,
+        appliedTransformation,
+        confidence
+      };
+      
+    } catch (error) {
+      console.error('❌ Auto language transformation failed:', error);
+      return {
+        transformedContent: content,
+        appliedTransformation: 'failed',
+        confidence: 0
+      };
+    }
+  }
+
+  /**
+   * CONYO STYLE: Apply Conyo/Sosyal Filipino transformation
+   */
+  private static async applyConoylishTransformation(content: string, context: any): Promise<string> {
+    const prompt = `Transform this content into authentic Conyo (Sosyal Filipino) style:
+    
+Original Content: "${content}"
+
+Conyo style characteristics:
+- Mix English and Filipino naturally, favoring English for complex concepts
+- Use "like" and "kasi" frequently as fillers
+- Code-switch mid-sentence for emphasis
+- Use elevated/sosyal expressions
+- Include Filipino terms for family, emotions, and cultural concepts
+- Sound educated but casual, upper-middle class Filipino
+
+Examples of Conyo patterns:
+- "I'm so stressed kasi like, ang dami kong work"
+- "Grabe, the traffic was so bad kanina"
+- "Let's go na to the mall, I need to buy gifts for my tita"
+
+Transform the content maintaining the same meaning but using authentic Conyo speech patterns.
+Return only the transformed content.`;
+
+    const result = await generateContent(prompt, {
+      systemPrompt: 'You are an expert in Filipino Conyo speech patterns and sociolinguistics.',
+      temperature: 0.7,
+      maxTokens: 1000
+    });
+
+    return result || content;
+  }
+
+  /**
+   * TAGALOG STYLE: Apply authentic Tagalog transformation
+   */
+  private static async applyTagalogTransformation(content: string, context: any): Promise<string> {
+    const prompt = `Transform this content into authentic Tagalog/Filipino:
+    
+Original Content: "${content}"
+
+Guidelines:
+- Use natural Tagalog sentence structure
+- Include appropriate Filipino cultural context
+- Maintain emotional impact and dramatic beats
+- Use appropriate honorifics (po, opo, kuya, ate, etc.)
+- Include Filipino idioms where natural
+- Keep the tone and genre appropriate
+
+Transform the content to authentic Filipino while preserving the original meaning and dramatic intent.
+Return only the transformed content.`;
+
+    const result = await generateContent(prompt, {
+      systemPrompt: 'You are an expert in authentic Filipino language and culture.',
+      temperature: 0.6,
+      maxTokens: 1000
+    });
+
+    return result || content;
+  }
+
+  /**
+   * MANILA STYLE: Apply Manila urban Filipino transformation
+   */
+  private static async applyManilaStyleTransformation(content: string, context: any): Promise<string> {
+    const prompt = `Transform this content into Manila urban Filipino style:
+    
+Original Content: "${content}"
+
+Manila urban style characteristics:
+- Mix of English and Filipino reflecting Metro Manila speech
+- Include references to Manila locations/culture when appropriate
+- Use contemporary Filipino slang and expressions
+- Reflect urban Filipino lifestyle and mindset
+- Natural code-switching for a city-dwelling Filipino
+- Include Manila-specific cultural references
+
+Transform the content to reflect authentic Manila urban Filipino speech while maintaining the original meaning.
+Return only the transformed content.`;
+
+    const result = await generateContent(prompt, {
+      systemPrompt: 'You are an expert in Manila urban culture and contemporary Filipino speech.',
+      temperature: 0.7,
+      maxTokens: 1000
+    });
+
+    return result || content;
+  }
+
+  /**
    * ENHANCED V2.0: Generate authentic multilingual communication using advanced sociolinguistic frameworks
    */
   static async generateEnhancedLanguageTranslation(

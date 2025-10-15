@@ -9,6 +9,8 @@ import { db } from '@/lib/firebase'
 import PreProductionV2LoadingScreen from '@/components/PreProductionV2LoadingScreen'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import RawDataDisplay from '@/components/RawDataDisplay'
+import AnimatedBackground from '@/components/AnimatedBackground'
 
 // =====================================
 // COMPREHENSIVE DESIGN SYSTEM V2
@@ -17,16 +19,16 @@ import { Button } from '@/components/ui/button'
 // 🎨 ENHANCED COLOR PALETTE
 const designSystem = {
   colors: {
-    // Primary Palette - Gold & Warm Tones
+    // Primary Palette - Action Green & Professional Tones
     primary: {
-      50: '#fefdf8',   // Lightest gold tint
-      100: '#fef7e0',  // Light gold
-      200: '#fdecc4',  // Soft gold
-      300: '#fbdc9a',  // Medium gold
-      400: '#f8c866',  // Warm gold
-      500: '#e2c376',  // Main gold (current)
-      600: '#d4b46a',  // Deep gold (current secondary)
-      700: '#b8965a',  // Darker gold
+      50: '#f0fff4',   // Lightest green tint
+      100: '#dcfce7',  // Light green
+      200: '#bbf7d0',  // Soft green
+      300: '#86efac',  // Medium green
+      400: '#4ade80',  // Warm green
+      500: '#00FF99',  // Main Action Green
+      600: '#00CC7A',  // Deep Action Green
+      700: '#00a366',  // Darker green
       800: '#8f724a',  // Bronze
       900: '#6b4f3a'   // Deep bronze
     },
@@ -332,14 +334,14 @@ const useInteractionState = () => {
 type V2TabType = 'narrative' | 'script' | 'storyboard' | 'props' | 'location' | 'casting' | 'marketing' | 'postProduction'
 
 const V2_TABS = [
-  { id: 'narrative', label: 'Narrative', icon: '📖', description: 'Episode content overview' },
-  { id: 'script', label: 'Scripts', icon: '📝', description: 'Scene-by-scene scripts' },
-  { id: 'storyboard', label: 'Storyboards', icon: '🎬', description: 'Visual planning per scene' },
-  { id: 'props', label: 'Props & Wardrobe', icon: '👗', description: 'Production design per episode' },
-  { id: 'location', label: 'Locations', icon: '🏗️', description: 'Filming locations per episode' },
-  { id: 'casting', label: 'Casting', icon: '🎭', description: 'Character casting for arc' },
-  { id: 'marketing', label: 'Marketing', icon: '📢', description: 'Marketing strategy per episode' },
-  { id: 'postProduction', label: 'Post-Production', icon: '🎞️', description: 'Post-production per scene' }
+  { id: 'narrative', label: 'Narrative', icon: '', description: 'Episode content overview' },
+  { id: 'script', label: 'Scripts', icon: '', description: 'Scene-by-scene scripts' },
+  { id: 'storyboard', label: 'Storyboards', icon: '', description: 'Visual planning per scene' },
+  { id: 'props', label: 'Props & Wardrobe', icon: '', description: 'Production design per episode' },
+  { id: 'location', label: 'Locations', icon: '', description: 'Filming locations per episode' },
+  { id: 'casting', label: 'Casting', icon: '', description: 'Character casting for arc' },
+  { id: 'marketing', label: 'Marketing', icon: '', description: 'Marketing strategy per episode' },
+  { id: 'postProduction', label: 'Post-Production', icon: '', description: 'Post-production per scene' }
 ] as const
 
 export default function PreProductionV2() {
@@ -855,8 +857,10 @@ export default function PreProductionV2() {
   // Auto-start generation if flagged
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const autoGenerate = localStorage.getItem('reeled-auto-generate')
+      const autoGenerate = localStorage.getItem('greenlit-auto-generate') || localStorage.getItem('scorched-auto-generate') || localStorage.getItem('reeled-auto-generate')
       if (autoGenerate === 'true' && storyBible && arcEpisodes.length > 0 && !isGenerating && !showResults) {
+        localStorage.removeItem('greenlit-auto-generate')
+        localStorage.removeItem('scorched-auto-generate')
         localStorage.removeItem('reeled-auto-generate')
         startV2Generation()
       }
@@ -875,15 +879,96 @@ export default function PreProductionV2() {
     }
   }
 
+  const tryManualDataReconstruction = () => {
+    console.log('🔧 Attempting manual data reconstruction...')
+    
+    // Try to get story bible from any available key
+    const storyBibleKeys = ['greenlit-story-bible', 'scorched-story-bible', 'reeled-story-bible']
+    let foundStoryBible = null
+    
+    for (const key of storyBibleKeys) {
+      const value = localStorage.getItem(key)
+      if (value) {
+        try {
+          const parsed = JSON.parse(value)
+          if (parsed.storyBible) {
+            foundStoryBible = parsed.storyBible
+            console.log(`✅ Found story bible in ${key}`)
+            setStoryBible(foundStoryBible)
+            break
+          }
+        } catch (e) {
+          console.log(`❌ Error parsing ${key}:`, e)
+        }
+      }
+    }
+    
+    // Try to get episodes from workspace episodes
+    const workspaceKeys = ['greenlit-workspace-episodes', 'scorched-workspace-episodes', 'reeled-workspace-episodes']
+    let foundEpisodes = []
+    
+    for (const key of workspaceKeys) {
+      const value = localStorage.getItem(key)
+      if (value) {
+        try {
+          const parsed = JSON.parse(value)
+          if (parsed && typeof parsed === 'object') {
+            const episodes = Object.values(parsed)
+            if (episodes.length > 0) {
+              foundEpisodes = episodes as any[]
+              console.log(`✅ Found ${episodes.length} episodes in ${key}`)
+              setWorkspaceEpisodes(parsed)
+              break
+            }
+          }
+        } catch (e) {
+          console.log(`❌ Error parsing ${key}:`, e)
+        }
+      }
+    }
+    
+    // Filter episodes for current arc (assuming arc 0 for now)
+    if (foundEpisodes.length > 0) {
+      const arcEpisodes = foundEpisodes.filter((ep: any) => {
+        const epNum = ep.episodeNumber || 0
+        return epNum >= 1 && epNum <= 10 // Arc 0 episodes 1-10
+      }).sort((a: any, b: any) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
+      
+      if (arcEpisodes.length > 0) {
+        console.log(`✅ Reconstructed ${arcEpisodes.length} episodes for arc 0`)
+        setArcEpisodes(arcEpisodes)
+        setArcIndex(0)
+      }
+    }
+    
+    console.log('🔧 Manual reconstruction result:', {
+      hasStoryBible: !!foundStoryBible,
+      episodeCount: foundEpisodes.length,
+      arcEpisodesCount: foundEpisodes.filter((ep: any) => (ep.episodeNumber || 0) >= 1 && (ep.episodeNumber || 0) <= 10).length
+    })
+  }
+
   const loadFromLocalStorage = () => {
     try {
       console.log('🔍 Loading pre-production data from localStorage...')
       
       // Load the pre-production data that workspace saved
-      const savedPreProdData = localStorage.getItem('reeled-preproduction-data')
+      const savedPreProdData = localStorage.getItem('greenlit-preproduction-data') || localStorage.getItem('scorched-preproduction-data') || localStorage.getItem('reeled-preproduction-data')
+      console.log('🔍 Checking localStorage for preproduction data:', !!savedPreProdData)
+      console.log('🔍 ALL localStorage keys:', Object.keys(localStorage))
+      console.log('🔍 Raw savedPreProdData:', savedPreProdData)
+      
       if (savedPreProdData) {
         const data = JSON.parse(savedPreProdData)
         console.log('📦 Pre-production data found:', data)
+        console.log('📊 Data structure check:', {
+          hasStoryBible: !!data.storyBible,
+          hasArcEpisodes: !!data.arcEpisodes,
+          arcEpisodesLength: data.arcEpisodes?.length,
+          hasWorkspaceEpisodes: !!data.workspaceEpisodes,
+          workspaceEpisodesCount: data.workspaceEpisodes ? Object.keys(data.workspaceEpisodes).length : 0,
+          arcIndex: data.arcIndex
+        })
         
         setStoryBible(data.storyBible)
         setArcIndex(data.arcIndex || 0)
@@ -920,7 +1005,7 @@ export default function PreProductionV2() {
         setArcTitle(currentArc?.title || `Arc ${data.arcIndex + 1}`)
         
         // Check for existing V2 content
-        const existingV2Content = localStorage.getItem(`reeled-preproduction-${data.arcIndex || 0}`)
+        const existingV2Content = localStorage.getItem(`greenlit-preproduction-${data.arcIndex || 0}`) || localStorage.getItem(`scorched-preproduction-${data.arcIndex || 0}`) || localStorage.getItem(`reeled-preproduction-${data.arcIndex || 0}`)
         if (existingV2Content) {
           try {
             const parsedV2Content = JSON.parse(existingV2Content)
@@ -949,6 +1034,57 @@ export default function PreProductionV2() {
         })
       } else {
         console.error('❌ No pre-production data found in localStorage')
+        console.log('🔍 Available localStorage keys:', Object.keys(localStorage))
+        
+        // Try alternative keys that might contain the data
+        const alternativeKeys = [
+          'scorched-story-bible',
+          'reeled-story-bible', 
+          'scorched-preproduction-data',
+          'reeled-preproduction-data',
+          'scorched-workspace-episodes',
+          'reeled-workspace-episodes'
+        ]
+        
+        console.log('🔍 Checking alternative localStorage keys...')
+        alternativeKeys.forEach(key => {
+          const value = localStorage.getItem(key)
+          if (value) {
+            console.log(`✅ Found data in ${key}:`, JSON.parse(value))
+          }
+        })
+        
+        console.log('💡 Make sure you have gone through the workspace and generated story bible + episodes first!')
+        
+        // Try to manually reconstruct data from available localStorage
+        tryManualDataReconstruction()
+        
+        // Try to show helpful error to user - but only if we actually don't have data
+        setTimeout(() => {
+          // Check if we have any story data in localStorage instead of relying on state
+          const hasStoryBibleData = localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
+          const hasEpisodeData = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes') || localStorage.getItem('greenlit-workspace-episodes') || localStorage.getItem('scorched-workspace-episodes') || localStorage.getItem('reeled-workspace-episodes')
+          const hasPreproductionData = localStorage.getItem('greenlit-preproduction-data') || localStorage.getItem('scorched-preproduction-data') || localStorage.getItem('reeled-preproduction-data')
+          
+          // Only show error if we truly have no data at all
+          if (!hasStoryBibleData && !hasEpisodeData && !hasPreproductionData) {
+            console.log('🚨 Showing error alert - truly no data found')
+            console.log('📊 Current state:', { 
+              hasStoryBibleData: !!hasStoryBibleData,
+              hasEpisodeData: !!hasEpisodeData,
+              hasPreproductionData: !!hasPreproductionData,
+              localStorageKeys: Object.keys(localStorage)
+            })
+            alert('❌ Missing story data! Please go back to workspace and:\n1. Generate your story bible\n2. Generate episodes\n3. Then come back to start pre-production')
+          } else {
+            console.log('✅ Data found in localStorage, skipping error alert')
+            console.log('📊 Data availability:', {
+              hasStoryBibleData: !!hasStoryBibleData,
+              hasEpisodeData: !!hasEpisodeData,
+              hasPreproductionData: !!hasPreproductionData
+            })
+          }
+        }, 1000)
       }
     } catch (error) {
       console.error('❌ Error loading from localStorage:', error)
@@ -956,8 +1092,22 @@ export default function PreProductionV2() {
   }
 
   const startV2Generation = () => {
-    if (!storyBible || arcEpisodes.length === 0) {
-      console.error('❌ Missing required data for V2 generation')
+    // Check localStorage directly instead of relying on state variables
+    const hasStoryBibleData = localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
+    const hasEpisodeData = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes') || localStorage.getItem('greenlit-workspace-episodes') || localStorage.getItem('scorched-workspace-episodes') || localStorage.getItem('reeled-workspace-episodes')
+    const hasPreproductionData = localStorage.getItem('greenlit-preproduction-data') || localStorage.getItem('scorched-preproduction-data') || localStorage.getItem('reeled-preproduction-data')
+    
+    if (!hasStoryBibleData && !hasEpisodeData && !hasPreproductionData) {
+      console.error('❌ Missing required data for V2 generation:', {
+        hasStoryBibleData: !!hasStoryBibleData,
+        hasEpisodeData: !!hasEpisodeData,
+        hasPreproductionData: !!hasPreproductionData,
+        storyBibleState: !!storyBible,
+        episodeCountState: arcEpisodes.length,
+        storyBibleTitle: storyBible?.seriesTitle,
+        arcIndex,
+        arcTitle
+      })
       return
     }
     
@@ -976,7 +1126,7 @@ export default function PreProductionV2() {
     // Save V2 content to localStorage for future use
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(`reeled-preproduction-${arcIndex}`, JSON.stringify(preProductionData))
+        localStorage.setItem(`scorched-preproduction-${arcIndex}`, JSON.stringify(preProductionData))
         console.log('💾 V2 content saved to localStorage for future use')
       } catch (e) {
         console.error('❌ Error saving V2 content to localStorage:', e)
@@ -1028,7 +1178,7 @@ export default function PreProductionV2() {
     if (!narrativeData) {
       return (
         <div className="text-center py-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-3xl flex items-center justify-center mx-auto mb-6">
             <span className="text-3xl">📖</span>
           </div>
           <p className="text-[#e7e7e7]/70 text-lg">No narrative data available</p>
@@ -1134,11 +1284,11 @@ export default function PreProductionV2() {
               {/* Episode Header */}
               <div className="bg-gradient-to-r from-[#2a2a2a]/95 to-[#252628]/95 border-b border-[#36393f]/40 p-8">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl font-bold text-black">{episode.episodeNumber}</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -1156,15 +1306,15 @@ export default function PreProductionV2() {
                 {/* Scenes */}
                 {episode.scenes?.length > 0 && (
                   <div>
-                    <h4 className="text-xl font-bold text-[#e2c376] mb-6">Scenes</h4>
+                    <h4 className="text-xl font-bold text-[#00FF99] mb-6">Scenes</h4>
                     <div className="grid gap-4">
                       {episode.scenes.map((scene: any, sceneIndex: number) => (
                         <div key={sceneIndex} className="bg-[#36393f]/20 rounded-2xl p-6 border border-[#36393f]/30">
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-8 h-8 bg-[#e2c376]/20 rounded-lg flex items-center justify-center">
-                              <span className="text-xs font-bold text-[#e2c376]">{scene.sceneNumber || sceneIndex + 1}</span>
+                            <div className="w-8 h-8 bg-[#00FF99]/20 rounded-lg flex items-center justify-center">
+                              <span className="text-xs font-bold text-[#00FF99]">{scene.sceneNumber || sceneIndex + 1}</span>
                             </div>
-                            <h5 className="font-semibold text-[#e2c376]">Scene {scene.sceneNumber || sceneIndex + 1}</h5>
+                            <h5 className="font-semibold text-[#00FF99]">Scene {scene.sceneNumber || sceneIndex + 1}</h5>
                           </div>
                           <p className="text-[#e7e7e7]/85 leading-relaxed">
                             {scene.content
@@ -1183,7 +1333,7 @@ export default function PreProductionV2() {
                 {/* Episode Rundown */}
               {episode.rundown && (
                   <div className="bg-[#36393f]/20 rounded-2xl p-6 border border-[#36393f]/30">
-                    <h4 className="text-lg font-semibold text-[#e2c376] mb-3 flex items-center gap-2">
+                    <h4 className="text-lg font-semibold text-[#00FF99] mb-3 flex items-center gap-2">
                       <span>📋</span>
                       Episode Rundown
                     </h4>
@@ -1194,13 +1344,13 @@ export default function PreProductionV2() {
                 {/* Branching Options */}
               {episode.branchingOptions?.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold text-[#e2c376] mb-4 flex items-center gap-2">
+                    <h4 className="text-lg font-semibold text-[#00FF99] mb-4 flex items-center gap-2">
                       <span>🔀</span>
                       Branching Options
                     </h4>
                     <div className="grid gap-3">
                     {episode.branchingOptions.map((option: any, optIndex: number) => (
-                        <div key={optIndex} className="bg-gradient-to-r from-[#e2c376]/10 to-[#d4b46a]/10 border border-[#e2c376]/20 rounded-xl p-4">
+                        <div key={optIndex} className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/20 rounded-xl p-4">
                           <span className="text-[#e7e7e7]/90 font-medium">{option.text || option}</span>
                       </div>
                     ))}
@@ -1278,7 +1428,7 @@ export default function PreProductionV2() {
             onClick={() => onEpisodeChange(episode.episodeNumber)}
             className={`flex-shrink-0 px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium transition-colors border-b-2 touch-manipulation ${
               activeEpisode === episode.episodeNumber
-                ? 'text-[#e2c376] border-[#e2c376] bg-[#36393f]/20'
+                ? 'text-[#00FF99] border-[#00FF99] bg-[#36393f]/20'
                 : 'text-[#e7e7e7]/70 border-transparent hover:text-[#e7e7e7] hover:bg-[#36393f]/10 active:bg-[#36393f]/20'
             }`}
           >
@@ -1313,7 +1463,7 @@ export default function PreProductionV2() {
 
   const EmptyContentFallback = ({ title, description, icon }: { title: string, description: string, icon: string }) => (
     <div className="text-center py-12">
-      <div className="w-20 h-20 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-3xl flex items-center justify-center mx-auto mb-6">
+      <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-3xl flex items-center justify-center mx-auto mb-6">
         <span className="text-3xl">{icon}</span>
       </div>
       <p className="text-[#e7e7e7]/70 text-lg">{title}</p>
@@ -1328,6 +1478,8 @@ export default function PreProductionV2() {
   // Memoized parsing functions for better performance
   const parseScreenplay = useCallback((screenplay: string) => {
     if (!screenplay) return { elements: [] }
+    
+    console.log('🎬 PARSING SCREENPLAY:', screenplay.substring(0, 200) + '...')
     
     const cleanScreenplay = cleanAIContent(screenplay)
     const structure = detectContentStructure(cleanScreenplay)
@@ -1348,115 +1500,70 @@ export default function PreProductionV2() {
     
     const lines = cleanScreenplay.split('\n').filter(line => line.trim())
     const elements: any[] = []
-    let currentCharacter = null // Track current speaking character for action attribution
     
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
+      let line = lines[i].trim()
       if (!line) continue
       
-      // Enhanced narrative prose detection - Skip obvious narrative prose that shouldn't be in screenplay
-      const narrativePatterns = [
-        // Emotional descriptions and character analysis
-        /.*\b(poised|allows? a slow smile|ripple of|suddenly.*glitch|devolves into|land[s]? hard|move[s]? through)/i,
-        /.*\b(gesturing animatedly|team crowds around|laughter bouncing|exposed brick|trying to sound|snorting|phone raised|glances away)/i,
-        /.*\b(exposed but hopeful|laughter breaks out|meeting wraps|pulls.*aside|swallowing|clicks off)/i,
-        // Descriptive narrative language
-        /.*\b(with a sense of|imbued with|the atmosphere|the room fills with|there's a moment of)/i,
-        /.*\b(as if|seems to|appears to|looks like|feels like|sounds like)/i,
-        // Present participle descriptions (often narrative)
-        /.*\w+ing\s+(through|across|around|toward|into)\s+/i,
-        // Complex emotional states
-        /.*\b(contemplative|melancholic|nostalgic|introspective|pensive|wistful)/i,
-        // Narrative transitions
-        /.*\b(meanwhile|elsewhere|later|suddenly|gradually|slowly|eventually)/i,
-        // Internal thoughts or analysis
-        /.*\b(realizes|understands|remembers|thinks|feels|knows|believes)/i,
-        // Time passage descriptions
-        /.*\b(after a moment|in the distance|throughout the|over the course of)/i
-      ]
-      
-      const isNarrativeProse = narrativePatterns.some(pattern => pattern.test(line))
-      if (isNarrativeProse) {
-        console.warn('⚠️ Skipping narrative prose:', line)
+      // Skip narrative prose indicators
+      if (line.includes('Enhanced screenplay with') || 
+          line.includes('Scene content:') || 
+          line.includes('Engine guidance:') ||
+          line.includes('[SCENE START]') ||
+          line.includes('[SCENE END]')) {
         continue
       }
       
-             // Character dialogue pattern (ALL CAPS followed by dialogue)
-       if (line.match(/^[A-Z][A-Z\s]+$/) && line.length < 50) {
-         const character = line
-         currentCharacter = character // Update current character context
-         const dialogueLines = []
-         
-         // Get following dialogue ONLY - actions become separate cards
-         for (let j = i + 1; j < lines.length; j++) {
-           const nextLine = lines[j].trim()
-           if (!nextLine) break
-           if (nextLine.match(/^[A-Z][A-Z\s]+$/)) break // Next character
-           if (nextLine.match(/^(INT\.|EXT\.)/)) break // Scene heading
-           
-           // Use enhanced narrative prose detection
-           const isDialogueNarrative = narrativePatterns.some(pattern => pattern.test(nextLine))
-           if (isDialogueNarrative) {
-             console.warn('⚠️ Skipping narrative prose in dialogue:', nextLine)
-             continue
-           }
-           
-           // If it's a stage direction (in parentheses), create separate action card
-           if (nextLine.match(/^\(.*\)$/) || nextLine.match(/^\*.*\*$/)) {
-             const actionText = nextLine.replace(/^\(|\)$|\*/g, '').trim()
-             if (actionText) {
+      // Clean HTML tags from character names
+      if (line.includes('<center>') && line.includes('</center>')) {
+        line = line.replace(/<center>|<\/center>/g, '').trim()
+      }
+      
+      // Scene heading (INT./EXT.)
+      if (line.match(/^(INT\.|EXT\.)/)) {
                elements.push({
-                 type: 'action',
-                text: actionText,
-                character: character
-               })
-             }
-           } else {
-             dialogueLines.push(nextLine)
-           }
-           i = j
-         }
-         
-         if (dialogueLines.length > 0) {
+          type: 'scene_heading',
+          content: line
+        })
+      }
+      // Character name (ALL CAPS, may include age in parentheses)
+      else if (line.match(/^[A-Z][A-Z\s]+(\([0-9]+\))?$/) && line.length < 50 && !line.includes('.') && !line.includes('>')) {
            elements.push({
-             type: 'dialogue',
-             character,
-             dialogue: dialogueLines.join(' ')
-           })
-         }
-      } 
-      // Scene headings (INT./EXT.)
-      else if (line.match(/^(INT\.|EXT\.)/)) {
-        currentCharacter = null // Reset character context for new scene
-        elements.push({
-          type: 'scene_direction',
-          text: line
+          type: 'character',
+          content: line
         })
       }
-      // Transitions
-      else if (line.match(/^(FADE IN|FADE OUT|CUT TO|DISSOLVE)/)) {
+      // Parenthetical (in parentheses)
+      else if (line.match(/^\(.*\)$/)) {
         elements.push({
-          type: 'scene_direction', 
-          text: line
+          type: 'parenthetical',
+          content: line
         })
       }
-      // Action lines (only if they don't contain narrative prose)
-      else if (!line.match(/^[A-Z][A-Z\s]+$/)) {
-        // Use enhanced narrative prose detection for action lines too
-        const isActionNarrative = narrativePatterns.some(pattern => pattern.test(line))
-        if (!isActionNarrative) {
-          elements.push({
-            type: 'action',
-            text: line,
-            character: currentCharacter // Add character attribution if available
+      // Dialogue (everything else that's not action)
+      else if (line.length > 0 && !line.match(/^(INT\.|EXT\.)/)) {
+        // Check if this is dialogue by looking at context
+        const isDialogue = elements.length > 0 && 
+          (elements[elements.length - 1].type === 'character' || 
+           elements[elements.length - 1].type === 'parenthetical' ||
+           elements[elements.length - 1].type === 'dialogue')
+        
+        if (isDialogue) {
+        elements.push({
+            type: 'dialogue',
+            content: line
           })
         } else {
-          console.warn('⚠️ Skipping narrative prose in action:', line)
+          elements.push({
+            type: 'action',
+            content: line
+          })
         }
       }
     }
     
     console.log('📝 Parsed screenplay elements:', elements.length)
+    console.log('📝 Elements:', elements.map(e => `${e.type}: ${e.content.substring(0, 50)}...`))
     return { elements }
   }, [])
 
@@ -1482,26 +1589,26 @@ export default function PreProductionV2() {
           transition={{ duration: 0.6 }}
         >
           <div className="text-center mb-8">
-            <h3 className="text-3xl font-bold text-[#e7e7e7] mb-2">Scene Scripts</h3>
+            <h3 className="text-3xl font-bold text-[#e7e7e7] mb-2 font-medium cinematic-subheader">Scene Scripts</h3>
             <p className="text-[#e7e7e7]/70 text-lg">Professional screenplay format with visual dialogue separation</p>
             </div>
           
           {/* Script Statistics */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{scriptData.totalScenes}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{scriptData.totalScenes}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Total Scenes</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{scriptData.episodes?.length}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{scriptData.episodes?.length}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Episodes</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{scriptData.format}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{scriptData.format}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Format</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{scriptData.temperature}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{scriptData.temperature}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Temperature</div>
             </div>
           </div>
@@ -1510,10 +1617,10 @@ export default function PreProductionV2() {
         {/* Enhanced Episode Navigation */}
         <div className="bg-gradient-to-br from-[#2a2a2a]/90 to-[#232427]/90 backdrop-blur-sm rounded-3xl border border-[#36393f]/40 shadow-2xl overflow-hidden">
           <ContentErrorBoundary>
-            <EpisodeNavigation 
-              episodes={scriptData.episodes || []}
-              activeEpisode={activeScriptEpisode}
-              onEpisodeChange={setActiveScriptEpisode}
+              <EpisodeNavigation 
+                episodes={scriptData.episodes || []}
+                activeEpisode={activeScriptEpisode}
+                onEpisodeChange={setActiveScriptEpisode}
             />
           </ContentErrorBoundary>
 
@@ -1525,11 +1632,11 @@ export default function PreProductionV2() {
               <div key={episode.episodeNumber} className="p-8">
                 {/* Episode Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl font-bold text-black">{episode.episodeNumber}</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -1538,172 +1645,148 @@ export default function PreProductionV2() {
                   </div>
                 </div>
 
-                {/* Scene Cards */}
-                <div className="space-y-6">
-                  {episode.scenes?.map((scene: any, sceneIndex: number) => {
-                    const parsedScript = parseScreenplay(scene.screenplay)
-                    
-                    return (
+                {/* Complete Episode Script */}
                       <motion.div 
-                        key={scene.sceneNumber}
                         className="bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/30 rounded-2xl border border-[#36393f]/30 overflow-hidden"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: sceneIndex * 0.1 }}
-                        whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+                  transition={{ duration: 0.5 }}
                       >
-                        {/* Scene Header */}
-                        <div className="bg-gradient-to-r from-[#e2c376]/10 to-[#d4b46a]/10 border-b border-[#36393f]/30 p-6">
-                  <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
-                                <span className="text-sm font-bold text-[#e2c376]">{scene.sceneNumber}</span>
+                  {/* Script Header */}
+                        <div className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border-b border-[#36393f]/30 p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
+                        <span className="text-lg">📝</span>
                               </div>
                               <div>
-                                <h4 className="font-semibold text-[#e2c376] text-xl">
-                                  Scene {scene.sceneNumber}
+                                <h4 className="font-semibold text-[#00FF99] text-xl">
+                          Complete Episode Script
                                 </h4>
-                                <p className="text-[#e7e7e7]/70">{scene.sceneTitle || scene.location}</p>
+                        <p className="text-[#e7e7e7]/70">
+                          {episode.totalScenes} scenes • Professional screenplay format
+                        </p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className="text-xs text-[#e7e7e7]/60 bg-[#36393f]/40 px-3 py-1 rounded-full">
-                                {scene.duration || '2-3 min'}
-                              </span>
-                              <p className="text-xs text-[#e7e7e7]/50 mt-1">{scene.location}</p>
+                  </div>
+                  
+                  {/* Professional Screenplay Display */}
+                  <div className="p-6">
+                    <div className="bg-white text-black font-mono text-xs leading-relaxed rounded-lg shadow-lg overflow-hidden">
+                      <div className="p-8" style={{ fontSize: '12px', fontFamily: 'Courier, monospace', lineHeight: 1.6 }}>
+                        {/* Title Page */}
+                        <div className="text-center mb-12 page-break">
+                          <h1 className="text-2xl font-bold mb-4 uppercase">{episode.episodeTitle || `Episode ${episode.episodeNumber}`}</h1>
+                          <h2 className="text-lg mb-8 uppercase">{storyBible?.seriesTitle || 'WESTBRIDGE ACADEMY'}</h2>
+                          <div className="mt-16">
+                            <p className="mb-2">Written by</p>
+                            <p className="font-bold">AI Story Engine</p>
+                            <div className="mt-8 text-sm">
+                              <p>Genre: {storyBible?.genre || 'Teen Drama'}</p>
+                              <p>Format: Professional Screenplay</p>
                             </div>
                           </div>
                   </div>
                   
-                        {/* Enhanced Screenplay Elements - Merged Actions & Dialogue */}
-                        <div className="p-6 space-y-6">
-                          {(() => {
-                            // Group consecutive actions with following dialogue
-                            const groupedElements = []
-                            let currentGroup = []
-                            
-                            for (let i = 0; i < parsedScript.elements.length; i++) {
-                              const element = parsedScript.elements[i]
+                        {/* All Scenes Combined */}
+                        {episode.scenes?.map((scene: any, sceneIndex: number) => {
+                          const parsedScript = parseScreenplay(scene.screenplay)
+                          
+                          return (
+                            <div key={scene.sceneNumber}>
+                              {/* Scene Number Header */}
+                              <div className="text-center my-8">
+                                <div className="inline-block bg-gray-200 text-black px-4 py-2 rounded font-bold">
+                                  SCENE {scene.sceneNumber}
+                                </div>
+                              </div>
                               
-                              if (element.type === 'action' || element.type === 'dialogue') {
-                                currentGroup.push(element)
-                              } else {
-                                // Handle scene directions separately
-                                if (currentGroup.length > 0) {
-                                  groupedElements.push({ type: 'group', elements: currentGroup })
-                                  currentGroup = []
-                                }
-                                groupedElements.push(element)
-                              }
-                            }
-                            
-                            // Add final group
-                            if (currentGroup.length > 0) {
-                              groupedElements.push({ type: 'group', elements: currentGroup })
-                            }
-                            
-                            return groupedElements.map((item: any, groupIndex: number) => (
-                            <motion.div
-                                key={groupIndex}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.4, delay: groupIndex * 0.1 }}
-                              >
-                                {item.type === 'group' ? (
-                                  // Enhanced merged card for actions + dialogue
-                                  <div className="bg-gradient-to-br from-[#2a2a2a]/60 to-[#252628]/60 backdrop-blur-sm rounded-2xl border border-[#36393f]/30 overflow-hidden shadow-lg">
-                                    <div className="p-6 space-y-4">
-                                      {item.elements.map((element: any, elementIndex: number) => (
-                                        <div key={elementIndex}>
-                                          {element.type === 'action' && (
-                                            <div className="text-[#e7e7e7]/70 text-sm italic leading-relaxed mb-3 px-4 py-2 bg-[#36393f]/20 rounded-lg">
-                                              <div className="flex items-start gap-3">
-                                                <span className="text-[#36393f]/60 mt-1">🎬</span>
-                                                <div className="flex-1">
-                                                  {element.character && (
-                                                    <div className="text-[#e2c376] text-xs font-medium mb-1 opacity-80">
-                                                      {element.character}
-                                                    </div>
-                                                  )}
-                                                  <span>{element.text}</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          )}
-                                          
-                              {element.type === 'dialogue' && (
-                                            <div className="bg-gradient-to-r from-[#e2c376]/8 to-[#d4b46a]/8 rounded-xl p-5 border border-[#e2c376]/20">
-                                  <div className="flex items-start gap-4">
-                                    <div className="flex-shrink-0">
-                                                  <div className="w-10 h-10 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
-                                                    <span className="text-sm">💬</span>
-                  </div>
-                                    </div>
-                                    <div className="flex-1">
-                                                  <div className="text-sm font-bold text-[#e2c376] uppercase tracking-wide mb-3 flex items-center gap-2">
-                                        {element.character}
-                                                    <span className="text-xs bg-[#e2c376]/10 text-[#e2c376]/70 px-2 py-1 rounded-full normal-case">
-                                                      Speaking
-                                                    </span>
+                              {/* Scene Content */}
+                              {parsedScript.elements.map((element: any, elementIndex: number) => {
+                                switch (element.type) {
+                                  case 'scene_heading':
+                                    return (
+                                      <div
+                                        key={elementIndex}
+                                        className="font-bold text-black mb-4 mt-8 first:mt-4"
+                                        style={{ marginLeft: '0px' }}
+                                      >
+                                        {element.content}
                                       </div>
-                                                  <div className="text-[#e7e7e7] leading-relaxed text-base font-medium">
-                                                    "{element.dialogue}"
+                                    )
+                                  
+                                  case 'action':
+                                    return (
+                                      <div
+                                        key={elementIndex}
+                                        className="text-black mb-4 leading-relaxed max-w-none"
+                                        style={{ 
+                                          marginLeft: '0px',
+                                          marginRight: '0px',
+                                          textAlign: 'left'
+                                        }}
+                                      >
+                                        {element.content}
                                       </div>
-                                                  {/* Character action if present */}
-                                                  {element.character && (
-                                                    <div className="mt-3 text-xs text-[#e7e7e7]/50">
-                                                      Character: {element.character}
+                                    )
+                                  
+                                  case 'character':
+                                    return (
+                                      <div
+                                        key={elementIndex}
+                                        className="font-bold text-black mt-6 mb-1"
+                                        style={{ 
+                                          marginLeft: '192px', // ~3.7 inches from left in 12pt
+                                          textAlign: 'left',
+                                          fontSize: '12px',
+                                          letterSpacing: '0.5px'
+                                        }}
+                                      >
+                                        {element.content}
                                                     </div>
-                                                  )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                  </div>
-                                      ))}
-                </div>
-                                    </div>
-                                ) : (
-                                  // Scene directions remain separate
-                                  item.type === 'scene_direction' && (
-                                    <div className="bg-gradient-to-r from-[#d4b46a]/15 to-[#e2c376]/15 rounded-xl p-5 border border-[#d4b46a]/30">
-                                      <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-[#d4b46a]/20 rounded-xl flex items-center justify-center">
-                                          <span className="text-lg">📍</span>
-                                  </div>
-                                        <div>
-                                          <div className="text-[#d4b46a] font-bold uppercase tracking-wide text-lg">
-                                            {item.text}
-                                </div>
-                                          <div className="text-[#e7e7e7]/60 text-sm mt-1">Scene Location</div>
-                                    </div>
-                                    </div>
+                                    )
+                                  
+                                  case 'parenthetical':
+                                    return (
+                                      <div
+                                        key={elementIndex}
+                                        className="text-black mb-1 italic"
+                                        style={{ 
+                                          marginLeft: '240px', // ~4.5 inches from left in 12pt
+                                          textAlign: 'left'
+                                        }}
+                                      >
+                                        {element.content}
                                   </div>
                                   )
-                              )}
-                            </motion.div>
-                            ))
-                          })()}
-                          
-                          {/* Character List */}
-                          <div className="pt-4 border-t border-[#36393f]/30">
-                            <div className="flex flex-wrap gap-2">
-                              <span className="text-xs text-[#e7e7e7]/60">Characters:</span>
-                              {scene.characters?.map((character: string, idx: number) => (
-                                <span 
-                                  key={idx}
-                                  className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full"
-                                >
-                                  {character}
-                                </span>
-                              )) || <span className="text-xs text-[#e7e7e7]/40">Not specified</span>}
+                                  
+                                  case 'dialogue':
+                                    return (
+                                      <div
+                                        key={elementIndex}
+                                        className="text-black mb-4 leading-relaxed"
+                                        style={{ 
+                                          marginLeft: '120px', // ~2.2 inches from left in 12pt
+                                          marginRight: '120px', // ~2.2 inches from right in 12pt
+                                          textAlign: 'left',
+                                          fontSize: '12px',
+                                          lineHeight: '1.4'
+                                        }}
+                                      >
+                                        {element.content}
                             </div>
+                                    )
+                                  
+                                  default:
+                                    return null
+                                }
+                              })}
                           </div>
-                        </div>
-                      </motion.div>
                     )
                   })}
                 </div>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
             )
           })}
@@ -1947,21 +2030,21 @@ REQUIREMENTS:
           transition={{ duration: 0.6 }}
         >
           <div className="text-center mb-8">
-            <h3 className="text-3xl font-bold text-[#e7e7e7] mb-2">Visual Storyboards</h3>
+            <h3 className="text-3xl font-bold text-[#e7e7e7] mb-2 font-medium cinematic-subheader">Visual Storyboards</h3>
             <p className="text-[#e7e7e7]/70 text-lg">Shot-by-shot visual planning with AI generation frames</p>
             </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{storyboardData.totalScenes}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{storyboardData.totalScenes}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Total Scenes</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{storyboardData.visualStyle?.genre || 'Cinematic'}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{storyboardData.visualStyle?.genre || 'Cinematic'}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Visual Style</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">HD</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">HD</div>
               <div className="text-[#e7e7e7]/80 font-medium">Quality</div>
             </div>
           </div>
@@ -1985,11 +2068,11 @@ REQUIREMENTS:
               <div key={episode.episodeNumber} className="p-8">
                 {/* Episode Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">🎬</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -2012,14 +2095,14 @@ REQUIREMENTS:
                         transition={{ duration: 0.5, delay: sceneIndex * 0.1 }}
                       >
                         {/* Scene Header */}
-                        <div className="bg-gradient-to-r from-[#e2c376]/10 to-[#d4b46a]/10 border-b border-[#36393f]/30 p-6">
+                        <div className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border-b border-[#36393f]/30 p-6">
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
-                                <span className="text-sm font-bold text-[#e2c376]">{scene.sceneNumber}</span>
+                              <div className="w-10 h-10 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
+                                <span className="text-sm font-bold text-[#00FF99]">{scene.sceneNumber}</span>
                               </div>
                               <div>
-                                <h4 className="font-semibold text-[#e2c376] text-xl">
+                                <h4 className="font-semibold text-[#00FF99] text-xl">
                                   Scene {scene.sceneNumber}
                                 </h4>
                                 <p className="text-[#e7e7e7]/70">{parsedStoryboard.shots.length} shots planned</p>
@@ -2046,11 +2129,11 @@ REQUIREMENTS:
                                 whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                               >
                                 {/* AI Image Generation Frame */}
-                                <div className="aspect-video bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#e2c376]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#e2c376]/60 transition-colors">
+                                <div className="aspect-video bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#00FF99]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#00FF99]/60 transition-colors">
                                   <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎬</div>
-                                  <p className="text-sm text-[#e2c376] font-medium">Shot {shot.number}</p>
+                                  <p className="text-sm text-[#00FF99] font-medium">Shot {shot.number}</p>
                                   <p className="text-xs text-[#e7e7e7]/60 text-center max-w-32">AI Image Frame</p>
-                                  <button className="mt-2 text-xs bg-[#e2c376]/10 hover:bg-[#e2c376]/20 text-[#e2c376] px-3 py-1 rounded-full transition-colors">
+                                  <button className="mt-2 text-xs bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] px-3 py-1 rounded-full transition-colors">
                                     Generate
                                   </button>
                                 </div>
@@ -2058,8 +2141,8 @@ REQUIREMENTS:
                                 {/* Enhanced Shot Details */}
                                 <div className="p-5">
                                   <div className="flex items-center justify-between mb-3">
-                                    <h5 className="text-[#e2c376] font-bold text-lg">{shot.title}</h5>
-                                    <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full">
+                                    <h5 className="text-[#00FF99] font-bold text-lg">{shot.title}</h5>
+                                    <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full">
                                       Shot {shot.number}
                                     </span>
                                   </div>
@@ -2072,11 +2155,11 @@ REQUIREMENTS:
                                   <div className="grid grid-cols-2 gap-3 mb-4">
                                     <div className="bg-[#36393f]/20 rounded-lg p-3">
                                       <div className="text-xs text-[#e7e7e7]/60 mb-1">📹 Camera</div>
-                                      <div className="text-sm text-[#e2c376] font-medium">{shot.camera || 'Medium Shot'}</div>
+                                      <div className="text-sm text-[#00FF99] font-medium">{shot.camera || 'Medium Shot'}</div>
                                     </div>
                                     <div className="bg-[#36393f]/20 rounded-lg p-3">
                                       <div className="text-xs text-[#e7e7e7]/60 mb-1">🎬 Movement</div>
-                                      <div className="text-sm text-[#d4b46a] font-medium">{shot.movement || 'Static'}</div>
+                                      <div className="text-sm text-[#00CC7A] font-medium">{shot.movement || 'Static'}</div>
                                     </div>
                                     <div className="bg-[#36393f]/20 rounded-lg p-3">
                                       <div className="text-xs text-[#e7e7e7]/60 mb-1">🖼️ Composition</div>
@@ -2094,13 +2177,13 @@ REQUIREMENTS:
                                       shot.visualStyle.map((style: string, styleIndex: number) => (
                                         <span 
                                           key={styleIndex}
-                                          className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-3 py-1.5 rounded-full font-medium"
+                                          className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-3 py-1.5 rounded-full font-medium"
                                         >
                                           {style}
                                         </span>
                                       ))
                                     ) : (
-                                      <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-3 py-1.5 rounded-full font-medium">
+                                      <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-3 py-1.5 rounded-full font-medium">
                                         Cinematic
                                       </span>
                                     )}
@@ -2110,19 +2193,19 @@ REQUIREMENTS:
                                   <div className="border-t border-[#36393f]/30 pt-3 space-y-2 text-xs">
                                     {shot.movement && (
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[#d4b46a]">🎥</span>
+                                        <span className="text-[#00CC7A]">🎥</span>
                                         <span className="text-[#e7e7e7]/70">{shot.movement}</span>
                                       </div>
                                     )}
                                     {shot.composition && (
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[#d4b46a]">📐</span>
+                                        <span className="text-[#00CC7A]">📐</span>
                                         <span className="text-[#e7e7e7]/70">{shot.composition}</span>
                                       </div>
                                     )}
                                     {shot.lighting && (
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[#d4b46a]">💡</span>
+                                        <span className="text-[#00CC7A]">💡</span>
                                         <span className="text-[#e7e7e7]/70">{shot.lighting}</span>
                                       </div>
                                     )}
@@ -2277,7 +2360,7 @@ REQUIREMENTS:
     if (!propsData) {
       return (
         <div className="text-center py-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-3xl flex items-center justify-center mx-auto mb-6">
             <span className="text-3xl">🎪</span>
           </div>
           <p className="text-[#e7e7e7]/70 text-lg">No props data available</p>
@@ -2301,15 +2384,15 @@ REQUIREMENTS:
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{propsData.episodes?.length || 0}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{propsData.episodes?.length || 0}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Episodes</div>
               </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Ready</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Ready</div>
               <div className="text-[#e7e7e7]/80 font-medium">Status</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Pro</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Pro</div>
               <div className="text-[#e7e7e7]/80 font-medium">Quality</div>
             </div>
           </div>
@@ -2336,11 +2419,11 @@ REQUIREMENTS:
               <div key={episode.episodeNumber} className="p-8">
                 {/* Episode Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">🎪</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -2356,7 +2439,7 @@ REQUIREMENTS:
                   
                   return (
                     <div key={category} className="mb-12">
-                      <h4 className="text-2xl font-bold text-[#e2c376] mb-6 flex items-center gap-3">
+                      <h4 className="text-2xl font-bold text-[#00FF99] mb-6 flex items-center gap-3">
                         <span>{category === 'Props' ? '🎬' : category === 'Wardrobe' ? '👗' : '🎭'}</span>
                         {category}
                       </h4>
@@ -2372,13 +2455,13 @@ REQUIREMENTS:
                             whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                           >
                             {/* Item Image Placeholder */}
-                            <div className="aspect-square bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#e2c376]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#e2c376]/60 transition-colors">
+                            <div className="aspect-square bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#00FF99]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#00FF99]/60 transition-colors">
                               <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">
                                 {category === 'Props' ? '🎬' : category === 'Wardrobe' ? '👗' : '🎭'}
                               </div>
-                              <p className="text-sm text-[#e2c376] font-medium text-center">{item.name}</p>
+                              <p className="text-sm text-[#00FF99] font-medium text-center">{item.name}</p>
                               <p className="text-xs text-[#e7e7e7]/60 text-center">Visual Reference</p>
-                              <button className="mt-2 text-xs bg-[#e2c376]/10 hover:bg-[#e2c376]/20 text-[#e2c376] px-3 py-1 rounded-full transition-colors">
+                              <button className="mt-2 text-xs bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] px-3 py-1 rounded-full transition-colors">
                                 Generate
                               </button>
                             </div>
@@ -2386,7 +2469,7 @@ REQUIREMENTS:
                             {/* Item Details */}
                             <div className="p-4">
                               <div className="flex items-center justify-between mb-2">
-                                <h5 className="text-[#e2c376] font-semibold">{item.name}</h5>
+                                <h5 className="text-[#00FF99] font-semibold">{item.name}</h5>
                                 {item.importance === 'high' && (
                                   <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">Key Item</span>
                                 )}
@@ -2396,10 +2479,10 @@ REQUIREMENTS:
                               
                               {/* Purpose/Usage */}
                               {item.purpose && (
-                                <div className="mb-3 p-3 bg-[#36393f]/20 rounded-lg border-l-4 border-[#e2c376]/50">
+                                <div className="mb-3 p-3 bg-[#36393f]/20 rounded-lg border-l-4 border-[#00FF99]/50">
                                   <div className="flex items-center gap-2 text-xs mb-1">
-                                    <span className="text-[#e2c376]">💡</span>
-                                    <span className="text-[#e2c376] font-medium">Purpose</span>
+                                    <span className="text-[#00FF99]">💡</span>
+                                    <span className="text-[#00FF99] font-medium">Purpose</span>
                                   </div>
                                   <p className="text-[#e7e7e7]/80 text-xs">{item.purpose}</p>
                                 </div>
@@ -2409,25 +2492,25 @@ REQUIREMENTS:
                               <div className="space-y-2">
                                 {item.character && (
                                   <div className="flex items-center gap-2 text-xs">
-                                    <span className="text-[#d4b46a]">👤</span>
+                                    <span className="text-[#00CC7A]">👤</span>
                                     <span className="text-[#e7e7e7]/70">For: {item.character}</span>
                                   </div>
                                 )}
                                 {item.size && (
                                   <div className="flex items-center gap-2 text-xs">
-                                    <span className="text-[#d4b46a]">📏</span>
+                                    <span className="text-[#00CC7A]">📏</span>
                                     <span className="text-[#e7e7e7]/70">Size: {item.size}</span>
                                   </div>
                                 )}
                                 {item.color && (
                                   <div className="flex items-center gap-2 text-xs">
-                                    <span className="text-[#d4b46a]">🎨</span>
+                                    <span className="text-[#00CC7A]">🎨</span>
                                     <span className="text-[#e7e7e7]/70">Color: {item.color}</span>
                                   </div>
                                 )}
                                 {item.style && (
                                   <div className="flex items-center gap-2 text-xs">
-                                    <span className="text-[#d4b46a]">✨</span>
+                                    <span className="text-[#00CC7A]">✨</span>
                                     <span className="text-[#e7e7e7]/70">Style: {item.style}</span>
                                   </div>
                                 )}
@@ -2437,7 +2520,7 @@ REQUIREMENTS:
                               <div className="mt-4 pt-4 border-t border-[#36393f]/30">
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs text-[#e7e7e7]/60">Production Status</span>
-                                  <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full">
+                                  <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full">
                                     Needed
                                   </span>
                                 </div>
@@ -2623,14 +2706,13 @@ REQUIREMENTS:
     if (!locationsData || !locationsData.episodes) {
       return (
         <div className="text-center py-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-3xl flex items-center justify-center mx-auto mb-6">
             <span className="text-3xl">📍</span>
           </div>
           <p className="text-[#e7e7e7]/70 text-lg">No location data available</p>
           <p className="text-[#e7e7e7]/50 text-sm mt-2">
             v2Content.location is {locationsData === undefined ? 'undefined' : locationsData === null ? 'null' : 'exists but no episodes'}
           </p>
-          <Button onClick={debugContent} className="mt-4 bg-blue-600 hover:bg-blue-700">Debug Content</Button>
         </div>
       )
     }
@@ -2651,15 +2733,15 @@ REQUIREMENTS:
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{locationsData.episodes?.length || 0}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{locationsData.episodes?.length || 0}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Episodes</div>
               </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Scouted</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Scouted</div>
               <div className="text-[#e7e7e7]/80 font-medium">Status</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Pro</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Pro</div>
               <div className="text-[#e7e7e7]/80 font-medium">Quality</div>
             </div>
           </div>
@@ -2685,11 +2767,11 @@ REQUIREMENTS:
               <div key={episode.episodeNumber} className="p-8">
                 {/* Episode Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">📍</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -2710,42 +2792,42 @@ REQUIREMENTS:
                       whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                     >
                       {/* Location Image Placeholder */}
-                      <div className="aspect-video bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#e2c376]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#e2c376]/60 transition-colors">
+                      <div className="aspect-video bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#00FF99]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#00FF99]/60 transition-colors">
                         <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🏢</div>
-                        <p className="text-sm text-[#e2c376] font-medium text-center">{location.name}</p>
+                        <p className="text-sm text-[#00FF99] font-medium text-center">{location.name}</p>
                         <p className="text-xs text-[#e7e7e7]/60 text-center">Location Reference</p>
-                        <button className="mt-2 text-xs bg-[#e2c376]/10 hover:bg-[#e2c376]/20 text-[#e2c376] px-3 py-1 rounded-full transition-colors">
+                        <button className="mt-2 text-xs bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] px-3 py-1 rounded-full transition-colors">
                           Scout
                         </button>
                       </div>
 
                       {/* Location Details */}
                       <div className="p-6">
-                        <h5 className="text-[#e2c376] font-semibold text-lg mb-3">{location.name}</h5>
+                        <h5 className="text-[#00FF99] font-semibold text-lg mb-3">{location.name}</h5>
                         <p className="text-[#e7e7e7]/80 text-sm mb-4 leading-relaxed">{location.description}</p>
                         
                         {/* Location Properties */}
                         <div className="space-y-3">
                           {location.type && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">🏗️</span>
+                              <span className="text-[#00CC7A]">🏗️</span>
                               <span className="text-xs text-[#e7e7e7]/70">Type: {location.type}</span>
                             </div>
                           )}
                           {location.scenes && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">🎬</span>
+                              <span className="text-[#00CC7A]">🎬</span>
                               <span className="text-xs text-[#e7e7e7]/70">Scenes: {location.scenes}</span>
                             </div>
                           )}
                           {location.timeOfDay?.length > 0 && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">🕐</span>
+                              <span className="text-[#00CC7A]">🕐</span>
                               <div className="flex flex-wrap gap-1">
                                 {location.timeOfDay.map((time: string, timeIndex: number) => (
                                   <span 
                                     key={timeIndex}
-                                    className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full"
+                                    className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full"
                                   >
                                     {time}
                                   </span>
@@ -2755,25 +2837,25 @@ REQUIREMENTS:
                           )}
                           {location.weather && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">🌤️</span>
+                              <span className="text-[#00CC7A]">🌤️</span>
                               <span className="text-xs text-[#e7e7e7]/70">Weather: {location.weather}</span>
                             </div>
                           )}
                           {location.accessibility && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">🚗</span>
+                              <span className="text-[#00CC7A]">🚗</span>
                               <span className="text-xs text-[#e7e7e7]/70">Access: {location.accessibility}</span>
                             </div>
                           )}
                           {location.permits && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">📋</span>
+                              <span className="text-[#00CC7A]">📋</span>
                               <span className="text-xs text-[#e7e7e7]/70">Permits: {location.permits}</span>
                             </div>
                           )}
                           {location.budget && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[#d4b46a]">💰</span>
+                              <span className="text-[#00CC7A]">💰</span>
                               <span className="text-xs text-[#e7e7e7]/70">Budget: {location.budget}</span>
                             </div>
                           )}
@@ -2782,11 +2864,11 @@ REQUIREMENTS:
                         {/* Requirements */}
                         {location.requirements?.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-[#36393f]/30">
-                            <h6 className="text-sm font-medium text-[#e2c376] mb-2">Requirements</h6>
+                            <h6 className="text-sm font-medium text-[#00FF99] mb-2">Requirements</h6>
                             <div className="space-y-1">
                               {location.requirements.map((req: string, reqIndex: number) => (
                                 <div key={reqIndex} className="text-xs text-[#e7e7e7]/70 flex items-center gap-2">
-                                  <span className="text-[#d4b46a]">•</span>
+                                  <span className="text-[#00CC7A]">•</span>
                                   {req}
                                 </div>
                               ))}
@@ -2798,7 +2880,7 @@ REQUIREMENTS:
                         <div className="mt-4 pt-4 border-t border-[#36393f]/30">
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-[#e7e7e7]/60">Production Status</span>
-                            <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full">
+                            <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full">
                               Ready to Film
                             </span>
                           </div>
@@ -2904,24 +2986,24 @@ REQUIREMENTS:
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🎭</span>
               </div>
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">{parsedCasting.characters?.length || 0}</div>
+              <div className="text-3xl font-bold text-[#00FF99] mb-2">{parsedCasting.characters?.length || 0}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Characters</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📖</span>
               </div>
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">{(castingData.arcIndex || 0) + 1}</div>
+              <div className="text-3xl font-bold text-[#00FF99] mb-2">{(castingData.arcIndex || 0) + 1}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Arc</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">✅</span>
               </div>
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">Ready</div>
+              <div className="text-3xl font-bold text-[#00FF99] mb-2">Ready</div>
               <div className="text-[#e7e7e7]/80 font-medium">Status</div>
             </div>
           </div>
@@ -2930,7 +3012,7 @@ REQUIREMENTS:
         {/* Character Profiles */}
         {parsedCasting.characters?.length > 0 && (
       <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-[#e2c376] mb-6">Character Profiles</h3>
+            <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Character Profiles</h3>
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
               {parsedCasting.characters.map((character: any, index: number) => (
                 <motion.div 
@@ -2942,11 +3024,11 @@ REQUIREMENTS:
                   whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                 >
                   {/* Character AI Image Frame */}
-                  <div className="aspect-square bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#e2c376]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#e2c376]/60 transition-colors">
+                  <div className="aspect-square bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#00FF99]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#00FF99]/60 transition-colors">
                     <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">🎭</div>
-                    <p className="text-sm text-[#e2c376] font-medium text-center">{character.name}</p>
+                    <p className="text-sm text-[#00FF99] font-medium text-center">{character.name}</p>
                     <p className="text-xs text-[#e7e7e7]/60 text-center">Actor Reference</p>
-                    <button className="mt-2 text-xs bg-[#e2c376]/10 hover:bg-[#e2c376]/20 text-[#e2c376] px-3 py-1 rounded-full transition-colors">
+                    <button className="mt-2 text-xs bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] px-3 py-1 rounded-full transition-colors">
                       Generate
                     </button>
             </div>
@@ -2954,7 +3036,7 @@ REQUIREMENTS:
                   {/* Character Details */}
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-[#e2c376] font-semibold text-lg">{character.name}</h4>
+                      <h4 className="text-[#00FF99] font-semibold text-lg">{character.name}</h4>
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         character.importance === 'lead' ? 'bg-yellow-500/20 text-yellow-400' :
                         character.importance === 'supporting' ? 'bg-blue-500/20 text-blue-400' :
@@ -2972,25 +3054,25 @@ REQUIREMENTS:
                     <div className="space-y-2 mb-4">
                       {character.age && (
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-[#d4b46a]">📅</span>
+                          <span className="text-[#00CC7A]">📅</span>
                           <span className="text-[#e7e7e7]/70">Age: {character.age}</span>
                 </div>
                       )}
                       {character.gender && (
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-[#d4b46a]">👤</span>
+                          <span className="text-[#00CC7A]">👤</span>
                           <span className="text-[#e7e7e7]/70">Gender: {character.gender}</span>
                         </div>
                       )}
                       {character.ethnicity && (
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-[#d4b46a]">🌍</span>
+                          <span className="text-[#00CC7A]">🌍</span>
                           <span className="text-[#e7e7e7]/70">Ethnicity: {character.ethnicity}</span>
                         </div>
                       )}
                       {character.physicalType && (
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="text-[#d4b46a]">💪</span>
+                          <span className="text-[#00CC7A]">💪</span>
                           <span className="text-[#e7e7e7]/70">Build: {character.physicalType}</span>
                         </div>
                       )}
@@ -2999,12 +3081,12 @@ REQUIREMENTS:
                     {/* Personality Traits */}
                     {character.personality?.length > 0 && (
                       <div className="mb-4">
-                        <h6 className="text-xs font-medium text-[#e2c376] mb-2">Personality</h6>
+                        <h6 className="text-xs font-medium text-[#00FF99] mb-2">Personality</h6>
                         <div className="flex flex-wrap gap-1">
                           {character.personality.map((trait: string, traitIndex: number) => (
                             <span 
                               key={traitIndex}
-                              className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full"
+                              className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full"
                             >
                               {trait}
                             </span>
@@ -3016,12 +3098,12 @@ REQUIREMENTS:
                     {/* Required Skills */}
                     {character.skills?.length > 0 && (
                       <div className="mb-4">
-                        <h6 className="text-xs font-medium text-[#e2c376] mb-2">Skills Required</h6>
+                        <h6 className="text-xs font-medium text-[#00FF99] mb-2">Skills Required</h6>
                         <div className="flex flex-wrap gap-1">
                           {character.skills.map((skill: string, skillIndex: number) => (
                             <span 
                               key={skillIndex}
-                              className="text-xs bg-[#d4b46a]/10 text-[#d4b46a] px-2 py-1 rounded-full"
+                              className="text-xs bg-[#00CC7A]/10 text-[#00CC7A] px-2 py-1 rounded-full"
                             >
                               {skill}
                             </span>
@@ -3034,7 +3116,7 @@ REQUIREMENTS:
                     <div className="pt-4 border-t border-[#36393f]/30">
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-[#e7e7e7]/60">Casting Status</span>
-                        <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full">
+                        <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full">
                           Open Casting
                         </span>
                       </div>
@@ -3055,12 +3137,11 @@ REQUIREMENTS:
     if (!marketingData) {
       return (
         <div className="text-center py-12">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-3xl flex items-center justify-center mx-auto mb-6">
             <span className="text-3xl">📢</span>
           </div>
           <p className="text-[#e7e7e7]/70 text-lg">No marketing data available</p>
           <p className="text-[#e7e7e7]/50 text-sm mt-2">v2Content.marketing is {marketingData === undefined ? 'undefined' : 'null'}</p>
-          <Button onClick={debugContent} className="mt-4 bg-blue-600 hover:bg-blue-700">Debug Content</Button>
         </div>
       )
     }
@@ -3082,15 +3163,15 @@ REQUIREMENTS:
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{marketingData.episodes?.length || 0}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{marketingData.episodes?.length || 0}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Episodes</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Pro</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Pro</div>
               <div className="text-[#e7e7e7]/80 font-medium">Campaign</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Multi-Platform</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Multi-Platform</div>
               <div className="text-[#e7e7e7]/80 font-medium">Strategy</div>
             </div>
           </div>
@@ -3114,11 +3195,11 @@ REQUIREMENTS:
               <div key={episode.episodeNumber} className="p-8">
                 {/* Episode Header */}
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">📢</span>
                   </div>
                 <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -3136,17 +3217,17 @@ REQUIREMENTS:
                     transition={{ duration: 0.5 }}
                   >
                     {/* Poster AI Frame */}
-                    <div className="aspect-[3/4] bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#e2c376]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#e2c376]/60 transition-colors">
+                    <div className="aspect-[3/4] bg-gradient-to-br from-[#36393f]/20 to-[#2a2a2a]/40 border-2 border-dashed border-[#00FF99]/30 m-4 rounded-lg flex flex-col items-center justify-center group hover:border-[#00FF99]/60 transition-colors">
                       <div className="text-6xl mb-4 group-hover:scale-110 transition-transform">🎬</div>
-                      <p className="text-lg text-[#e2c376] font-medium text-center">Episode Poster</p>
+                      <p className="text-lg text-[#00FF99] font-medium text-center">Episode Poster</p>
                       <p className="text-sm text-[#e7e7e7]/60 text-center">Marketing Visual</p>
-                      <button className="mt-4 text-sm bg-[#e2c376]/10 hover:bg-[#e2c376]/20 text-[#e2c376] px-4 py-2 rounded-full transition-colors">
+                      <button className="mt-4 text-sm bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] px-4 py-2 rounded-full transition-colors">
                         Generate Poster
                       </button>
                     </div>
 
                     <div className="p-4">
-                      <h4 className="text-[#e2c376] font-semibold text-lg mb-2">Marketing Poster</h4>
+                      <h4 className="text-[#00FF99] font-semibold text-lg mb-2">Marketing Poster</h4>
                       <p className="text-[#e7e7e7]/70 text-sm">AI-generated episode poster for social media and promotional materials</p>
                     </div>
                   </motion.div>
@@ -3161,7 +3242,7 @@ REQUIREMENTS:
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.1 }}
                       >
-                        <h4 className="text-lg font-semibold text-[#e2c376] mb-4 flex items-center gap-2">
+                        <h4 className="text-lg font-semibold text-[#00FF99] mb-4 flex items-center gap-2">
                           <span>🎣</span>
                           Marketing Hooks
                         </h4>
@@ -3175,8 +3256,8 @@ REQUIREMENTS:
                               transition={{ duration: 0.3, delay: hookIndex * 0.1 }}
                             >
                               <div className="flex items-start gap-3">
-                                <div className="w-6 h-6 bg-[#e2c376]/20 rounded-full flex items-center justify-center mt-1">
-                                  <span className="text-xs text-[#e2c376]">💡</span>
+                                <div className="w-6 h-6 bg-[#00FF99]/20 rounded-full flex items-center justify-center mt-1">
+                                  <span className="text-xs text-[#00FF99]">💡</span>
                                 </div>
                                 <p className="text-[#e7e7e7]/85 leading-relaxed">
                         {typeof hook === 'string' ? hook : hook.text || 'Marketing hook'}
@@ -3196,7 +3277,7 @@ REQUIREMENTS:
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.2 }}
                       >
-                        <h4 className="text-lg font-semibold text-[#e2c376] mb-4 flex items-center gap-2">
+                        <h4 className="text-lg font-semibold text-[#00FF99] mb-4 flex items-center gap-2">
                           <span>#️⃣</span>
                           Hashtag Strategy
                         </h4>
@@ -3204,7 +3285,7 @@ REQUIREMENTS:
                           {episode.hashtags.map((hashtag: string, hashIndex: number) => (
                             <motion.span 
                               key={hashIndex} 
-                              className="bg-gradient-to-r from-[#e2c376] to-[#d4b46a] text-black px-4 py-2 rounded-full text-sm font-medium hover:scale-105 transition-transform cursor-pointer"
+                              className="bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-4 py-2 rounded-full text-sm font-medium hover:scale-105 transition-transform cursor-pointer"
                               initial={{ opacity: 0, scale: 0.8 }}
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ duration: 0.3, delay: hashIndex * 0.05 }}
@@ -3224,17 +3305,17 @@ REQUIREMENTS:
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.3 }}
                     >
-                      <h4 className="text-lg font-semibold text-[#e2c376] mb-4 flex items-center gap-2">
+                      <h4 className="text-lg font-semibold text-[#00FF99] mb-4 flex items-center gap-2">
                         <span>🎯</span>
                         Target Audience
                       </h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-[#e2c376] mb-1">18-34</div>
+                          <div className="text-2xl font-bold text-[#00FF99] mb-1">18-34</div>
                           <div className="text-xs text-[#e7e7e7]/70">Primary Age</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-[#e2c376] mb-1">Global</div>
+                          <div className="text-2xl font-bold text-[#00FF99] mb-1">Global</div>
                           <div className="text-xs text-[#e7e7e7]/70">Reach</div>
                         </div>
                       </div>
@@ -3247,7 +3328,7 @@ REQUIREMENTS:
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.4 }}
                     >
-                      <h4 className="text-lg font-semibold text-[#e2c376] mb-4 flex items-center gap-2">
+                      <h4 className="text-lg font-semibold text-[#00FF99] mb-4 flex items-center gap-2">
                         <span>📱</span>
                         Platform Strategy
                       </h4>
@@ -3260,7 +3341,7 @@ REQUIREMENTS:
                       </div>
                     </motion.div>
                   </div>
-                </div>
+                  </div>
               </div>
             )
           })}
@@ -3345,10 +3426,10 @@ REQUIREMENTS:
               <h3 className="text-3xl font-bold text-[#e7e7e7]">Post-Production Workflow</h3>
               <button
                 onClick={() => setShowPostProdInfo(true)}
-                className="w-8 h-8 bg-[#e2c376]/20 hover:bg-[#e2c376]/30 rounded-full flex items-center justify-center transition-colors"
+                className="w-8 h-8 bg-[#00FF99]/20 hover:bg-[#00FF99]/30 rounded-full flex items-center justify-center transition-colors"
                 title="About this tab"
               >
-                <span className="text-[#e2c376] text-sm">ℹ️</span>
+                <span className="text-[#00FF99] text-sm">ℹ️</span>
               </button>
             </div>
             <p className="text-[#e7e7e7]/70 text-lg">AI-ready editing prompts and structured post-production guidelines</p>
@@ -3356,15 +3437,15 @@ REQUIREMENTS:
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">{postProdData.totalScenes || 0}</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">{postProdData.totalScenes || 0}</div>
               <div className="text-[#e7e7e7]/80 font-medium">Total Scenes</div>
                 </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">AI-Ready</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">AI-Ready</div>
               <div className="text-[#e7e7e7]/80 font-medium">Format</div>
             </div>
             <div className="text-center p-6 bg-[#36393f]/30 rounded-2xl border border-[#36393f]/40">
-              <div className="text-2xl font-bold text-[#e2c376] mb-2">Pro</div>
+              <div className="text-2xl font-bold text-[#00FF99] mb-2">Pro</div>
               <div className="text-[#e7e7e7]/80 font-medium">Quality</div>
             </div>
           </div>
@@ -3382,11 +3463,11 @@ REQUIREMENTS:
             >
               <div className="bg-gradient-to-r from-[#2a2a2a]/95 to-[#252628]/95 border-b border-[#36393f]/40 p-8">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center">
                     <span className="text-2xl">🎞️</span>
                   </div>
                   <div>
-                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1">
+                    <h3 className="text-3xl font-bold text-[#e7e7e7] mb-1 font-medium cinematic-subheader">
                       {episode.episodeTitle || `Episode ${episode.episodeNumber}`}
                     </h3>
                     <p className="text-[#e7e7e7]/70 text-lg">
@@ -3411,13 +3492,13 @@ REQUIREMENTS:
                         whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                       >
                         {/* Scene Header */}
-                        <div className="bg-gradient-to-r from-[#e2c376]/10 to-[#d4b46a]/10 border-b border-[#36393f]/30 p-4">
+                        <div className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border-b border-[#36393f]/30 p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[#e2c376]/20 rounded-lg flex items-center justify-center">
-                              <span className="text-xs font-bold text-[#e2c376]">{scene.sceneNumber || sceneIndex + 1}</span>
+                            <div className="w-8 h-8 bg-[#00FF99]/20 rounded-lg flex items-center justify-center">
+                              <span className="text-xs font-bold text-[#00FF99]">{scene.sceneNumber || sceneIndex + 1}</span>
                             </div>
                             <div>
-                              <h4 className="font-semibold text-[#e2c376]">
+                              <h4 className="font-semibold text-[#00FF99]">
                                 Scene {scene.sceneNumber || sceneIndex + 1}
                               </h4>
                               <p className="text-xs text-[#e7e7e7]/70">{scene.sceneTitle || 'Post-Production Guide'}</p>
@@ -3430,7 +3511,7 @@ REQUIREMENTS:
                           <div className="space-y-4">
                             {/* Primary Notes */}
                             <div className="bg-[#1a1a1a]/60 rounded-lg p-3 border border-[#36393f]/20">
-                              <h6 className="text-xs font-medium text-[#e2c376] mb-2">AI Processing Notes</h6>
+                              <h6 className="text-xs font-medium text-[#00FF99] mb-2">AI Processing Notes</h6>
                               <p className="text-[#e7e7e7]/85 text-sm leading-relaxed">
                                 {scene.notes || 'Standard post-production processing with professional editing standards.'}
                               </p>
@@ -3440,13 +3521,13 @@ REQUIREMENTS:
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-[#e7e7e7]/60">Editing Style:</span>
-                                <span className="text-xs bg-[#e2c376]/10 text-[#e2c376] px-2 py-1 rounded-full">
+                                <span className="text-xs bg-[#00FF99]/10 text-[#00FF99] px-2 py-1 rounded-full">
                                   {parsedNotes.editingStyle}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-[#e7e7e7]/60">Color Grading:</span>
-                                <span className="text-xs bg-[#d4b46a]/10 text-[#d4b46a] px-2 py-1 rounded-full">
+                                <span className="text-xs bg-[#00CC7A]/10 text-[#00CC7A] px-2 py-1 rounded-full">
                                   {parsedNotes.colorGrading}
                                 </span>
                               </div>
@@ -3501,6 +3582,55 @@ REQUIREMENTS:
     )
   }
 
+  // AUTO-GENERATION LOGIC: Start generation when data is ready but no content exists (moved before conditional returns)
+  useEffect(() => {
+    // Only auto-generate if:
+    // 1. No existing V2 content
+    // 2. Not currently generating 
+    // 3. Have required data (story bible and episodes)
+    // 4. No existing pre-production content in localStorage
+    if (!v2Content && !isGenerating && storyBible && arcEpisodes.length > 0 && !hasExistingContent) {
+      console.log('🚀 AUTO-GENERATION TRIGGERED - All prerequisites met')
+      console.log('📊 Generation prerequisites:', { 
+        hasStoryBible: !!storyBible, 
+        episodeCount: arcEpisodes.length,
+        arcIndex,
+        arcTitle,
+        hasExistingContent
+      })
+      
+      // Small delay to ensure UI is ready
+      setTimeout(() => {
+        startV2Generation()
+      }, 500)
+    } else {
+      console.log('⏸️ Auto-generation skipped:', {
+        hasV2Content: !!v2Content,
+        isGenerating,
+        hasStoryBible: !!storyBible,
+        episodeCount: arcEpisodes.length,
+        hasExistingContent
+      })
+    }
+  }, [v2Content, isGenerating, storyBible, arcEpisodes.length, hasExistingContent])
+
+  // Force regeneration
+  const forceRegenerate = () => {
+    setV2Content(null)
+    setHasExistingContent(false)
+    setShowResults(false)
+    
+    // Clear any existing localStorage content
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(`scorched-preproduction-${arcIndex}`)
+      localStorage.removeItem(`reeled-preproduction-${arcIndex}`)
+      console.log(`🗑️ Cleared existing V2 content for arc ${arcIndex}`)
+    }
+    
+    startV2Generation()
+  }
+
+
   // Show loading screen during generation
   if (isGenerating) {
     return (
@@ -3517,51 +3647,11 @@ REQUIREMENTS:
     )
   }
 
-  // Force regeneration
-  const forceRegenerate = () => {
-    setV2Content(null)
-    setHasExistingContent(false)
-    setShowResults(false)
-    
-    // Clear any existing localStorage content
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(`reeled-preproduction-${arcIndex}`)
-      console.log(`🗑️ Cleared existing V2 content for arc ${arcIndex}`)
-    }
-    
-    startV2Generation()
-  }
-
-  // Debug function to inspect current content
-  const debugContent = () => {
-    console.log('🔍 Debug - Current V2 Content:', {
-      v2Content,
-      hasKeys: v2Content ? Object.keys(v2Content) : 'null',
-      narrative: v2Content?.narrative ? 'exists' : 'missing',
-      script: v2Content?.script ? 'exists' : 'missing', 
-      storyboard: v2Content?.storyboard ? 'exists' : 'missing',
-      props: v2Content?.props ? 'exists' : 'missing',
-      location: v2Content?.location ? 'exists' : 'missing',
-      casting: v2Content?.casting ? 'exists' : 'missing',
-      marketing: v2Content?.marketing ? 'exists' : 'missing',
-      postProduction: v2Content?.postProduction ? 'exists' : 'missing'
-    })
-  }
-
-  // Show start screen if no content yet
-  if (!showResults) {
+  // This unnecessary start screen is now completely bypassed
+  if (false) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: 'League Spartan, sans-serif' }}>
         {/* Fire Video Background */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="fixed inset-0 w-full h-full object-cover opacity-20 -z-10"
-        >
-          <source src="/fire_background.mp4" type="video/mp4" />
-        </video>
 
         <div className="text-center space-y-8 max-w-2xl relative z-10">
           <motion.div
@@ -3569,27 +3659,27 @@ REQUIREMENTS:
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <div className="w-16 h-16 ember-shadow rounded-xl flex items-center justify-center animate-emberFloat">
+            <div className="w-16 h-16 rounded-xl flex items-center justify-center">
               <span className="text-3xl">🎬</span>
             </div>
-            <h1 className="text-5xl md:text-6xl font-black elegant-fire fire-gradient animate-flameFlicker">
+            <h1 className="text-5xl md:text-6xl font-bold font-medium greenlit-gradient">
               REVOLUTIONARY PRE-PRODUCTION V2
             </h1>
           </motion.div>
           
           {hasExistingContent ? (
             <div className="space-y-6">
-              <div className="rebellious-card border-[#e2c376]/60 p-8">
+              <div className="bg-[#1e1e1e] border border-[#00FF99]/60 p-8 rounded-xl">
                 <div className="flex items-center justify-center gap-4 mb-4">
                   <span className="text-3xl">✅</span>
-                  <h2 className="text-2xl font-black text-[#e2c376] elegant-fire">REVOLUTIONARY CONTENT READY</h2>
+                  <h2 className="text-2xl font-bold text-[#00FF99] font-medium">PROFESSIONAL CONTENT READY</h2>
                 </div>
-                <p className="text-white/90 elegant-fire text-lg">
+                <p className="text-white/90 font-medium text-lg">
                   Pre-production materials for this arc have already been forged and are ready to view.
                 </p>
               </div>
               
-              <div className="space-y-3 text-lg text-white/80 elegant-fire">
+              <div className="space-y-3 text-lg text-white/80 font-medium">
                 <div>Series: {storyBible?.seriesTitle || 'Loading...'}</div>
                 <div>Arc: {arcTitle || `Arc ${arcIndex + 1}`}</div>
                 <div>Episodes: {arcEpisodes.length}</div>
@@ -3606,32 +3696,32 @@ REQUIREMENTS:
                 </motion.button>
                 <motion.button
                   onClick={forceRegenerate}
-                  className="px-8 py-4 text-lg border-2 border-[#e2c376] text-[#e2c376] hover:bg-[#e2c376] hover:text-black rounded-xl font-black transition-all duration-300"
+                  className="px-8 py-4 text-lg border-2 border-[#00FF99] text-[#00FF99] hover:bg-[#00FF99] hover:text-black rounded-xl font-bold transition-all duration-300"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  REGENERATE EMPIRE
+                  REGENERATE CONTENT
                 </motion.button>
               </div>
             </div>
           ) : (
             <div className="space-y-8">
-              <p className="text-white/90 elegant-fire text-xl">
+              <p className="text-white/90 font-medium text-xl">
                 Ready to forge comprehensive pre-production materials using the revolutionary engineless V2 system with GPT-4.1 (Azure OpenAI).
               </p>
-              <div className="space-y-3 text-lg text-white/80 elegant-fire">
+              <div className="space-y-3 text-lg text-white/80 font-medium">
                 <div>Series: {storyBible?.seriesTitle || 'Loading...'}</div>
                 <div>Arc: {arcTitle || `Arc ${arcIndex + 1}`}</div>
                 <div>Episodes: {arcEpisodes.length}</div>
               </div>
               <motion.button
                 onClick={startV2Generation}
-                disabled={!storyBible || arcEpisodes.length === 0}
+                disabled={!localStorage.getItem('greenlit-story-bible') && !localStorage.getItem('scorched-story-bible') && !localStorage.getItem('reeled-story-bible') && !localStorage.getItem('greenlit-preproduction-data') && !localStorage.getItem('scorched-preproduction-data') && !localStorage.getItem('reeled-preproduction-data')}
                 className="burn-button px-12 py-6 text-xl"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                IGNITE REVOLUTIONARY GENERATION
+                START PROFESSIONAL GENERATION
               </motion.button>
             </div>
           )}
@@ -3642,57 +3732,47 @@ REQUIREMENTS:
 
   // Main results interface
   return (
-    <div className="min-h-screen text-white" style={{ fontFamily: 'League Spartan, sans-serif' }}>
-      {/* Fire Video Background */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="fixed inset-0 w-full h-full object-cover opacity-20 -z-10"
-      >
-        <source src="/fire_background.mp4" type="video/mp4" />
-      </video>
-
+    <div className="min-h-screen text-white relative" style={{ fontFamily: 'League Spartan, sans-serif' }}>
+      <AnimatedBackground intensity="medium" />
       <div className="container mx-auto px-6 py-12 max-w-7xl relative z-10">
-        {/* Revolutionary Header */}
+        {/* Professional Header */}
         <motion.div 
           className="mb-16"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          {/* Revolutionary Main Title Section */}
+          {/* Professional Main Title Section */}
           <div className="text-center mb-12">
             <motion.div 
               className="inline-flex items-center space-x-4 mb-8"
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <div className="w-16 h-16 ember-shadow rounded-xl flex items-center justify-center animate-emberFloat">
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center">
                 <span className="text-3xl">🎬</span>
               </div>
-              <h1 className="text-5xl md:text-6xl font-black elegant-fire fire-gradient animate-flameFlicker">
+              <h1 className="text-5xl md:text-6xl font-bold font-medium greenlit-gradient">
                 {storyBible?.seriesTitle || 'Your Series Title'}
               </h1>
             </motion.div>
-            <p className="text-2xl text-white/90 elegant-fire mb-4">
-              Arc {arcIndex + 1}: {arcTitle} • Revolutionary Pre-Production Complete
+            <p className="text-2xl text-white/90 font-medium mb-4">
+              Arc {arcIndex + 1}: {arcTitle} • Professional Pre-Production Complete
             </p>
-            <p className="text-xl text-white/80 elegant-fire max-w-2xl mx-auto leading-relaxed">
-              Revolutionary production materials ready for your empire. Everything you need to bring your vision to life.
+            <p className="text-xl text-white/80 font-medium max-w-2xl mx-auto leading-relaxed">
+              Professional production materials ready for your series. Everything you need to bring your vision to life.
             </p>
           </div>
 
           {/* Enhanced Progress Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto mb-8">
-            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#e2c376]/30 transition-all duration-300">
+            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#00FF99]/30 transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
                   <span className="text-xl">📝</span>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#e2c376] mb-1">
+                  <div className="text-2xl font-bold text-[#00FF99] mb-1">
                     {V2_TABS.length}
                   </div>
                   <div className="text-[#e7e7e7]/70 text-sm font-medium">Production Assets</div>
@@ -3700,13 +3780,13 @@ REQUIREMENTS:
               </div>
             </div>
             
-            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#e2c376]/30 transition-all duration-300">
+            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#00FF99]/30 transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
                   <span className="text-xl">🎭</span>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#e2c376] mb-1">
+                  <div className="text-2xl font-bold text-[#00FF99] mb-1">
                     {arcEpisodes.length}
                   </div>
                   <div className="text-[#e7e7e7]/70 text-sm font-medium">Episodes Ready</div>
@@ -3714,25 +3794,25 @@ REQUIREMENTS:
               </div>
             </div>
             
-            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#e2c376]/30 transition-all duration-300">
+            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#00FF99]/30 transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
                   <span className="text-xl">✅</span>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#e2c376] mb-1">100%</div>
+                  <div className="text-2xl font-bold text-[#00FF99] mb-1">100%</div>
                   <div className="text-[#e7e7e7]/70 text-sm font-medium">Production Ready</div>
                 </div>
               </div>
             </div>
             
-            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#e2c376]/30 transition-all duration-300">
+            <div className="bg-gradient-to-br from-[#2a2a2a]/80 to-[#1e1e1e]/60 backdrop-blur-sm rounded-2xl p-6 border border-[#36393f]/30 hover:border-[#00FF99]/30 transition-all duration-300">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#e2c376]/20 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#00FF99]/20 rounded-xl flex items-center justify-center">
                   <span className="text-xl">🎪</span>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#e2c376] mb-1">V2</div>
+                  <div className="text-2xl font-bold text-[#00FF99] mb-1">V2</div>
                   <div className="text-[#e7e7e7]/70 text-sm font-medium">Engine Version</div>
                 </div>
               </div>
@@ -3753,20 +3833,10 @@ REQUIREMENTS:
               <Button 
                 onClick={forceRegenerate}
                 variant="outline"
-                className="border-[#e2c376]/40 text-[#e2c376]/80 hover:bg-[#e2c376]/20 hover:text-[#e2c376] rounded-xl px-6 py-3"
+                className="border-[#00FF99]/40 text-[#00FF99]/80 hover:bg-[#00FF99]/20 hover:text-[#00FF99] rounded-xl px-6 py-3"
               >
                 <span className="mr-2">🔄</span>
                 Regenerate All
-              </Button>
-            )}
-            {v2Content && (
-              <Button 
-                onClick={debugContent}
-                variant="outline"
-                className="border-blue-500/40 text-blue-400/80 hover:bg-blue-500/20 hover:text-blue-400 rounded-xl px-6 py-3"
-              >
-                <span className="mr-2">🔍</span>
-                Debug Content
               </Button>
             )}
           </div>
@@ -3971,7 +4041,7 @@ REQUIREMENTS:
         >
           <div className="relative">
             {/* Background Pattern */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#e2c376]/5 via-transparent to-[#e2c376]/5 rounded-2xl opacity-50"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/5 via-transparent to-[#00FF99]/5 rounded-2xl opacity-50"></div>
             
             {/* Content */}
             <div className="relative z-10">
@@ -3991,7 +4061,7 @@ REQUIREMENTS:
             transition={{ duration: 0.3 }}
           >
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#e2c376] to-[#d4b46a] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#00FF99] to-[#00CC7A] rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">🎞️</span>
               </div>
               <h3 className="text-2xl font-bold text-[#e7e7e7] mb-2">Post-Production Reference</h3>
@@ -3999,18 +4069,18 @@ REQUIREMENTS:
             
             <div className="space-y-4 text-[#e7e7e7]/80">
               <p className="leading-relaxed">
-                This tab contains <strong className="text-[#e2c376]">AI-ready post-production prompts</strong> and structured guidelines specifically designed for AI video editing models.
+                This tab contains <strong className="text-[#00FF99]">AI-ready post-production prompts</strong> and structured guidelines specifically designed for AI video editing models.
               </p>
               
-              <div className="bg-[#36393f]/20 rounded-lg p-4 border-l-4 border-[#e2c376]">
-                <h4 className="text-[#e2c376] font-semibold mb-2">🤖 For AI Models</h4>
+              <div className="bg-[#36393f]/20 rounded-lg p-4 border-l-4 border-[#00FF99]">
+                <h4 className="text-[#00FF99] font-semibold mb-2">🤖 For AI Models</h4>
                 <p className="text-sm">
                   The content here is formatted as prompts that AI models can use to understand editing requirements, color grading specifications, audio mixing instructions, and post-production workflows.
                 </p>
               </div>
               
               <div className="bg-[#36393f]/20 rounded-lg p-4">
-                <h4 className="text-[#e2c376] font-semibold mb-2">📋 What's Included</h4>
+                <h4 className="text-[#00FF99] font-semibold mb-2">📋 What's Included</h4>
                 <ul className="text-sm space-y-1 list-disc list-inside">
                   <li>Editing style guidelines (pacing, transitions)</li>
                   <li>Color grading specifications</li>
@@ -4028,7 +4098,7 @@ REQUIREMENTS:
             <div className="flex gap-4 mt-8">
               <button
                 onClick={() => setShowPostProdInfo(false)}
-                className="flex-1 bg-[#e2c376] text-black hover:bg-[#f0d995] px-6 py-3 rounded-xl font-medium transition-colors"
+                className="flex-1 bg-[#00FF99] text-black hover:bg-[#f0d995] px-6 py-3 rounded-xl font-medium transition-colors"
               >
                 Continue Viewing
               </button>

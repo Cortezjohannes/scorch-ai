@@ -16,7 +16,7 @@ export default function SeriesCompletePage() {
       // Check for both new and old localStorage keys
       let savedBible = localStorage.getItem('scorched-story-bible')
       if (!savedBible) {
-        savedBible = localStorage.getItem('reeled-story-bible')
+        savedBible = localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
       }
       
       if (savedBible) {

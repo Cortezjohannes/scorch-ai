@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const publicFaviconPath = join(process.cwd(), 'public', 'favicon.ico')
     const faviconBuffer = await readFile(publicFaviconPath)
     
-    return new NextResponse(faviconBuffer, {
+    return new NextResponse(new Uint8Array(faviconBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/x-icon',

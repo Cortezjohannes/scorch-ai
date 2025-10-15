@@ -192,7 +192,7 @@ export default function NarrativePage() {
             onClick={() => {
               // Set auto-generation flag and navigate to V2
               if (typeof window !== 'undefined') {
-                localStorage.setItem('reeled-auto-generate', 'true')
+                localStorage.setItem('scorched-auto-generate', 'true')
               }
               router.push(`/preproduction/v2?projectId=${projectId}&arc=1`)
             }}

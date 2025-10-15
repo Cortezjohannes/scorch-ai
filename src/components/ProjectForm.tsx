@@ -16,9 +16,9 @@ const isServer = typeof window === 'undefined';
 // Memoize the schema to prevent recreation on re-renders
 const projectSchema = z.object({
   synopsis: z.string()
-    .min(50, 'Synopsis should be at least 50 characters'),
+    .min(1, 'Synopsis is required'),
   theme: z.string()
-    .min(10, 'Theme should be at least 10 characters'),
+    .min(1, 'Theme is required'),
 })
 
 type ProjectFormData = z.infer<typeof projectSchema>

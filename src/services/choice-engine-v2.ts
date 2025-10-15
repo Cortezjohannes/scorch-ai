@@ -425,7 +425,7 @@ Based on the Choice Engine research, provide a comprehensive choice recommendati
 Provide detailed, actionable recommendations that balance meaningful player agency with narrative coherence, ensuring choices feel impactful while maintaining production feasibility and accessibility.`;
 
       const response = await generateContent(prompt, {
-        max_tokens: 4000,
+        maxTokens: 4000,
         temperature: 0.7
       });
 

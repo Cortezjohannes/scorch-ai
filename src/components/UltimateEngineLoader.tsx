@@ -14,15 +14,15 @@ interface UltimateEngineLoaderProps {
 const REAL_ENGINES = [
   { id: 'premise', name: 'Premise Engine', icon: '🎯', description: 'Analyzing story foundation and thematic structure' },
   { id: 'character', name: 'Character Engine', icon: '👥', description: 'Creating complex 3D characters with psychology' },
-  { id: 'narrative', name: 'Narrative Engine', icon: '🌊', description: 'Building fractal story structure and arcs' },
+  { id: 'narrative', name: 'Narrative Engine', icon: '📖', description: 'Building fractal story structure and arcs' },
   { id: 'world', name: 'World Engine', icon: '🌍', description: 'Building immersive settings and environments' },
   { id: 'dialogue', name: 'Dialogue Engine', icon: '💬', description: 'Crafting strategic character conversations' },
   { id: 'tension', name: 'Tension Engine', icon: '⚡', description: 'Building and releasing dramatic tension' },
-  { id: 'genre', name: 'Genre Engine', icon: '🎨', description: 'Optimizing for genre-specific storytelling' },
+  { id: 'genre', name: 'Genre Engine', icon: '🎭', description: 'Optimizing for genre-specific storytelling' },
   { id: 'choice', name: 'Choice Engine', icon: '🔀', description: 'Creating meaningful branching narratives' },
-  { id: 'theme', name: 'Theme Engine', icon: '🎭', description: 'Integrating thematic elements throughout' },
-  { id: 'living', name: 'Living World Engine', icon: '🌟', description: 'Making the world feel alive and reactive' },
-  { id: 'trope', name: 'Trope Engine', icon: '🎪', description: 'Subverting and enhancing genre conventions' },
+  { id: 'theme', name: 'Theme Engine', icon: '🎨', description: 'Integrating thematic elements throughout' },
+  { id: 'living', name: 'Living World Engine', icon: '🌱', description: 'Making the world feel alive and reactive' },
+  { id: 'trope', name: 'Trope Engine', icon: '🔄', description: 'Subverting and enhancing genre conventions' },
   { id: 'cohesion', name: 'Cohesion Engine', icon: '🔗', description: 'Ensuring story elements connect logically' }
 ]
 
@@ -36,7 +36,10 @@ export default function UltimateEngineLoader({
   const [engineProgress, setEngineProgress] = useState<{ [key: string]: number }>({})
   const [overallProgress, setOverallProgress] = useState(0)
   const [isComplete, setIsComplete] = useState(false)
-  const [sessionId] = useState(() => Math.random().toString(36).substring(2, 8))
+  const [sessionId] = useState(() => {
+    if (typeof window === 'undefined') return 'server'
+    return Math.random().toString(36).substring(2, 8)
+  })
   const [statusMessage, setStatusMessage] = useState('Initializing Murphy Engine...')
   const [startTime, setStartTime] = useState<number | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -262,195 +265,528 @@ export default function UltimateEngineLoader({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+        className="fixed inset-0 z-50 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a] flex items-center justify-center"
         style={{ fontFamily: 'League Spartan, sans-serif' }}
       >
-        {/* Fire Video Background */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="fixed inset-0 w-full h-full object-cover opacity-30 -z-10"
-        >
-          <source src="/fire_background.mp4" type="video/mp4" />
-        </video>
+        {/* Animated Background with Brand Colors */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Floating particles */}
+          <div className="absolute inset-0">
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-1 h-1 bg-[#00FF99]/20 rounded-full"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                }}
+                animate={{
+                  y: [0, -20, 0],
+                  opacity: [0.2, 0.8, 0.2],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: 3 + Math.random() * 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Gradient orbs */}
+          <motion.div
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00FF99]/10 rounded-full blur-3xl"
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.6, 0.3],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          <motion.div
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#00CC7A]/10 rounded-full blur-3xl"
+            animate={{
+              scale: [1.2, 1, 1.2],
+              opacity: [0.4, 0.7, 0.4],
+            }}
+            transition={{
+              duration: 5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            }}
+          />
+        </div>
         {/* Main Container - More Compact */}
         <div className="w-full max-w-5xl p-4 space-y-4">
           
-        {/* Revolutionary Header */}
+        {/* Sophisticated Header */}
         <motion.div
-            initial={{ y: -20, opacity: 0 }}
+          initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-            className="text-center space-y-4"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="text-center space-y-6"
         >
-            <div className="w-20 h-20 mx-auto ember-shadow rounded-xl flex items-center justify-center animate-emberFloat bg-[#e2c376]/10 border border-[#e2c376]/30">
-              <span className="text-4xl">🔥</span>
+          {/* Animated Logo */}
+          <motion.div
+            className="relative w-24 h-24 mx-auto"
+            animate={{
+              rotate: [0, 5, -5, 0],
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 rounded-2xl blur-xl" />
+            <div className="relative w-full h-full bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 rounded-2xl border border-[#00FF99]/30 flex items-center justify-center backdrop-blur-sm">
+              <motion.span
+                className="text-4xl"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.8, 1, 0.8],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                ⚡
+              </motion.span>
             </div>
-            <h1 className="text-5xl font-black elegant-fire fire-gradient animate-flameFlicker">
-              SCORCHED ENGINE
-          </h1>
-            <p className="text-lg text-white/90 elegant-fire">
+          </motion.div>
+          
+          {/* Main Title with Enhanced Typography */}
+          <motion.h1
+            className="text-6xl font-black bg-gradient-to-r from-white via-[#00FF99] to-white bg-clip-text text-transparent"
+            animate={{
+              backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            style={{
+              backgroundSize: '200% 100%',
+            }}
+          >
+              GREENLIT ENGINES
+          </motion.h1>
+          
+          {/* Subtitle with Better Spacing */}
+          <div className="space-y-2">
+            <motion.p
+              className="text-xl text-white/90 font-medium tracking-wide"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
               Session {sessionId} • {REAL_ENGINES.length} Revolutionary Engines
-            </p>
-            <p className="text-white/80 elegant-fire">
-              {isComplete ? '🔥 EMPIRE FORGED!' : statusMessage}
-            </p>
+            </motion.p>
+            <motion.div
+              className="h-8 flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+            >
+              <motion.p
+                className="text-lg text-[#00FF99] font-medium px-4 py-2 rounded-full bg-[#00FF99]/10 border border-[#00FF99]/30"
+                animate={{
+                  scale: isComplete ? [1, 1.05, 1] : 1,
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: isComplete ? Infinity : 0,
+                }}
+              >
+              {isComplete ? '🎬 PRODUCTION COMPLETE!' : statusMessage}
+              </motion.p>
+            </motion.div>
+          </div>
         </motion.div>
 
-        {/* Revolutionary Progress */}
+        {/* Sophisticated Progress Section */}
         <motion.div
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-            className="space-y-4 rebellious-card p-6"
-          >
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black text-[#e2c376] elegant-fire">EMPIRE PROGRESS</h2>
-              <div className="flex items-center space-x-4">
-                <span className="text-2xl font-black text-[#e2c376] elegant-fire">{Math.round(overallProgress)}%</span>
-                <span className="text-lg text-white/90 elegant-fire font-mono">
+          initial={{ scaleX: 0, opacity: 0 }}
+          animate={{ scaleX: 1, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="relative bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-8 shadow-2xl"
+        >
+          {/* Progress Header */}
+          <div className="flex justify-between items-center mb-6">
+            <motion.h2
+              className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] to-[#00CC7A] bg-clip-text text-transparent"
+              animate={{
+                backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              style={{
+                backgroundSize: '200% 100%',
+              }}
+            >
+              PRODUCTION PROGRESS
+            </motion.h2>
+            <div className="flex items-center space-x-6">
+              <motion.div
+                className="text-center"
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              >
+                <div className="text-3xl font-black text-[#00FF99]">{Math.round(overallProgress)}%</div>
+                <div className="text-xs text-white/60 uppercase tracking-wider">Complete</div>
+              </motion.div>
+              <div className="text-center">
+                <div className="text-lg text-white/90 font-mono font-medium">
                   🕐 {formatElapsedTime(elapsedTime)}
-                </span>
+                </div>
+                <div className="text-xs text-white/60 uppercase tracking-wider">Elapsed</div>
+              </div>
               </div>
             </div>
             
-            <div className="relative h-4 bg-black/50 rounded-full overflow-hidden border border-[#e2c376]/30">
+          {/* Enhanced Progress Bar */}
+          <div className="relative">
+            <div className="h-6 bg-black/50 rounded-full overflow-hidden border border-[#00FF99]/30 shadow-inner">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#D62828] via-[#FF6B00] to-[#e2c376] ember-shadow"
+                className="h-full bg-gradient-to-r from-[#00CC7A] via-[#00FF99] to-[#33FFAD] relative"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallProgress}%` }}
-                transition={{ duration: 0.5 }}
-              />
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              >
+                {/* Shimmer effect */}
             <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
                 animate={{ x: ['-100%', '100%'] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             />
+                {/* Glow effect */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 blur-sm"
+                  animate={{
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              </motion.div>
+            </div>
+            
+            {/* Progress markers */}
+            <div className="flex justify-between mt-2 text-xs text-white/60">
+              {[0, 25, 50, 75, 100].map((marker) => (
+                <div key={marker} className="text-center">
+                  <div className="w-1 h-1 bg-white/40 rounded-full mx-auto mb-1" />
+                  {marker}%
+                </div>
+              ))}
+            </div>
           </div>
           </motion.div>
 
-          {/* Engine Grid - Compact 4x3 Layout */}
-          <div className="grid grid-cols-4 gap-3 max-w-4xl mx-auto">
+        {/* Sophisticated Engine Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="grid grid-cols-4 gap-4 max-w-5xl mx-auto"
+        >
             {REAL_ENGINES.map((engine, index) => {
               const isActive = index === currentEngineIndex
               const isCompleted = engineProgress[engine.id] >= 100
               const progress = engineProgress[engine.id] || 0
+            const isUpcoming = index > currentEngineIndex
                   
                   return (
                     <motion.div
                   key={engine.id}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`relative p-4 rounded-xl border-2 transition-all duration-300 ${
+                initial={{ scale: 0, opacity: 0, rotateY: -90 }}
+                animate={{ scale: 1, opacity: 1, rotateY: 0 }}
+                transition={{ 
+                  delay: index * 0.1,
+                  duration: 0.6,
+                  ease: "easeOut"
+                }}
+                whileHover={{ scale: 1.02 }}
+                className={`relative group p-6 rounded-2xl border-2 transition-all duration-500 backdrop-blur-sm ${
                     isActive 
-                      ? 'border-[#e2c376] bg-[#e2c376]/20 ember-shadow animate-emberFloat' 
+                    ? 'border-[#00FF99] bg-gradient-to-br from-[#00FF99]/20 via-[#00FF99]/10 to-[#00CC7A]/20 shadow-2xl shadow-[#00FF99]/20' 
                       : isCompleted 
-                        ? 'border-[#e2c376]/60 bg-[#e2c376]/10' 
-                        : 'border-[#e2c376]/30 bg-black/50'
-                  }`}
-                >
+                      ? 'border-[#00FF99]/60 bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 shadow-lg' 
+                      : isUpcoming
+                        ? 'border-[#00FF99]/20 bg-black/30'
+                        : 'border-[#00FF99]/30 bg-black/40'
+                }`}
+              >
+                {/* Engine Status Glow */}
+                {isActive && (
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 rounded-2xl blur-xl"
+                    animate={{
+                      opacity: [0.3, 0.6, 0.3],
+                      scale: [1, 1.05, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                )}
+
                   {/* Engine Icon and Name */}
-                  <div className="text-center space-y-1">
-                    <div className={`text-2xl ${isActive ? 'animate-pulse' : ''}`}>
+                <div className="relative text-center space-y-3">
+                  <motion.div
+                    className={`text-3xl ${isActive ? 'animate-pulse' : ''}`}
+                    animate={isActive ? {
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 5, -5, 0],
+                    } : {}}
+                    transition={{
+                      duration: 2,
+                      repeat: isActive ? Infinity : 0,
+                      ease: "easeInOut",
+                    }}
+                  >
                       {engine.icon}
-                    </div>
-                    <h3 className={`text-sm font-black elegant-fire ${
-                      isActive ? 'text-[#e2c376] animate-flameFlicker' : 
-                      isCompleted ? 'text-[#e2c376]/80' : 'text-white/70'
+                  </motion.div>
+                  <h3 className={`text-sm font-bold transition-all duration-300 ${
+                    isActive ? 'text-[#00FF99]' : 
+                    isCompleted ? 'text-[#00FF99]/90' : 
+                    isUpcoming ? 'text-white/50' : 'text-white/70'
                         }`}>
                           {engine.name}
                     </h3>
                   </div>
 
-                  {/* Revolutionary Progress Bar */}
-                  <div className="mt-3 space-y-2">
-                    <div className="w-full bg-black/50 rounded-full h-2 overflow-hidden border border-[#e2c376]/30">
+                {/* Enhanced Progress Bar */}
+                <div className="mt-4 space-y-3">
+                  <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden border border-[#00FF99]/30 shadow-inner">
                       <motion.div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          isActive ? 'bg-gradient-to-r from-[#D62828] to-[#e2c376] ember-shadow' : 
-                          isCompleted ? 'bg-[#e2c376]' : 'bg-[#e2c376]/30'
+                      className={`h-full rounded-full relative ${
+                        isActive ? 'bg-gradient-to-r from-[#00CC7A] to-[#00FF99]' : 
+                        isCompleted ? 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A]' : 
+                        'bg-[#00FF99]/30'
                         }`}
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
-                      />
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                    >
+                      {/* Shimmer effect for active engines */}
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                        />
+                      )}
+                    </motion.div>
                     </div>
-                    <div className="text-xs text-center font-black elegant-fire text-[#e2c376]">
+                  <div className="flex justify-between items-center">
+                    <div className={`text-xs font-bold ${
+                      isActive ? 'text-[#00FF99]' : 
+                      isCompleted ? 'text-[#00FF99]/80' : 
+                      'text-white/60'
+                    }`}>
                       {Math.round(progress)}%
                     </div>
-                      </div>
-
-                                    {/* Revolutionary Status Indicators */}
-                  <div className="absolute top-2 right-2">
                       {isCompleted && (
-                        <motion.span
+                      <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="text-[#e2c376] text-lg"
-                        >
-                          🔥
-                        </motion.span>
-                      )}
-                      {isActive && !isCompleted && (
-                        <motion.span
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                          className="text-[#FF6B00] text-lg animate-pulse"
-                        >
-                          ⚡
-                        </motion.span>
+                        className="text-[#00FF99] text-sm"
+                      >
+                        ✓
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Indicators */}
+                <div className="absolute top-3 right-3">
+                  {isCompleted && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      className="w-6 h-6 bg-[#00FF99] rounded-full flex items-center justify-center"
+                    >
+                      <span className="text-white text-xs font-bold">✓</span>
+                    </motion.div>
+                  )}
+                  {isActive && !isCompleted && (
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 180, 360],
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity, 
+                        ease: "easeInOut" 
+                      }}
+                      className="w-6 h-6 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] rounded-full flex items-center justify-center"
+                    >
+                      <span className="text-white text-xs">⚡</span>
+                    </motion.div>
                       )}
                   </div>
                     </motion.div>
                   )
                 })}
-          </div>
+        </motion.div>
 
-          {/* Revolutionary Engine Details */}
+        {/* Sophisticated Engine Details */}
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="text-center space-y-6"
+        >
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-center space-y-4"
+            className="inline-flex items-center space-x-6 p-8 bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl shadow-2xl"
+            animate={{
+              scale: [1, 1.02, 1],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
           >
-            <div className="inline-flex items-center space-x-4 p-6 rebellious-card ember-shadow">
-              <span className="text-3xl animate-pulse">{REAL_ENGINES[currentEngineIndex]?.icon}</span>
-              <div>
-                <h3 className="text-xl font-black text-[#e2c376] elegant-fire animate-flameFlicker">
+            <motion.div
+              className="text-4xl"
+              animate={{
+                scale: [1, 1.1, 1],
+                rotate: [0, 10, -10, 0],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              {REAL_ENGINES[currentEngineIndex]?.icon}
+            </motion.div>
+            <div className="text-left">
+              <motion.h3
+                className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] to-[#00CC7A] bg-clip-text text-transparent mb-2"
+                animate={{
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+                style={{
+                  backgroundSize: '200% 100%',
+                }}
+              >
                   {REAL_ENGINES[currentEngineIndex]?.name}
-                </h3>
-                <p className="text-lg text-white/90 elegant-fire">
+              </motion.h3>
+              <p className="text-lg text-white/90 font-medium max-w-md">
                   {REAL_ENGINES[currentEngineIndex]?.description}
                 </p>
               </div>
-              </div>
+          </motion.div>
             </motion.div>
 
-        {/* Revolutionary Status Bar */}
+        {/* Sophisticated Status Bar */}
         <motion.div
-            initial={{ y: 30, opacity: 0 }}
+          initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.6 }}
-            className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-sm border-t border-[#e2c376]/30 p-4"
+          transition={{ duration: 0.8, delay: 0.7 }}
+          className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-black/95 via-black/90 to-black/95 backdrop-blur-md border-t border-[#00FF99]/30 p-6"
         >
-            <div className="flex justify-between items-center text-lg max-w-6xl mx-auto elegant-fire">
-            <div className="flex space-x-8">
-                <span className="text-[#e2c376]">
-                  🔥 Phase: {Math.floor(overallProgress / 25) + 1} of 4
+          <div className="max-w-7xl mx-auto">
+            <div className="flex justify-between items-center">
+              {/* Left side - Phase info */}
+              <div className="flex items-center space-x-8">
+                <motion.div
+                  className="flex items-center space-x-3"
+                  animate={{
+                    scale: [1, 1.05, 1],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <div className="w-3 h-3 bg-[#00FF99] rounded-full animate-pulse" />
+                  <span className="text-[#00FF99] font-bold text-lg">
+                    Phase {Math.floor(overallProgress / 25) + 1} of 4
               </span>
-                <span className="text-white/80">
-                  ⚡ Revolutionary AI: Scorched Routing
-              </span>
+                </motion.div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-white/80 text-lg">⚡</span>
+                  <span className="text-white/80 font-medium">Production AI: Greenlit Routing</span>
+                </div>
             </div>
-            <div className="flex space-x-6">
-                <span className="text-[#e2c376]">
-                  🔥 {Object.values(engineProgress).filter(p => p >= 100).length} Forged
+
+              {/* Right side - Engine stats */}
+              <div className="flex items-center space-x-8">
+                <motion.div
+                  className="flex items-center space-x-2"
+                  animate={{
+                    scale: [1, 1.02, 1],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <span className="text-[#00FF99] text-lg">✅</span>
+                  <span className="text-[#00FF99] font-bold">
+                    {Object.values(engineProgress).filter(p => p >= 100).length} Complete
                 </span>
-                <span className="text-[#FF6B00] animate-pulse">
-                  ⚡ {currentEngineIndex + 1} Burning
+                </motion.div>
+                
+                <motion.div
+                  className="flex items-center space-x-2"
+                  animate={{
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{
+                    duration: 1,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <span className="text-[#00CC7A] text-lg">⚡</span>
+                  <span className="text-[#00CC7A] font-bold">
+                    {currentEngineIndex + 1} Active
                 </span>
-                <span className="text-white/70">
-                  ⏳ {REAL_ENGINES.length - currentEngineIndex - 1} Awaiting
+                </motion.div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-white/70 text-lg">⏳</span>
+                  <span className="text-white/70 font-medium">
+                    {REAL_ENGINES.length - currentEngineIndex - 1} Awaiting
                 </span>
+                </div>
+              </div>
               </div>
             </div>
           </motion.div>

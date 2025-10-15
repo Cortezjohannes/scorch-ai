@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import EpisodeEngineLoader from '@/components/EpisodeEngineLoader'
+import AnimatedBackground from '@/components/AnimatedBackground'
+import '@/styles/greenlit-design.css'
 
 interface BranchingOption {
   id: number
@@ -21,7 +23,9 @@ interface DialogueProps {
 
 interface SceneProps {
   sceneNumber: number
+  title?: string
   content: string
+  _edited?: boolean // Flag to mark if scene was edited by user
 }
 
 interface EpisodeData {
@@ -607,13 +611,31 @@ export default function EpisodePage() {
   // Add a state for the completion lightbox
   const [showCompletionLightbox, setShowCompletionLightbox] = useState<boolean>(false)
   const [completedArcNumber, setCompletedArcNumber] = useState<number | null>(null)
+  const [isClient, setIsClient] = useState(false)
+  
+  // Add state for creative path
+  const [customStoryInput, setCustomStoryInput] = useState<string>('')
+  const [showCreativePath, setShowCreativePath] = useState<boolean>(false)
+  
+  // Scene editing state
+  const [editingScene, setEditingScene] = useState<number | null>(null)
+  const [editingSceneContent, setEditingSceneContent] = useState<string>('')
+  const [isSceneLocked, setIsSceneLocked] = useState<boolean>(false)
+
+  // Effect to set client-side flag
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Effect to load story bible and previous choices from localStorage
   useEffect(() => {
+    // Only run on client side to prevent hydration errors
+    if (typeof window === 'undefined') return
+    
     const loadData = () => {
       try {
         // Load story bible
-        const savedBible = localStorage.getItem('reeled-story-bible')
+        const savedBible = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')) : null
         if (savedBible) {
           const parsed = JSON.parse(savedBible)
           
@@ -628,7 +650,7 @@ export default function EpisodePage() {
           if (episodeId > 1) {
             // Check if previous episodes exist
             try {
-            const savedEpisodes = localStorage.getItem('reeled-episodes')
+            const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null
             if (savedEpisodes) {
               const episodes = JSON.parse(savedEpisodes)
                 
@@ -661,7 +683,7 @@ export default function EpisodePage() {
           }
           
           // Load user choices
-          const savedChoices = localStorage.getItem('reeled-user-choices')
+          const savedChoices = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-user-choices') || localStorage.getItem('scorched-user-choices') || localStorage.getItem('reeled-user-choices')) : null
           if (savedChoices) {
             setUserChoices(JSON.parse(savedChoices))
           }
@@ -684,6 +706,9 @@ export default function EpisodePage() {
 
   // Effect to poll localStorage for episodes when in loading state
   useEffect(() => {
+    // Only run on client side to prevent hydration errors
+    if (typeof window === 'undefined') return
+    
     // Only start polling if we're in loading/generating state
     if ((loading || generating) && episodeId > 0 && !localStoragePollingInterval) {
       console.log(`Starting localStorage polling for episode ${episodeId}`);
@@ -696,31 +721,45 @@ export default function EpisodePage() {
       // Check localStorage every 2 seconds
       const interval = setInterval(() => {
         try {
-          const savedEpisodes = localStorage.getItem('reeled-episodes');
+          const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null;
           if (savedEpisodes) {
             const episodes = JSON.parse(savedEpisodes);
             
             // If this episode exists in localStorage but not in our state
+            // CRITICAL: Only display if it's marked as fully enhanced (not just a draft)
             if (episodes[episodeId] && !episodeData) {
-              console.log(`Found episode ${episodeId} in localStorage during polling`);
+              const episode = episodes[episodeId];
               
-              // Calculate how long we've been generating
-              const generationTimeElapsed = generationStartTime ? (Date.now() - generationStartTime) / 1000 : 0;
-              console.log(`Generation took approximately ${generationTimeElapsed.toFixed(1)} seconds`);
+              // Check if this is a complete, enhanced episode
+              const isEnhanced = episode._generationComplete === true || 
+                                episode.generationType === 'comprehensive-enhanced' ||
+                                episode.generationType === 'legacy-enhanced' ||
+                                episode.generationType === 'story-bible-only';
               
-              // Clear intervals and timeouts
-              if (generationTimeout) {
-                clearTimeout(generationTimeout);
-                setGenerationTimeout(null);
+              if (isEnhanced) {
+                console.log(`✅ Found ENHANCED episode ${episodeId} in localStorage during polling`);
+                
+                // Calculate how long we've been generating
+                const generationTimeElapsed = generationStartTime ? (Date.now() - generationStartTime) / 1000 : 0;
+                console.log(`🎉 Generation took approximately ${generationTimeElapsed.toFixed(1)} seconds`);
+                
+                // Clear intervals and timeouts
+                if (generationTimeout) {
+                  clearTimeout(generationTimeout);
+                  setGenerationTimeout(null);
+                }
+                
+                // Display the enhanced episode
+                setEpisodeData(episodes[episodeId]);
+                setLoading(false);
+                setGenerating(false);
+                // Clear the polling interval
+                clearInterval(interval);
+                setLocalStoragePollingInterval(null);
+              } else {
+                console.log(`⏳ Found DRAFT episode ${episodeId} in localStorage - waiting for enhancement to complete...`);
+                // Continue polling - don't display the draft
               }
-              
-              // Instead of forcing a refresh, set state and stop polling
-              setEpisodeData(episodes[episodeId]);
-              setLoading(false);
-              setGenerating(false);
-              // Clear the polling interval
-              clearInterval(interval);
-              setLocalStoragePollingInterval(null);
             }
           }
         } catch (error) {
@@ -750,9 +789,47 @@ export default function EpisodePage() {
     }
   }, [loading, generating, episodeId, episodeData, generationStartTime, localStoragePollingInterval, generationTimeout]);
 
+  // Effect to redirect to episode studio if episode doesn't exist yet
+  useEffect(() => {
+    if (!storyBible || !previousEpisodesExist || generating) return;
+    
+    // Check if this episode already exists
+    const checkEpisodeExists = () => {
+      try {
+        const savedEpisodes = typeof window !== 'undefined' 
+          ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) 
+          : null;
+        
+        if (savedEpisodes) {
+          const episodes = JSON.parse(savedEpisodes);
+          if (episodes[episodeId]) {
+            // Episode exists, display it
+            setEpisodeData(episodes[episodeId]);
+            setLoading(false);
+            return true;
+          }
+        }
+        return false;
+      } catch (error) {
+        console.error('Error checking episode existence:', error);
+        return false;
+      }
+    };
+    
+    // If episode doesn't exist, redirect to Episode Studio (Director's Chair)
+    if (!checkEpisodeExists() && !episodeData) {
+      console.log(`Episode ${episodeId} doesn't exist yet - redirecting to Episode Studio`);
+      router.push(`/episode-studio/${episodeId}`);
+    }
+  }, [storyBible, episodeId, previousEpisodesExist, generating, router, episodeData]);
+
+  // OLD AUTO-GENERATION CODE - DEPRECATED IN FAVOR OF DIRECTOR'S CHAIR
   // Effect to generate episode content when loaded
   useEffect(() => {
     const generateEpisode = async () => {
+      // DISABLED: We now redirect to episode-studio instead of auto-generating
+      return;
+      
       if (!storyBible || generating || !previousEpisodesExist) return;
       
       setGenerating(true);
@@ -765,7 +842,7 @@ export default function EpisodePage() {
         
         // Check one more time if the episode exists in localStorage before showing the error
         try {
-          const savedEpisodes = localStorage.getItem('reeled-episodes');
+          const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null;
           if (savedEpisodes) {
             const episodes = JSON.parse(savedEpisodes);
             if (episodes[episodeId]) {
@@ -780,9 +857,9 @@ export default function EpisodePage() {
           console.error('Error checking localStorage during timeout:', error);
         }
         
-        setError('Episode generation is taking longer than expected. You can wait or try reloading the page.');
+        setError('Episode generation is taking longer than expected. The enhancement process can take up to 5 minutes for comprehensive results.');
         setGenerating(false);
-      }, 60000); // 60 second timeout
+      }, 300000); // 5 minute timeout to accommodate enhancement process
       
       setGenerationTimeout(timeout);
       
@@ -792,10 +869,10 @@ export default function EpisodePage() {
         
         // Get creative mode from user's original choice, not story bible
         let creativeMode = 'beast'; // default fallback
-        const savedBible = localStorage.getItem('reeled-story-bible');
+        const savedBible = typeof window !== 'undefined' ? (localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')) : null;
         if (savedBible) {
           try {
-            const parsed = JSON.parse(savedBible);
+            const parsed = JSON.parse(savedBible as string);
             creativeMode = parsed.creativeMode || 'beast';
             console.log(`Using user's original mode choice: ${creativeMode}`);
           } catch (e) {
@@ -803,7 +880,8 @@ export default function EpisodePage() {
           }
         }
         
-        console.log(`Client: Requesting episode ${episodeId} with mode: ${creativeMode}, previous choice:`, previousChoice?.choiceText || "none");
+        console.log(`🎬 Episode Generation: Requesting seamless episode ${episodeId} generation with mode: ${creativeMode}`);
+        console.log(`📄 Previous choice: ${previousChoice?.choiceText || "none"}`);
         
         const response = await fetch('/api/generate/episode', {
           method: 'POST',
@@ -821,7 +899,7 @@ export default function EpisodePage() {
         
         // Clear the timeout since we got a response
         if (generationTimeout) {
-          clearTimeout(generationTimeout);
+          clearTimeout(generationTimeout as NodeJS.Timeout);
           setGenerationTimeout(null);
         }
         
@@ -869,25 +947,33 @@ export default function EpisodePage() {
           throw new Error('The generated episode has an invalid structure');
         }
         
-        console.log(`Client: Episode ${episodeId} processed successfully`);
+        // Mark as fully enhanced and complete
+        (processedEpisodeData as any)._generationComplete = true;
+        (processedEpisodeData as any).generationType = data.generationType || 'enhanced';
+        (processedEpisodeData as any)._enhancementTimestamp = Date.now();
+        
+        console.log(`🎉 Episode ${episodeId} FULLY ENHANCED and ready for display`);
         setEpisodeData(processedEpisodeData);
         setLoading(false);        // ensure loader closes
         setGenerating(false);     // ensure loader closes
         
-        // Save the processed episode to localStorage
-        const savedEpisodes = localStorage.getItem('reeled-episodes') 
-          ? JSON.parse(localStorage.getItem('reeled-episodes')!) 
-          : {};
+        // Save the ENHANCED episode to localStorage with completion flags
+        const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null;
+        const savedEpisodesData = savedEpisodes ? JSON.parse(savedEpisodes as string) : {};
           
-        savedEpisodes[episodeId] = processedEpisodeData;
-        localStorage.setItem('reeled-episodes', JSON.stringify(savedEpisodes));
+        savedEpisodesData[episodeId] = processedEpisodeData;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('scorched-episodes', JSON.stringify(savedEpisodesData));
+        }
+        
+        console.log(`💾 Enhanced episode ${episodeId} saved to localStorage with completion flags`);
       } catch (error) {
         console.error('Error generating episode:', error);
         setError(error instanceof Error ? error.message : 'An unexpected error occurred');
         
         // Clear any existing timeout
         if (generationTimeout) {
-          clearTimeout(generationTimeout);
+          clearTimeout(generationTimeout as NodeJS.Timeout);
           setGenerationTimeout(null);
         }
       } finally {
@@ -895,16 +981,29 @@ export default function EpisodePage() {
       }
     };
     
-    // Check if we already have this episode in localStorage
+    // Check if we already have this episode in localStorage (ONLY ENHANCED ONES)
     const checkSavedEpisode = () => {
       try {
-        const savedEpisodes = localStorage.getItem('reeled-episodes');
+        const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null;
         if (savedEpisodes) {
           const episodes = JSON.parse(savedEpisodes);
           if (episodes[episodeId]) {
-            console.log(`Client: Loading episode ${episodeId} from localStorage`);
-            setEpisodeData(episodes[episodeId]);
-            return true;
+            const episode = episodes[episodeId];
+            
+            // Only load if it's a complete, enhanced episode
+            const isEnhanced = episode._generationComplete === true || 
+                              episode.generationType === 'comprehensive-enhanced' ||
+                              episode.generationType === 'legacy-enhanced' ||
+                              episode.generationType === 'story-bible-only';
+            
+            if (isEnhanced) {
+              console.log(`✅ Loading ENHANCED episode ${episodeId} from localStorage`);
+              setEpisodeData(episodes[episodeId]);
+              return true;
+            } else {
+              console.log(`⏳ Found DRAFT episode ${episodeId} in localStorage - ignoring and generating enhanced version`);
+              return false; // Don't load the draft, generate a new enhanced version
+            }
           }
         }
         return false;
@@ -914,6 +1013,9 @@ export default function EpisodePage() {
       }
     };
     
+    // DISABLED: Auto-generation is now handled by Director's Chair (episode-studio)
+    // The code below is kept for reference but not executed
+    /*
     if (storyBible && !episodeData && !generating && previousEpisodesExist) {
       if (!checkSavedEpisode()) {
         generateEpisode();
@@ -921,6 +1023,7 @@ export default function EpisodePage() {
         setLoading(false);
       }
     }
+    */
     
     // Cleanup function to clear timeout on unmount
     return () => {
@@ -934,6 +1037,47 @@ export default function EpisodePage() {
   const handleSelectOption = (option: BranchingOption) => {
     setSelectedOption(option)
     setShowOptionDetails(true)
+  }
+  
+  // Handle creative path selection
+  const handleCreativePath = () => {
+    setShowCreativePath(true)
+    setSelectedOption(null)
+    setShowOptionDetails(false)
+  }
+  
+  // Handle custom story input
+  const handleCustomStorySubmit = () => {
+    if (!customStoryInput.trim()) return
+    
+    // Create a custom choice object
+    const customChoice: UserChoice = {
+      episodeNumber: episodeId,
+      choiceId: -1, // Use -1 to indicate custom choice
+      choiceText: customStoryInput.trim()
+    }
+    
+    // Update choices in state
+    const updatedChoices = [
+      ...userChoices.filter(choice => choice.episodeNumber !== episodeId),
+      customChoice
+    ]
+    
+    setUserChoices(updatedChoices)
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('greenlit-user-choices', JSON.stringify(updatedChoices))
+      localStorage.setItem('scorched-user-choices', JSON.stringify(updatedChoices))
+      localStorage.setItem('reeled-user-choices', JSON.stringify(updatedChoices))
+    }
+    
+    // Reset creative path state
+    setCustomStoryInput('')
+    setShowCreativePath(false)
+    
+    // Show completion lightbox
+    setShowCompletionLightbox(true)
   }
   
   // Handle confirming a choice
@@ -955,8 +1099,8 @@ export default function EpisodePage() {
     
     setUserChoices(updatedChoices)
     
-    // Save to localStorage
-    localStorage.setItem('reeled-user-choices', JSON.stringify(updatedChoices))
+    // Save to localStorage (use greenlit key for consistency)
+    localStorage.setItem('greenlit-user-choices', JSON.stringify(updatedChoices))
     
     // Hide the details dialog
     setShowOptionDetails(false)
@@ -980,8 +1124,8 @@ export default function EpisodePage() {
         const arcEpisodeCount = arc.episodes?.length || 10;
         
         if (episodeId >= runningEpisodeCount + 1 && episodeId <= runningEpisodeCount + arcEpisodeCount) {
-          // This episode is in arc i
-          arcNumber = i + 1; // Arc number is 1-based
+          // This episode is in arc i (0-based index for consistency with workspace)
+          arcNumber = i; // Arc index is 0-based
           
           // Check if this is the last episode of the arc
           if (episodeId === runningEpisodeCount + arcEpisodeCount) {
@@ -1002,17 +1146,17 @@ export default function EpisodePage() {
     
     if (isArcEnd) {
       // This is the end of an arc - show congratulatory popup and redirect to workspace
-      console.log(`🎉 Arc ${arcNumber} completed at episode ${episodeId}`);
+      console.log(`🎉 Arc ${arcNumber + 1} completed at episode ${episodeId}`);
       
-      // Set a flag in localStorage to show we completed this arc
-      const completedArcs = localStorage.getItem('reeled-completed-arcs')
-        ? JSON.parse(localStorage.getItem('reeled-completed-arcs')!)
-        : {};
-      completedArcs[arcNumber] = true;
-      localStorage.setItem('reeled-completed-arcs', JSON.stringify(completedArcs));
+      // Set a flag in localStorage to show we completed this arc (using 0-based index)
+      const savedCompletedArcs = localStorage.getItem('greenlit-completed-arcs') || localStorage.getItem('scorched-completed-arcs') || localStorage.getItem('reeled-completed-arcs')
+      const completedArcs = savedCompletedArcs ? JSON.parse(savedCompletedArcs) : {};
+      completedArcs[arcNumber] = true; // arcNumber is 0-based index
+      // Save to greenlit key (primary) for consistency
+      localStorage.setItem('greenlit-completed-arcs', JSON.stringify(completedArcs));
       
-      // Show completion lightbox instead of alert
-      setCompletedArcNumber(arcNumber);
+      // Show completion lightbox instead of alert (display as 1-based for users)
+      setCompletedArcNumber(arcNumber + 1);
       setShowCompletionLightbox(true);
       
       // Auto-redirect after 5 seconds
@@ -1024,10 +1168,10 @@ export default function EpisodePage() {
       setTimeout(() => {
         if (episodeId < 60) {  // Allow up to 60 episodes total (6 arcs × 10 episodes)
           // Save timestamp so we know when we started navigating
-          localStorage.setItem('reeled-navigation-timestamp', Date.now().toString());
+          localStorage.setItem('scorched-navigation-timestamp', Date.now().toString());
           
-          // Navigate to next episode
-          router.push(`/episode/${episodeId + 1}`);
+          // Navigate to Episode Studio for next episode creation
+          router.push(`/episode-studio/${episodeId + 1}`);
         } else {
           // Series finale - could show a completion screen
           router.push('/series-complete');
@@ -1035,6 +1179,85 @@ export default function EpisodePage() {
       }, 100);
     }
   }
+
+  // Scene editing functions
+  const startEditingScene = (sceneIndex: number) => {
+    if (isSceneLocked) {
+      alert('🔒 Scenes are locked after the next episode is generated to maintain continuity.')
+      return
+    }
+    
+    if (!episodeData || !episodeData.scenes[sceneIndex]) return
+    
+    setEditingScene(sceneIndex)
+    setEditingSceneContent(episodeData.scenes[sceneIndex].content)
+  }
+  
+  const cancelEditingScene = () => {
+    setEditingScene(null)
+    setEditingSceneContent('')
+  }
+  
+  const saveSceneEdit = () => {
+    if (!episodeData || editingScene === null) return
+    
+    // Update the scene content
+    const updatedScenes = [...episodeData.scenes]
+    updatedScenes[editingScene] = {
+      ...updatedScenes[editingScene],
+      content: editingSceneContent,
+      _edited: true // Mark as edited for AI awareness
+    }
+    
+    // Update episode data
+    const updatedEpisodeData = {
+      ...episodeData,
+      scenes: updatedScenes
+    }
+    
+    setEpisodeData(updatedEpisodeData)
+    
+    // Save to localStorage
+    try {
+      const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes') || localStorage.getItem('greenlit-episodes')
+      const episodes = savedEpisodes ? JSON.parse(savedEpisodes) : {}
+      episodes[episodeId] = updatedEpisodeData
+      
+      // Save back to the same key we found
+      const key = localStorage.getItem('scorched-episodes') ? 'scorched-episodes' : 
+                  localStorage.getItem('reeled-episodes') ? 'reeled-episodes' : 'greenlit-episodes'
+      localStorage.setItem(key, JSON.stringify(episodes))
+      
+      console.log(`✅ Scene ${editingScene + 1} edited and saved`)
+    } catch (error) {
+      console.error('Error saving scene edit:', error)
+    }
+    
+    // Clear editing state
+    setEditingScene(null)
+    setEditingSceneContent('')
+  }
+  
+  // Check if scenes should be locked (after next episode is generated)
+  useEffect(() => {
+    if (!episodeData) return
+    
+    // Check if next episode exists
+    const checkNextEpisode = () => {
+      try {
+        const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes') || localStorage.getItem('greenlit-episodes')
+        if (savedEpisodes) {
+          const episodes = JSON.parse(savedEpisodes)
+          const nextEpisodeExists = episodes[episodeId + 1]
+          setIsSceneLocked(!!nextEpisodeExists)
+        }
+      } catch (error) {
+        console.error('Error checking next episode:', error)
+      }
+    }
+    
+    checkNextEpisode()
+  }, [episodeData, episodeId])
 
   // Check if episode data is valid
   const isValidEpisodeData = episodeData && 
@@ -1051,13 +1274,13 @@ export default function EpisodePage() {
     return (
       <div className="min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center">
         <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-lg w-full">
-          <h2 className="text-xl font-bold text-[#e2c376] mb-4">Episodes Must Be Generated In Order</h2>
+          <h2 className="text-xl font-bold text-[#00FF99] mb-4 font-medium cinematic-header">Episodes Must Be Generated In Order</h2>
           <p className="text-[#e7e7e7]/80 mb-6">
             You need to generate Episode 1 first before proceeding to later episodes.
           </p>
           <button
             onClick={() => router.push('/episode/1')}
-            className="px-4 py-2 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors"
+            className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
           >
             Go to Episode 1
           </button>
@@ -1069,7 +1292,7 @@ export default function EpisodePage() {
   // Loading state with our in-brand loader
   if (!error && (loading || generating || !isValidEpisodeData) && !episodeData) {
     try {
-      const savedEpisodes = localStorage.getItem('reeled-episodes');
+      const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes');
       if (savedEpisodes) {
         const episodes = JSON.parse(savedEpisodes);
         if (episodes[episodeId] && !episodeData) {
@@ -1101,12 +1324,12 @@ export default function EpisodePage() {
     return (
       <div className="min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center">
         <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-lg w-full">
-          <h2 className="text-xl font-bold text-[#e2c376] mb-4">Something went wrong</h2>
+          <h2 className="text-xl font-bold text-[#00FF99] mb-4 font-medium cinematic-header">Something went wrong</h2>
           <p className="text-[#e7e7e7]/80 mb-6">{error || "Couldn't load the story bible."}</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => router.push('/story-bible')}
-              className="px-4 py-2 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors"
+              className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
             >
               Return to Story Bible
             </button>
@@ -1142,8 +1365,22 @@ export default function EpisodePage() {
     summary: "The journey continues..." 
   }
 
+  // Show loading state until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a]" />
+        <div className="flex flex-col items-center">
+          <div className="w-20 h-20 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full animate-spin" />
+          <p className="text-[#e7e7e7]/70 mt-4">Loading episode...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-black p-4 sm:p-6 md:p-8 pb-24">
+    <div className="min-h-screen bg-black p-4 sm:p-6 md:p-8 pb-24 relative" style={{ zIndex: 1 }}>
+      <AnimatedBackground intensity="medium" />
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1151,30 +1388,32 @@ export default function EpisodePage() {
           transition={{ duration: 0.5 }}
         >
           {/* Episode Content */}
-          <div className="bg-black border border-[#e2c376]/20 rounded-xl overflow-hidden">
+          <div className="bg-black border border-[#00FF99]/20 rounded-xl overflow-hidden">
             {episodeData ? (
               <div>
                 {/* Episode Header */}
-                <div className="bg-black p-8 border-b border-[#e2c376]/20">
+                <div className="bg-black p-8 border-b border-[#00FF99]/20">
                   <div className="max-w-3xl mx-auto">
-                    <h1 className="text-4xl sm:text-5xl font-bold text-[#e2c376] mb-4 tracking-wide leading-tight">
+                    <h1 className="text-4xl sm:text-5xl font-bold text-[#00FF99] mb-4 tracking-wide leading-tight font-medium cinematic-header">
                       {episodeData.episodeTitle}
                     </h1>
                     <div className="text-white/90 flex items-center text-lg tracking-wide">
                       <span className="mr-3">Episode {episodeId}/60</span>
-                      <span className="text-[#e2c376]/60">•</span>
+                      <span className="text-[#00FF99]/60">•</span>
                       <span className="ml-3">Arc {arcIndex + 1}/6: Episode {episodeWithinArc}/10</span>
                       {narrativeArc?.title && narrativeArc.title !== `Arc ${arcIndex + 1}` && (
                         <>
-                          <span className="text-[#e2c376]/60 mx-3">•</span>
-                          <span className="text-[#e2c376]/80">{narrativeArc.title}</span>
+                          <span className="text-[#00FF99]/60 mx-3">•</span>
+                          <span className="text-[#00FF99]/80">{narrativeArc.title}</span>
                         </>
                       )}
                     </div>
                     
                     {/* Episode Synopsis */}
-                    <div className="mt-8 text-white/95 text-xl leading-relaxed tracking-wide">
-                      <span className="italic">"{episodeData.synopsis}"</span>
+                    <div className="mt-8 bg-gradient-to-r from-[#00FF99]/10 to-transparent p-6 rounded-lg border border-[#00FF99]/20">
+                      <div className="text-white/95 text-xl leading-relaxed tracking-wide">
+                        <span className="italic font-light">"{episodeData.synopsis}"</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1183,7 +1422,7 @@ export default function EpisodePage() {
                 <div className="p-8 sm:p-10 bg-black">
                   <div className="max-w-3xl mx-auto">
                     {/* Divider */}
-                    <div className="border-t border-[#e2c376]/20 mb-10"></div>
+                    <div className="border-t border-[#00FF99]/20 mb-10"></div>
                     
                     {/* Scenes */}
                     <div className="space-y-12">
@@ -1232,102 +1471,143 @@ export default function EpisodePage() {
                           };
                           
                           return (
-                          <div key={scene.sceneNumber || index}>
-                            <h2 className="text-3xl font-bold text-[#e2c376] mb-6 tracking-wide leading-tight">
+                          <div key={scene.sceneNumber || index} className="mb-16 group">
+                            {/* Scene Header with Chapter-like Styling */}
+                            <div className="border-l-4 border-[#00FF99] pl-6 mb-8">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h2 className="text-2xl font-semibold text-[#00FF99] mb-2 tracking-wide">
                               {getSceneLabel(index, totalScenes)}
                             </h2>
-                            <div className="text-white/95 leading-relaxed text-lg tracking-wide font-light">
-                              {scene.content}
+                                  {scene.title && (
+                                    <p className="text-white/70 text-lg italic">
+                                      {scene.title}
+                                    </p>
+                                  )}
+                                </div>
+                                
+                                {/* Edit Scene Button */}
+                                {!isSceneLocked && (
+                                  <button
+                                    onClick={() => startEditingScene(index)}
+                                    className="opacity-0 group-hover:opacity-100 text-[#00FF99]/70 hover:text-[#00FF99] transition-all text-sm px-3 py-1 bg-[#00FF99]/10 rounded-lg border border-[#00FF99]/30 hover:bg-[#00FF99]/20"
+                                    title="Edit scene content"
+                                  >
+                                    ✏️ Edit Scene
+                                  </button>
+                                )}
+                                
+                                {/* Lock Notice */}
+                                {isSceneLocked && (
+                                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    🔒 Locked
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Scene Content with Book-like Typography */}
+                            <div className="prose prose-lg prose-invert max-w-none">
+                              {editingScene === index ? (
+                                /* Inline Editing Mode */
+                                <div className="space-y-4">
+                                  <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
+                                    <textarea
+                                      value={editingSceneContent}
+                                      onChange={(e) => setEditingSceneContent(e.target.value)}
+                                      className="w-full bg-transparent text-white/95 text-xl leading-relaxed tracking-wide font-light resize-none border-none outline-none min-h-[300px]"
+                                      placeholder="Edit scene content..."
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      onClick={saveSceneEdit}
+                                      className="px-4 py-2 bg-[#00FF99] text-black font-semibold rounded-lg hover:bg-[#00CC7A] transition-colors flex items-center gap-2"
+                                    >
+                                      ✓ Save Changes
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingScene}
+                                      className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                                    >
+                                      ✕ Cancel
+                                    </button>
+                                    <div className="text-sm text-gray-400">
+                                      Changes will be saved to localStorage
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* Display Mode */
+                                <div className="text-white/95 leading-relaxed text-xl tracking-wide font-light space-y-4">
+                                  {scene.content.split('\n\n').map((paragraph, pIndex) => (
+                                    <p key={pIndex} className="mb-6 text-justify">
+                                      {paragraph}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                               </div>
                                 </div>
                         )}) : 
                         <div>
-                          <h2 className="text-2xl font-bold text-[#e2c376] mb-4">Scene information unavailable</h2>
+                          <h2 className="text-2xl font-bold text-[#00FF99] mb-4">Scene information unavailable</h2>
                           <div className="text-white/80">Scene content could not be loaded.</div>
                             </div>
                       }
                       
                       {/* Episode rundown */}
                       {episodeData.rundown && (
-                        <div>
-                          <h2 className="text-2xl font-bold text-[#e2c376] mb-4 tracking-wide">
-                            Episode rundown
+                        <div className="mt-16 pt-8 border-t border-[#00FF99]/20">
+                          <div className="border-l-4 border-[#00FF99] pl-6 mb-6">
+                            <h2 className="text-2xl font-semibold text-[#00FF99] mb-2 tracking-wide">
+                              Episode Analysis
                           </h2>
-                          <div className="text-white/90 leading-relaxed tracking-wide font-light">
-                            {episodeData.rundown}
+                            <p className="text-white/70 text-lg italic">
+                              Behind the scenes insights
+                            </p>
+                          </div>
+                          <div className="prose prose-lg prose-invert max-w-none">
+                            <div className="text-white/90 leading-relaxed text-lg tracking-wide font-light">
+                              {episodeData.rundown.split('\n\n').map((paragraph, pIndex) => (
+                                <p key={pIndex} className="mb-4 text-justify">
+                                  {paragraph}
+                                </p>
+                              ))}
+                            </div>
                         </div>
                       </div>
                       )}
                 </div>
                     
                     {/* Divider */}
-                    <div className="border-t border-[#e2c376]/20 my-8"></div>
+                    <div className="border-t border-[#00FF99]/20 my-8"></div>
                 
-                {/* Branching choices section */}
+                {/* Continue to Next Episode */}
                     <div>
-                      <h2 className="text-2xl font-bold text-[#e2c376] mb-6 text-center tracking-wide">
-                        What happens next
+                      <h2 className="text-2xl font-bold text-[#00FF99] mb-6 text-center tracking-wide">
+                    Ready for the next episode?
                       </h2>
                       
-                      <div className="space-y-5">
-                        {episodeData.branchingOptions && Array.isArray(episodeData.branchingOptions) ? 
-                          episodeData.branchingOptions.map((option) => {
-                      // Check if this choice was already made
-                      const choiceMade = userChoices.some(choice => 
-                        choice.episodeNumber === episodeId && choice.choiceId === option.id
-                            );
-                      
-                      return (
+                  <div className="text-center space-y-4">
+                    <p className="text-white/80 text-lg leading-relaxed">
+                      Use the Director's Chair to craft your next episode with precision and creative control.
+                    </p>
+                    
                         <motion.button
-                          key={option.id}
-                          onClick={() => handleSelectOption(option)}
-                                className={`w-full text-left p-6 bg-black border rounded-xl transition-all duration-300 relative ${
-                            choiceMade 
-                              ? 'bg-[#e2c376]/10 border-[#e2c376] text-[#e2c376]' 
-                              : option.isCanonical 
-                                ? 'border-[#e2c376]/50 hover:bg-[#e2c376]/8 hover:border-[#e2c376]/70'
-                                : 'border-[#e2c376]/30 hover:bg-[#e2c376]/5 hover:border-[#e2c376]/50'
-                          }`}
+                      onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
+                      className="w-full max-w-md mx-auto bg-gradient-to-r from-[#00FF99] to-[#00cc7a] text-black px-8 py-4 rounded-lg font-semibold text-lg hover:from-[#00cc7a] hover:to-[#00b366] transition-all duration-200 shadow-[0_0_20px_rgba(0,255,153,0.3)] hover:shadow-[0_0_25px_rgba(0,255,153,0.5)]"
                           whileHover={{ y: -2 }}
                           whileTap={{ y: 0 }}
                         >
-                          {/* Canonical indicator */}
-                          {option.isCanonical && !choiceMade && (
-                            <div className="absolute top-4 right-4 bg-[#e2c376]/20 border border-[#e2c376]/50 px-2 py-1 rounded-full">
-                              <span className="text-xs font-medium text-[#e2c376] tracking-wide">CANON</span>
-                            </div>
-                          )}
-                          
-                                <div className="flex items-start">
-                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 flex-shrink-0 font-bold ${
-                              choiceMade ? 'bg-[#e2c376] text-black' : 'bg-[#e2c376]/20 text-[#e2c376]'
-                            }`}>
-                              {option.id}
-                            </div>
-                            <div className="flex-1 pr-16">
-                                    <div className="font-medium text-lg text-[#e2c376] tracking-wide leading-relaxed">
-                                      {option.text}
-                                    </div>
-                                    <div className="text-white/80 mt-3 leading-relaxed tracking-wide font-light">
-                                {option.description}
-                              </div>
-                            </div>
-                          </div>
+                      📽️ Go to Director's Chair
                         </motion.button>
-                            );
-                          }) :
-                          <div className="text-center text-white/80">
-                            <p>No branching choices available. Please try reloading the page.</p>
-                            <button 
-                              onClick={() => window.location.reload()} 
-                              className="mt-4 px-4 py-2 bg-[#e2c376]/20 text-[#e2c376] rounded-lg hover:bg-[#e2c376]/30 border border-[#e2c376]/30"
-                            >
-                              Reload Page
-                            </button>
-                          </div>
-                        }
-                      </div>
-                    </div>
+                        
+                    <p className="text-[#e7e7e7]/60 text-sm">
+                      Craft Episode {episodeId + 1} with the Episode Studio
+                    </p>
+                            </div>
+                            </div>
                   </div>
                 </div>
               </div>
@@ -1336,7 +1616,7 @@ export default function EpisodePage() {
                 <p className="text-white/70">Episode data not found.</p>
                 <button
                   onClick={() => router.push('/story-bible')}
-                  className="mt-4 px-4 py-2 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors"
+                  className="mt-4 px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
                 >
                   Return to Story Bible
                 </button>
@@ -1349,7 +1629,7 @@ export default function EpisodePage() {
             {episodeId > 1 && (
               <button
                 onClick={() => router.push(`/episode/${episodeId - 1}`)}
-                className="px-4 py-2 bg-black border border-[#e2c376]/30 text-white font-medium rounded-lg hover:bg-[#e2c376]/10 hover:border-[#e2c376]/50 transition-colors flex items-center tracking-wide"
+                className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors flex items-center tracking-wide"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -1360,7 +1640,7 @@ export default function EpisodePage() {
             
             <button
               onClick={() => router.push('/workspace')}
-              className="px-4 py-2 bg-black border border-[#e2c376]/30 text-white font-medium rounded-lg hover:bg-[#e2c376]/10 hover:border-[#e2c376]/50 transition-colors tracking-wide"
+              className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors tracking-wide"
             >
               Workspace
             </button>
@@ -1368,8 +1648,8 @@ export default function EpisodePage() {
             {/* Only show next episode button if a choice has been made */}
             {userChoices.some(choice => choice.episodeNumber === episodeId) && episodeId < 60 && (
               <button
-                onClick={() => router.push(`/episode/${episodeId + 1}`)}
-                className="px-4 py-2 bg-black border border-[#e2c376]/30 text-white font-medium rounded-lg hover:bg-[#e2c376]/10 hover:border-[#e2c376]/50 transition-colors flex items-center tracking-wide"
+                onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
+                className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors flex items-center tracking-wide"
               >
                 Next Episode
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
@@ -1391,30 +1671,92 @@ export default function EpisodePage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-black border border-[#e2c376]/50 rounded-xl p-6 max-w-lg w-full"
+              className="bg-black border border-[#00FF99]/50 rounded-xl p-6 max-w-lg w-full"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 15 }}
             >
-              <h3 className="text-xl font-bold mb-2 text-[#e2c376] tracking-wide">Choose this path?</h3>
-              <div className="bg-[#e2c376]/5 border border-[#e2c376]/20 rounded-lg p-4 mb-4">
-                <div className="text-[#e2c376] font-medium mb-2 tracking-wide">{selectedOption.text}</div>
+              <h3 className="text-xl font-bold mb-2 text-[#00FF99] tracking-wide">Choose this path?</h3>
+              <div className="bg-[#00FF99]/5 border border-[#00FF99]/20 rounded-lg p-4 mb-4">
+                <div className="text-[#00FF99] font-medium mb-2 tracking-wide">{selectedOption.text}</div>
                 <p className="text-white/90 leading-relaxed font-light">{selectedOption.description}</p>
               </div>
               
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowOptionDetails(false)}
-                  className="px-4 py-2 bg-black border border-[#e2c376]/30 text-white font-medium rounded-lg hover:bg-[#e2c376]/10 transition-colors tracking-wide"
+                  className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 transition-colors tracking-wide"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmChoice}
-                  className="px-4 py-2 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors tracking-wide"
+                  className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors tracking-wide"
                 >
                   Confirm Choice
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Creative Path Input Modal */}
+      <AnimatePresence>
+        {showCreativePath && (
+          <motion.div
+            className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-black border border-[#FF6B35]/50 rounded-xl p-6 max-w-2xl w-full"
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", damping: 15 }}
+            >
+              <h3 className="text-xl font-bold mb-2 text-[#FF6B35] tracking-wide flex items-center gap-2">
+                ✨ The Most Creative Path
+              </h3>
+              <p className="text-white/80 mb-4 leading-relaxed">
+                Write your own story continuation. What happens next is entirely up to you! Be as creative as you want.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[#FF6B35] mb-2">
+                  Your Story Continuation
+                </label>
+                <textarea
+                  value={customStoryInput}
+                  onChange={(e) => setCustomStoryInput(e.target.value)}
+                  placeholder="Describe what happens next in the story..."
+                  className="w-full h-32 p-4 bg-[#1a1a1a] border border-[#FF6B35]/30 rounded-lg text-white placeholder-white/50 focus:border-[#FF6B35]/70 focus:outline-none resize-none"
+                  autoFocus
+                />
+                <div className="text-xs text-white/60 mt-1">
+                  {customStoryInput.length} characters
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowCreativePath(false)
+                    setCustomStoryInput('')
+                  }}
+                  className="px-4 py-2 bg-black border border-[#FF6B35]/30 text-white font-medium rounded-lg hover:bg-[#FF6B35]/10 transition-colors tracking-wide"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomStorySubmit}
+                  disabled={!customStoryInput.trim()}
+                  className="px-4 py-2 bg-[#FF6B35] text-white font-medium rounded-lg hover:bg-[#FF6B35]/80 transition-colors tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Your Story
                 </button>
               </div>
             </motion.div>
@@ -1432,7 +1774,7 @@ export default function EpisodePage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#e2c376] rounded-xl p-8 max-w-lg w-full shadow-2xl overflow-hidden relative"
+              className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#00FF99] rounded-xl p-8 max-w-lg w-full shadow-2xl overflow-hidden relative"
               initial={{ scale: 0.8, y: 30 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 30 }}
@@ -1440,12 +1782,12 @@ export default function EpisodePage() {
             >
               {/* Background animated elements */}
               <motion.div 
-                className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-[#e2c376]/20 blur-3xl z-0"
+                className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-[#00FF99]/20 blur-3xl z-0"
                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 5, repeat: Infinity }}
               />
               <motion.div 
-                className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-[#e2c376]/20 blur-3xl z-0"
+                className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-[#00FF99]/20 blur-3xl z-0"
                 animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 5, repeat: Infinity, delay: 0.5 }}
               />
@@ -1465,7 +1807,7 @@ export default function EpisodePage() {
                     <motion.div
                       key={i}
                       className={`absolute rounded-full w-2 h-2 ${
-                        i % 3 === 0 ? 'bg-[#e2c376]' : i % 3 === 1 ? 'bg-white' : 'bg-[#a87b2c]'
+                        i % 3 === 0 ? 'bg-[#00FF99]' : i % 3 === 1 ? 'bg-white' : 'bg-[#00CC7A]'
                       }`}
                       initial={{ 
                         x: initialX + "%", 
@@ -1508,7 +1850,7 @@ export default function EpisodePage() {
                 </motion.div>
                 
                 <motion.h2
-                  className="text-3xl font-bold text-center text-[#e2c376] mb-4"
+                  className="text-3xl font-bold text-center text-[#00FF99] mb-4"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
@@ -1539,7 +1881,7 @@ export default function EpisodePage() {
                       setShowCompletionLightbox(false);
                       router.push('/workspace');
                     }}
-                    className="px-6 py-3 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors"
+                    className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
                   >
                     Go to Workspace
                   </button>

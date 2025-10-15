@@ -37,6 +37,7 @@ export interface StoryPremise {
   isTestable: boolean; // Can this premise be proven through action?
   isSpecific: boolean; // Is it concrete enough to guide decisions?
   isArgued: boolean; // Does it make a clear statement?
+  logline?: string;
 }
 
 export interface PremiseEquation {

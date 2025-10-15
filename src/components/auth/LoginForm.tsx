@@ -20,7 +20,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ isModal = false }: LoginFormProps) {
-  const { login } = useAuth()
+  const { signIn } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -37,7 +37,7 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
     setError(null)
     
     try {
-      await login(data.email, data.password)
+              await signIn(data.email, data.password)
     } catch (error) {
       console.error('Login error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')

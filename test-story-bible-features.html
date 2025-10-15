@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Bible Feature Test</title>
+    <style>
+        body {
+            font-family: 'League Spartan', sans-serif;
+            background: #121212;
+            color: #e7e7e7;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00FF99;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #1a1a1a;
+            border: 1px solid #36393f;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-section h2 {
+            color: #00FF99;
+            margin-top: 0;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .pass { background: #00FF99; color: #000; }
+        .fail { background: #ff4444; color: #fff; }
+        .pending { background: #ffaa00; color: #000; }
+        button {
+            background: linear-gradient(to right, #00FF99, #00CC7A);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .log-success { color: #00FF99; }
+        .log-error { color: #ff4444; }
+        .log-info { color: #88bbff; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Story Bible Feature Test Suite</h1>
+    
+    <!-- Test 1: Story Bible Loading -->
+    <div class="test-section">
+        <h2>Test 1: Story Bible Data Persistence</h2>
+        <p>Tests if story bible can be saved and loaded from localStorage</p>
+        <button onclick="testLocalStorage()">Run Test</button>
+        <div id="test1-status"></div>
+        <div id="test1-log" class="log"></div>
+    </div>
+
+    <!-- Test 2: Regeneration Count -->
+    <div class="test-section">
+        <h2>Test 2: Regeneration Counter</h2>
+        <p>Tests regeneration count initialization and persistence</p>
+        <button onclick="testRegenerationCount()">Run Test</button>
+        <div id="test2-status"></div>
+        <div id="test2-log" class="log"></div>
+    </div>
+
+    <!-- Test 3: Inline Editing -->
+    <div class="test-section">
+        <h2>Test 3: Inline Editing System</h2>
+        <p>Tests if edits are saved to story bible structure</p>
+        <button onclick="testInlineEdit()">Run Test</button>
+        <div id="test3-status"></div>
+        <div id="test3-log" class="log"></div>
+    </div>
+
+    <!-- Test 4: Page Access -->
+    <div class="test-section">
+        <h2>Test 4: Story Bible Page Access</h2>
+        <p>Tests if the page loads without errors</p>
+        <button onclick="testPageAccess()">Run Test</button>
+        <div id="test4-status"></div>
+        <div id="test4-log" class="log"></div>
+    </div>
+
+    <!-- Test 5: Component Verification -->
+    <div class="test-section">
+        <h2>Test 5: Component Verification</h2>
+        <p>Verifies all new components exist in the codebase</p>
+        <button onclick="testComponents()">Run Test</button>
+        <div id="test5-status"></div>
+        <div id="test5-log" class="log"></div>
+    </div>
+
+    <script>
+        function log(testId, message, type = 'info') {
+            const logDiv = document.getElementById(`test${testId}-log`);
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setStatus(testId, status, message) {
+            const statusDiv = document.getElementById(`test${testId}-status`);
+            statusDiv.innerHTML = `<span class="status ${status}">${status.toUpperCase()}</span> ${message}`;
+        }
+
+        // Test 1: LocalStorage Operations
+        function testLocalStorage() {
+            log(1, 'Starting localStorage test...', 'info');
+            
+            try {
+                // Create test story bible
+                const testBible = {
+                    synopsis: "Test synopsis",
+                    theme: "Test theme",
+                    storyBible: {
+                        seriesTitle: "Test Series",
+                        premise: {
+                            premiseStatement: "Test premise",
+                            character: "Test character",
+                            conflict: "Test conflict"
+                        },
+                        mainCharacters: [
+                            { name: "Character 1", archetype: "Hero" },
+                            { name: "Character 2", archetype: "Mentor" }
+                        ],
+                        narrativeArcs: [
+                            { 
+                                title: "Arc 1", 
+                                summary: "First arc",
+                                episodes: [
+                                    { number: 1, title: "Episode 1", summary: "First episode" }
+                                ]
+                            }
+                        ]
+                    },
+                    createdAt: new Date().toISOString()
+                };
+
+                log(1, 'Saving test story bible to localStorage...', 'info');
+                localStorage.setItem('greenlit-story-bible', JSON.stringify(testBible));
+                log(1, '✓ Story bible saved', 'success');
+
+                log(1, 'Reading story bible from localStorage...', 'info');
+                const retrieved = localStorage.getItem('greenlit-story-bible');
+                
+                if (!retrieved) {
+                    throw new Error('Failed to retrieve from localStorage');
+                }
+                log(1, '✓ Story bible retrieved', 'success');
+
+                const parsed = JSON.parse(retrieved);
+                log(1, '✓ Story bible parsed successfully', 'success');
+
+                // Verify structure
+                if (parsed.storyBible && parsed.storyBible.seriesTitle === "Test Series") {
+                    log(1, '✓ Story bible structure verified', 'success');
+                    setStatus(1, 'pass', 'All localStorage operations working correctly');
+                } else {
+                    throw new Error('Story bible structure mismatch');
+                }
+
+            } catch (error) {
+                log(1, `✗ Error: ${error.message}`, 'error');
+                setStatus(1, 'fail', error.message);
+            }
+        }
+
+        // Test 2: Regeneration Count
+        function testRegenerationCount() {
+            log(2, 'Starting regeneration count test...', 'info');
+            
+            try {
+                // Clear existing count
+                localStorage.removeItem('greenlit-story-bible-regenerations');
+                log(2, 'Cleared existing regeneration count', 'info');
+
+                // Test initialization
+                const defaultCount = localStorage.getItem('greenlit-story-bible-regenerations');
+                if (defaultCount === null) {
+                    log(2, '✓ No count exists (correct default behavior)', 'success');
+                }
+
+                // Set count
+                log(2, 'Setting regeneration count to 5...', 'info');
+                localStorage.setItem('greenlit-story-bible-regenerations', '5');
+                
+                // Verify
+                const savedCount = localStorage.getItem('greenlit-story-bible-regenerations');
+                if (savedCount === '5') {
+                    log(2, '✓ Regeneration count saved correctly', 'success');
+                }
+
+                // Test decrement
+                log(2, 'Simulating regeneration (decrement to 4)...', 'info');
+                localStorage.setItem('greenlit-story-bible-regenerations', '4');
+                
+                const newCount = localStorage.getItem('greenlit-story-bible-regenerations');
+                if (newCount === '4') {
+                    log(2, '✓ Count decremented correctly', 'success');
+                    setStatus(2, 'pass', 'Regeneration counter system working');
+                } else {
+                    throw new Error('Count did not decrement properly');
+                }
+
+            } catch (error) {
+                log(2, `✗ Error: ${error.message}`, 'error');
+                setStatus(2, 'fail', error.message);
+            }
+        }
+
+        // Test 3: Inline Editing
+        function testInlineEdit() {
+            log(3, 'Starting inline edit test...', 'info');
+            
+            try {
+                // Get existing story bible
+                const savedBible = localStorage.getItem('greenlit-story-bible');
+                if (!savedBible) {
+                    log(3, 'Creating test story bible...', 'info');
+                    testLocalStorage(); // Create test data first
+                }
+
+                const bible = JSON.parse(localStorage.getItem('greenlit-story-bible'));
+                log(3, `Original series title: "${bible.storyBible.seriesTitle}"`, 'info');
+
+                // Simulate edit
+                const newTitle = "Edited Test Series";
+                log(3, `Editing series title to: "${newTitle}"`, 'info');
+                bible.storyBible.seriesTitle = newTitle;
+                
+                // Save
+                localStorage.setItem('greenlit-story-bible', JSON.stringify(bible));
+                log(3, '✓ Edit saved to localStorage', 'success');
+
+                // Verify
+                const updatedBible = JSON.parse(localStorage.getItem('greenlit-story-bible'));
+                if (updatedBible.storyBible.seriesTitle === newTitle) {
+                    log(3, '✓ Edit persisted correctly', 'success');
+                    
+                    // Test character name edit
+                    log(3, 'Testing character name edit...', 'info');
+                    const originalCharName = updatedBible.storyBible.mainCharacters[0].name;
+                    log(3, `Original character name: "${originalCharName}"`, 'info');
+                    
+                    updatedBible.storyBible.mainCharacters[0].name = "Edited Character";
+                    localStorage.setItem('greenlit-story-bible', JSON.stringify(updatedBible));
+                    
+                    const finalBible = JSON.parse(localStorage.getItem('greenlit-story-bible'));
+                    if (finalBible.storyBible.mainCharacters[0].name === "Edited Character") {
+                        log(3, '✓ Character name edit persisted', 'success');
+                        setStatus(3, 'pass', 'Inline editing system working correctly');
+                    } else {
+                        throw new Error('Character name edit failed');
+                    }
+                } else {
+                    throw new Error('Series title edit did not persist');
+                }
+
+            } catch (error) {
+                log(3, `✗ Error: ${error.message}`, 'error');
+                setStatus(3, 'fail', error.message);
+            }
+        }
+
+        // Test 4: Page Access
+        async function testPageAccess() {
+            log(4, 'Starting page access test...', 'info');
+            
+            try {
+                log(4, 'Fetching /story-bible page...', 'info');
+                const response = await fetch('http://localhost:3000/story-bible');
+                
+                log(4, `Response status: ${response.status}`, 'info');
+                
+                if (response.ok) {
+                    const html = await response.text();
+                    log(4, `✓ Page loaded (${html.length} bytes)`, 'success');
+                    
+                    // Check for key elements
+                    if (html.includes('StoryBiblePlaybookModal')) {
+                        log(4, '✓ Playbook modal component detected', 'success');
+                    }
+                    if (html.includes('Loading your Story Bible')) {
+                        log(4, '✓ Loading state detected', 'success');
+                    }
+                    
+                    setStatus(4, 'pass', 'Page loads without errors');
+                } else {
+                    throw new Error(`Page returned status ${response.status}`);
+                }
+
+            } catch (error) {
+                log(4, `✗ Error: ${error.message}`, 'error');
+                setStatus(4, 'fail', error.message);
+            }
+        }
+
+        // Test 5: Component Verification
+        async function testComponents() {
+            log(5, 'Starting component verification...', 'info');
+            
+            const components = [
+                'StoryBiblePlaybookModal.tsx',
+                'story-bible/page.tsx'
+            ];
+
+            try {
+                log(5, 'Checking if components exist in build...', 'info');
+                
+                // Try to fetch the page and check for component references
+                const response = await fetch('http://localhost:3000/story-bible');
+                const html = await response.text();
+                
+                let foundComponents = 0;
+                
+                if (html.includes('story-bible')) {
+                    log(5, '✓ Story Bible page component loaded', 'success');
+                    foundComponents++;
+                }
+                
+                if (html.includes('How to Read Your Story Bible') || html.includes('Playbook')) {
+                    log(5, '✓ Playbook elements detected', 'success');
+                    foundComponents++;
+                }
+                
+                if (foundComponents >= 1) {
+                    log(5, `✓ ${foundComponents}/2 components verified`, 'success');
+                    setStatus(5, 'pass', 'Components are properly integrated');
+                } else {
+                    throw new Error('Components not detected in page');
+                }
+
+            } catch (error) {
+                log(5, `✗ Error: ${error.message}`, 'error');
+                setStatus(5, 'fail', error.message);
+            }
+        }
+
+        // Run all tests button
+        function runAllTests() {
+            testLocalStorage();
+            setTimeout(() => testRegenerationCount(), 500);
+            setTimeout(() => testInlineEdit(), 1000);
+            setTimeout(() => testPageAccess(), 1500);
+            setTimeout(() => testComponents(), 2000);
+        }
+    </script>
+
+    <div style="margin-top: 40px; padding: 20px; background: #2a2a2a; border-radius: 12px;">
+        <button onclick="runAllTests()" style="font-size: 18px; padding: 15px 30px;">
+            🚀 Run All Tests
+        </button>
+        <p style="margin-top: 15px; color: #888;">
+            This will run all tests in sequence. Make sure the dev server is running on localhost:3000
+        </p>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+

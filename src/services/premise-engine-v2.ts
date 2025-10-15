@@ -707,7 +707,8 @@ The theme should elevate the premise beyond plot mechanics into meaningful explo
 Focus on creating theme that can evolve and deepen over time while respecting cultural authenticity and avoiding stereotypes.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a master thematic architect who weaves universal human truths into commercially viable stories with cultural sensitivity.',
         temperature: 0.7,
         maxTokens: 2000
@@ -765,7 +766,8 @@ Determine market position: High-concept, character-driven, or compelling concept
 Provide specific, actionable analysis that identifies commercial strengths and market positioning strategy.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a market analyst and commercial story consultant who evaluates premise viability using proven industry frameworks.',
         temperature: 0.6,
         maxTokens: 2500
@@ -831,7 +833,8 @@ Provide overall validation score, strengths, weaknesses, and clear recommendatio
 Be rigorous and honest - better to identify problems now than after months of development.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a ruthless but constructive story consultant who applies rigorous validation tests to identify premise viability.',
         temperature: 0.5,
         maxTokens: 2000
@@ -890,7 +893,8 @@ Research and analyze similar successful properties from major streaming platform
 Focus on actionable market intelligence that can guide development and positioning strategy.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a streaming industry analyst who tracks successful content and identifies market opportunities.',
         temperature: 0.6,
         maxTokens: 2000

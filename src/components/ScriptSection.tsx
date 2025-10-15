@@ -62,7 +62,7 @@ export default function ScriptSection({
   return (
     <div className="space-y-6">
       <div className="mb-4">
-        <h3 className="text-xl font-bold text-[#e2c376] mb-2">Script</h3>
+        <h3 className="text-xl font-bold text-[#00FF99] mb-2">Script</h3>
         <p className="text-[#e7e7e7]/70">
           Professional screenplay format for all episodes in this arc.
         </p>
@@ -81,7 +81,7 @@ export default function ScriptSection({
                 onClick={() => window.location.href = `?arc=${arcIndex + 1}&episode=${ep.number}`}
                 className={`px-4 py-2 rounded-lg ${
                   selectedEpisode === parseInt(ep.number)
-                    ? "bg-[#e2c376] text-black font-medium" 
+                    ? "bg-[#00FF99] text-black font-medium" 
                     : "bg-[#36393f] text-[#e7e7e7] hover:bg-[#4f535a]"
                 }`}
               >

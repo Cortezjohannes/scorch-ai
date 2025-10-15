@@ -17,7 +17,138 @@
  */
 
 import { generateContent } from './azure-openai';
-import { EpisodeCohesionEngineV2, type SerializedContinuityRecommendation, type SeriesContext } from './episode-cohesion-engine-v2';
+import { EpisodeCohesionEngineV2 } from './episode-cohesion-engine-v2';
+
+// Missing type definitions
+export interface SerializedContinuityRecommendation {
+  id: string;
+  recommendationType: string;
+  elements: string[];
+  serializationFramework: any;
+  psychologyFramework: any;
+  socialEngagement: any;
+  globalFramework: any;
+  participationStrategy: any;
+}
+
+export interface SeriesContext {
+  id: string;
+  contextType: string;
+  elements: string[];
+}
+
+export interface TonalConsistency {
+  id: string;
+  consistencyType: string;
+  elements: string[];
+  score: number;
+  variations: string[];
+}
+
+export interface InformationFlow {
+  id: string;
+  flowType: string;
+  patterns: string[];
+  flowScore: number;
+  gaps: string[];
+  redundancies: string[];
+}
+
+export interface CohesionQualityMetrics {
+  id: string;
+  metricType: string;
+  measurements: string[];
+  overallScore: number;
+  areas: string[];
+}
+
+export interface AudioContinuity {
+  id: string;
+  continuityType: string;
+  elements: string[];
+  score: number;
+  inconsistencies: string[];
+}
+
+export interface NarrativeContinuity {
+  id: string;
+  continuityType: string;
+  elements: string[];
+  score: number;
+  plotHoles: string[];
+  timelineIssues: string[];
+}
+
+export interface CharacterContinuity {
+  id: string;
+  continuityType: string;
+  elements: string[];
+  score: number;
+  behaviorInconsistencies: string[];
+}
+
+export interface WorldContinuity {
+  id: string;
+  continuityType: string;
+  elements: string[];
+  score: number;
+  ruleViolations: string[];
+}
+
+export interface Inconsistency {
+  id: string;
+  inconsistencyType: string;
+  description: string;
+}
+
+export interface EmotionalBridge {
+  id: string;
+  bridgeType: string;
+  elements: string[];
+}
+
+export interface VisualBridge {
+  id: string;
+  bridgeType: string;
+  elements: string[];
+}
+
+export interface RelationshipEvolution {
+  id: string;
+  evolutionType: string;
+  stages: string[];
+}
+
+export interface DevelopmentPacing {
+  id: string;
+  pacingType: string;
+  rhythm: string[];
+}
+
+export interface ResolutionSchedule {
+  id: string;
+  scheduleType: string;
+  timeline: string[];
+}
+
+export interface CliffhangerManagement {
+  id: string;
+  managementType: string;
+  strategies: string[];
+}
+
+export interface PlotConsistency {
+  id: string;
+  consistencyType: string;
+  elements: string[];
+  score: number;
+}
+
+export interface CharacterGrowth {
+  id: string;
+  growthType: string;
+  stages: string[];
+}
 
 // ===== CORE INTERFACES =====
 
@@ -31,6 +162,7 @@ export interface CohesionBlueprint {
   tonalConsistency: TonalConsistency;
   informationFlow: InformationFlow;
   qualityMetrics: CohesionQualityMetrics;
+  v2Enhancements: any;
 }
 
 export interface CohesionMetadata {
@@ -51,6 +183,7 @@ export interface ContinuityAnalysis {
   worldContinuity: WorldContinuity;
   inconsistencies: Inconsistency[];
   cohesionScore: number; // 0-100
+  v2Enhancements: any;
 }
 
 export interface EpisodeTransition {
@@ -191,7 +324,8 @@ export class EpisodeCohesionEngine {
           episodeTransitions, 
           characterProgression, 
           plotThreadManagement
-        )
+        ),
+        v2Enhancements: {}
       };
       
     } catch (error) {
@@ -235,7 +369,8 @@ Return JSON with detailed analysis.`;
         characterContinuity: parsed.characterContinuity || {},
         worldContinuity: parsed.worldContinuity || {},
         inconsistencies: parsed.inconsistencies || [],
-        cohesionScore: parsed.cohesionScore || 80
+        cohesionScore: parsed.cohesionScore || 80,
+        v2Enhancements: parsed.v2Enhancements || {}
       };
       
     } catch (error) {
@@ -397,9 +532,29 @@ Return JSON with comprehensive plot thread management.`;
       episodeTransitions: this.getDefaultEpisodeTransitions(episodeList.length),
       characterProgression: this.getDefaultCharacterProgression(seriesContent, episodeList.length),
       plotThreadManagement: this.getDefaultPlotThreadManagement(),
-      tonalConsistency: { score: 85, variations: [] },
-      informationFlow: { flowScore: 80, gaps: [], redundancies: [] },
-      qualityMetrics: { overallScore: 80, areas: ['continuity', 'transitions', 'character-development'] }
+      tonalConsistency: { 
+        id: `tonal-${Date.now()}`, 
+        consistencyType: 'series-wide', 
+        elements: ['tone', 'mood', 'atmosphere'], 
+        score: 85, 
+        variations: [] 
+      },
+      informationFlow: { 
+        id: `flow-${Date.now()}`, 
+        flowType: 'episode-to-episode', 
+        patterns: ['exposition', 'revelation', 'resolution'], 
+        flowScore: 80, 
+        gaps: [], 
+        redundancies: [] 
+      },
+      qualityMetrics: { 
+        id: `quality-${Date.now()}`, 
+        metricType: 'cohesion', 
+        measurements: ['continuity', 'transitions', 'character-development'], 
+        overallScore: 80, 
+        areas: ['continuity', 'transitions', 'character-development'] 
+      },
+      v2Enhancements: {}
     };
   }
   
@@ -407,12 +562,38 @@ Return JSON with comprehensive plot thread management.`;
   private static getDefaultContinuityAnalysis(): ContinuityAnalysis {
     return {
       visualContinuity: this.getDefaultVisualContinuity(),
-      audioContinuity: { score: 85, inconsistencies: [] },
-      narrativeContinuity: { score: 80, plotHoles: [], timelineIssues: [] },
-      characterContinuity: { score: 85, behaviorInconsistencies: [] },
-      worldContinuity: { score: 90, ruleViolations: [] },
+      audioContinuity: { 
+        id: `audio-${Date.now()}`, 
+        continuityType: 'audio', 
+        elements: ['sound', 'music', 'dialogue'], 
+        score: 85, 
+        inconsistencies: [] 
+      },
+      narrativeContinuity: { 
+        id: `narrative-${Date.now()}`, 
+        continuityType: 'narrative', 
+        elements: ['plot', 'story', 'arc'], 
+        score: 80, 
+        plotHoles: [], 
+        timelineIssues: [] 
+      },
+      characterContinuity: { 
+        id: `character-${Date.now()}`, 
+        continuityType: 'character', 
+        elements: ['behavior', 'development', 'arc'], 
+        score: 85, 
+        behaviorInconsistencies: [] 
+      },
+      worldContinuity: { 
+        id: `world-${Date.now()}`, 
+        continuityType: 'world', 
+        elements: ['rules', 'logic', 'consistency'], 
+        score: 90, 
+        ruleViolations: [] 
+      },
       inconsistencies: [],
-      cohesionScore: 83
+      cohesionScore: 83,
+      v2Enhancements: {}
     };
   }
   
@@ -467,9 +648,22 @@ Return JSON with comprehensive plot thread management.`;
         complexityScore: 70,
         clarityScore: 85
       },
-      resolutionSchedule: {},
-      cliffhangerManagement: {},
-      plotConsistency: { score: 85, issues: [] }
+      resolutionSchedule: {
+        id: `schedule-${Date.now()}`,
+        scheduleType: 'episode-resolution',
+        timeline: ['episode-1', 'episode-2', 'episode-3']
+      },
+      cliffhangerManagement: {
+        id: `cliffhanger-${Date.now()}`,
+        managementType: 'episode-endings',
+        strategies: ['suspense', 'revelation', 'conflict']
+      },
+      plotConsistency: { 
+        id: `plot-${Date.now()}`, 
+        consistencyType: 'plot', 
+        elements: ['logic', 'continuity', 'coherence'], 
+        score: 85 
+      }
     };
   }
   

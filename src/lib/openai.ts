@@ -7,7 +7,7 @@ const openai = new OpenAI({
 });
 
 export type ChatCompletionOptions = {
-  messages: { role: 'system' | 'user' | 'assistant' | 'function'; content: string }[];
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
   temperature?: number;
   max_tokens?: number;
   model?: string;

@@ -1246,11 +1246,11 @@ export class ConflictArchitectureEngineV2 {
       // Stage 5: Complete Assessment Assembly
       const conflictAssessment = await this.assembleConflictAssessment(
         context,
-        requirements,
         theoreticalFoundations,
         oppositionArchitecture,
         structuralEngineering,
-        socialCulturalIntegration
+        socialCulturalIntegration,
+        requirements
       );
       
       // Stage 6: Alternative Approaches
@@ -1594,11 +1594,11 @@ export class ConflictArchitectureEngineV2 {
   
   private static async assembleConflictAssessment(
     context: any,
-    requirements: any,
     theoreticalFoundations: any,
     oppositionArchitecture: any,
     structuralEngineering: any,
-    socialCulturalIntegration: any
+    socialCulturalIntegration: any,
+    requirements: any
   ): Promise<ConflictArchitectureAssessment> {
     
     return {
@@ -1777,5 +1777,4 @@ export class ConflictArchitectureEngineV2 {
 }
 
 // Export the enhanced conflict types
-export type { ConflictArchitectureRecommendation, ConflictArchitectureAssessment, AristotelianBlueprintFramework, ModernStructuralFramework };
  

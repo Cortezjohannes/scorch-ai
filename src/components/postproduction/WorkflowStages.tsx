@@ -78,8 +78,8 @@ export function WorkflowStages({ currentStage, onStageChange }: WorkflowStagesPr
   }
 
   return (
-    <div className="bg-[#36393f] rounded-lg p-4 mb-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+    <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-6 mb-6 shadow-2xl">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {stages.map(stage => {
           const isActive = currentStage === stage.id;
           const isCompleted = false; // Will implement completion tracking later
@@ -87,19 +87,40 @@ export function WorkflowStages({ currentStage, onStageChange }: WorkflowStagesPr
           return (
             <motion.button
               key={stage.id}
-              className={`flex flex-col items-center p-3 rounded-lg transition-all ${
+              className={`group relative flex flex-col items-center p-4 rounded-xl transition-all duration-300 overflow-hidden ${
                 isActive 
-                  ? 'bg-[#e2c376] text-black'
+                  ? 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black shadow-lg shadow-[#00FF99]/25'
                   : isCompleted
-                  ? 'bg-[#4f535a] text-white hover:bg-[#5f636a]'
-                  : 'bg-[#2b2d31] text-gray-300 hover:bg-[#3b3e43] hover:text-white'
+                  ? 'bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/40 text-[#00FF99] hover:bg-gradient-to-r hover:from-[#00FF99]/30 hover:to-[#00CC7A]/30'
+                  : 'bg-gradient-to-r from-black/40 to-black/60 border border-[#00FF99]/20 text-white/70 hover:bg-gradient-to-r hover:from-[#00FF99]/10 hover:to-[#00CC7A]/10 hover:border-[#00FF99]/40 hover:text-white'
               }`}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleStageChange(stage.id as WorkflowStage)}
             >
-              <div className="mb-1">{stage.icon}</div>
-              <div className="text-xs text-center">{stage.title}</div>
+              {isActive && (
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                />
+              )}
+              <div className="relative z-10 mb-2 text-xl">{stage.icon}</div>
+              <div className="relative z-10 text-xs text-center font-semibold">{stage.title}</div>
+              {isActive && (
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 rounded-xl blur-xl"
+                  animate={{
+                    opacity: [0.3, 0.6, 0.3],
+                    scale: [1, 1.05, 1],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
             </motion.button>
           );
         })}

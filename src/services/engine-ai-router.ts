@@ -5,7 +5,7 @@
 
 import { generateContent as generateWithAzure } from './azure-openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { ENGINE_MODELS, GEMINI_CONFIG, AZURE_CONFIG } from './model-config'
+import { ENGINE_MODELS, GEMINI_CONFIG, AZURE_CONFIG, FALLBACK_CONFIG } from './model-config'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -44,7 +44,7 @@ export class EngineAIRouter {
     const {
       prompt,
       systemPrompt = 'You are a professional storytelling assistant.',
-      temperature = 0.7,
+      temperature = 0.85, // HIGHER FOR CREATIVE EXCELLENCE!
       maxTokens = 2000,
       engineId,
       forceProvider
@@ -94,7 +94,7 @@ export class EngineAIRouter {
         
         return fallbackResponse
       } catch (fallbackError) {
-        throw new Error(`Both providers failed: ${error.message} | ${fallbackError.message}`)
+        throw new Error(`Both providers failed: ${error instanceof Error ? error.message : String(error)} | ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`)
       }
     }
   }
@@ -172,13 +172,13 @@ export class EngineAIRouter {
           }
         }
       } catch (error) {
-        console.log(`❌ Azure ${model} failed: ${error.message}`)
+        console.log(`❌ Azure ${model} failed: ${error instanceof Error ? error.message : String(error)}`)
         lastError = error
         continue // Try next model in chain
       }
     }
     
-    throw new Error(`All Azure models failed. Last error: ${lastError?.message}`)
+    throw new Error(`All Azure models failed. Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`)
   }
 
   /**
@@ -186,7 +186,7 @@ export class EngineAIRouter {
    */
   private static getOptimalProvider(engineId: string): 'azure' | 'gemini' {
     // Use the comprehensive ENGINE_MODELS mapping
-    const model = ENGINE_MODELS[engineId]
+    const model = ENGINE_MODELS[engineId as keyof typeof ENGINE_MODELS]
     
     if (model) {
       // Check if it's a Gemini model

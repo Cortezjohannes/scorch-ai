@@ -1,36 +1,19 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-// Scorched AI Card Types following "Elegant Fire" Design Philosophy
-type CardVariant = 'hero' | 'content' | 'action' | 'status' | 'navigation' | 'default'
-
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: CardVariant
-}
-
-const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant = 'default', ...props }, ref) => {
-    const variantClasses = {
-      hero: 'card-hero',
-      content: 'card-content', 
-      action: 'card-action',
-      status: 'card-status',
-      navigation: 'card-navigation',
-      default: 'rounded-lg border bg-card text-card-foreground shadow-sm' // Legacy support
-    }
-    
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          variantClasses[variant],
-          className
-        )}
-        {...props}
-      />
-    )
-  }
-)
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      className
+    )}
+    {...props}
+  />
+))
 Card.displayName = "Card"
 
 const CardHeader = React.forwardRef<
@@ -52,7 +35,7 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-h3 text-high-contrast", // Using new Scorched AI typography system
+      "text-2xl font-semibold leading-none tracking-tight",
       className
     )}
     {...props}
@@ -66,7 +49,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-body text-medium-contrast", className)} // Using new typography
+    className={cn("text-sm text-muted-foreground", className)}
     {...props}
   />
 ))

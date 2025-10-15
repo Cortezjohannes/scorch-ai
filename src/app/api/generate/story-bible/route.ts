@@ -494,11 +494,17 @@ How many main characters would be optimal for a rich, multi-layered narrative? C
 - Need for diverse perspectives and roles
 - Supporting cast that can become more prominent later
 
-Respond with just a number between 12-18 for optimal storytelling depth.`
-    console.log('🤖 CHARACTER ENGINE: Determining optimal character count for rich storytelling...')
+CRITICAL: Base your decision purely on story needs, NOT arbitrary ranges.
+- Intimate 2-person drama? Return 2-3 characters
+- Small ensemble (family, friends)? Return 5-8 characters
+- Medium ensemble (workplace, school)? Return 8-12 characters
+- Large scope (crime, politics, epic)? Return 15-30+ characters
+
+Respond with just the optimal number for THIS specific story. No artificial limits.`
+    console.log('🤖 CHARACTER ENGINE: AI determining optimal character count based on story complexity...')
     const characterCountResponse = await generateContentWithGemini(characterPrompt)
-    const optimalCharacterCount = parseInt(characterCountResponse) || 14 // Increased default from 8 to 14
-    console.log(`✅ CHARACTER ENGINE: Determined optimal character count: ${optimalCharacterCount} (targeting 12+ for rich narratives)`)
+    const optimalCharacterCount = parseInt(characterCountResponse) || 8 // Neutral default
+    console.log(`✅ CHARACTER ENGINE: AI determined optimal character count: ${optimalCharacterCount} (fully AI-driven, no hardcoded ranges)`)
     
     progressTracker.updateProgress('character', 30, `Stage 1: Generating character roster...`)
     
@@ -1469,12 +1475,32 @@ export async function POST(request: Request) {
   
   try {
     const requestData = await request.json()
-    synopsis = requestData.synopsis || synopsis
-    theme = requestData.theme || theme
     
-    if (!requestData.synopsis || !requestData.theme) {
+    // Handle new 5-question format
+    if (requestData.logline && requestData.protagonist && requestData.stakes && requestData.vibe && requestData.theme) {
+      const { logline, protagonist, stakes, vibe, theme: themeInput } = requestData
+      
+      // Synthesize synopsis from the 5 questions for backward compatibility
+      synopsis = `${logline} The story follows ${protagonist}. ${stakes} The overall vibe is ${vibe}, exploring themes of ${themeInput}.`
+      theme = themeInput
+      
+      console.log('✨ Using 5-Question Format:')
+      console.log('📝 Logline:', logline)
+      console.log('👤 Protagonist:', protagonist)
+      console.log('⚡ Stakes:', stakes)
+      console.log('🎭 Vibe:', vibe)
+      console.log('🎯 Theme:', theme)
+    }
+    // Handle legacy format
+    else if (requestData.synopsis && requestData.theme) {
+      synopsis = requestData.synopsis || synopsis
+      theme = requestData.theme || theme
+      console.log('📝 Using Legacy Format - Synopsis & Theme')
+    }
+    // Error if neither format is provided
+    else {
       return NextResponse.json(
-        { error: 'Synopsis and theme are required' },
+        { error: 'Either the 5 essential questions (logline, protagonist, stakes, vibe, theme) or legacy format (synopsis, theme) is required' },
         { status: 400 }
       )
     }

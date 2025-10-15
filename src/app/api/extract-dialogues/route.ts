@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
     
     // Use GPT-4.1 (beast mode) for best dialogue extraction
     console.log('Extracting dialogues from script text...');
-    const extractedContent = await generateContent(SYSTEM_PROMPT, userPrompt, {
+    const extractedContent = await generateContent(userPrompt, {
+      systemPrompt: SYSTEM_PROMPT,
       model: 'gpt-4.1',
       temperature: 0.3, // Lower temperature for more consistent extraction
       maxTokens: 8000

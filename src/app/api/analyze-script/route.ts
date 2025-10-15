@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateContent } from '@/services/azure-openai';
+import { cleanAndParseJSON, createFallbackJSON } from '@/lib/json-utils';
 
 // Initialize Gemini AI with API key - Using dynamic import to avoid webpack issues
 const getGeminiClient = async () => {

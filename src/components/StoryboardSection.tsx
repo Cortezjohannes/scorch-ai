@@ -73,13 +73,13 @@ export default function StoryboardSection({
         </CardHeader>
         <CardContent className="p-5 space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-[#e2c376] mb-2">Overall Visual Aesthetic</h3>
+            <h3 className="text-lg font-semibold text-[#00FF99] mb-2">Overall Visual Aesthetic</h3>
             <p className="text-[#e7e7e7]/90">{visualStyle.description}</p>
           </div>
           
           {visualStyle.cinematicReferences && visualStyle.cinematicReferences.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-[#e2c376] mb-2">Cinematic References</h3>
+              <h3 className="text-lg font-semibold text-[#00FF99] mb-2">Cinematic References</h3>
               <ul className="list-disc list-inside">
                 {visualStyle.cinematicReferences.map((ref: string, index: number) => (
                   <li key={index} className="text-[#e7e7e7]/90">{ref}</li>
@@ -89,7 +89,7 @@ export default function StoryboardSection({
           )}
           
           <div className="flex flex-wrap gap-2 pt-3">
-            <div className="bg-[#232427] border border-[#36393f] rounded-md px-3 py-1 text-sm font-medium text-[#e2c376]">
+            <div className="bg-[#232427] border border-[#36393f] rounded-md px-3 py-1 text-sm font-medium text-[#00FF99]">
               Cinematic
             </div>
             <div className="bg-[#232427] border border-[#36393f] rounded-md px-3 py-1 text-sm text-[#e7e7e7]/80">
@@ -141,7 +141,7 @@ export default function StoryboardSection({
                   onClick={() => window.location.href = `?arc=${arcIndex + 1}&episode=${ep.number}`}
                   className={`px-4 py-2 rounded-lg ${
                     selectedEpisode === parseInt(ep.number)
-                      ? "bg-[#e2c376] text-black font-medium" 
+                      ? "bg-[#00FF99] text-black font-medium" 
                       : "bg-[#36393f] text-[#e7e7e7] hover:bg-[#4f535a]"
                   }`}
                 >

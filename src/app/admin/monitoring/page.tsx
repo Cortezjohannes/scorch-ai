@@ -67,7 +67,7 @@ export default function MonitoringDashboard() {
         const date = new Date(metric.timestamp).toLocaleDateString();
         acc[date] = (acc[date] || 0) + metric.cost;
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       setUsageTrend(Object.entries(dailyUsage).map(([date, cost]) => ({
         date,
@@ -80,13 +80,13 @@ export default function MonitoringDashboard() {
       const modelUsage = metrics.reduce((acc, metric) => {
         acc[metric.model] = (acc[metric.model] || 0) + metric.cost;
         return acc;
-      }, {});
+      }, {} as Record<string, number>);
 
       if (modelUsage['gpt-4'] > modelUsage['gpt-3.5-turbo']) {
         suggestions.push({
           title: 'Consider using GPT-3.5 for simpler tasks to reduce costs',
           description: '',
-          impact: 'medium'
+          impact: 'medium' as const
         });
       }
 
@@ -94,7 +94,7 @@ export default function MonitoringDashboard() {
         suggestions.push({
           title: 'Optimize prompts to reduce token usage',
           description: '',
-          impact: 'medium'
+          impact: 'medium' as const
         });
       }
 

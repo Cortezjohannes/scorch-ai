@@ -953,7 +953,7 @@ export class CastingEngineV2 {
   }
   
   private static getRelationshipWeight(relationshipType: string): { psychology: number; social: number; performance: number } {
-    const weights = {
+    const weights: Record<string, { psychology: number; social: number; performance: number }> = {
       'romantic': { psychology: 0.3, social: 0.4, performance: 0.3 },
       'familial': { psychology: 0.4, social: 0.3, performance: 0.3 },
       'adversarial': { psychology: 0.5, social: 0.2, performance: 0.3 },

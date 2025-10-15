@@ -1,6 +1,6 @@
 /**
  * 🤖 MODEL CONFIGURATION - Latest AI Models
- * Central configuration for all AI models used in Reeled AI
+ * Central configuration for all AI models used in Greenlit
  */
 
 // 🚀 GEMINI 2.5 PRO CONFIGURATION (As per official docs)
@@ -11,8 +11,8 @@ export const GEMINI_CONFIG = {
     FLASH: 'gemini-2.5-flash', // UPGRADED MODEL
     FLASH_LITE: 'gemini-2.5-flash',
     // PROPER fallback hierarchy - 2.0 then 1.5 only if absolutely necessary
-    PRO_FALLBACK: 'gemini-2.0-flash-exp',
-    LAST_RESORT: 'gemini-1.5-pro-latest'
+    PRO_FALLBACK: 'gemini-2.0-flash',
+    LAST_RESORT: 'gemini-2.5-pro' // 🔥 UPGRADED TO 2.5 PRO!
   },
   
   // Model selection based on use case
@@ -37,9 +37,9 @@ export const GEMINI_CONFIG = {
     DANGEROUS_CONTENT: 'BLOCK_MEDIUM_AND_ABOVE'
   },
 
-  // Generation config for creative storytelling
+  // Generation config for creative storytelling - MAXIMUM CREATIVITY!
   GENERATION_CONFIG: {
-    temperature: 0.7,
+    temperature: 0.9, // 🔥 INCREASED FOR MAXIMUM CREATIVITY!
     topK: 40,
     topP: 0.8,
     maxOutputTokens: 8192
@@ -136,11 +136,11 @@ export const FALLBACK_CONFIG = {
     'gpt-4o-2024-11-20' // Last resort: Reliable backup
   ],
   
-  // Gemini fallback chain: 2.5 Pro → 2.5 Flash → 1.5 Pro
+  // Gemini fallback chain: 2.5 Pro → 2.0 Flash → 1.5 Pro
   GEMINI_FALLBACKS: [
     GEMINI_CONFIG.MODELS.PRO, // Primary: Best creative thinking
-    GEMINI_CONFIG.MODELS.FLASH, // Secondary: Faster alternative  
-    'gemini-1.5-pro-002' // Last resort: Stable backup
+    'gemini-2.0-flash', // Secondary: Reliable fallback
+    GEMINI_CONFIG.MODELS.FLASH, // Tertiary: Faster alternative
   ],
   
   // Cross-provider fallback: If all Azure fails → Gemini, if all Gemini fails → Azure

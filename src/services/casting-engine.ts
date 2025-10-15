@@ -1448,7 +1448,10 @@ Return as JSON object with comprehensive chemistry analysis.`;
       console.error('Error generating enhanced casting:', error);
       
       // Fallback to original method
-      const fallbackBlueprint = await this.generateCastingBlueprint({
+      const fallbackBlueprint = await this.generateCastingBlueprint(
+        requirements.characters,
+        [],
+        {
         projectName: context.genre + ' Project',
         genre: context.genre,
         targetAudience: context.targetAudience,
@@ -1457,7 +1460,8 @@ Return as JSON object with comprehensive chemistry analysis.`;
         shootingSchedule: context.timeline,
         locations: ['Studio'],
         directorsVision: context.directorsVision
-      }, requirements.characters, {});
+        }
+      );
       
       return {
         castingBlueprint: fallbackBlueprint,
@@ -1489,7 +1493,7 @@ Return as JSON object with comprehensive chemistry analysis.`;
         enneagramType: this.inferEnneagramFromTraits(char.personalityTraits),
         coreFear: 'Failure',
         basicDesire: 'Success',
-        motivations: char.personalityTraits || ['Achievement']
+        motivations: char.personalityTraits?.map(trait => trait.trait) || ['Achievement']
       },
       physical: {
         ageRange: [25, 45] as [number, number],
@@ -1888,29 +1892,60 @@ Return as JSON object with comprehensive chemistry analysis.`;
   // Helper methods for type conversion and basic analysis
   private static convertV2ActorToLegacy(v2Actor: ActorCandidate): ActorProfile {
     return {
-      id: v2Actor.id,
+      actorId: v2Actor.id,
       name: v2Actor.name,
-      agency: 'Unknown Agency',
-      rateStructure: {
-        quote: v2Actor.starPower.bankability.prealesValue * 100000
-      } as any,
+      age: 25, // Default age
+      physicalAttributes: {
+        height: 68, // 5'8" in inches
+        build: 'Athletic',
+        appearance: 'Professional',
+        distinctiveFeatures: []
+      },
+      actingExperience: {
+        yearsActive: 5,
+        genres: ['Drama', 'Comedy'],
+        training: ['Method Acting', 'Voice Training'],
+        specializations: v2Actor.training.strengths.physicalExpressiveness > 7 ? ['Physical Performance'] : []
+      },
+      marketValue: {
+        currentQuote: v2Actor.starPower.bankability.prealesValue * 100000,
+        marketTier: v2Actor.starPower.bankability.prealesValue > 0.7 ? 'High' : 'Medium',
+        trending: v2Actor.starPower.bankability.prealesValue > 0.8 ? 'Strong' : 'Moderate',
+        bankability: v2Actor.starPower.bankability.prealesValue
+      },
       availability: {
-        conflicts: []
-      } as any,
-      experience: {
-        credits: [],
-        awards: [],
-        specialSkills: v2Actor.training.strengths.physicalExpressiveness > 7 ? ['Physical Performance'] : []
+        schedule: ['Flexible'],
+        conflicts: [],
+        flexibility: 8
       },
-      marketMetrics: {
-        fanBase: v2Actor.starPower.socialMedia.totalFollowers > 1000000 ? 'large' : 'medium',
-        demographics: Object.keys(v2Actor.starPower.socialMedia.audienceDemographics.age),
-        socialMedia: {
-          followers: v2Actor.starPower.socialMedia.totalFollowers,
-          engagement: v2Actor.starPower.socialMedia.engagementRate
+      strengths: [
+        {
+          category: 'Performance',
+          description: 'Strong emotional range',
+          examples: ['Dramatic scenes', 'Character development']
         }
+      ],
+      filmography: [],
+      awards: [],
+      representation: {
+        agency: 'Unknown Agency',
+        manager: 'TBD',
+        publicist: 'TBD',
+        contact: 'TBD'
       },
-      riskFactors: ['clean reputation'] as any
+      rateStructure: {
+        quote: v2Actor.starPower.bankability.prealesValue * 100000,
+        backend: 0.1,
+        perks: ['Standard'],
+        flexibility: 5
+      },
+      personalBrand: {
+        image: 'Professional',
+        strengths: ['Versatile', 'Reliable'],
+        associations: ['Quality productions'],
+        risks: []
+      },
+      riskFactors: []
     };
   }
 

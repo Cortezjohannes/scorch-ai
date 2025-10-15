@@ -304,13 +304,13 @@ export default function ProductionLoadingScreen({
 
       {/* Background Animation */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#e2c376]/5 via-transparent to-[#e2c376]/5 animate-pulse" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/5 via-transparent to-[#00FF99]/5 animate-pulse" />
         
         {/* Floating Particles */}
         {[...Array(20)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-[#e2c376]/30 rounded-full"
+            className="absolute w-1 h-1 bg-[#00FF99]/30 rounded-full"
             initial={{
               x: Math.random() * window.innerWidth,
               y: Math.random() * window.innerHeight,
@@ -345,14 +345,14 @@ export default function ProductionLoadingScreen({
               <span className="text-4xl">🎬</span>
             </div>
             <h1 className="text-4xl md:text-6xl font-black elegant-fire fire-gradient animate-flameFlicker">
-              REVOLUTIONARY PRODUCTION
+              GREENLIT PRODUCTION
             </h1>
           </motion.div>
           <p className="text-xl md:text-2xl text-white/90 mb-2 elegant-fire">
             {storyBible?.seriesTitle || 'Your Series'} - Arc {arcIndex + 1}
           </p>
           <p className="text-lg text-white/70 elegant-fire">
-            Forging high-quality pre-production materials for your empire
+            Generating pre-production materials for your series
           </p>
         </motion.div>
 
@@ -373,7 +373,7 @@ export default function ProductionLoadingScreen({
             >
               {currentContentType?.icon}
             </motion.div>
-            <h2 className="text-3xl font-black text-[#e2c376] mb-3 elegant-fire">
+            <h2 className="text-3xl font-black text-[#00FF99] mb-3 elegant-fire">
               {currentContentType?.label}
             </h2>
             <p className="text-lg text-white/90 elegant-fire">
@@ -388,11 +388,11 @@ export default function ProductionLoadingScreen({
           <div>
             <div className="flex justify-between text-lg text-white/80 mb-3 elegant-fire">
               <span>EMPIRE PROGRESS</span>
-              <span className="font-black text-[#e2c376]">{Math.round(overallProgress)}%</span>
+              <span className="font-black text-[#00FF99]">{Math.round(overallProgress)}%</span>
             </div>
-            <div className="h-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#e2c376]/20">
+            <div className="h-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#00FF99]/20">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#D62828] via-[#FF6B00] to-[#e2c376]"
+                className="h-full bg-gradient-to-r from-[#00CC7A] via-[#00FF99] to-[#33FFAD]"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallProgress}%` }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
@@ -404,11 +404,11 @@ export default function ProductionLoadingScreen({
           <div>
             <div className="flex justify-between text-lg text-white/80 mb-3 elegant-fire">
               <span>{currentContentType?.label} PROGRESS</span>
-              <span className="font-black text-[#e2c376]">{Math.round(stepProgress)}%</span>
+              <span className="font-black text-[#00FF99]">{Math.round(stepProgress)}%</span>
             </div>
-            <div className="h-4 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#e2c376]/20">
+            <div className="h-4 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#00FF99]/20">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#D62828]/70 via-[#FF6B00]/70 to-[#e2c376]/70"
+                className="h-full bg-gradient-to-r from-[#00CC7A]/70 via-[#00FF99]/70 to-[#33FFAD]/70"
                 style={{ width: `${stepProgress}%` }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               />
@@ -423,10 +423,10 @@ export default function ProductionLoadingScreen({
               key={type.id}
               className={`p-6 rebellious-card transition-all ${
                 index < currentStep 
-                  ? 'border-[#e2c376]/60 shadow-[#e2c376]/20' 
+                  ? 'border-[#00FF99]/60 shadow-[#00FF99]/20' 
                   : index === currentStep
-                    ? 'border-[#D62828]/40 shadow-[#D62828]/20'
-                    : 'border-[#e2c376]/20'
+                    ? 'border-[#00CC7A]/40 shadow-[#00CC7A]/20'
+                    : 'border-[#00FF99]/20'
               }`}
               animate={index === currentStep ? { 
                 scale: [1, 1.05, 1],
@@ -439,7 +439,7 @@ export default function ProductionLoadingScreen({
               <div className="text-sm text-center font-black elegant-fire">{type.label}</div>
               {index < currentStep && (
                 <motion.div
-                  className="text-[#e2c376] text-center mt-3 text-xl"
+                  className="text-[#00FF99] text-center mt-3 text-xl"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.3 }}
@@ -449,7 +449,7 @@ export default function ProductionLoadingScreen({
               )}
               {index === currentStep && (
                 <motion.div
-                  className="text-[#D62828] text-center mt-3 text-xl"
+                  className="text-[#00CC7A] text-center mt-3 text-xl"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 >
@@ -468,7 +468,7 @@ export default function ProductionLoadingScreen({
           transition={{ duration: 0.8, delay: 0.5 }}
         >
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-black text-[#e2c376] mb-3 elegant-fire">🎬 REVOLUTIONARY PRODUCTION ENGINES</h3>
+            <h3 className="text-2xl font-black text-[#00FF99] mb-3 elegant-fire">🎬 PRODUCTION ENGINES</h3>
             <p className="text-lg text-white/90 elegant-fire">AI-powered production intelligence systems</p>
           </div>
           
@@ -487,8 +487,8 @@ export default function ProductionLoadingScreen({
                 key={engine.name}
                 className={`p-4 rebellious-card text-center transition-all ${
                   engine.active 
-                    ? 'border-[#D62828]/40 shadow-[#D62828]/20' 
-                    : 'border-[#e2c376]/20'
+                    ? 'border-[#00CC7A]/40 shadow-[#00CC7A]/20' 
+                    : 'border-[#00FF99]/20'
                 }`}
                 animate={engine.active ? {
                   boxShadow: ["0 0 0 0 rgba(214, 40, 40, 0)", "0 0 0 8px rgba(214, 40, 40, 0.1)", "0 0 0 0 rgba(214, 40, 40, 0)"]
@@ -500,7 +500,7 @@ export default function ProductionLoadingScreen({
                 <div className="text-sm font-black elegant-fire">{engine.name}</div>
                 {engine.active && (
                   <motion.div
-                    className="text-[#D62828] text-center mt-2 text-xl"
+                    className="text-[#00CC7A] text-center mt-2 text-xl"
                     animate={{ opacity: [0.5, 1, 0.5] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
                   >

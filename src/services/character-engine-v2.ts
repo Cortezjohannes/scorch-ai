@@ -612,8 +612,7 @@ export class CharacterEngineV2 {
 
 CHARACTER CONCEPT: ${concept}
 ROLE IN STORY: ${role}
-STORY PREMISE: ${premise.premise}
-THEMATIC QUESTION: ${premise.thematicQuestion}
+STORY PREMISE: ${premise.premiseStatement}
 
 COMPLEXITY LEVEL: ${options.complexityLevel || 'lean-forward'}
 CULTURAL BACKGROUND: ${options.culturalBackground || 'General American'}
@@ -646,7 +645,8 @@ Using advanced psychological frameworks, create:
 Create a psychologically complex character whose internal world drives compelling external action.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a master psychologist and character architect. Create deep, nuanced psychological profiles using established psychological frameworks.',
         temperature: 0.7,
         maxTokens: 2000
@@ -710,7 +710,8 @@ Create comprehensive three-dimensional profile:
 Ensure all three dimensions reinforce each other and the psychological foundation.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are an expert in character development using the three-dimensional framework. Create cohesive, realistic character profiles.',
         temperature: 0.7,
         maxTokens: 2500
@@ -764,7 +765,8 @@ Create advanced narrative engineering:
 Design voice and arc that feel authentic to this specific character's background and psychology.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are a master of character voice and narrative arc development. Create distinctive, authentic character dynamics.',
         temperature: 0.8,
         maxTokens: 2000
@@ -1085,7 +1087,8 @@ Suggest 3 first names that would fit this character's background and personality
 Consider cultural authenticity, generational appropriateness, and professional context.`;
 
     try {
-      const result = await generateContent(prompt, {
+      const result = await generateContent({
+        prompt,
         systemPrompt: 'You are an expert in names and cultural authenticity. Suggest appropriate character names.',
         temperature: 0.8,
         maxTokens: 200
@@ -1339,6 +1342,4 @@ Consider cultural authenticity, generational appropriateness, and professional c
   }
 }
 
-// Export the enhanced character type
-export type { ArchitectedCharacter };
  

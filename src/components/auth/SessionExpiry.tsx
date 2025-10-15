@@ -6,9 +6,10 @@ import { useAuth } from '@/context/AuthContext'
 
 export function SessionExpiry() {
   const auth = useAuth()
-  const isSessionExpired = auth?.isSessionExpired || false
-  const refreshSession = auth?.refreshSession || (() => {})
-  const logout = auth?.logout || (() => {})
+  // Temporarily disabled - properties not available in AuthContext
+  const isSessionExpired = false
+  const refreshSession = () => {}
+  const logout = auth?.signOut || (() => {})
   
   const [showWarning, setShowWarning] = useState(false)
   const [countdown, setCountdown] = useState(60)

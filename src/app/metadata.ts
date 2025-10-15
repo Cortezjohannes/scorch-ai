@@ -1,9 +1,9 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Reeled AI',
-  description: 'AI-powered filmmaking and video editing platform',
+  title: 'Greenlit',
+  description: 'The AI showrunner platform for professional actors. Launch your series, own your IP. 70% revenue share guaranteed.',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/Greenlit.ico',
   },
 } 

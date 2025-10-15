@@ -743,8 +743,8 @@ export interface BudgetForecasting {
 export interface LocationLifecycle {
   phase1: NarrativeConceptualBlueprint;
   phase2: ScoutingAndEvaluation;
-  phase3: any; // Simplified for implementation
-  phase4: any; // Simplified for implementation
+  phase3: SecuringAndPreparation;
+  phase4: ManagementAndWrap;
 }
 
 export interface NarrativeConceptualBlueprint {
@@ -972,34 +972,6 @@ export interface LocationRecommendation {
   strengthsAnalysis: string[];
   riskAnalysis: string[];
   mitigationStrategies: string[];
-  
-  // CHUNK_3: Filming Locations Integration
-  filmingLocationsIntegration: {
-    locationAsCharacterImplementation: {
-      narrativeRole: string;
-      environmentalPsychologyApplication: string;
-      characterInteractionDesign: string;
-      symbolicFrameworkIntegration: string;
-    };
-    productionConsiderations: {
-      scoutingFrameworkApplication: string;
-      logisticsAssessmentIntegration: string;
-      permitsAndLegalFramework: string;
-      safetyProtocolImplementation: string;
-    };
-    cinematographyIntegration: {
-      lightingConsiderationsAlignment: string;
-      cameraPlacementOptimization: string;
-      audioRequirementsIntegration: string;
-      visualContinuityMaintenance: string;
-    };
-    budgetAndTimelineFramework: {
-      costAnalysisIntegration: string;
-      timeRequirementsOptimization: string;
-      alternativeOptionsProvision: string;
-      contingencyPlanningAlignment: string;
-    };
-  };
   
   // Implementation Plan
   implementationTimeline: string[];
@@ -1394,12 +1366,12 @@ Provide professional-grade location assessments with specific details and recomm
           thematicResonance: 'supportive'
         },
         textures: ['natural', 'comfortable'],
-        cleanliness: 'lived-in',
-        maintenance: 'well-kept' as any
+        cleanliness: 'well-kept',
+        maintenance: 'well-kept'
       },
       organism: {
         cognitiveEffects: ['focus', 'clarity'],
-        emotionalEffects: ['comfort', 'peace'],
+        emotionalEffects: ['comfort', 'engagement'],
         physiologicalEffects: ['relaxation', 'alertness'],
         behavioralTendencies: ['social', 'activity']
       },
@@ -1530,7 +1502,7 @@ Provide professional-grade location assessments with specific details and recomm
         role: 'supporting',
         personality: {
           atmosphere: genreStrategy.atmosphericRequirements.mood[0]?.toLowerCase() as any || 'neutral',
-          scale: genreStrategy.atmosphericRequirements.scale === 'epic' ? 'overwhelming' : genreStrategy.atmosphericRequirements.scale === 'varied' ? 'human' : genreStrategy.atmosphericRequirements.scale as any,
+          scale: genreStrategy.atmosphericRequirements.scale,
           temporality: genreStrategy.atmosphericRequirements.temporality as any,
           accessibility: genreStrategy.atmosphericRequirements.accessibility as any,
           stability: 'permanent'
@@ -1603,34 +1575,6 @@ Provide professional-grade location assessments with specific details and recomm
         'Logistical pre-planning',
         'Budget monitoring'
       ],
-      
-      // CHUNK_3: Filming Locations Integration Implementation
-      filmingLocationsIntegration: {
-        locationAsCharacterImplementation: {
-          narrativeRole: this.generateLocationNarrativeRole(primaryRecommendation, sceneRequirements),
-          environmentalPsychologyApplication: this.generateEnvironmentalPsychologyApplication(primaryRecommendation),
-          characterInteractionDesign: this.generateCharacterInteractionDesign(primaryRecommendation, sceneRequirements),
-          symbolicFrameworkIntegration: this.generateSymbolicFrameworkIntegration(primaryRecommendation, projectContext)
-        },
-        productionConsiderations: {
-          scoutingFrameworkApplication: this.generateScoutingFrameworkApplication(primaryRecommendation, projectContext),
-          logisticsAssessmentIntegration: this.generateLogisticsAssessmentIntegration(primaryRecommendation),
-          permitsAndLegalFramework: this.generatePermitsAndLegalFramework(primaryRecommendation, projectContext),
-          safetyProtocolImplementation: this.generateSafetyProtocolImplementation(primaryRecommendation)
-        },
-        cinematographyIntegration: {
-          lightingConsiderationsAlignment: this.generateLightingConsiderationsAlignment(primaryRecommendation, sceneRequirements),
-          cameraPlacementOptimization: this.generateCameraPlacementOptimization(primaryRecommendation, projectContext),
-          audioRequirementsIntegration: this.generateAudioRequirementsIntegration(primaryRecommendation),
-          visualContinuityMaintenance: this.generateVisualContinuityMaintenance(primaryRecommendation, projectContext)
-        },
-        budgetAndTimelineFramework: {
-          costAnalysisIntegration: this.generateCostAnalysisIntegration(primaryRecommendation, projectContext),
-          timeRequirementsOptimization: this.generateTimeRequirementsOptimization(primaryRecommendation, projectContext),
-          alternativeOptionsProvision: this.generateAlternativeOptionsProvision(alternativeOptions),
-          contingencyPlanningAlignment: this.generateContingencyPlanningAlignment(primaryRecommendation, projectContext)
-        }
-      },
       
       implementationTimeline: [
         'Week 1: Legal agreements and permits',
@@ -1724,8 +1668,8 @@ Provide professional-grade location assessments with specific details and recomm
           thematicResonance: 'supportive'
         },
         textures: ['natural'],
-        cleanliness: 'lived-in',
-        maintenance: 'well-kept' as any
+        cleanliness: 'well-kept',
+        maintenance: 'well-kept'
       },
       organism: {
         cognitiveEffects: ['focus'],
@@ -1975,345 +1919,8 @@ Provide professional-grade location assessments with specific details and recomm
       phase4: {} as any  // Simplified for now
     };
   }
-
-  // ============================================================================
-  // CHUNK_3: Filming Locations Integration Implementation Methods
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Generate location narrative role strategy
-   */
-  private static generateLocationNarrativeRole(location: LocationAssessment, sceneRequirements: any): string {
-    const locationRole = location.locationAsCharacter.role;
-    const atmosphereType = location.locationAsCharacter.personality.atmosphere;
-    
-    return `Location serves as ${locationRole} character with ${atmosphereType} atmosphere in scene "${sceneRequirements.sceneDescription}". Environmental psychology S-O-R framework applied: location stimuli (${location.environmentalPsychology.stimulus.ceilingHeight} ceilings, ${location.environmentalPsychology.stimulus.lighting.quality} lighting) designed to evoke ${location.environmentalPsychology.response.primaryEmotion} response. Symbolic meaning: ${location.locationAsCharacter.symbolicMeaning}.`;
-  }
-
-  /**
-   * CHUNK_3: Generate environmental psychology application
-   */
-  private static generateEnvironmentalPsychologyApplication(location: LocationAssessment): string {
-    const sorModel = location.environmentalPsychology;
-    
-    return `S-O-R Model Implementation: Stimulus (${sorModel.stimulus.proxemics} spacing, ${sorModel.stimulus.lighting.color} lighting, ${sorModel.stimulus.acoustics.reverberation} acoustics) → Organism (cognitive effects: ${sorModel.organism.cognitiveEffects.join(', ')}, emotional effects: ${sorModel.organism.emotionalEffects.join(', ')}) → Response (${sorModel.response.primaryEmotion} with ${sorModel.response.attentionLevel}/10 attention level). Environmental design optimized for intended psychological impact.`;
-  }
-
-  /**
-   * CHUNK_3: Generate character interaction design
-   */
-  private static generateCharacterInteractionDesign(location: LocationAssessment, sceneRequirements: any): string {
-    const characters = sceneRequirements.characters || [];
-    const locationPersonality = location.locationAsCharacter.personality;
-    
-    return `Design character-location interactions: Location's ${locationPersonality.scale} scale and ${locationPersonality.accessibility} accessibility affects character behavior and audience perception. Characters (${characters.map((c: any) => c.name || 'Character').join(', ')}) interact with location's ${locationPersonality.atmosphere} atmosphere to enhance ${sceneRequirements.emotionalTone} emotional tone. Environmental proxemics guide character positioning and movement.`;
-  }
-
-  /**
-   * CHUNK_3: Generate symbolic framework integration
-   */
-  private static generateSymbolicFrameworkIntegration(location: LocationAssessment, projectContext: any): string {
-    const archetype = location.archetype;
-    const genre = projectContext.genre;
-    
-    return `Integrate symbolic framework: Location archetype "${archetype.name}" provides symbolic meanings (${archetype.symbolicMeanings.slice(0, 3).join(', ')}) appropriate for ${genre} genre. Cultural associations leverage ${Object.keys(archetype.culturalAssociations)[0] || 'universal'} context. Symbolic resonance supports ${projectContext.premise?.theme || 'core themes'} through environmental storytelling and visual metaphor.`;
-  }
-
-  /**
-   * CHUNK_3: Generate scouting framework application
-   */
-  private static generateScoutingFrameworkApplication(location: LocationAssessment, projectContext: any): string {
-    const scorecard = location.scorecard;
-    const budget = projectContext.budget;
-    
-    return `Professional scouting framework applied: Unified scorecard methodology achieved ${scorecard.percentageScore}% overall rating. Industry-standard evaluation criteria (aesthetic fit: ${location.evaluationCriteria.aestheticFit.visualAppeal}/10, technical suitability: ${location.evaluationCriteria.technicalSuitability.lightingConditions}/10) optimized for ${budget} budget production. ${scorecard.recommendation} status with systematic risk assessment and mitigation strategies.`;
-  }
-
-  /**
-   * CHUNK_3: Generate logistics assessment integration
-   */
-  private static generateLogisticsAssessmentIntegration(location: LocationAssessment): string {
-    const logistics = location.evaluationCriteria.logisticalFeasibility;
-    
-    return `Comprehensive logistics assessment: Accessibility rated ${logistics.accessibility}/10, equipment access ${logistics.equipmentAccess}/10, crew facilities ${logistics.crewFacilities}/10. Base camp space adequacy (${logistics.baseCampSpace}/10) and parking availability (${logistics.parking}/10) evaluated for production requirements. Transportation routes optimized, local amenities mapped, and crew accommodation identified.`;
-  }
-
-  /**
-   * CHUNK_3: Generate permits and legal framework
-   */
-  private static generatePermitsAndLegalFramework(location: LocationAssessment, projectContext: any): string {
-    const legal = location.evaluationCriteria.legalCompliance;
-    const budget = projectContext.budget;
-    
-    return `Legal compliance framework: Owner cooperation rated ${legal.ownerCooperation}/10, permit complexity ${legal.permitComplexity}/10. Neighborhood sentiment analysis (${legal.neighborhoodSentiment}/10) and contractual restrictions assessment (${legal.contractualRestrictions}/10). Insurance requirements evaluated for ${budget} budget level. Legal timeline: permits 4-6 weeks, contracts 2-3 weeks, insurance 1-2 weeks.`;
-  }
-
-  /**
-   * CHUNK_3: Generate safety protocol implementation
-   */
-  private static generateSafetyProtocolImplementation(location: LocationAssessment): string {
-    const safety = location.evaluationCriteria.safetyAssessment;
-    
-    return `Comprehensive safety protocols: Structural safety rated ${safety.structuralSafety}/10, environmental hazards ${safety.environmentalHazards}/10, emergency access ${safety.emergencyAccess}/10. Crew safety measures (${safety.crewSafety}/10) and equipment security (${safety.equipmentSecurity}/10) protocols established. Safety coordinator assigned, emergency procedures developed, first aid stations positioned.`;
-  }
-
-  /**
-   * CHUNK_3: Generate lighting considerations alignment
-   */
-  private static generateLightingConsiderationsAlignment(location: LocationAssessment, sceneRequirements: any): string {
-    const lighting = location.environmentalPsychology.stimulus.lighting;
-    const technical = location.evaluationCriteria.technicalSuitability;
-    
-    return `Lighting strategy aligned with scene requirements: ${lighting.quality} quality ${lighting.color} lighting at ${lighting.intensity} intensity supports "${sceneRequirements.emotionalTone}" emotional tone. Natural light integration (${technical.lightingConditions}/10 rating) with ${lighting.direction} directionality. Power availability (${technical.powerAvailability}/10) assessed for additional lighting equipment needs.`;
-  }
-
-  /**
-   * CHUNK_3: Generate camera placement optimization
-   */
-  private static generateCameraPlacementOptimization(location: LocationAssessment, projectContext: any): string {
-    const technical = location.evaluationCriteria.technicalSuitability;
-    const genre = projectContext.genre;
-    
-    return `Camera placement optimization for ${genre} production: Multiple camera positions evaluated (${technical.cameraPositions}/10 rating). Architectural features and spatial relationships analyzed for optimal coverage. Genre-specific requirements integrated: wide shots for scale, medium shots for character interaction, close-ups for emotional impact. Equipment access and crew positioning optimized for efficient workflow.`;
-  }
-
-  /**
-   * CHUNK_3: Generate audio requirements integration
-   */
-  private static generateAudioRequirementsIntegration(location: LocationAssessment): string {
-    const acoustics = location.environmentalPsychology.stimulus.acoustics;
-    const sound = location.evaluationCriteria.technicalSuitability.soundEnvironment;
-    
-    return `Audio requirements integration: ${acoustics.reverberation} reverberant environment with ${acoustics.ambientNoise} ambient noise levels (${sound}/10 rating). Sound isolation quality (${acoustics.soundIsolation}) assessed for dialogue clarity. Ambient noise sources mapped (${acoustics.noiseTypes.join(', ')}). Audio equipment positioning optimized for location acoustics and production workflow.`;
-  }
-
-  /**
-   * CHUNK_3: Generate visual continuity maintenance
-   */
-  private static generateVisualContinuityMaintenance(location: LocationAssessment, projectContext: any): string {
-    const format = projectContext.premise?.format || 'single';
-    const colorPalette = location.colorStrategy;
-    
-    return `Visual continuity maintenance for ${format} production: Environmental color palette (${colorPalette.colorHarmony} harmony, ${colorPalette.emotionalProgression} progression) coordinated with overall production design. Location documentation (360° photography, color reference charts) for consistent lighting and color matching. ${format === 'series' ? 'Cross-episode continuity protocols established for multi-season consistency.' : 'Scene-to-scene continuity maintained through systematic documentation.'}`;
-  }
-
-  /**
-   * CHUNK_3: Generate cost analysis integration
-   */
-  private static generateCostAnalysisIntegration(location: LocationAssessment, projectContext: any): string {
-    const financial = location.evaluationCriteria.financialViability;
-    const budget = projectContext.budget;
-    
-    return `Cost analysis integration for ${budget} budget production: Total estimated cost $${financial.totalEstimatedCost.toLocaleString()} (location fee: $${financial.locationFee.toLocaleString()}, permits: $${financial.permitCosts.toLocaleString()}, logistics: $${financial.logisticalCosts.toLocaleString()}). Budget fit rating ${financial.budgetFit}/10 with value-for-money assessment ${financial.valueForMoney}/10. Cost optimization opportunities identified through scheduling efficiency and resource sharing.`;
-  }
-
-  /**
-   * CHUNK_3: Generate time requirements optimization
-   */
-  private static generateTimeRequirementsOptimization(location: LocationAssessment, projectContext: any): string {
-    const schedule = projectContext.schedule;
-    const logistics = location.evaluationCriteria.logisticalFeasibility;
-    
-    return `Time requirements optimization for ${schedule} schedule: Setup/strike time calculated based on equipment access (${logistics.equipmentAccess}/10) and crew facilities (${logistics.crewFacilities}/10). Pre-production timeline: permits 4-6 weeks, technical prep 2-3 weeks, crew preparation 1 week. Production efficiency maximized through strategic scheduling and workflow optimization.`;
-  }
-
-  /**
-   * CHUNK_3: Generate alternative options provision
-   */
-  private static generateAlternativeOptionsProvision(alternativeOptions: LocationAssessment[]): string {
-    const numAlternatives = alternativeOptions.length;
-    
-    return `Alternative location options provided: ${numAlternatives} backup locations identified with varying cost/benefit profiles. Each alternative assessed using identical evaluation criteria for fair comparison. Alternative activation protocols: weather backup (same-day switch), permit denial (2-week pivot), budget constraint (cost optimization), schedule conflict (timeline adjustment). Risk mitigation through comprehensive option portfolio.`;
-  }
-
-  /**
-   * CHUNK_3: Generate contingency planning alignment
-   */
-  private static generateContingencyPlanningAlignment(location: LocationAssessment, projectContext: any): string {
-    const contingency = location.evaluationCriteria.contingencyPlanning;
-    const schedule = projectContext.schedule;
-    
-    return `Contingency planning alignment with ${schedule} schedule requirements: Weather backup (${contingency.weatherBackup ? 'available' : 'not available'}) with alternative shots (${contingency.alternativeShots.join(', ')}). Emergency protocols established for equipment failure, talent issues, and force majeure events. Contingency budget allocation: $${contingency.contingencyBudget.toLocaleString()} for unexpected requirements. Real-time decision-making protocols enable rapid pivoting without production delays.`;
-  }
-
-  // ============================================================================
-  // CHUNK_3: Filming Locations Integration Workflow
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Generate comprehensive filming locations integration plan
-   */
-  static async generateFilmingLocationsIntegration(
-    worldBuildingFramework: any,
-    livingWorldGuidance: any,
-    visualDesignFramework: any,
-    productionConstraints: any,
-    context: any
-  ): Promise<{
-    locationCharacterFramework: any;
-    productionLocationPlan: any;
-    cinematographyIntegration: any;
-    logisticsCoordination: any;
-  }> {
-    
-    console.log('🏗️ LOCATION ENGINE V2.0: Creating comprehensive filming locations integration...');
-    
-    try {
-      // Generate comprehensive location integration analysis
-      const locationIntegrationPrompt = `
-        Create a comprehensive filming locations integration plan for television/film production:
-        
-        World Building Framework: ${JSON.stringify(worldBuildingFramework, null, 2)}
-        Visual Design Guidelines: ${JSON.stringify(visualDesignFramework, null, 2)}
-        Production Constraints: ${JSON.stringify(productionConstraints, null, 2)}
-        Project Context: ${JSON.stringify(context, null, 2)}
-        
-        Design comprehensive integration strategy for:
-        1. Location as Character: Environmental psychology application and narrative integration
-        2. Production Planning: Scouting framework and logistics coordination
-        3. Cinematography Integration: Lighting, camera, and audio considerations
-        4. Budget and Timeline: Cost optimization and schedule coordination
-        5. Risk Management: Contingency planning and alternative options
-        6. Quality Assurance: Standards maintenance and success metrics
-        
-        Provide specific implementation strategies for each integration component.
-      `;
-
-      const response = await generateContent(locationIntegrationPrompt, {
-        maxTokens: 3000,
-        temperature: 0.6
-      });
-
-      return {
-        locationCharacterFramework: this.extractLocationCharacterFramework(response, context),
-        productionLocationPlan: this.extractProductionLocationPlan(response, context),
-        cinematographyIntegration: this.extractCinematographyIntegration(response, context),
-        logisticsCoordination: this.extractLogisticsCoordination(response, context)
-      };
-      
-    } catch (error) {
-      console.error('❌ Failed to create filming locations integration:', error);
-      return {
-        locationCharacterFramework: {},
-        productionLocationPlan: {},
-        cinematographyIntegration: {},
-        logisticsCoordination: {}
-      };
-    }
-  }
-
-  /**
-   * Extract location character framework from AI analysis
-   */
-  private static extractLocationCharacterFramework(response: string, context: any): any {
-    // Implementation would parse AI response for location character integration
-    return {
-      narrativeRole: 'Location serves as supporting character',
-      environmentalPsychology: 'S-O-R model applied for intended emotional impact',
-      characterInteraction: 'Location-character dynamics designed for scene objectives',
-      symbolicIntegration: 'Environmental symbolism supports narrative themes'
-    };
-  }
-
-  /**
-   * Extract production location plan from AI analysis
-   */
-  private static extractProductionLocationPlan(response: string, context: any): any {
-    // Implementation would parse AI response for production location planning
-    return {
-      scoutingStrategy: 'Professional evaluation criteria applied',
-      logisticsAssessment: 'Comprehensive accessibility and facilities review',
-      permitsStrategy: 'Legal compliance framework implemented',
-      safetyProtocols: 'Industry-standard safety measures established'
-    };
-  }
-
-  /**
-   * Extract cinematography integration from AI analysis
-   */
-  private static extractCinematographyIntegration(response: string, context: any): any {
-    // Implementation would parse AI response for cinematography integration
-    return {
-      lightingStrategy: 'Environmental lighting optimized for emotional tone',
-      cameraPlacement: 'Multiple positions evaluated for optimal coverage',
-      audioRequirements: 'Acoustic environment assessed for production needs',
-      visualContinuity: 'Systematic documentation for consistency maintenance'
-    };
-  }
-
-  /**
-   * Extract logistics coordination from AI analysis
-   */
-  private static extractLogisticsCoordination(response: string, context: any): any {
-    // Implementation would parse AI response for logistics coordination
-    return {
-      costAnalysis: `Budget optimization for ${context.budget || 'standard'} production`,
-      timeManagement: 'Schedule efficiency maximized through strategic planning',
-      alternativeOptions: 'Comprehensive backup location portfolio developed',
-      contingencyPlanning: 'Risk mitigation protocols established'
-    };
-  }
-
-  // ============================================================================
-  // CHUNK_3: PROPS & WARDROBE LOCATION INTEGRATION
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Generate props & wardrobe location integration framework
-   */
-  static async generatePropsWardrobeLocationIntegration(
-    locationFramework: any,
-    propsWardrobeRequirements: any,
-    context: any
-  ): Promise<{
-    propsLocationCompatibility: any;
-    wardrobeLocationRequirements: any;
-    materialCultureIntegration: any;
-    continuityMaintenance: any;
-  }> {
-    
-    console.log('🏗️ LOCATION ENGINE V2.0: Generating CHUNK_3 props & wardrobe location integration...');
-    
-    try {
-      return {
-        propsLocationCompatibility: {
-          spatialRequirements: locationFramework.spatialAnalysis?.spaceAvailability || 'Standard space',
-          environmentalConstraints: locationFramework.environmentalPsychology?.stimulus || 'Standard environment',
-          accessLogistics: locationFramework.accessibility?.entryPoints || 'Standard access',
-          safetyConsiderations: locationFramework.safetyProtocols?.riskAssessment || 'Standard safety'
-        },
-        
-        wardrobeLocationRequirements: {
-          changingFacilities: locationFramework.facilities?.changingRooms || 'Standard facilities',
-          storageCapacity: locationFramework.storage?.wardrobeStorage || 'Standard storage',
-          climateControl: locationFramework.environmentalControl?.temperature || 'Standard climate',
-          maintenanceAccess: locationFramework.accessibility?.maintenanceAccess || 'Standard access'
-        },
-        
-        materialCultureIntegration: {
-          culturalAuthenticity: locationFramework.culturalContext?.authenticityLevel || 'Standard authenticity',
-          historicalAccuracy: locationFramework.historicalContext?.periodAccuracy || 'Standard accuracy',
-          materialConstraints: locationFramework.environmentalConstraints?.materialLimitations || 'Standard materials',
-          preservationRequirements: locationFramework.preservation?.conservationNeeds || 'Standard preservation'
-        },
-        
-        continuityMaintenance: {
-          visualConsistency: locationFramework.visualContinuity?.consistencyFramework || 'Standard consistency',
-          temporalAlignment: locationFramework.temporalContext?.timePeriod || 'Standard period',
-          crossEpisodeContinuity: locationFramework.continuity?.episodeConsistency || 'Standard continuity',
-          changeTracking: locationFramework.changeManagement?.modificationTracking || 'Standard tracking'
-        }
-      };
-      
-    } catch (error) {
-      console.error('❌ Failed to generate props & wardrobe location integration:', error);
-      return {
-        propsLocationCompatibility: {},
-        wardrobeLocationRequirements: {},
-        materialCultureIntegration: {},
-        continuityMaintenance: {}
-      };
-    }
-  }
 }
+
+// Export the enhanced location types
+export type { LocationRecommendation, LocationAssessment, UnifiedLocationScorecard };
  

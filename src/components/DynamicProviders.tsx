@@ -11,9 +11,6 @@ const SessionExpiry = dynamic(() => import('@/components/auth/SessionExpiry'), {
   ssr: false,
 });
 
-const DataMigration = dynamic(() => import('@/components/migration/DataMigration'), {
-  ssr: false,
-});
 
 interface DynamicProvidersProps {
   children: ReactNode;
@@ -29,7 +26,6 @@ export function DynamicProviders({ children }: DynamicProvidersProps) {
             <SessionExpiry />
             
             {/* Data Migration Dialog - dynamically loaded */}
-            <DataMigration />
             
             {children}
           </>

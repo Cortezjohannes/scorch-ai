@@ -18,25 +18,27 @@ const WORKING_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-
 // DIRECT HTTP CLIENT - This is our primary and only API interface
 // We're using this because the OpenAI SDK approach consistently fails with 404 errors
 async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temperature = 0.7, maxTokens = 2000, model = 'gpt-4.1') {
-  const deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT || model || 'gpt-4.1';
-  const apiKey = process.env.AZURE_OPENAI_API_KEY || '';
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
+  // Get the appropriate deployment ID and endpoint based on the model
+  let deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1';
+  let apiKey = process.env.AZURE_OPENAI_API_KEY || '';
+  let endpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
   
-  // Check for missing configuration
-  if (!endpoint || !apiKey) {
-    console.log('❌ Azure OpenAI configuration missing:');
-    console.log(`   - Endpoint: ${endpoint ? 'configured' : 'MISSING'}`);
-    console.log(`   - API Key: ${apiKey ? 'configured' : 'MISSING'}`);
-    throw new Error(`Azure OpenAI configuration incomplete. Missing: ${!endpoint ? 'AZURE_OPENAI_ENDPOINT ' : ''}${!apiKey ? 'AZURE_OPENAI_API_KEY' : ''}`);
+  // Handle specific model deployments
+  if (model === 'gpt-5-mini') {
+    deploymentId = process.env.GPT_5_MINI_DEPLOYMENT || 'gpt-5-mini';
+  } else if (model === 'gpt-4o') {
+    deploymentId = process.env.GPT_4O_DEPLOYMENT || 'gpt-4o-2024-11-20';
+  } else if (model === 'gpt-4.1') {
+    deploymentId = process.env.GPT_4_1_DEPLOYMENT || 'gpt-4.1';
+  } else {
+    // For other models, use the model name as the deployment ID if no specific mapping exists
+    deploymentId = model;
   }
   
-  // Ensure endpoint ends with slash for URL construction
-  const normalizedEndpoint = endpoint.endsWith('/') ? endpoint : endpoint + '/';
-  
   // Construct the API URL
-  const url = `${normalizedEndpoint}openai/deployments/${deploymentId}/chat/completions?api-version=${WORKING_API_VERSION}`;
+  const url = `${endpoint}openai/deployments/${deploymentId}/chat/completions?api-version=${WORKING_API_VERSION}`;
   
-  console.log(`🚀 Making ${deploymentId} API call to: ${url} with model: ${deploymentId}`);
+  console.log(`🚀 Making ${model} API call to: ${url} with deployment: ${deploymentId}`);
   
   try {
     // Make a direct fetch request
@@ -99,8 +101,8 @@ console.log(`GPT-4.5 API key: ${process.env.AZURE_GPT45_API_KEY ? '✓ Set' : '�
 console.log(`DALL-E API key: ${process.env.AZURE_DALLE_API_KEY ? '✓ Set' : '✗ Missing'}`);
 console.log(`Using API version: ${WORKING_API_VERSION}`);
 
-// Available model mapping - only used for cost calculations, not for actual API calls
-export type AzureOpenAIModel = 'gpt-4' | 'gpt-3.5-turbo' | 'gpt-4.5-preview' | 'gpt-4o' | 'gpt-4.1';
+// Available model mapping
+export type AzureOpenAIModel = 'gpt-4' | 'gpt-3.5-turbo' | 'gpt-4.5-preview' | 'gpt-4o' | 'gpt-4.1' | 'gpt-5-mini' | string;
 
 interface GenerateContentOptions {
   model?: AzureOpenAIModel;
@@ -127,24 +129,35 @@ export async function generateContent(
   options: GenerateContentOptions = {}
 ) {
   const {
-    model = 'gpt-4.1', // Default model is now GPT-4.1
-    temperature = 0.7,
+    model = 'gpt-4.1', // Default model is GPT-4.1
+    temperature = 0.85, // HIGHER FOR BETTER CREATIVITY!
     maxTokens = 2000,
     systemPrompt = 'You are a helpful AI assistant specialized in film and TV pre-production planning.'
   } = options;
 
   try {
-    console.log(`Using direct fetch implementation for ${options.model || 'gpt-4.1'} content generation...`);
+    console.log(`Using direct fetch implementation for ${model} content generation...`);
     const directResponse = await makeDirectAzureRequest(prompt, systemPrompt, temperature, maxTokens, model);
     
     if (directResponse) {
       // If direct implementation succeeds, return the result
       console.log(`Direct fetch implementation succeeded!`);
+      
+      // Calculate approximate cost based on model
+      let cost = 0.01; // Default cost estimate
+      if (MODEL_COSTS[model as keyof typeof MODEL_COSTS]) {
+        const costInfo = MODEL_COSTS[model as keyof typeof MODEL_COSTS];
+        // Rough cost calculation based on input and output tokens
+        const inputTokens = Math.ceil(prompt.length / 4);
+        const outputTokens = Math.ceil(directResponse.length / 4);
+        cost = (inputTokens / 1000 * costInfo.input) + (outputTokens / 1000 * costInfo.output);
+      }
+      
       monitoring.logUsage({
         model: model,
         inputTokens: Math.ceil(prompt.length / 4), // Rough estimate
         outputTokens: Math.ceil(directResponse.length / 4), // Rough estimate
-        cost: 0.01, // Rough estimate
+        cost: cost,
         endpoint: 'direct/azure/chat/completions',
         success: true
       });
@@ -153,13 +166,20 @@ export async function generateContent(
     
     // If direct implementation fails, fall back to Gemini gracefully
     console.log('🔄 Azure OpenAI direct call returned null. Attempting Gemini fallback...');
-    const { generateContentWithGemini } = await import('./gemini-ai');
     
     try {
-      const geminiResponse = await generateContentWithGemini(systemPrompt, prompt);
+      // Import and use Gemini directly
+      const { generateGeminiContent } = await import('./gemini-api');
+      
+      const geminiResponse = await generateGeminiContent(prompt, { 
+        temperature, 
+        maxTokens, 
+        systemPrompt 
+      });
+      
       console.log('✅ Gemini fallback succeeded!');
       monitoring.logUsage({
-        model: 'gemini-1.5-pro',
+        model: 'gemini-2.5-pro',
         inputTokens: Math.ceil(prompt.length / 4),
         outputTokens: Math.ceil(geminiResponse.length / 4),
         cost: 0.005, // Rough estimate for Gemini

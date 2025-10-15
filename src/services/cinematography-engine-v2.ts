@@ -75,20 +75,12 @@ export class CinematographyEngineV2 {
     options: any = {}
   ): Promise<CinematographyEngineRecommendation> {
     try {
-      console.log(`📹 CINEMATOGRAPHY ENGINE V2.0: Creating ${context.genre} cinematography with ${requirements.storyApproach} approach...`);
-      
-      let aiResponse = '';
-      try {
-        aiResponse = await generateContent(
-          `Generate cinematography recommendation for ${context.genre} project focusing on ${requirements.storyApproach} approach.`,
-          { max_tokens: 2000, temperature: 0.7 }
-        );
-        console.log('✅ AI cinematography analysis successful');
-      } catch (error) {
-        console.log('❌ AI cinematography analysis failed, using enhanced fallback');
-      }
+      const response = await generateContent(
+        `Generate cinematography recommendation for ${context.genre} project focusing on ${requirements.storyApproach} approach.`,
+        { maxTokens: 2000, temperature: 0.7 }
+      );
 
-      const result = {
+      return {
         primaryRecommendation: {
           confidence: 0.94,
           
@@ -136,9 +128,6 @@ export class CinematographyEngineV2 {
           genreApplication: this.getGenreGuidance(context.genre)
         }
       };
-      
-      console.log(`✅ CINEMATOGRAPHY ENGINE V2.0: Generated ${requirements.storyApproach} cinematography framework with 9.4/10 confidence`);
-      return result;
     } catch (error) {
       console.error('Error generating cinematography recommendation:', error);
       throw error;
@@ -224,28 +213,28 @@ export class CinematographyEngineV2 {
   }
 
   private static getHorrorVisuals(genre: string): string {
-    if (genre && genre.includes('horror')) {
+    if (genre.includes('horror')) {
       return 'Low-key lighting, Dutch angles, negative space, and POV shots for psychological manipulation';
     }
     return 'Standard visual approach without horror-specific techniques';
   }
 
   private static getComedyTiming(genre: string): string {
-    if (genre && genre.includes('comedy')) {
+    if (genre.includes('comedy')) {
       return 'High-key lighting, wide shots for physical comedy, reaction shots for timing';
     }
     return 'Standard visual approach without comedy-specific timing';
   }
 
   private static getDramaIntimacy(genre: string): string {
-    if (genre && genre.includes('drama')) {
+    if (genre.includes('drama')) {
       return 'Close-ups with shallow focus, soft naturalistic lighting for emotional connection';
     }
     return 'Standard visual approach without drama-specific intimacy';
   }
 
   private static getActionEnergy(genre: string): string {
-    if (genre && genre.includes('action')) {
+    if (genre.includes('action')) {
       return 'Dynamic camera movement, high-contrast lighting, varied shot sizes for kinetic energy';
     }
     return 'Standard visual approach without action-specific energy';
@@ -266,7 +255,7 @@ export class CinematographyEngineV2 {
   }
 
   private static getHDRDelivery(format: string): string {
-    if (format && (format.includes('streaming') || format.includes('theatrical'))) {
+    if (format.includes('streaming') || format.includes('theatrical')) {
       return 'HDR10/Dolby Vision pipeline with wide color gamut workflow';
     }
     return 'Standard dynamic range delivery with tone-mapping options';

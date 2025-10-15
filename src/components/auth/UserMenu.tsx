@@ -11,7 +11,7 @@ export function UserMenu() {
   const auth = useAuth()
   const user = auth?.user || null
   const isAuthenticated = auth?.isAuthenticated || false
-  const logout = auth?.logout || (() => {})
+  const logout = auth?.signOut || (() => {})
   const [isOpen, setIsOpen] = useState(false)
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authModalView, setAuthModalView] = useState<'login' | 'signup'>('login')
@@ -89,19 +89,19 @@ export function UserMenu() {
         className="flex items-center space-x-2 p-1 rounded-full hover:bg-[#e7e7e7]/10 transition-colors"
         aria-label="User menu"
       >
-        {user?.profilePicture ? (
+        {user?.photoURL ? (
           <img
-            src={user.profilePicture}
-            alt={user.name}
+            src={user.photoURL}
+            alt={user.displayName || 'User'}
             className="w-8 h-8 rounded-full object-cover border border-[#e7e7e7]/20"
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-[#e2c376] flex items-center justify-center text-black font-medium text-sm">
-            {getInitials(user?.name || 'User')}
+            {getInitials(user?.displayName || 'User')}
           </div>
         )}
         <span className="text-sm text-[#e7e7e7]/90 hidden md:block">
-          {user?.name}
+          {user?.displayName}
         </span>
         <svg
           className={`w-4 h-4 text-[#e7e7e7]/50 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -124,7 +124,7 @@ export function UserMenu() {
             className="absolute right-0 mt-2 w-48 bg-[#1e1f22] border border-[#e7e7e7]/10 rounded-lg shadow-lg z-50 overflow-hidden"
           >
             <div className="p-3 border-b border-[#e7e7e7]/10">
-              <div className="font-medium">{user?.name}</div>
+              <div className="font-medium">{user?.displayName}</div>
               <div className="text-xs text-[#e7e7e7]/50 truncate">{user?.email}</div>
             </div>
             

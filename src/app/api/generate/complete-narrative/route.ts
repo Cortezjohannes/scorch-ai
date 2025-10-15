@@ -63,11 +63,11 @@ async function generateCompleteNarrativeWithAllEngines(
   EngineLogger.initializeSession(mode as 'beast' | 'stable', 60);
   
   // Enhanced engine tracking with real-time status
-  const enginesActivated = [];
+  const enginesActivated: string[] = [];
   const phaseProgress = {
     total: 7,
     current: 0,
-    completed: []
+    completed: [] as number[]
   };
   
   // Real-time progress logging using enhanced logger
@@ -104,19 +104,19 @@ async function generateCompleteNarrativeWithAllEngines(
     logEngineComplete('PREMISE ENGINE', `Generated ${premise.premiseStatement?.length || 'comprehensive'} character premise for ${detectedGenre} genre`);
     
     // ENGINE 2-5: CHARACTER 3D ENGINE - Deep Character Psychology (4 Characters)
-    logEngineStart('CHARACTER 3D ENGINE', 'Generating psychologically complex protagonist');
+    logEngineStart('CHARACTER 3D ENGINE', 'Generating psychologically complex protagonist', 'Character Development');
     const protagonist = await Character3DEngine.generateProtagonist(premise, prompt);
     logEngineComplete('CHARACTER 3D ENGINE (PROTAGONIST)', `Created complex protagonist with ${protagonist.psychology?.coreValue || 'advanced psychology'}`);
     
-    logEngineStart('CHARACTER 3D ENGINE', 'Creating contrasting antagonist psychology');
+    logEngineStart('CHARACTER 3D ENGINE', 'Creating contrasting antagonist psychology', 'Character Development');
     const antagonist = await Character3DEngine.generateAntagonist(premise, protagonist, prompt);
     logEngineComplete('CHARACTER 3D ENGINE (ANTAGONIST)', `Developed antagonist with opposing drives and compelling motivation`);
     
-    logEngineStart('CHARACTER 3D ENGINE', 'Crafting catalyst supporting character');
+    logEngineStart('CHARACTER 3D ENGINE', 'Crafting catalyst supporting character', 'Character Development');
     const supportingCharacter1 = await Character3DEngine.generateSupportingCharacter('catalyst', premise, [protagonist, antagonist], prompt);
     logEngineComplete('CHARACTER 3D ENGINE (CATALYST)', `Built catalyst character to drive plot progression`);
     
-    logEngineStart('CHARACTER 3D ENGINE', 'Designing mirror supporting character');
+    logEngineStart('CHARACTER 3D ENGINE', 'Designing mirror supporting character', 'Character Development');
     const supportingCharacter2 = await Character3DEngine.generateSupportingCharacter('mirror', premise, [protagonist, antagonist], prompt);
     logEngineComplete('CHARACTER 3D ENGINE (MIRROR)', `Created mirror character for thematic reflection`);
     
@@ -137,7 +137,7 @@ Return as JSON: {"description": "world description", "locations": ["location1", 
       mode: mode as 'beast' | 'stable',
       temperature: 0.7
     }, 'WorldBuildingEngine');
-    const worldBlueprint = worldResponse.data || { description: 'Rich story world', locations: ['Main Setting'], atmosphere: 'Immersive' };
+    const worldBlueprint: any = worldResponse.data || { description: 'Rich story world', locations: ['Main Setting'], atmosphere: 'Immersive' };
     console.log(`✅ WORLD BUILDING ENGINE: Created comprehensive world with ${worldBlueprint.locations?.length || 0} locations`);
     
     // ========================================================================
@@ -164,7 +164,7 @@ Return as JSON: {"recommendedTropes": ["trope1", "trope2"], "avoidedCliches": ["
       mode: mode as 'beast' | 'stable',
       temperature: 0.6
     }, 'IntelligentTropeSystem');
-    const tropeBlueprint = tropeResponse.data || { recommendedTropes: ['Character Growth', 'Dramatic Irony'], avoidedCliches: [], innovations: [] };
+    const tropeBlueprint: any = tropeResponse.data || { recommendedTropes: ['Character Growth', 'Dramatic Irony'], avoidedCliches: [], innovations: [] };
     console.log(`✅ INTELLIGENT TROPE SYSTEM: Deployed ${tropeBlueprint.recommendedTropes?.length || 0} sophisticated tropes`);
     
     // ========================================================================
@@ -175,7 +175,7 @@ Return as JSON: {"recommendedTropes": ["trope1", "trope2"], "avoidedCliches": ["
     // ENGINE 6: GENRE MASTERY SYSTEM - Genre Coordination
     console.log('🎯 ENGINE 6: GENRE MASTERY SYSTEM - Coordinating genre elements...');
     const genreProfile = await GenreMasterySystem.generateGenreProfileAI(detectedGenre);
-    console.log(`✅ GENRE MASTERY SYSTEM: Mastered ${detectedGenre} with ${genreProfile.conventions?.length || 0} conventions`);
+    console.log(`✅ GENRE MASTERY SYSTEM: Mastered ${detectedGenre} with ${genreProfile.dialogueConventions?.length || 0} dialogue conventions`);
     
     // GENRE-SPECIFIC SPECIALIZATION ENGINES
     let genreSpecializationResults = {};
@@ -235,7 +235,7 @@ Return as JSON: {"escalationPattern": "pattern type", "tensionBeats": ["beat1", 
       mode: mode as 'beast' | 'stable',
       temperature: 0.6
     }, 'TensionEscalationEngine');
-    const tensionBlueprint = tensionResponse.data || { escalationPattern: 'dramatic', tensionBeats: ['Setup', 'Conflict', 'Climax'], climaxStructure: 'satisfying', audienceEngagement: 'high' };
+    const tensionBlueprint: any = tensionResponse.data || { escalationPattern: 'dramatic', tensionBeats: ['Setup', 'Conflict', 'Climax'], climaxStructure: 'satisfying', audienceEngagement: 'high' };
     console.log(`✅ TENSION ESCALATION ENGINE: Created ${tensionBlueprint.escalationPattern || 'dynamic'} tension pattern`);
     
     // ENGINE 8: INTERACTIVE CHOICE ENGINE - Branching Narratives
@@ -258,7 +258,7 @@ Return as JSON: {"choices": [{"text": "choice text", "consequence": "potential o
       mode: mode as 'beast' | 'stable',
       temperature: 0.7
     }, 'InteractiveChoiceEngine');
-    const interactiveChoices = choiceResponse.data?.choices || [{ text: 'Continue the journey', consequence: 'Story progression', characterRelevance: 'All characters' }];
+    const interactiveChoices = (choiceResponse.data as any)?.choices || [{ text: 'Continue the journey', consequence: 'Story progression', characterRelevance: 'All characters' }];
     console.log(`✅ INTERACTIVE CHOICE ENGINE: Generated ${interactiveChoices.length} consequential choices`);
     
     // ========================================================================
@@ -281,11 +281,11 @@ Create 5 key dialogue exchanges that demonstrate each character's unique voice w
 
 Return as JSON: {"dialogueSamples": [{"speaker": "name", "line": "dialogue", "characterVoice": "voice description", "storyPurpose": "narrative function"}]}`,
       systemPrompt: 'You are the Strategic Dialogue Engine creating character-defining conversations.',
-      mode: mode,
+      mode: mode as 'beast' | 'stable',
       temperature: 0.8
     }, 'StrategicDialogueEngine');
     
-    const dialogueSamples = dialogueResponse.data?.dialogueSamples || [];
+    const dialogueSamples = (dialogueResponse.data as any)?.dialogueSamples || [];
     console.log(`✅ STRATEGIC DIALOGUE ENGINE: Created ${dialogueSamples.length} authentic character voices (${mode} mode)`);
     
     // ENGINE 10: LIVING WORLD ENGINE - Dynamic Environment Evolution
@@ -308,7 +308,7 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       mode: mode as 'beast' | 'stable',
       temperature: 0.7
     }, 'LivingWorldEngine');
-    const livingWorld = livingWorldResponse.data || { dynamicSystems: ['Character relationships', 'Environmental changes'], worldEvolution: 'Progressive development', characterInteraction: 'Meaningful impact', atmosphere: 'Living and breathing' };
+    const livingWorld: any = livingWorldResponse.data || { dynamicSystems: ['Character relationships', 'Environmental changes'], worldEvolution: 'Progressive development', characterInteraction: 'Meaningful impact', atmosphere: 'Living and breathing' };
     console.log(`✅ LIVING WORLD ENGINE: Created dynamic world with ${livingWorld.dynamicSystems?.length || 0} evolving systems`);
     
     // ==================================================================================
@@ -364,7 +364,7 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
     // 💬 DIALOGUE & COMMUNICATION ENGINES (6 engines)
     console.log('💬 COMMUNICATION ENGINES: Strategic-Dialogue + Dialogue V2 + Language + Language V2 + Performance-Coaching...');
     const communicationResponse = await AIOrchestrator.generateStructuredContent({
-      prompt: `Create comprehensive communication strategy using multiple engines:\n\nCHARACTERS: ${allCharacters.map(c => `${c.name}: ${c.psychology?.coreValue || 'character trait'}`).join(', ')}\nDIALOGUE SAMPLES: ${dialogueSamples.map(d => `${d.speaker}: "${d.line}"`).join('; ')}\n\nApply: Strategic-Dialogue Engine, Dialogue Engine V2, Language Engine, Language Engine V2, Performance-Coaching Engine, Performance-Coaching Engine V2.\n\nReturn as JSON: {"strategicDialogue": ["dialogue strategies"], "languagePatterns": ["patterns"], "characterVoices": ["voice characteristics"], "performanceNotes": ["performance guidance"], "communicationStyle": "overall style", "dialogueEvolution": ["evolution notes"]}`,
+      prompt: `Create comprehensive communication strategy using multiple engines:\n\nCHARACTERS: ${allCharacters.map(c => `${c.name}: ${c.psychology?.coreValue || 'character trait'}`).join(', ')}\nDIALOGUE SAMPLES: ${dialogueSamples.map((d: any) => `${d.speaker}: "${d.line}"`).join('; ')}\n\nApply: Strategic-Dialogue Engine, Dialogue Engine V2, Language Engine, Language Engine V2, Performance-Coaching Engine, Performance-Coaching Engine V2.\n\nReturn as JSON: {"strategicDialogue": ["dialogue strategies"], "languagePatterns": ["patterns"], "characterVoices": ["voice characteristics"], "performanceNotes": ["performance guidance"], "communicationStyle": "overall style", "dialogueEvolution": ["evolution notes"]}`,
       systemPrompt: 'You are the unified Communication Engine constellation, perfecting character voices and dialogue.',
       mode: mode as 'beast' | 'stable',
       temperature: 0.8

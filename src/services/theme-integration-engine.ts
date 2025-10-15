@@ -21,6 +21,67 @@ import { VisualStorytellingBlueprint } from './visual-storytelling-engine'
 import { GenreProfile } from './genre-mastery-system'
 import { generateContent } from './azure-openai'
 
+// Core Theme Integration Types
+export interface PlotThemeIntegration {
+  id: string;
+  integrationType: string;
+  plotElements: string[];
+}
+
+export interface ConflictThemeIntegration {
+  id: string;
+  conflictType: string;
+  thematicElements: string[];
+}
+
+export interface DialogueThemeIntegration {
+  id: string;
+  dialogueStyle: string;
+  thematicContent: string[];
+}
+
+export interface VisualThemeIntegration {
+  id: string;
+  visualStyle: string;
+  symbolicElements: string[];
+}
+
+export interface WorldThemeIntegration {
+  id: string;
+  worldType: string;
+  thematicWorldbuilding: string[];
+}
+
+export interface ThematicSymbolism {
+  id: string;
+  symbolType: string;
+  thematicConnections: string[];
+}
+
+export interface ThematicMotif {
+  id: string;
+  motifType: string;
+  recurringElements: string[];
+}
+
+export interface ThematicMetaphor {
+  id: string;
+  metaphorType: string;
+  symbolicMeaning: string[];
+}
+
+export interface ThematicIrony {
+  id: string;
+  ironyType: string;
+  thematicContrast: string[];
+}
+
+export interface ThemeProgression {
+  id: string;
+  progressionType: string;
+  thematicDevelopment: string[];
+}
+
 // Core Theme Architecture
 export interface ThemeIntegrationBlueprint {
   id: string;
@@ -502,6 +563,225 @@ Return comprehensive theme core analysis.`;
   }
 
   /**
+   * AI-ENHANCED: Generate theme hierarchy with AI intelligence
+   */
+  private static async generateThemeHierarchyAI(
+    themeCore: ThemeCore,
+    premise: StoryPremise,
+    characters: Character3D[],
+    narrative: NarrativeArc
+  ): Promise<ThemeHierarchy> {
+    const prompt = `Create a comprehensive theme hierarchy for this story:
+
+CENTRAL THEME: ${themeCore.centralTheme}
+THEMATIC QUESTION: ${themeCore.thematicQuestion}
+PREMISE: "${premise.premiseStatement}"
+CHARACTERS: ${characters.map(c => c.name).join(', ')}
+NARRATIVE: ${narrative.title}
+
+Develop theme hierarchy:
+
+1. PRIMARY THEME: Main theme that drives the story
+2. SECONDARY THEMES: Supporting themes that enhance the primary
+3. SUBTHEMES: Specific thematic elements within scenes
+4. THEMATIC CONNECTIONS: How themes relate to each other
+5. THEMATIC PROGRESSION: How themes develop through the story
+
+Return comprehensive theme hierarchy analysis.`;
+
+    try {
+      const result = await generateContent(prompt, {
+        systemPrompt: 'You are an expert in thematic storytelling and literary analysis. Create sophisticated theme hierarchies.',
+        temperature: 0.6,
+        maxTokens: 800
+      });
+
+      const themeData = JSON.parse(result || '{}');
+      
+      if (themeData.primaryTheme && themeData.secondaryThemes) {
+        return this.buildThemeHierarchyFromAI(themeData);
+      }
+      
+      return this.generateThemeHierarchyFallback(themeCore, premise);
+    } catch (error) {
+      console.warn('AI theme hierarchy generation failed, using fallback:', error);
+      return this.generateThemeHierarchyFallback(themeCore, premise);
+    }
+  }
+
+  /**
+   * AI-ENHANCED: Generate character theme integration with AI intelligence
+   */
+  private static async generateCharacterThemeIntegrationAI(
+    characters: Character3D[],
+    themeCore: ThemeCore,
+    themeHierarchy: ThemeHierarchy
+  ): Promise<CharacterThemeIntegration> {
+    const prompt = `Create character theme integration for this story:
+
+CHARACTERS: ${characters.map(c => `${c.name}: ${c.motivation}`).join(', ')}
+CENTRAL THEME: ${themeCore.centralTheme}
+PRIMARY THEME: ${themeHierarchy.primaryTheme.theme}
+
+Develop character theme integration:
+
+1. CHARACTER THEMES: How each character embodies different aspects of the theme
+2. THEMATIC CONFLICTS: How characters represent opposing thematic positions
+3. THEMATIC GROWTH: How characters develop thematically
+4. THEMATIC RELATIONSHIPS: How character relationships serve the theme
+
+Return comprehensive character theme integration analysis.`;
+
+    try {
+      const result = await generateContent(prompt, {
+        systemPrompt: 'You are an expert in character development and thematic storytelling. Create sophisticated character theme integration.',
+        temperature: 0.6,
+        maxTokens: 800
+      });
+
+      const themeData = JSON.parse(result || '{}');
+      
+      if (themeData.characterThemes && themeData.thematicConflicts) {
+        return this.buildCharacterThemeIntegrationFromAI(themeData);
+      }
+      
+      return this.generateCharacterThemeIntegrationFallback(characters, themeCore);
+    } catch (error) {
+      console.warn('AI character theme integration generation failed, using fallback:', error);
+      return this.generateCharacterThemeIntegrationFallback(characters, themeCore);
+    }
+  }
+
+  /**
+   * AI-ENHANCED: Generate plot theme integration with AI intelligence
+   */
+  private static async generatePlotThemeIntegrationAI(
+    premise: StoryPremise,
+    narrative: NarrativeArc,
+    themeCore: ThemeCore
+  ): Promise<PlotThemeIntegration> {
+    const prompt = `Create plot theme integration for this story:
+
+PREMISE: "${premise.premiseStatement}"
+NARRATIVE: ${narrative.title}
+CENTRAL THEME: ${themeCore.centralTheme}
+
+Develop plot theme integration:
+
+1. THEMATIC PLOT POINTS: Key story events that serve the theme
+2. THEMATIC TENSION: How plot creates thematic conflict
+3. THEMATIC RESOLUTION: How plot resolves thematic questions
+4. THEMATIC PACING: How plot pacing serves theme
+
+Return comprehensive plot theme integration analysis.`;
+
+    try {
+      const result = await generateContent(prompt, {
+        systemPrompt: 'You are an expert in plot development and thematic storytelling. Create sophisticated plot theme integration.',
+        temperature: 0.6,
+        maxTokens: 800
+      });
+
+      const themeData = JSON.parse(result || '{}');
+      
+      if (themeData.thematicPlotPoints && themeData.thematicTension) {
+        return this.buildPlotThemeIntegrationFromAI(themeData);
+      }
+      
+      return this.generatePlotThemeIntegrationFallback(premise, narrative);
+    } catch (error) {
+      console.warn('AI plot theme integration generation failed, using fallback:', error);
+      return this.generatePlotThemeIntegrationFallback(premise, narrative);
+    }
+  }
+
+  /**
+   * AI-ENHANCED: Generate conflict theme integration with AI intelligence
+   */
+  private static async generateConflictThemeIntegrationAI(
+    conflict: ConflictArchitecture,
+    themeCore: ThemeCore,
+    themeHierarchy: ThemeHierarchy
+  ): Promise<ConflictThemeIntegration> {
+    const prompt = `Create conflict theme integration for this story:
+
+CONFLICT: ${conflict.conflictCore.centralConflict}
+CENTRAL THEME: ${themeCore.centralTheme}
+PRIMARY THEME: ${themeHierarchy.primaryTheme.theme}
+
+Develop conflict theme integration:
+
+1. THEMATIC CONFLICT: How conflict embodies thematic opposition
+2. THEMATIC STAKES: What thematically is at stake
+3. THEMATIC RESOLUTION: How conflict resolution serves theme
+4. THEMATIC TENSION: How conflict creates thematic tension
+
+Return comprehensive conflict theme integration analysis.`;
+
+    try {
+      const result = await generateContent(prompt, {
+        systemPrompt: 'You are an expert in conflict development and thematic storytelling. Create sophisticated conflict theme integration.',
+        temperature: 0.6,
+        maxTokens: 800
+      });
+
+      const themeData = JSON.parse(result || '{}');
+      
+      if (themeData.thematicConflict && themeData.thematicStakes) {
+        return this.buildConflictThemeIntegrationFromAI(themeData);
+      }
+      
+      return this.generateConflictThemeIntegrationFallback(conflict, themeCore);
+    } catch (error) {
+      console.warn('AI conflict theme integration generation failed, using fallback:', error);
+      return this.generateConflictThemeIntegrationFallback(conflict, themeCore);
+    }
+  }
+
+  /**
+   * AI-ENHANCED: Generate dialogue theme integration with AI intelligence
+   */
+  private static async generateDialogueThemeIntegrationAI(
+    characters: Character3D[],
+    themeCore: ThemeCore,
+    themeHierarchy: ThemeHierarchy
+  ): Promise<DialogueThemeIntegration> {
+    const prompt = `Create dialogue theme integration for this story:
+
+CHARACTERS: ${characters.map(c => `${c.name}: ${c.dialogueStyle}`).join(', ')}
+CENTRAL THEME: ${themeCore.centralTheme}
+PRIMARY THEME: ${themeHierarchy.primaryTheme.theme}
+
+Develop dialogue theme integration:
+
+1. THEMATIC DIALOGUE: How dialogue serves the theme
+2. THEMATIC VOICES: How each character's voice serves theme
+3. THEMATIC SUBTEXT: How dialogue subtext serves theme
+4. THEMATIC CONFLICT: How dialogue creates thematic conflict
+
+Return comprehensive dialogue theme integration analysis.`;
+
+    try {
+      const result = await generateContent(prompt, {
+        systemPrompt: 'You are an expert in dialogue development and thematic storytelling. Create sophisticated dialogue theme integration.',
+        temperature: 0.6,
+        maxTokens: 800
+      });
+
+      const themeData = JSON.parse(result || '{}');
+      
+      if (themeData.thematicDialogue && themeData.thematicVoices) {
+        return this.buildDialogueThemeIntegrationFromAI(themeData);
+      }
+      
+      return this.generateDialogueThemeIntegrationFallback(characters, themeCore);
+    } catch (error) {
+      console.warn('AI dialogue theme integration generation failed, using fallback:', error);
+      return this.generateDialogueThemeIntegrationFallback(characters, themeCore);
+    }
+  }
+
+  /**
    * AI-ENHANCED: Generate thematic statement with AI intelligence
    */
   private static async generateThematicStatementAI(
@@ -791,6 +1071,7 @@ Return comprehensive thematic statement.`;
     return {
       premise: {
         id: `premise-${Date.now()}`,
+        premiseType: 'thematic',
         theme: context.thematicTerritory,
         premiseStatement: framework.primaryRecommendation.thematicArchitecture.controllingIdea,
         character: 'Protagonist seeking truth',
@@ -798,55 +1079,227 @@ Return comprehensive thematic statement.`;
         want: 'External goal',
         need: 'Thematic truth',
         change: 'Character transformation',
-        result: 'Thematic proof'
+        result: 'Thematic proof',
+        resolution: 'Thematic resolution achieved',
+        isTestable: true,
+        isSpecific: true,
+        isArgued: true
       } as StoryPremise,
       
       characters: [
         {
+          id: `char-${Date.now()}`,
           name: 'Thematic Protagonist',
-          background: `Character embodying ${context.thematicTerritory} journey`,
+          backgroundStory: `Character embodying ${context.thematicTerritory} journey`,
           motivation: framework.primaryRecommendation.thematicArchitecture.controllingIdea,
           personalityTraits: requirements.argumentStructure === 'archetypal' ? 
             ['seeking individuation', 'confronting shadow', 'integrating self'] : 
             ['moral complexity', 'growth potential', 'thematic relevance'],
           characterArc: requirements.characterIntegration === 'ecosystem' ? 
-            'Part of thematic debate system' : 'Individual transformation proof'
+            'Part of thematic debate system' : 'Individual transformation proof',
+          internalConflicts: [],
+          externalConflicts: [],
+          relationships: [],
+          dialogueStyle: 'thematic',
+          emotionalRange: 'complex',
+          moralCompass: 'evolving',
+          fears: 'facing thematic truth',
+          desires: 'thematic resolution',
+          secrets: [],
+          growthAreas: [],
+          strengths: ['thematic awareness'],
+          weaknesses: ['thematic resistance'],
+          backstory: `Character embodying ${context.thematicTerritory} journey`,
+          currentSituation: 'Facing thematic challenge',
+          futureGoals: 'Thematic resolution',
+          characterType: 'protagonist',
+          role: 'thematic',
+          importance: 'primary'
         }
       ] as Character3D[],
       
       narrative: {
         id: `narrative-${Date.now()}`,
         title: context.projectTitle,
-        structure: requirements.argumentStructure === 'dialectical' ? 'three-act with dialectical tension' : 'traditional',
-        thematicProgression: framework.primaryRecommendation.thematicArchitecture.moralArgument
+        macroStructure: requirements.argumentStructure === 'dialectical' ? 'three-act' : 'traditional',
+        totalEpisodes: 1,
+        premise: framework.primaryRecommendation.thematicArchitecture.controllingIdea,
+        theme: context.thematicTerritory,
+        characterArc: 'Thematic transformation',
+        acts: [],
+        episodes: [],
+        progression: 'thematic'
       } as NarrativeArc,
       
       world: {
         id: `world-${Date.now()}`,
+        name: `Thematic World for ${context.thematicTerritory}`,
         description: `World supporting ${context.thematicTerritory} exploration`,
-        thematicElements: [framework.primaryRecommendation.symbolicFramework.symbolicLexicon]
+        premise: {
+          id: `premise-${Date.now()}`,
+          premiseType: 'thematic',
+          premiseStatement: framework.primaryRecommendation.thematicArchitecture.controllingIdea,
+          character: 'Thematic Protagonist',
+          conflict: 'Thematic conflict',
+          want: 'Thematic goal',
+          need: 'Thematic truth',
+          change: 'Thematic transformation',
+          result: 'Thematic resolution',
+          resolution: 'Thematic resolution achieved',
+          isTestable: true,
+          isSpecific: true,
+          isArgued: true
+        },
+        geography: {
+          id: `geo-${Date.now()}`,
+          name: 'Thematic Geography',
+          regions: ['Thematic Region'],
+          landmarks: ['Thematic Landmark'],
+          naturalFeatures: ['Thematic Feature'],
+          politicalBoundaries: ['Thematic Boundary']
+        },
+        climate: {
+          id: `climate-${Date.now()}`,
+          name: 'Thematic Climate',
+          temperatureRange: 'moderate',
+          precipitation: 'thematic',
+          seasonalPatterns: ['thematic season'],
+          weatherEvents: ['thematic weather']
+        },
+        ecology: {
+          id: `eco-${Date.now()}`,
+          name: 'Thematic Ecology',
+          ecosystems: ['thematic ecosystem'],
+          species: ['thematic species'],
+          foodChains: ['thematic chain'],
+          environmentalFactors: ['thematic factor']
+        },
+        resources: {
+          id: `resources-${Date.now()}`,
+          name: 'Thematic Resources',
+          naturalResources: ['thematic resource'],
+          economicSystems: ['thematic economy'],
+          tradeRoutes: ['thematic trade'],
+          scarcityFactors: ['thematic scarcity']
+        }
       } as WorldBlueprint,
       
       conflict: {
         id: `conflict-${Date.now()}`,
-        type: 'thematic',
-        description: framework.primaryRecommendation.characterThemeIntegration.antagonistCounterArgument,
-        stakes: context.thematicTerritory,
-        thematicRelevance: 'Central to moral argument'
+        name: 'Thematic Conflict',
+        conflictType: 'thematic',
+        conflictCore: {
+          id: `core-${Date.now()}`,
+          centralConflict: framework.primaryRecommendation.characterThemeIntegration.antagonistCounterArgument,
+          conflictSource: 'thematic',
+          conflictNature: 'moral',
+          conflictScope: 'universal'
+        },
+        stakesHierarchy: {
+          id: `stakes-${Date.now()}`,
+          personalStakes: 'thematic truth',
+          interpersonalStakes: 'thematic relationships',
+          societalStakes: 'thematic society',
+          universalStakes: context.thematicTerritory
+        },
+        oppositionForces: {
+          id: `opposition-${Date.now()}`,
+          primaryOpposition: 'thematic antagonist',
+          secondaryOpposition: 'thematic obstacles',
+          internalOpposition: 'thematic resistance',
+          externalOpposition: 'thematic forces'
+        },
+        conflictDynamics: {
+          id: `dynamics-${Date.now()}`,
+          conflictPattern: 'thematic',
+          conflictIntensity: 'high',
+          conflictFrequency: 'continuous',
+          conflictResolution: 'thematic'
+        },
+        escalationArchitecture: {
+          id: `escalation-${Date.now()}`,
+          escalationPattern: 'thematic',
+          escalationStages: ['thematic stage'],
+          escalationTriggers: ['thematic trigger'],
+          escalationPeak: 'thematic climax'
+        },
+        tensionCurve: {
+          id: `tension-${Date.now()}`,
+          tensionPattern: 'thematic',
+          tensionLevels: ['thematic level'],
+          tensionPeaks: ['thematic peak'],
+          tensionResolution: 'thematic'
+        },
+        conflictBeats: [],
+        escalationTriggers: []
       } as ConflictArchitecture,
       
       visual: {
         id: `visual-${Date.now()}`,
-        style: context.medium === 'film' ? 'cinematic' : 'literary',
-        symbolicElements: framework.primaryRecommendation.symbolicFramework.visualMetaphor,
-        thematicSupport: framework.primaryRecommendation.audioVisualTheme.visualTheme
+        name: 'Thematic Visual Style',
+        visualStyle: {
+          id: `style-${Date.now()}`,
+          styleName: context.medium === 'film' ? 'cinematic' : 'literary',
+          characteristics: ['thematic visual'],
+          influences: ['thematic influence'],
+          colorPalette: ['thematic color'],
+          mood: 'thematic'
+        },
+        cinematography: {
+          id: `cinema-${Date.now()}`,
+          shootingStyle: 'thematic',
+          cameraTechniques: ['thematic technique'],
+          framingApproach: 'thematic',
+          movementStyle: 'thematic'
+        },
+        shotComposition: {
+          id: `composition-${Date.now()}`,
+          compositionRules: ['thematic rule'],
+          visualHierarchy: 'thematic',
+          balanceApproach: 'thematic',
+          depthTechniques: ['thematic depth']
+        },
+        cameraMovement: {
+          id: `movement-${Date.now()}`,
+          movementTypes: ['thematic movement'],
+          motivation: 'thematic',
+          execution: 'thematic',
+          emotionalPurpose: 'thematic'
+        },
+        lightingDesign: {
+          id: `lighting-${Date.now()}`,
+          lightingPhilosophy: 'thematic',
+          setupApproach: 'thematic',
+          moodLighting: 'thematic',
+          practicalLighting: 'thematic'
+        }
       } as VisualStorytellingBlueprint,
       
       genre: {
         id: context.genre,
+        name: context.genre,
+        definition: `Thematic ${context.genre} genre`,
         category: context.genre,
-        conventions: [framework.primaryRecommendation.genreThematicLens.genreConventions],
-        thematicTerritory: context.thematicTerritory
+        coreElements: ['thematic element'],
+        essentialMoods: ['thematic mood'],
+        narrativeConventions: [framework.primaryRecommendation.genreThematicLens.genreConventions],
+        visualConventions: ['thematic visual'],
+        thematicTerritory: context.thematicTerritory,
+        audienceExpectations: ['thematic expectation'],
+        genreHistory: ['thematic history'],
+        contemporaryRelevance: 'thematic relevance',
+        crossGenreElements: ['thematic cross'],
+        genreInnovation: 'thematic innovation',
+        culturalImpact: 'thematic impact',
+        commercialViability: 'thematic viability',
+        criticalReception: 'thematic reception',
+        genreEvolution: 'thematic evolution',
+        subgenres: ['thematic subgenre'],
+        genreBlending: ['thematic blend'],
+        genreParody: 'thematic parody',
+        genreHomage: 'thematic homage',
+        genreDeconstruction: 'thematic deconstruction',
+        genreReconstruction: 'thematic reconstruction'
       } as GenreProfile,
       
       themeRequirements: {

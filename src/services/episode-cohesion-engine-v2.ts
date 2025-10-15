@@ -316,7 +316,7 @@ Based on "The Unbroken Chain" research framework, provide a comprehensive episod
 Provide detailed, actionable recommendations that create an "unbroken chain" of narrative engagement while maintaining character integrity and audience trust across the entire series run.`;
 
       const response = await generateContent(prompt, {
-        max_tokens: 4000,
+        maxTokens: 4000,
         temperature: 0.7
       });
 

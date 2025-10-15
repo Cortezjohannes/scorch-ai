@@ -28,7 +28,7 @@ const MODEL_DEPLOYMENT_MAP: Record<string, string> = {
 };
 
 export type ChatCompletionOptions = {
-  messages: { role: 'system' | 'user' | 'assistant' | 'function'; content: string }[];
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
   temperature?: number;
   max_tokens?: number;
   model?: string;
@@ -130,7 +130,7 @@ export async function generateImage(
       n: 1,
     });
 
-    return response.data[0]?.url || '';
+    return response.data?.[0]?.url || '';
   } catch (error) {
     console.error('Azure OpenAI Image Generation Error:', error);
     throw error;

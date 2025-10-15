@@ -19,6 +19,319 @@ import { GenreProfile } from './genre-mastery-system'
 import { generateContent } from './azure-openai'
 import { VisualStorytellingEngineV2, type VisualStorytellingRecommendation } from './visual-storytelling-engine-v2'
 
+// Core Visual Storytelling Types
+export interface VisualNarrativeFlow {
+  id: string;
+  flowType: string;
+  narrativeElements: string[];
+}
+
+export interface VisualMotif {
+  id: string;
+  motifType: string;
+  visualElements: string[];
+}
+
+export interface SymbolismSystem {
+  id: string;
+  symbolicElements: string[];
+  thematicConnections: string[];
+}
+
+export interface ColorPsychologyPlan {
+  id: string;
+  colorScheme: string;
+  emotionalImpact: string[];
+}
+
+export interface ProductionDesignPlan {
+  id: string;
+  designStyle: string;
+  visualElements: string[];
+}
+
+export interface SetDesignSystem {
+  id: string;
+  setTypes: string[];
+  designPrinciples: string[];
+}
+
+export interface CostumeDesignPlan {
+  id: string;
+  costumeStyle: string;
+  characterReflections: string[];
+}
+
+export interface PropDesignSystem {
+  id: string;
+  propTypes: string[];
+  functionalElements: string[];
+}
+
+export interface TechnicalSpecifications {
+  id: string;
+  technicalRequirements: string[];
+  equipmentNeeds: string[];
+}
+
+export interface VisualEffectsDesign {
+  id: string;
+  vfxTypes: string[];
+  integrationPoints: string[];
+}
+
+export interface PostProductionPlan {
+  id: string;
+  postProcesses: string[];
+  finalOutput: string[];
+}
+
+export interface VisualNarrativeService {
+  id: string;
+  serviceType: string;
+  capabilities: string[];
+}
+
+export interface CharacterVisualizationPlan {
+  id: string;
+  visualizationType: string;
+  characterElements: string[];
+}
+
+export interface EmotionalVisualizationSystem {
+  id: string;
+  emotionalTriggers: string[];
+  visualResponses: string[];
+}
+
+export interface GenreVisualizationAdaptation {
+  id: string;
+  genreType: string;
+  adaptations: string[];
+}
+
+export interface VisualImpactMetrics {
+  id: string;
+  impactMeasures: string[];
+  effectivenessIndicators: string[];
+}
+
+export interface CinematicQualityMetrics {
+  id: string;
+  qualityIndicators: string[];
+  technicalStandards: string[];
+}
+
+export interface NarrativeClarityMetrics {
+  id: string;
+  clarityMeasures: string[];
+  comprehensionIndicators: string[];
+}
+
+export interface ShootingStyle {
+  id: string;
+  styleType: string;
+  characteristics: string[];
+}
+
+export interface CameraRig {
+  id: string;
+  rigType: string;
+  specifications: string[];
+}
+
+export interface LensChoice {
+  id: string;
+  lensType: string;
+  focalLength: string;
+}
+
+export interface AspectRatio {
+  id: string;
+  ratio: string;
+  format: string;
+}
+
+export interface FramingPhilosophy {
+  id: string;
+  philosophy: string;
+  principles: string[];
+}
+
+export interface VisualLanguage {
+  id: string;
+  languageType: string;
+  elements: string[];
+}
+
+export interface CompositionRule {
+  id: string;
+  ruleType: string;
+  guidelines: string[];
+}
+
+export interface ShotType {
+  id: string;
+  shotName: string;
+  description: string;
+}
+
+export interface FrameComposition {
+  id: string;
+  compositionType: string;
+  elements: string[];
+}
+
+export interface VisualHierarchy {
+  id: string;
+  hierarchyType: string;
+  levels: string[];
+}
+
+export interface DynamicComposition {
+  id: string;
+  compositionStyle: string;
+  movementElements: string[];
+}
+
+export interface CameraMovementType {
+  id: string;
+  movementName: string;
+  description: string;
+}
+
+export interface MovementMotivation {
+  id: string;
+  motivation: string;
+  purpose: string;
+}
+
+export interface MovementExecution {
+  id: string;
+  executionType: string;
+  techniques: string[];
+}
+
+export interface EmotionalMovementPurpose {
+  id: string;
+  purpose: string;
+  emotionalImpact: string[];
+}
+
+export interface NarrativeMovementPurpose {
+  id: string;
+  purpose: string;
+  narrativeFunction: string[];
+}
+
+export interface LightingPhilosophy {
+  id: string;
+  philosophy: string;
+  principles: string[];
+}
+
+export interface LightingSetup {
+  id: string;
+  setupName: string;
+  description: string;
+}
+
+export interface MoodLighting {
+  id: string;
+  moodType: string;
+  characteristics: string[];
+}
+
+export interface PracticalLighting {
+  id: string;
+  lightType: string;
+  sources: string[];
+}
+
+export interface EmotionalLighting {
+  id: string;
+  emotion: string;
+  lightingTechniques: string[];
+}
+
+export interface NarrativeLighting {
+  id: string;
+  narrativeFunction: string;
+  lightingApproach: string[];
+}
+
+export interface VisualConcept {
+  id: string;
+  conceptName: string;
+  visualElements: string[];
+}
+
+export interface SceneLightingPlan {
+  id: string;
+  sceneId: string;
+  lightingSetup: string[];
+}
+
+export interface SceneProductionRequirements {
+  id: string;
+  sceneId: string;
+  requirements: string[];
+}
+
+export interface CharacterBlocking {
+  id: string;
+  characterId: string;
+  positions: string[];
+}
+
+export interface CharacterVisualTreatment {
+  id: string;
+  characterId: string;
+  treatment: string[];
+}
+
+export interface EmotionalVisualTreatment {
+  id: string;
+  emotion: string;
+  visualApproach: string[];
+}
+
+export interface SceneTechnicalRequirements {
+  id: string;
+  sceneId: string;
+  technicalNeeds: string[];
+}
+
+export interface SceneVFXRequirements {
+  id: string;
+  sceneId: string;
+  vfxNeeds: string[];
+}
+
+export interface PostProductionNote {
+  id: string;
+  noteType: string;
+  content: string;
+}
+
+export interface VisualNarrativePurpose {
+  id: string;
+  purpose: string;
+  narrativeFunction: string[];
+}
+
+export interface VisualEmotionalObjective {
+  id: string;
+  objective: string;
+  emotionalTarget: string[];
+}
+
+export interface VisualSubtext {
+  id: string;
+  subtext: string;
+  visualCues: string[];
+}
+
 // Core Visual Storytelling Architecture
 export interface VisualStorytellingBlueprint {
   id: string;

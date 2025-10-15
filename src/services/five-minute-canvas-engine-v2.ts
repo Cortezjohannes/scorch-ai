@@ -95,7 +95,7 @@ export class FiveMinuteCanvasEngineV2 {
     try {
       const response = await generateContent(
         `Generate 5-minute canvas recommendation for ${context.genre} with ${requirements.compressionLevel} compression and ${requirements.attentionStrategy} attention strategy.`,
-        { max_tokens: 2000, temperature: 0.7 }
+        { maxTokens: 2000, temperature: 0.7 }
       );
 
       return {

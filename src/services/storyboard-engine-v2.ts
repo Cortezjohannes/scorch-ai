@@ -1168,25 +1168,21 @@ Provide specific, actionable composition improvements.`;
     options: any
   ): Promise<SceneAnalysis> {
     
-    // Analyze emotional beats with safe access
-    const emotionalBeats = (scriptScene.dialogueBlocks || []).map(block => 
-      block.emotionalContext || 'neutral'
-    );
+    // Analyze emotional beats
+    const emotionalBeats = scriptScene.dialogueBlocks.map(block => block.emotionalContext);
     
-    // Identify key actions with safe access
-    const keyActions = (scriptScene.actionLines || []).filter(action => 
-      action && (
-        action.toLowerCase().includes('enters') ||
-        action.toLowerCase().includes('exits') ||
-        action.toLowerCase().includes('grabs') ||
-        action.toLowerCase().includes('looks') ||
-        action.toLowerCase().includes('turns')
-      )
+    // Identify key actions
+    const keyActions = scriptScene.actionLines.filter(action => 
+      action.toLowerCase().includes('enters') ||
+      action.toLowerCase().includes('exits') ||
+      action.toLowerCase().includes('grabs') ||
+      action.toLowerCase().includes('looks') ||
+      action.toLowerCase().includes('turns')
     );
     
     return {
       genreTemplate: GENRE_LEXICONS[options.genre || 'drama'],
-      characterCount: characters ? characters.length : 0,
+      characterCount: scriptScene.characters.length,
       emotionalBeats: emotionalBeats,
       keyActions: keyActions,
       visualPriorities: ['Character emotion', 'Key actions', 'Environment']
@@ -1301,7 +1297,7 @@ Provide specific, actionable composition improvements.`;
       shotNumber: '2',
       description: 'Master shot covering main action',
       shotSize: SHOT_SIZES.MS,
-      charactersInShot: sceneAnalysis.genreTemplate?.genre === 'action' ? ['multiple'] : ['main'],
+      charactersInShot: sceneAnalysis.genreTemplate.genre === 'action' ? ['multiple'] : ['main'],
       keyAction: 'Main scene action',
       narrativeIntent: {
         category: 'narrative',
@@ -1329,7 +1325,7 @@ Provide specific, actionable composition improvements.`;
     options: any
   ): Promise<PacingArchitecture> {
     
-    const genrePacing = sceneAnalysis.genreTemplate?.editingPace || 'medium';
+    const genrePacing = sceneAnalysis.genreTemplate.editingPace;
     
     return {
       shotDuration: {
@@ -1337,7 +1333,7 @@ Provide specific, actionable composition improvements.`;
         variationPattern: 'rhythmic',
         longTakeThreshold: 10,
         quickCutThreshold: 1,
-        narrativeReason: `${genrePacing} pacing for ${sceneAnalysis.genreTemplate?.genre || 'drama'} genre`
+        narrativeReason: `${genrePacing} pacing for ${sceneAnalysis.genreTemplate.genre} genre`
       },
       editingRhythm: {
         cutsPerMinute: genrePacing === 'fast' ? 30 : genrePacing === 'slow' ? 8 : 15,

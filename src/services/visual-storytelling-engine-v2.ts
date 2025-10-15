@@ -1042,16 +1042,16 @@ export class VisualStorytellingEngineV2 {
   private static developCulturalStrategies(culturalConsiderations: any): string[] {
     const strategies = ['Historical Research and Expert Consultation'];
     
-    if (culturalConsiderations?.historicalPeriod) {
+    if (culturalConsiderations.historicalPeriod) {
       strategies.push('Period-Specific Material Culture Study');
     }
     
-    if (culturalConsiderations?.culturalContext?.length > 0) {
+    if (culturalConsiderations.culturalContext.length > 0) {
       strategies.push('Cultural Community Collaboration');
       strategies.push('Stereotype Avoidance and Complex Representation');
     }
     
-    if (culturalConsiderations?.authenticityPriority === 'essential') {
+    if (culturalConsiderations.authenticityPriority === 'essential') {
       strategies.push('Authenticity Impact Revenue Optimization');
       strategies.push('Cultural Consultant Integration');
     }
@@ -1255,9 +1255,9 @@ export class VisualStorytellingEngineV2 {
   
   private static analyzeNarrativeColorNeeds(narrativeNeeds: any): any {
     return {
-      themeColors: (narrativeNeeds?.keyThemes || []).map((theme: string) => this.mapThemeToColor(theme)),
-      arcColors: (narrativeNeeds?.characterArcs || []).map((arc: string) => this.mapArcToColorEvolution(arc)),
-      emotionalJourney: (narrativeNeeds?.emotionalJourney || []).map((emotion: string) => this.mapEmotionToColor(emotion))
+      themeColors: narrativeNeeds.keyThemes.map((theme: string) => this.mapThemeToColor(theme)),
+      arcColors: narrativeNeeds.characterArcs.map((arc: string) => this.mapArcToColorEvolution(arc)),
+      emotionalJourney: narrativeNeeds.emotionalJourney.map((emotion: string) => this.mapEmotionToColor(emotion))
     };
   }
   
@@ -1307,7 +1307,7 @@ export class VisualStorytellingEngineV2 {
       priorities.push('Budget Optimization Through Minimalism');
     }
     
-    if (requirements.culturalConsiderations?.authenticityPriority === 'essential') {
+    if (requirements.culturalConsiderations.authenticityPriority === 'essential') {
       priorities.push('Cultural Authenticity Research');
     }
     

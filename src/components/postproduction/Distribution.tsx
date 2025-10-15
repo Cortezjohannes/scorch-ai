@@ -141,7 +141,7 @@ export function Distribution() {
       .flatMap(scene => scene.dialogues.map(d => d.emotion.split(', ')[0]))
       .filter((emotion, index, self) => self.indexOf(emotion) === index);
     
-    const baseTags = ["westbridge", "drama", "teen", "reeled original"];
+    const baseTags = ["westbridge", "drama", "teen", "scorched original"];
     const allTags = [...baseTags, ...characterTags, ...locationTags, ...emotionTags.slice(0, 3)];
     
     setVideoMetadata({

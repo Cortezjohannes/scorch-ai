@@ -104,7 +104,7 @@ export async function generateImage(
       success: true
     });
 
-    return response.data[0]?.url || '';
+    return response.data?.[0]?.url || '';
   } catch (error) {
     console.error('OpenAI Image Generation Error:', error);
     

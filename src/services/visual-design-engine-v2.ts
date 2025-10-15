@@ -618,34 +618,6 @@ export interface VisualDesignRecommendation {
     timelineImplications: string[];
   };
   
-  // CHUNK_3: Props & Wardrobe Visual Design Integration
-  propsWardrobeDesignFramework: {
-    colorPsychologyApplication: {
-      propColorHierarchy: string;
-      wardrobeColorProgression: string;
-      narrativeColorAlignment: string;
-      characterColorIdentity: string;
-    };
-    materialTextureFramework: {
-      fabricChoiceStrategy: string;
-      textureHierarchyDesign: string;
-      weatheringAuthenticity: string;
-      practicalProductionConsiderations: string;
-    };
-    designSystemsConsistency: {
-      propsWardrobeCoherence: string;
-      crossEpisodeVisualContinuity: string;
-      culturalDesignAuthenticity: string;
-      budgetOptimizedImplementation: string;
-    };
-    productionIntegration: {
-      timelineConsiderations: string;
-      equipmentRequirements: string;
-      safetyProtocols: string;
-      sustainabilityFramework: string;
-    };
-  };
-  
   // Department Coordination
   departmentGuidance: {
     artDirection: string[];
@@ -1485,7 +1457,7 @@ Focus on practical implementation while maintaining artistic vision.`;
         },
         realTimeRendering: {
           environmentPreCreation: ['Digital world preparation'],
-          cameraTracking: 'Real-time perspective adjustment',
+          cameraTracking: ['Real-time perspective adjustment'],
           interactiveLighting: ['Dynamic illumination']
         },
         workflowTransformation: {
@@ -1510,7 +1482,7 @@ Focus on practical implementation while maintaining artistic vision.`;
           humanVisionFirst: true,
           aiCollaboration: ['AI-assisted generation'],
           curationSelection: ['Human artistic choice'],
-          refinementComposition: ['Final artistic control']
+          refinementComposition: 'Final artistic control'
         }
       },
       sustainablePractices: {
@@ -1547,9 +1519,9 @@ Focus on practical implementation while maintaining artistic vision.`;
           immersiveExperiences: ['Beyond passive viewing']
         },
         assetCentricWorkflow: {
-          shotToAssetShift: 'Methodological transformation',
+          shotToAssetShift: ['Methodological transformation'],
           franchiseThinking: ['Long-term reuse planning'],
-          economicCalculus: 'Investment vs reuse value',
+          economicCalculus: ['Investment vs reuse value'],
           libraryBuilding: ['Persistent visual assets']
         }
       }
@@ -1643,34 +1615,6 @@ Focus on practical implementation while maintaining artistic vision.`;
         ]
       },
       
-      // CHUNK_3: Props & Wardrobe Visual Design Implementation
-      propsWardrobeDesignFramework: {
-        colorPsychologyApplication: {
-          propColorHierarchy: this.generatePropColorHierarchy(assessment, context),
-          wardrobeColorProgression: this.generateWardrobeColorProgression(assessment, context),
-          narrativeColorAlignment: this.generateNarrativeColorAlignment(assessment, context),
-          characterColorIdentity: this.generateCharacterColorIdentity(assessment, context)
-        },
-        materialTextureFramework: {
-          fabricChoiceStrategy: this.generateFabricChoiceStrategy(assessment, context),
-          textureHierarchyDesign: this.generateTextureHierarchy(assessment, context),
-          weatheringAuthenticity: this.generateWeatheringStrategy(assessment, context),
-          practicalProductionConsiderations: this.generatePracticalConsiderations(assessment, context)
-        },
-        designSystemsConsistency: {
-          propsWardrobeCoherence: this.generateDesignCoherence(assessment, context),
-          crossEpisodeVisualContinuity: this.generateVisualContinuity(assessment, context),
-          culturalDesignAuthenticity: this.generateCulturalAuthenticity(assessment, context),
-          budgetOptimizedImplementation: this.generateBudgetOptimization(assessment, context)
-        },
-        productionIntegration: {
-          timelineConsiderations: this.generateTimelineConsiderations(assessment, context),
-          equipmentRequirements: this.generateEquipmentRequirements(assessment, context),
-          safetyProtocols: this.generateSafetyProtocols(assessment, context),
-          sustainabilityFramework: this.generateSustainabilityFramework(assessment, context)
-        }
-      },
-      
       departmentGuidance: {
         artDirection: [
           'Implement world-building methodology',
@@ -1756,271 +1700,7 @@ Focus on practical implementation while maintaining artistic vision.`;
       }
     };
   }
-
-  // ============================================================================
-  // CHUNK_3: Props & Wardrobe Visual Design Implementation Methods
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Generate prop color hierarchy for visual storytelling
-   */
-  private static generatePropColorHierarchy(assessment: VisualDesignAssessment, context: any): string {
-    const dominantColor = assessment.colorPsychology.emotionalPalette.hue.dominantColor;
-    const genre = context.genre;
-    
-    return `Implement ${dominantColor}-based prop hierarchy: Hero props in saturated ${dominantColor}, supporting props in muted tones, background props in neutral palette. ${genre} genre conventions applied to maintain emotional consistency while ensuring props support narrative without overwhelming performances.`;
-  }
-
-  /**
-   * CHUNK_3: Generate wardrobe color progression strategy
-   */
-  private static generateWardrobeColorProgression(assessment: VisualDesignAssessment, context: any): string {
-    const colorArc = assessment.colorPsychology.narrativeColorArc;
-    const format = context.format;
-    
-    if (format === 'series') {
-      return `Design episodic wardrobe progression reflecting character growth: Initial episodes establish baseline character colors, mid-season introduces conflict colors, season finale resolves with evolved palette. Maintain consistent character color identity while allowing meaningful progression.`;
-    }
-    
-    return `Create three-act wardrobe color progression: Act 1 establishes character world colors, Act 2 introduces tension through color dissonance, Act 3 resolves with harmonious or transformed palette reflecting character journey completion.`;
-  }
-
-  /**
-   * CHUNK_3: Generate narrative color alignment strategy
-   */
-  private static generateNarrativeColorAlignment(assessment: VisualDesignAssessment, context: any): string {
-    const thematicGoals = context.thematicGoals || ['character development', 'world building'];
-    const colorScheme = assessment.colorPsychology.colorSchemeType;
-    
-    return `Align ${colorScheme} color scheme with narrative themes: ${thematicGoals.join(', ')}. Props and wardrobe support thematic progression through deliberate color choices that reinforce story beats, character relationships, and emotional journey without being heavy-handed or obvious.`;
-  }
-
-  /**
-   * CHUNK_3: Generate character color identity system
-   */
-  private static generateCharacterColorIdentity(assessment: VisualDesignAssessment, context: any): string {
-    const culturalContext = context.culturalContext || 'Contemporary Western';
-    
-    return `Establish unique character color signatures respecting ${culturalContext} cultural color meanings. Each main character receives distinct color family that reflects personality, arc, and relationships. Color evolution tracks character growth while maintaining recognizable identity throughout production.`;
-  }
-
-  /**
-   * CHUNK_3: Generate fabric choice strategy
-   */
-  private static generateFabricChoiceStrategy(assessment: VisualDesignAssessment, context: any): string {
-    const budget = context.budget;
-    const period = context.settingPeriod;
-    const sustainability = assessment.emergingTechnologies.sustainablePractices.sustainabilityCoordination.dedicatedCoordinator;
-    
-    let strategy = `Select fabrics appropriate to ${period} setting and ${budget} budget constraints. `;
-    
-    if (sustainability) {
-      strategy += `Prioritize sustainable fabric choices: organic cotton, hemp, recycled materials where period-appropriate. `;
-    }
-    
-    strategy += `Consider fabric behavior under production lighting, actor movement requirements, and camera interaction. Plan for multiple costumes per character accounting for action sequences, stunt work, and continuity needs.`;
-    
-    return strategy;
-  }
-
-  /**
-   * CHUNK_3: Generate texture hierarchy design
-   */
-  private static generateTextureHierarchy(assessment: VisualDesignAssessment, context: any): string {
-    const genre = context.genre;
-    const format = context.format;
-    
-    return `Design texture hierarchy supporting ${genre} visual language: Smooth textures for heroic/positive elements, rough textures for conflict/negative elements, mixed textures for complex characters. ${format} production requires textures that read clearly in wide shots while maintaining detail in close-ups. Avoid textures that create moiré patterns or strobe effects on camera.`;
-  }
-
-  /**
-   * CHUNK_3: Generate weathering authenticity strategy
-   */
-  private static generateWeatheringStrategy(assessment: VisualDesignAssessment, context: any): string {
-    const authenticityLevel = assessment.authenticity.historicalAccuracy.accuracyBalance.strictAuthenticity ? 'documentary' : 'realistic';
-    const period = context.settingPeriod;
-    
-    return `Apply ${authenticityLevel} weathering appropriate to ${period} setting. Research historical wear patterns, fabric degradation, and period-appropriate aging techniques. Create weathering hierarchy: main characters receive detailed, story-specific weathering, supporting characters get standard aging, background extras use efficient aging techniques. Maintain consistency across episodes while allowing meaningful story-driven changes.`;
-  }
-
-  /**
-   * CHUNK_3: Generate practical production considerations
-   */
-  private static generatePracticalConsiderations(assessment: VisualDesignAssessment, context: any): string {
-    const format = context.format;
-    const budget = context.budget;
-    
-    let considerations = `Address ${format} production practicalities within ${budget} budget: `;
-    considerations += `Actor comfort and mobility requirements, quick-change sequences, stunt double matching, `;
-    considerations += `cleaning and maintenance protocols, backup costume quantity planning. `;
-    considerations += `Consider climate control on set, location shooting challenges, transportation requirements, `;
-    considerations += `and storage needs for multi-location productions.`;
-    
-    return considerations;
-  }
-
-  /**
-   * CHUNK_3: Generate design coherence strategy
-   */
-  private static generateDesignCoherence(assessment: VisualDesignAssessment, context: any): string {
-    const worldBuilding = assessment.worldBuilding.greenwoodMethod.historyEmotionPlace;
-    
-    return `Maintain unified design language across props and wardrobe: Consistent period details (${worldBuilding.historicalDetail.join(', ')}), coherent color relationships, unified texture families, and systematic aging/weathering approaches. Create design bible documenting color codes, texture families, and weathering standards for consistent application across departments and episodes.`;
-  }
-
-  /**
-   * CHUNK_3: Generate visual continuity strategy
-   */
-  private static generateVisualContinuity(assessment: VisualDesignAssessment, context: any): string {
-    const format = context.format;
-    
-    if (format === 'series') {
-      return `Establish series visual continuity protocols: Comprehensive costume and prop tracking database, detailed photography documentation, color-coded organizational systems. Create episode-to-episode continuity guidelines, seasonal costume evolution planning, and character wardrobe progression charts. Maintain style consistency across different directors and production units.`;
-    }
-    
-    return `Implement production visual continuity: Scene-by-scene costume tracking, detailed photography for matching, systematic organization and labeling. Account for out-of-sequence shooting requirements and multiple unit coordination needs.`;
-  }
-
-  /**
-   * CHUNK_3: Generate cultural authenticity approach
-   */
-  private static generateCulturalAuthenticity(assessment: VisualDesignAssessment, context: any): string {
-    const culturalConsultants = assessment.authenticity.culturalAuthenticity.collaborativeRepresentation.culturalConsultants;
-    const respectfulPortrayal = assessment.authenticity.culturalAuthenticity.collaborativeRepresentation.respectfulPortrayal;
-    
-    return `Ensure cultural authenticity through collaboration with ${culturalConsultants.join(' and ')} throughout design process. Research traditional craftsmanship techniques, appropriate cultural symbols, and modern cultural expressions. Apply ${respectfulPortrayal} approach avoiding stereotypes while celebrating cultural richness. Review designs with cultural consultants before implementation.`;
-  }
-
-  /**
-   * CHUNK_3: Generate budget optimization strategy
-   */
-  private static generateBudgetOptimization(assessment: VisualDesignAssessment, context: any): string {
-    const budget = context.budget;
-    const modularDesign = assessment.pragmaticImplementation.budgetConstraints.highImpactLowCost.modularDesign;
-    
-    return `Optimize ${budget} budget through strategic planning: ${modularDesign.join(', ')}. Prioritize spending on hero costumes and key props visible in close-ups. Utilize costume house rentals for period pieces, implement modular wardrobe systems for versatility, and plan efficient shopping strategies. Consider local artisan partnerships for unique pieces at reduced costs.`;
-  }
-
-  /**
-   * CHUNK_3: Generate timeline considerations
-   */
-  private static generateTimelineConsiderations(assessment: VisualDesignAssessment, context: any): string {
-    const format = context.format;
-    
-    return `Plan ${format} production timeline: Extended pre-production for custom designs and fittings, buffer time for alterations and adjustments, coordination with actor availability for fittings. Account for shipping times for specialty materials, custom fabrication timelines, and approval process requirements. Build contingency time for last-minute changes and emergency repairs.`;
-  }
-
-  /**
-   * CHUNK_3: Generate equipment requirements
-   */
-  private static generateEquipmentRequirements(assessment: VisualDesignAssessment, context: any): string {
-    const emergingTech = assessment.emergingTechnologies.virtualProduction.ledVolumeDesign.preVisualizationCritical;
-    
-    let requirements = `Standard production equipment: Professional sewing machines, fabric cutting tables, steaming equipment, aging and distressing tools. `;
-    
-    if (emergingTech) {
-      requirements += `LED volume considerations: Monitor fabric reflectivity and texture behavior under LED lighting. `;
-    }
-    
-    requirements += `Portable repair kits for on-location work, proper storage and transportation containers, photography equipment for documentation and continuity.`;
-    
-    return requirements;
-  }
-
-  /**
-   * CHUNK_3: Generate safety protocols
-   */
-  private static generateSafetyProtocols(assessment: VisualDesignAssessment, context: any): string {
-    const genre = context.genre;
-    
-    let protocols = `Implement comprehensive safety protocols: Non-toxic dyes and treatments, flame-retardant requirements for period fabrics, `;
-    
-    if (genre === 'action' || genre === 'thriller') {
-      protocols += `stunt-safe costume modifications, breakaway elements for action sequences, `;
-    }
-    
-    protocols += `allergy considerations for actor sensitivity, proper ventilation during aging processes, safe lifting practices for heavy costume pieces. Regular safety equipment inspection and emergency protocols for on-set wardrobe malfunctions.`;
-    
-    return protocols;
-  }
-
-  /**
-   * CHUNK_3: Generate sustainability framework
-   */
-  private static generateSustainabilityFramework(assessment: VisualDesignAssessment, context: any): string {
-    const sustainabilityPriority = assessment.emergingTechnologies.sustainablePractices.sustainabilityCoordination.dedicatedCoordinator;
-    
-    if (!sustainabilityPriority) {
-      return `Basic sustainability practices: Minimize waste through careful planning, donate useable costumes post-production, recycle fabric scraps where possible.`;
-    }
-    
-    return `Comprehensive sustainability framework: Source eco-friendly fabrics and materials, implement zero-waste design principles, establish costume donation and recycling programs. Partner with sustainable suppliers, use natural dyeing processes where appropriate, design for post-production reuse and repurposing. Track environmental impact metrics and aim for carbon-neutral costume department operations.`;
-  }
-
-  // ============================================================================
-  // CHUNK_3: Props & Wardrobe Integration Workflow
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Create unified props and wardrobe design system
-   */
-  static async createUnifiedPropDesign(
-    worldFramework: any,
-    livingWorldGuidance: any,
-    visualDesignFramework: VisualDesignRecommendation,
-    foundationContext: any
-  ): Promise<{
-    culturalGuidance: any;
-    dynamicSystems: any;
-    visualFramework: any;
-    productionConstraints: any;
-  }> {
-    
-    console.log('🎨 VISUAL DESIGN ENGINE V2.0: Creating unified props and wardrobe design system...');
-    
-    try {
-      // Integrate all design frameworks into unified system
-      return {
-        culturalGuidance: {
-          worldCulturalFramework: worldFramework?.culturalDesignFramework || {},
-          authenticityRequirements: visualDesignFramework.primaryRecommendation.authenticity,
-          culturalColorMeanings: visualDesignFramework.primaryRecommendation.colorPsychology.culturalChromatics,
-          respectfulRepresentation: visualDesignFramework.primaryRecommendation.authenticity.culturalAuthenticity
-        },
-        
-        dynamicSystems: {
-          propEvolution: livingWorldGuidance?.propsWardrobeEcosystem?.propEvolution || 'Basic prop tracking',
-          characterObjectBonds: livingWorldGuidance?.propsWardrobeEcosystem?.characterObjectRelationships || {},
-          crossEpisodeContinuity: livingWorldGuidance?.propsWardrobeEcosystem?.crossEpisodeContinuity || 'Standard continuity',
-          materialCultureDynamics: livingWorldGuidance?.propsWardrobeEcosystem?.materialCultureDynamics || 'Basic material culture'
-        },
-        
-        visualFramework: {
-          colorPsychologySystem: visualDesignFramework.propsWardrobeDesignFramework.colorPsychologyApplication,
-          materialTextureSystem: visualDesignFramework.propsWardrobeDesignFramework.materialTextureFramework,
-          designCoherence: visualDesignFramework.propsWardrobeDesignFramework.designSystemsConsistency,
-          genreLanguageApplication: visualDesignFramework.primaryRecommendation.genreLanguage
-        },
-        
-        productionConstraints: {
-          budgetOptimization: visualDesignFramework.propsWardrobeDesignFramework.designSystemsConsistency.budgetOptimizedImplementation,
-          timelineManagement: visualDesignFramework.propsWardrobeDesignFramework.productionIntegration.timelineConsiderations,
-          practicalRequirements: visualDesignFramework.propsWardrobeDesignFramework.materialTextureFramework.practicalProductionConsiderations,
-          sustainabilityGoals: visualDesignFramework.propsWardrobeDesignFramework.productionIntegration.sustainabilityFramework
-        }
-      };
-      
-    } catch (error) {
-      console.error('❌ Failed to create unified prop design system:', error);
-      return {
-        culturalGuidance: {},
-        dynamicSystems: {},
-        visualFramework: {},
-        productionConstraints: {}
-      };
-    }
-  }
 }
 
-
+// Export the enhanced visual design types
  

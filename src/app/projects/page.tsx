@@ -22,7 +22,7 @@ export default function ProjectsPage() {
     }
     
       try {
-        const projectsRef = collection(db, 'users', user.uid, 'projects')
+        const projectsRef = collection(db, 'users', user.id, 'projects')
         const q = query(projectsRef, orderBy('createdAt', 'desc'))
         const projectsSnap = await getDocs(q)
 

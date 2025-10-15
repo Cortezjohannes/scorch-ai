@@ -19,13 +19,13 @@ const getGeminiKey = () => {
  * Generate content using Google's Gemini models
  * @param systemPrompt - System prompt for the generation
  * @param userPrompt - User prompt for the generation
- * @param model - Gemini model to use (defaults to gemini-1.5-pro)
+ * @param model - Gemini model to use (defaults to gemini-2.5-pro)
  * @returns - Generated content as string
  */
 export async function generateContentWithGemini(
   systemPrompt: string, 
   userPrompt: string, 
-  model: string = 'gemini-1.5-pro'  // Using correct model name
+  model: string = 'gemini-2.5-pro'  // Using correct model name
 ): Promise<string> {
   try {
     // Initialize Gemini with API key

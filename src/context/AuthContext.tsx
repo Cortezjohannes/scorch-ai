@@ -467,7 +467,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       // Update project
       await updateDoc(projectRef, {
-        collaborators: currentCollaborators.filter(id => id !== userId)
+        collaborators: currentCollaborators.filter((id: string) => id !== userId)
       });
       
       // Update user's collaborations
@@ -479,7 +479,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const userCollaborations = userData.collaborations || [];
         
         await updateDoc(userRef, {
-          collaborations: userCollaborations.filter(id => id !== projectId)
+          collaborations: userCollaborations.filter((id: string) => id !== projectId)
         });
       }
     } catch (err: any) {

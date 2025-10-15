@@ -226,7 +226,7 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
         
         if (!user) {
           // Check localStorage if user is not authenticated
-          const localStoryBible = localStorage.getItem('reeled-story-bible');
+          const localStoryBible = localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible');
           if (localStoryBible) {
             const parsedData = JSON.parse(localStoryBible);
             setProjectTitle(parsedData.storyBible?.seriesTitle || 'Untitled Project');
@@ -235,7 +235,7 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
           }
           
           // Load episodes from localStorage
-          const localEpisodes = localStorage.getItem('reeled-episodes');
+          const localEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes');
           if (localEpisodes) {
             setEpisodes(JSON.parse(localEpisodes));
           }
@@ -311,7 +311,7 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
         }
       
         // Save to localStorage with the updated episodes
-      localStorage.setItem('reeled-episodes', JSON.stringify(updatedEpisodes));
+      localStorage.setItem('scorched-episodes', JSON.stringify(updatedEpisodes));
         
         return updatedEpisodes;
       });
@@ -354,7 +354,7 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
         return ep;
       });
       
-      localStorage.setItem('reeled-episodes', JSON.stringify(updatedEpisodes));
+      localStorage.setItem('scorched-episodes', JSON.stringify(updatedEpisodes));
       
       // Save to Firestore if user is authenticated
       if (user && projectId) {
@@ -493,7 +493,7 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
         });
         
         // Save to localStorage
-        localStorage.setItem('reeled-episodes', JSON.stringify(updatedEpisodes));
+        localStorage.setItem('scorched-episodes', JSON.stringify(updatedEpisodes));
         
         return updatedEpisodes;
       });
@@ -588,10 +588,10 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
       };
       
       // Save to localStorage
-      const storyBibleData = localStorage.getItem('reeled-story-bible');
+      const storyBibleData = localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible');
       if (storyBibleData) {
         const parsed = JSON.parse(storyBibleData);
-        localStorage.setItem('reeled-story-bible', JSON.stringify({
+        localStorage.setItem('scorched-story-bible', JSON.stringify({
           ...parsed,
           storyBible: updatedBible
         }));

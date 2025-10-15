@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
-export default function ScorchedOption2() {
+export default function GreenlitOption2() {
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function ScorchedOption2() {
         @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700;800;900&display=swap');
         
         .fire-gradient {
-          background: linear-gradient(45deg, #D62828 0%, #FF6B00 25%, #e2c376 50%, #FF6B00 75%, #D62828 100%);
+          background: linear-gradient(135deg, #ffffff 0%, #00FF99 50%, #ffffff 100%);
           background-size: 400% 400%;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -30,11 +30,11 @@ export default function ScorchedOption2() {
         }
         
         .ember-shadow {
-          box-shadow: 0 0 20px rgba(214, 40, 40, 0.2), 0 0 40px rgba(226, 195, 118, 0.1);
+          box-shadow: 0 0 20px rgba(0, 255, 153, 0.2), 0 0 40px rgba(0, 255, 153, 0.1);
         }
         
         .burn-button {
-          background: linear-gradient(135deg, #D62828 0%, #FF6B00 50%, #e2c376 100%);
+          background: linear-gradient(135deg, #00FF99 0%, #00CC7A 100%);
           transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
@@ -42,7 +42,7 @@ export default function ScorchedOption2() {
         
         .burn-button:hover {
           transform: translateY(-2px);
-          box-shadow: 0 10px 30px rgba(214, 40, 40, 0.3);
+          box-shadow: 0 10px 30px rgba(0, 255, 153, 0.3);
         }
         
         .burn-button::before {
@@ -63,27 +63,27 @@ export default function ScorchedOption2() {
 
         
         .text-fire {
-          background: linear-gradient(45deg, #e2c376 0%, #FF6B00 50%, #D62828 100%);
+          background: linear-gradient(135deg, #ffffff 0%, #00FF99 50%, #ffffff 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
         
         .rebellious-card {
-          background: linear-gradient(135deg, rgba(214, 40, 40, 0.08) 0%, rgba(46, 46, 46, 0.6) 100%);
-          border: 1px solid rgba(226, 195, 118, 0.2);
+          background: rgba(18, 18, 18, 0.8);
+          border: 1px solid rgba(0, 255, 153, 0.2);
           transition: all 0.4s ease;
           backdrop-filter: blur(10px);
         }
         
         .rebellious-card:hover {
-          border-color: #e2c376;
-          box-shadow: 0 8px 25px rgba(226, 195, 118, 0.15);
+          border-color: #00FF99;
+          box-shadow: 0 8px 25px rgba(0, 255, 153, 0.15);
           transform: translateY(-3px);
         }
         
         .flame-text {
-          text-shadow: 0 0 12px rgba(226, 195, 118, 0.4), 0 0 24px rgba(255, 107, 0, 0.2);
+          text-shadow: 0 0 12px rgba(0, 255, 153, 0.4), 0 0 24px rgba(0, 255, 153, 0.2);
         }
         
         .elegant-fire {
@@ -124,14 +124,14 @@ export default function ScorchedOption2() {
                 <div className="w-10 h-10 ember-shadow rounded-lg flex items-center justify-center">
                   <span className="text-3xl">🔥</span>
                 </div>
-                <h1 className="text-3xl font-black elegant-fire fire-gradient">Scorched AI</h1>
+                <h1 className="text-3xl font-black elegant-fire fire-gradient">Greenlit</h1>
               </div>
               <div className="hidden md:flex items-center space-x-8">
-                <a href="#burn" className="text-gray-300 hover:text-[#e2c376] transition-colors font-semibold">Revolution</a>
-                <a href="#ignite" className="text-gray-300 hover:text-[#e2c376] transition-colors font-semibold">Platform</a>
-                <a href="#rebels" className="text-gray-300 hover:text-[#e2c376] transition-colors font-semibold">Founders</a>
+                <a href="#burn" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Platform</a>
+                <a href="#launch" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Platform</a>
+                <a href="#rebels" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Founders</a>
                 <button className="burn-button text-black font-bold px-6 py-2 rounded-lg">
-                  Join the Revolution
+                  Join the Platform
                 </button>
               </div>
             </div>
@@ -148,32 +148,32 @@ export default function ScorchedOption2() {
               transition={{ duration: 1 }}
             >
               <div className="elegant-fire text-7xl md:text-8xl font-black mb-6 fire-gradient flame-text">
-                SCORCHED
+                GREENLIT
               </div>
               
               <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight">
-                BURN HOLLYWOOD.<br />
-                <span className="text-[#e2c376] flame-text">IGNITE YOUR EMPIRE.</span>
+                BUILD YOUR OWN.<br />
+                <span className="text-[#00FF99] flame-text">LAUNCH YOUR SERIES.</span>
               </h2>
               
               <p className="text-2xl md:text-3xl text-gray-300 mb-6 max-w-4xl mx-auto leading-relaxed">
-                The AI showrunner platform where actors <span className="text-fire font-bold">wield the flame</span>.
+                The AI showrunner platform where actors <span className="text-fire font-bold">take control</span>.
               </p>
               
               <p className="text-xl text-gray-400 mb-12 max-w-3xl mx-auto">
-                No gatekeepers. No bureaucracy. Just pure creative fire and 60% ownership of your content.
+                No gatekeepers. No bureaucracy. Just pure creative freedom and 60% ownership of your content.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-8 justify-center items-center mb-16">
                 <button className="burn-button text-black text-xl font-bold px-12 py-4 rounded-lg">
-                  Ignite Your Series
+                  Launch Your Series
                 </button>
-                <button className="border-2 border-[#e2c376] text-[#e2c376] text-xl font-semibold px-12 py-4 rounded-lg hover:bg-[#e2c376] hover:text-black transition-all duration-300">
-                  Watch the Revolution
+                <button className="border-2 border-[#00FF99] text-[#00FF99] text-xl font-semibold px-12 py-4 rounded-lg hover:bg-[#00FF99] hover:text-black transition-all duration-300">
+                  Watch the Demo
                 </button>
               </div>
               
-              {/* Revolutionary Stats */}
+              {/* Platformary Stats */}
               <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
                 <div className="text-center">
                   <div className="text-5xl font-bold fire-gradient mb-2">$60B</div>
@@ -202,10 +202,10 @@ export default function ScorchedOption2() {
               className="text-center mb-16"
             >
               <h3 className="elegant-fire text-6xl md:text-7xl font-black mb-8 fire-gradient">
-                HOLLYWOOD IS BROKEN
+                THE STUDIO SYSTEM IS BROKEN
               </h3>
               <p className="text-3xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
-                The system <span className="text-fire font-bold">burns talent</span> before it can ignite.
+                The system <span className="text-fire font-bold">blocks talent</span> before it can launch.
               </p>
             </motion.div>
             
@@ -233,7 +233,7 @@ export default function ScorchedOption2() {
                   problem: "Ownership for most actors",
                   description: "They own your story. You become a hired hand on your own creation.",
                   icon: "⛓️",
-                  color: "#e2c376"
+                  color: "#00FF99"
                 }
               ].map((problem, index) => (
                 <motion.div 
@@ -262,7 +262,7 @@ export default function ScorchedOption2() {
           </div>
         </section>
 
-        {/* The Solution - Revolutionary */}
+        {/* The Solution - Platformary */}
         <section id="burn" className="relative py-24 px-6">
           
           <div className="relative z-10 max-w-7xl mx-auto text-center">
@@ -272,10 +272,10 @@ export default function ScorchedOption2() {
               transition={{ duration: 0.8 }}
             >
               <h3 className="elegant-fire text-6xl md:text-7xl font-black mb-12 fire-gradient flame-text">
-                WE GIVE YOU THE MATCH
+                WE GIVE YOU THE TOOLS
               </h3>
               <p className="text-3xl text-white mb-16 max-w-5xl mx-auto leading-relaxed font-semibold">
-                <span className="text-[#e2c376]">Scorched AI</span> is your rebellion. 
+                <span className="text-[#00FF99]">Greenlit</span> is your solution. 
                 Create, control, and distribute <span className="text-fire">without permission</span>.
               </p>
             </motion.div>
@@ -287,12 +287,12 @@ export default function ScorchedOption2() {
                 transition={{ duration: 0.8 }}
                 className="rebellious-card rounded-xl p-8"
               >
-                <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">🔥 Ignite Your Vision</h4>
+                <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">🎬 Create Your Vision</h4>
                 <ul className="space-y-4 text-lg text-gray-300">
-                  <li>• <span className="text-[#e2c376] font-semibold">AI showrunner</span> generates episodes in minutes</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">Full creative control</span> over every story beat</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">Professional scripts</span>, storyboards, production guides</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">No committees</span>, no compromise, no gatekeepers</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">AI showrunner</span> generates episodes in minutes</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">Full creative control</span> over every story beat</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">Professional scripts</span>, storyboards, production guides</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">No committees</span>, no compromise, no gatekeepers</li>
                 </ul>
               </motion.div>
               
@@ -302,12 +302,12 @@ export default function ScorchedOption2() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="rebellious-card rounded-xl p-8"
               >
-                <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">⚡ Build Your Empire</h4>
+                <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">⚡ Build Your Series</h4>
                 <ul className="space-y-4 text-lg text-gray-300">
-                  <li>• <span className="text-[#e2c376] font-semibold">60% ownership</span> of all your content</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">Direct-to-audience</span> distribution</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">Fan monetization</span> from day 1</li>
-                  <li>• <span className="text-[#e2c376] font-semibold">From idea to screen</span> in hours, not years</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">60% ownership</span> of all your content</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">Direct-to-audience</span> distribution</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">Fan monetization</span> from day 1</li>
+                  <li>• <span className="text-[#00FF99] font-semibold">From idea to screen</span> in hours, not years</li>
                 </ul>
               </motion.div>
             </div>
@@ -315,7 +315,7 @@ export default function ScorchedOption2() {
         </section>
 
         {/* Production Pipeline - Aggressive */}
-        <section id="ignite" className="py-24 px-6">
+        <section id="launch" className="py-24 px-6">
           <div className="max-w-7xl mx-auto">
             <motion.div
               initial={{ opacity: 0, y: 50 }}
@@ -324,17 +324,17 @@ export default function ScorchedOption2() {
               className="text-center mb-16"
             >
               <h3 className="elegant-fire text-6xl md:text-7xl font-black mb-8 fire-gradient">
-                STRIKE THE MATCH
+                START YOUR SERIES
               </h3>
-              <p className="text-2xl text-gray-300">Four steps from spark to revolution</p>
+              <p className="text-2xl text-gray-300">Four steps from idea to series</p>
             </motion.div>
             
             <div className="grid lg:grid-cols-4 gap-8">
               {[
-                { step: "01", title: "Spark", desc: "Drop your idea into the platform", time: "45 min", icon: "💡", color: "#e2c376" },
+                { step: "01", title: "Spark", desc: "Drop your idea into the platform", time: "45 min", icon: "💡", color: "#00FF99" },
                 { step: "02", title: "Ignite", desc: "AI generates your series bible", time: "Real-time", icon: "🔥", color: "#FF6B00" },
                 { step: "03", title: "Blaze", desc: "Produce episodes with AI", time: "1-2 hours", icon: "🎬", color: "#D62828" },
-                { step: "04", title: "Launch", desc: "Distribute to your audience", time: "Instant", icon: "🚀", color: "#e2c376" }
+                { step: "04", title: "Launch", desc: "Distribute to your audience", time: "Instant", icon: "🚀", color: "#00FF99" }
               ].map((step, index) => (
                 <motion.div 
                   key={index}
@@ -349,11 +349,11 @@ export default function ScorchedOption2() {
                     </div>
                     <div className="elegant-fire text-lg font-bold mb-2" style={{ color: step.color }}>{step.step}</div>
                     <h4 className="elegant-fire text-2xl font-bold mb-4 text-white">{step.title}</h4>
-                    <div className="text-[#e2c376] font-semibold mb-4">({step.time})</div>
+                    <div className="text-[#00FF99] font-semibold mb-4">({step.time})</div>
                     <p className="text-gray-300 leading-relaxed">{step.desc}</p>
                   </div>
                   {index < 3 && (
-                    <div className="hidden lg:block absolute top-1/2 -right-4 text-[#e2c376] text-3xl transform -translate-y-1/2">
+                    <div className="hidden lg:block absolute top-1/2 -right-4 text-[#00FF99] text-3xl transform -translate-y-1/2">
                       →
                     </div>
                   )}
@@ -363,7 +363,7 @@ export default function ScorchedOption2() {
           </div>
         </section>
 
-        {/* Revolutionary Team */}
+        {/* Platformary Team */}
         <section id="rebels" className="py-24 px-6">
           <div className="max-w-7xl mx-auto">
             <motion.div
@@ -373,10 +373,10 @@ export default function ScorchedOption2() {
               className="text-center mb-16"
             >
               <h3 className="elegant-fire text-6xl md:text-7xl font-bold mb-8 fire-gradient">
-                The Rebels
+                The Founders
               </h3>
               <p className="text-xl text-gray-300 max-w-4xl mx-auto">
-                Built by an actress who lived the pain and a builder on a mission to <span className="text-fire font-semibold">disrupt bureaucratic Hollywood</span>
+                Built by an actress who lived the pain and a builder on a mission to <span className="text-fire font-semibold">disrupt the studio system</span>
               </p>
             </motion.div>
 
@@ -393,14 +393,14 @@ export default function ScorchedOption2() {
                   </div>
                   <div>
                     <h4 className="elegant-fire text-2xl font-bold fire-gradient">Maty Luarca</h4>
-                    <div className="text-[#e2c376] font-semibold">Co-Founder & Actress</div>
+                    <div className="text-[#00FF99] font-semibold">Co-Founder & Actress</div>
                   </div>
                 </div>
                 <div className="space-y-3 text-gray-300">
-                  <div>• <span className="text-[#e2c376] font-semibold">Star Magic Meisner</span> Program Graduate</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">Multiple Theatre</span> Organizations</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">Content Creator</span> & Brand Model</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">Experienced</span> industry challenges firsthand</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">Star Magic Meisner</span> Program Graduate</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">Multiple Theatre</span> Organizations</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">Content Creator</span> & Brand Model</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">Experienced</span> industry challenges firsthand</div>
                 </div>
               </motion.div>
 
@@ -416,21 +416,21 @@ export default function ScorchedOption2() {
                   </div>
                   <div>
                     <h4 className="elegant-fire text-2xl font-bold fire-gradient">Johannes Cortez</h4>
-                    <div className="text-[#e2c376] font-semibold">CEO & Technical Co-Founder</div>
+                    <div className="text-[#00FF99] font-semibold">CEO & Technical Co-Founder</div>
                   </div>
                 </div>
                 <div className="space-y-3 text-gray-300">
-                  <div>• <span className="text-[#e2c376] font-semibold">6 years building</span> tech startups</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">2 venture-backed</span> startups</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">Helped 80k+ gamers</span> earn globally</div>
-                  <div>• <span className="text-[#e2c376] font-semibold">On a mission</span> to redistribute power</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">6 years building</span> tech startups</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">2 venture-backed</span> startups</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">Helped 80k+ gamers</span> earn globally</div>
+                  <div>• <span className="text-[#00FF99] font-semibold">On a mission</span> to redistribute power</div>
                 </div>
               </motion.div>
             </div>
           </div>
         </section>
 
-        {/* Final Revolutionary CTA */}
+        {/* Final Platformary CTA */}
         <section className="relative py-32 px-6 overflow-hidden">
           
           <motion.div 
@@ -440,45 +440,45 @@ export default function ScorchedOption2() {
             className="relative z-10 text-center max-w-5xl mx-auto"
           >
             <h3 className="elegant-fire text-6xl md:text-7xl font-bold mb-8 fire-gradient flame-text">
-              Ready to Ignite?
+              Ready to Launch?
             </h3>
             <p className="text-3xl text-white mb-8 leading-relaxed font-semibold">
               Stop waiting for permission. 
             </p>
             <p className="text-4xl mb-16 leading-relaxed font-bold">
-              <span className="text-[#e2c376] flame-text">Start your revolution today.</span>
+              <span className="text-[#00FF99] flame-text">Start your series today.</span>
             </p>
             
             <div className="flex flex-col sm:flex-row gap-10 justify-center items-center">
               <button className="burn-button text-black text-2xl font-bold px-16 py-6 rounded-xl transform hover:scale-105 transition-all duration-300">
-                Start Your Revolution
+                Start Your Series
               </button>
             </div>
             
             <div className="mt-12 text-gray-400 text-lg">
-              No permission required • 60% ownership • Join the movement
+              No permission required • 60% ownership • Join the platform
             </div>
           </motion.div>
         </section>
 
-        {/* Revolutionary Footer */}
+        {/* Platformary Footer */}
         <footer className="bg-black border-t border-[#FF6B00]/30 py-12 px-6">
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center space-x-3 mb-6">
               <div className="w-12 h-12 ember-shadow rounded-lg flex items-center justify-center">
                 <span className="text-4xl">🔥</span>
               </div>
-              <h3 className="elegant-fire text-3xl font-bold fire-gradient">Scorched AI</h3>
+              <h3 className="elegant-fire text-3xl font-bold fire-gradient">Greenlit</h3>
             </div>
-            <p className="text-gray-500 mb-8 text-lg">Burn Hollywood. Ignite Your Empire.</p>
+            <p className="text-gray-500 mb-8 text-lg">Build Your Own. Launch Your Series.</p>
             <div className="flex justify-center space-x-8 text-gray-400">
-              <a href="#" className="hover:text-[#e2c376] transition-colors font-medium">Revolution</a>
-              <a href="#" className="hover:text-[#e2c376] transition-colors font-medium">Platform</a>
-              <a href="#" className="hover:text-[#e2c376] transition-colors font-medium">Founders</a>
-              <a href="#" className="hover:text-[#e2c376] transition-colors font-medium">Contact</a>
+              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Platform</a>
+              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Platform</a>
+              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Founders</a>
+              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Contact</a>
             </div>
-            <div className="border-t border-[#e2c376]/30 mt-8 pt-8 text-gray-500">
-              <p>&copy; 2024 Scorched AI. Empowering actors, not replacing them.</p>
+            <div className="border-t border-[#00FF99]/30 mt-8 pt-8 text-gray-500">
+              <p>&copy; 2024 Greenlit. Empowering actors to create their own content.</p>
             </div>
           </div>
         </footer>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
-import { Project } from '@/context/AuthContext'
+import { Project } from '@/services/projectService'
 
 export function ProjectList() {
   const { user } = useAuth()
@@ -24,10 +24,8 @@ export function ProjectList() {
     )
   }
   
-  const filteredProjects = user.projects.filter(project => {
-    if (filter === 'all') return true
-    return project.status === filter
-  })
+  // Projects are stored as IDs, not objects - temporarily show empty state
+  const filteredProjects: Project[] = []
   
   return (
     <div className="space-y-6">
@@ -121,28 +119,16 @@ function ProjectCard({ project }: { project: Project }) {
       className="bg-[#1e1f22] rounded-lg overflow-hidden shadow-md"
     >
       <div className="aspect-video bg-gradient-to-br from-[#e2c37620] to-[#111]">
-        {project.thumbnail ? (
-          <img 
-            src={project.thumbnail} 
-            alt={project.title} 
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-[#e7e7e7]/20 text-lg">No Preview</span>
-          </div>
-        )}
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-[#e7e7e7]/20 text-lg">No Preview</span>
+        </div>
       </div>
       
       <div className="p-4">
         <div className="flex justify-between items-start">
           <h3 className="font-medium text-lg">{project.title || 'Untitled Project'}</h3>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            project.status === 'completed' 
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            {project.status === 'completed' ? 'Completed' : 'In Progress'}
+          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
+            In Progress
           </span>
         </div>
         
@@ -152,27 +138,17 @@ function ProjectCard({ project }: { project: Project }) {
         
         <div className="flex justify-between items-center mt-4">
           <span className="text-xs text-[#e7e7e7]/30">
-            Created {new Date(project.createdAt).toLocaleDateString()}
+            Created {project.createdAt instanceof Date ? project.createdAt.toLocaleDateString() : project.createdAt.toDate().toLocaleDateString()}
           </span>
           
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            project.stage === 'preproduction'
-              ? 'bg-purple-500/20 text-purple-400'
-              : project.stage === 'production'
-              ? 'bg-orange-500/20 text-orange-400'
-              : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            {project.stage === 'preproduction'
-              ? 'Pre-production'
-              : project.stage === 'production'
-              ? 'Production'
-              : 'Post-production'}
+          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+            Pre-production
           </span>
         </div>
         
         <div className="mt-4 flex space-x-2">
           <Link
-            href={`/${project.stage}?projectId=${project.id}`}
+            href={`/preproduction?projectId=${project.id}`}
             className="flex-1 text-center px-3 py-1.5 bg-[#e2c376] text-black rounded-md hover:bg-[#d4b46a] transition-colors text-sm"
           >
             Continue

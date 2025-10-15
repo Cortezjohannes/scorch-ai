@@ -18,6 +18,7 @@ import { LivingWorldEngine } from './living-world-engine'
 import { InteractiveChoiceEngine } from './interactive-choice-engine'
 import { GenreMasterySystem } from './genre-mastery-system'
 import { TensionEscalationEngine } from './tension-escalation-engine'
+import { generateContent } from './azure-openai'
 import { WorldBuildingEngine } from './world-building-engine'
 import { ComedyTimingEngine } from './comedy-timing-engine'
 import { HorrorAtmosphereEngine } from './horror-atmosphere-engine'
@@ -102,6 +103,135 @@ export class MasterConductor {
   
   constructor() {
     this.initializeMasterConductor();
+  }
+  
+  /**
+   * DYNAMIC NARRATIVE STRUCTURE GENERATION
+   * Determines optimal arc count and episode distribution based on story needs
+   */
+  private async generateDynamicNarrativeStructure(
+    premise: StoryPremise,
+    protagonist: Character3D,
+    characters: Character3D[]
+  ): Promise<any[]> {
+    // Use AI to determine optimal structure based on story complexity
+    const premiseText = typeof premise === 'string' ? premise : (premise as any).premiseStatement || 'Story premise'
+    const genreText = typeof premise === 'string' ? 'Drama' : (premise as any).premiseType || 'Drama'
+    
+    const structurePrompt = `Analyze this story and determine the optimal narrative structure:
+
+PREMISE: ${premiseText}
+PROTAGONIST: ${protagonist.name} - ${protagonist.psychology?.coreValue || 'Character development'}
+CHARACTER COUNT: ${characters.length}
+GENRE: ${genreText}
+
+Based PURELY on this story's complexity, scope, and narrative needs, determine:
+1. How many narrative arcs does this story need?
+2. How many episodes should each arc contain?
+
+CRITICAL: Let story needs determine structure, not arbitrary limits.
+
+Consider:
+- Story scope and world complexity
+- Number of character arcs that need development
+- Thematic depth requiring exploration
+- Genre conventions and pacing needs
+- Natural dramatic structure
+
+Examples:
+- Simple story (few characters, single plot): 2-3 arcs, 4-6 episodes each
+- Standard story (medium complexity): 3-5 arcs, 8-12 episodes each
+- Complex story (many characters, subplots): 5-8 arcs, 10-20 episodes each
+- Epic saga (massive scale): 8-12 arcs, 15-30 episodes each
+
+Return ONLY a JSON array of arcs with this structure:
+[
+  {
+    "title": "Arc Title",
+    "summary": "What happens in this arc",
+    "episodeCount": <number that fits THIS arc's needs>
+  }
+]
+
+Make the structure organic to THIS specific story. Don't force generic numbers.`
+
+    try {
+      const result = await generateContent(structurePrompt, {
+        systemPrompt: 'You are a master story architect who determines optimal narrative structure based on story needs. Return valid JSON only.',
+        temperature: 0.8,
+        maxTokens: 2000,
+        model: 'gpt-4.1' as any
+      })
+
+      let arcStructures: any[] = JSON.parse(result)
+      
+      // Generate full episode details for each arc
+      let episodeNumber = 1
+      const narrativeArcs = arcStructures.map((arcStructure, arcIndex) => {
+        const episodes = Array.from({length: arcStructure.episodeCount}, (_, i) => ({
+          number: episodeNumber++,
+          title: `Episode ${episodeNumber - 1}`,
+          summary: `${arcStructure.title} - Episode ${i + 1}`,
+          narrativeBeat: arcStructure.title,
+          premiseProgress: `${premise.character} development in ${arcStructure.title}`
+        }))
+
+        return {
+          title: arcStructure.title,
+          summary: arcStructure.summary,
+          episodes
+        }
+      })
+
+      console.log(`🎯 Dynamic Structure: ${narrativeArcs.length} arcs, ${narrativeArcs.reduce((t, a) => t + a.episodes.length, 0)} total episodes`)
+      
+      return narrativeArcs
+      
+    } catch (error) {
+      console.warn('Dynamic structure generation failed, using intelligent fallback:', error)
+      
+      // Intelligent fallback analyzes story characteristics
+      const characterComplexity = characters.length
+      const premiseLength = premiseText.length
+      
+      // Calculate arc count based on character count and premise complexity
+      // More characters and longer premises typically need more arcs
+      let arcCount = 3 // Minimum for three-act structure
+      if (characterComplexity > 15 || premiseLength > 300) arcCount = 6
+      else if (characterComplexity > 10 || premiseLength > 200) arcCount = 5
+      else if (characterComplexity > 6 || premiseLength > 150) arcCount = 4
+      
+      // Calculate episodes dynamically
+      // Base episodes on character count and complexity
+      const baseEpisodes = Math.max(12, Math.min(80, characterComplexity * 3))
+      const totalEpisodes = Math.floor(baseEpisodes * (premiseLength > 200 ? 1.2 : 1))
+      
+      const episodesPerArc = Math.floor(totalEpisodes / arcCount)
+      let episodeNumber = 1
+      
+      const narrativeArcs = Array.from({length: arcCount}, (_, arcIndex) => {
+        const isLastArc = arcIndex === arcCount - 1
+        const arcEpisodeCount = isLastArc ? (totalEpisodes - episodeNumber + 1) : episodesPerArc
+        
+        const arcTitles = ['Foundation', 'Development', 'Complication', 'Crisis', 'Resolution']
+        
+        const episodes = Array.from({length: arcEpisodeCount}, (_, i) => ({
+          number: episodeNumber++,
+          title: `Episode ${episodeNumber - 1}`,
+          summary: `${arcTitles[arcIndex]} arc development`,
+          narrativeBeat: arcTitles[arcIndex],
+          premiseProgress: `Character development in ${arcTitles[arcIndex]} phase`
+        }))
+
+        return {
+          title: arcTitles[arcIndex],
+          summary: `${arcTitles[arcIndex]} phase of the story`,
+          episodes
+        }
+      })
+      
+      return narrativeArcs
+    }
   }
   
     /**
@@ -200,78 +330,14 @@ export class MasterConductor {
       console.log(`   👥 Supporting Cast: ${characters3D.length - 2} characters with diverse roles`);
       console.log(`   🎪 Character Roles: ${characters3D.map(c => c.premiseRole).join(', ')}`);
       
-      // STEP 3: Generate Narrative Structure using Fractal Narrative Engine
-      console.log('📚 Step 3: Master Conductor activating Fractal Narrative Engine...')
-      const narrativeArcs = [
-        {
-          title: "Discovery & Foundation",
-          summary: `${protagonist.name} discovers their nature and the premise begins to be established. Core relationships form.`,
-          episodes: Array.from({length: 12}, (_, i) => ({
-            number: i + 1,
-            title: `Episode ${i + 1}`,
-            summary: `Initial premise exploration and character introduction`,
-            narrativeBeat: "Foundation building",
-            premiseProgress: `Establishing ${premise.character} as core value`
-          }))
-        },
-        {
-          title: "Testing & Development",
-          summary: `Characters face initial challenges that test the premise. Relationships deepen and complexities emerge.`,
-          episodes: Array.from({length: 15}, (_, i) => ({
-            number: i + 13,
-            title: `Episode ${i + 13}`,
-            summary: `Character development through premise testing`,
-            narrativeBeat: "Premise under pressure",
-            premiseProgress: `${premise.character} faces increasing challenges`
-          }))
-        },
-        {
-          title: "Complication & Growth",
-          summary: `Major obstacles emerge. Characters must choose between easy paths and premise-aligned choices.`,
-          episodes: Array.from({length: 18}, (_, i) => ({
-            number: i + 28,
-            title: `Episode ${i + 28}`,
-            summary: `Complex moral dilemmas and character growth`,
-            narrativeBeat: "Moral complexity",
-            premiseProgress: `${premise.character} tested by moral ambiguity`
-          }))
-        },
-        {
-          title: "Crisis & Transformation",
-          summary: `The premise faces its greatest test. Characters must transform or fail. Major character arcs reach turning points.`,
-          episodes: Array.from({length: 15}, (_, i) => ({
-            number: i + 46,
-            title: `Episode ${i + 46}`,
-            summary: `Crisis forcing character transformation`,
-            narrativeBeat: "Transformation crucible",
-            premiseProgress: `${premise.character} must evolve or be abandoned`
-          }))
-        },
-        {
-          title: "Integration & Wisdom",
-          summary: `Characters integrate lessons learned. The premise is refined and deepened through experience.`,
-          episodes: Array.from({length: 12}, (_, i) => ({
-            number: i + 61,
-            title: `Episode ${i + 61}`,
-            summary: `Wisdom integration and premise refinement`,
-            narrativeBeat: "Wisdom development",
-            premiseProgress: `${premise.character} becomes mature and nuanced`
-          }))
-        },
-        {
-          title: "Resolution & Legacy",
-          summary: `The premise is proven through character transformation and ${premise.resolution}. Legacy is established.`,
-          episodes: Array.from({length: 8}, (_, i) => ({
-            number: i + 73,
-            title: `Episode ${i + 73}`,
-            summary: `Final premise proof and legacy establishment`,
-            narrativeBeat: "Premise proven",
-            premiseProgress: `${premise.resolution} achieved through mature ${premise.character}`
-          }))
-        }
-      ];
+      // STEP 3: Generate DYNAMIC Narrative Structure using Fractal Narrative Engine
+      console.log('📚 Step 3: Master Conductor activating Dynamic Fractal Narrative Engine...')
       
-      console.log(`✅ Fractal Narrative Engine: Generated ${narrativeArcs.length} narrative arcs (${narrativeArcs.reduce((total, arc) => total + arc.episodes.length, 0)} total episodes)`);
+      // DYNAMIC STRUCTURE: Let the story determine its own natural length
+      // No more hard-coded 4 arcs or 60 episodes!
+      const narrativeArcs = await this.generateDynamicNarrativeStructure(premise, protagonist, characters3D)
+      
+      console.log(`✅ Dynamic Narrative Engine: Generated ${narrativeArcs.length} narrative arcs (${narrativeArcs.reduce((total, arc) => total + arc.episodes.length, 0)} total episodes)`);
       
       // STEP 4: Enhance Dialogue using Strategic Dialogue Engine
       console.log('💬 Step 4: Master Conductor activating Strategic Dialogue Engine...')
@@ -596,11 +662,10 @@ export class MasterConductor {
       case 'character3D':
         if (!context.premise) throw new Error('Premise required for character generation');
         
-        // 🎭 DYNAMIC CHARACTER COUNT - Based on story needs, not hardcoded limit
+        // 🎭 DYNAMIC CHARACTER COUNT - Let AI determine optimal count
         const storyType = this.detectStoryType(context.synopsis || '', context.theme || '');
-        const optimalCount = this.getOptimalCharacterCount(storyType);
         
-        console.log(`🎭 Generating ${optimalCount} characters for ${storyType} story`);
+        console.log(`🎭 Letting AI determine optimal character count for ${storyType} story...`);
         
         const characters = await Character3DEngine.generateCharacters(
           context.premise,
@@ -996,24 +1061,6 @@ export class MasterConductor {
     return 'contemporary drama'; // Default
   }
   
-  /**
-   * 🎭 OPTIMAL CHARACTER COUNT - Returns ideal character count for story type  
-   */
-  private getOptimalCharacterCount(storyType: string): number {
-    const characterCounts = {
-      'high school drama': 8, // Friend groups + authority figures
-      'college drama': 9, // Larger social circles
-      'workplace drama': 10, // Office hierarchy needs more characters
-      'family drama': 7, // Intimate family dynamics
-      'crime drama': 11, // Law enforcement team + criminals + victims
-      'medical drama': 10, // Medical staff + patients + families
-      'fantasy drama': 10, // Heroes + villains + magical beings
-      'sci-fi drama': 10, // Crew + aliens + AI + scientists
-      'contemporary drama': 9 // General modern stories
-    };
-    
-    return characterCounts[storyType] || 9; // Default to 9 instead of 6
-  }
 }
 
 // Supporting Interfaces

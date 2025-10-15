@@ -394,7 +394,7 @@ export default function StoryRecommendations() {
       <div className="mb-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-white flex items-center">
-            <Lightbulb className="mr-2 h-5 w-5 text-[#e2c376]" />
+            <Lightbulb className="mr-2 h-5 w-5 text-[#00FF99]" />
             Story Templates
           </h2>
           
@@ -415,7 +415,7 @@ export default function StoryRecommendations() {
             onClick={() => setSelectedGenre(null)}
             className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
               selectedGenre === null
-                ? 'bg-[#e2c376] text-black font-medium'
+                ? 'bg-[#00FF99] text-black font-medium'
                 : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]'
             }`}
           >
@@ -428,7 +428,7 @@ export default function StoryRecommendations() {
               onClick={() => setSelectedGenre(genre)}
               className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
                 selectedGenre === genre
-                  ? 'bg-[#e2c376] text-black font-medium'
+                  ? 'bg-[#00FF99] text-black font-medium'
                   : 'bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]'
               }`}
             >
@@ -446,7 +446,7 @@ export default function StoryRecommendations() {
               animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
           >
-            <Card className="h-full border border-[#36393f] bg-[#1e1e1e] hover:border-[#e2c376]/50 transition-all hover:shadow-[0_0_15px_rgba(226,195,118,0.1)] overflow-hidden">
+            <Card className="h-full border border-[#36393f] bg-[#1e1e1e] hover:border-[#00FF99]/50 transition-all hover:shadow-[0_0_15px_rgba(0,255,153,0.1)] overflow-hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="flex justify-between items-start">
                   <span>{recommendation.title}</span>
@@ -462,7 +462,7 @@ export default function StoryRecommendations() {
                 <div className="flex flex-wrap gap-1.5">
                   {recommendation.tags.map((tag) => (
                     <span key={tag} className="text-xs text-gray-400 px-2 py-0.5 bg-[#2a2a2a] rounded-full flex items-center">
-                      <Tag className="h-3 w-3 mr-1 text-[#e2c376]" />
+                      <Tag className="h-3 w-3 mr-1 text-[#00FF99]" />
                           {tag}
                         </span>
                       ))}
@@ -472,7 +472,7 @@ export default function StoryRecommendations() {
                 <div className="flex items-center">
                   <span className="text-xs text-gray-300 mr-2">Recommended:</span>
                   {recommendation.recommendedMode === 'beast' ? (
-                    <span className="text-xs flex items-center px-2 py-1 bg-[#e2c376]/20 text-[#e2c376] rounded-full">
+                    <span className="text-xs flex items-center px-2 py-1 bg-[#00FF99]/20 text-[#00FF99] rounded-full">
                       <Bolt className="h-3 w-3 mr-1" />
                       Beast Mode
                     </span>
@@ -493,7 +493,7 @@ export default function StoryRecommendations() {
                   onClick={() => handleUseRecommendation(recommendation)}
                   variant="outline"
                   size="sm"
-                  className="w-full mt-2 border-[#e2c376]/30 text-[#e2c376] hover:bg-[#e2c376]/10"
+                  className="w-full mt-2 border-[#00FF99]/30 text-[#00FF99] hover:bg-[#00FF99]/10"
                 >
                   <Film className="h-4 w-4 mr-2" />
                   Use Template

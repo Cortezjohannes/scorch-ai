@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import AnimatedBackground from '@/components/AnimatedBackground'
 
 interface UserChoice {
   episodeNumber: number
@@ -23,11 +24,17 @@ export default function WorkspacePage() {
   const [highestCompletedArc, setHighestCompletedArc] = useState<number>(0)
   const [completedArcs, setCompletedArcs] = useState<Record<number, boolean>>({})
   const [productionContentExists, setProductionContentExists] = useState<Record<number, boolean>>({})
+  const [isClient, setIsClient] = useState(false)
+  
+  // Effect to set client-side flag
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
   
   // Check if production content exists for an arc
   const checkProductionContent = (arcIndex: number): boolean => {
     try {
-      const savedContent = localStorage.getItem('reeled-preproduction-content')
+      const savedContent = localStorage.getItem('greenlit-preproduction-content') || localStorage.getItem('scorched-preproduction-content') || localStorage.getItem('reeled-preproduction-content')
       if (!savedContent) return false
       
       const parsedContent = JSON.parse(savedContent)
@@ -42,18 +49,22 @@ export default function WorkspacePage() {
   useEffect(() => {
     const loadData = () => {
       try {
-        // Load story bible
-        const savedBible = localStorage.getItem('reeled-story-bible')
+        // Load story bible - check both new and legacy keys
+        const greenlitBible = localStorage.getItem('greenlit-story-bible')
+        const scorchedBible = localStorage.getItem('scorched-story-bible')
+        const reeledBible = localStorage.getItem('reeled-story-bible')
+        const savedBible = greenlitBible || scorchedBible || reeledBible
+        
         if (savedBible) {
           const parsed = JSON.parse(savedBible)
           setStoryBible(parsed.storyBible)
         } else {
-          router.push('/')
-          return
+          console.log('ℹ️ No story bible found in workspace, but allowing user to stay')
+          // Don't redirect - let the workspace show empty state
         }
         
         // Load user choices
-        const savedChoices = localStorage.getItem('reeled-user-choices')
+        const savedChoices = localStorage.getItem('greenlit-user-choices') || localStorage.getItem('scorched-user-choices') || localStorage.getItem('reeled-user-choices')
         if (savedChoices) {
           const choices = JSON.parse(savedChoices)
           setUserChoices(choices)
@@ -107,7 +118,7 @@ export default function WorkspacePage() {
                 completedArcsData[arcIndex] = true
                 
                 // Save to localStorage
-                localStorage.setItem('reeled-completed-arcs', JSON.stringify(completedArcsData))
+                localStorage.setItem('greenlit-completed-arcs', JSON.stringify(completedArcsData))
                 }
                 
                 runningEpisodeCount += arcEpisodeCount
@@ -120,7 +131,7 @@ export default function WorkspacePage() {
         }
         
         // Load generated episodes
-        const savedEpisodes = localStorage.getItem('reeled-episodes')
+        const savedEpisodes = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')
         if (savedEpisodes) {
           const episodes = JSON.parse(savedEpisodes)
           const episodeIds = Object.keys(episodes).map(Number)
@@ -180,7 +191,7 @@ export default function WorkspacePage() {
         }
         
         // Load completed arcs
-        const savedCompletedArcs = localStorage.getItem('reeled-completed-arcs')
+        const savedCompletedArcs = localStorage.getItem('greenlit-completed-arcs') || localStorage.getItem('scorched-completed-arcs') || localStorage.getItem('reeled-completed-arcs')
         if (savedCompletedArcs) {
           try {
             const arcsData = JSON.parse(savedCompletedArcs)
@@ -247,7 +258,7 @@ export default function WorkspacePage() {
         setCompletedArcs(updatedCompletedArcs)
         
         // Save to localStorage
-        localStorage.setItem('reeled-completed-arcs', JSON.stringify(updatedCompletedArcs))
+        localStorage.setItem('greenlit-completed-arcs', JSON.stringify(updatedCompletedArcs))
         
         return true
       }
@@ -281,12 +292,12 @@ export default function WorkspacePage() {
   // Handle starting production for an arc
   const handleStartProduction = (arcIndex: number) => {
     try {
-      // Get all workspace episodes
-      const savedEpisodes = localStorage.getItem('reeled-episodes')
+      // Get all workspace episodes - USE CORRECT GREENLIT KEYS
+      const savedEpisodes = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')
       const workspaceEpisodes = savedEpisodes ? JSON.parse(savedEpisodes) : {}
       
-      // Get updated story bible with user choice adaptations and mode
-      const savedBible = localStorage.getItem('reeled-story-bible')
+      // Get updated story bible with user choice adaptations and mode - USE CORRECT GREENLIT KEYS
+      const savedBible = localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
       const currentStoryBible = savedBible ? JSON.parse(savedBible).storyBible : storyBible
       
       // Get user's original mode choice from the same saved bible data
@@ -343,13 +354,13 @@ export default function WorkspacePage() {
       }
 
       // Store comprehensive data for pre-production access
-      localStorage.setItem('reeled-preproduction-data', JSON.stringify(preProductionData))
+      localStorage.setItem('greenlit-preproduction-data', JSON.stringify(preProductionData))
       
     // Save the arc index to local storage so the results page knows which arc to show
-    localStorage.setItem('reeled-production-arc', arcIndex.toString())
+    localStorage.setItem('greenlit-production-arc', arcIndex.toString())
       
     // Set flag to auto-generate content
-    localStorage.setItem('reeled-auto-generate', 'true')
+    localStorage.setItem('greenlit-auto-generate', 'true')
       
       console.log(`Starting production for Arc ${arcIndex + 1} with ${arcEpisodes.length} workspace episodes`)
       
@@ -358,8 +369,8 @@ export default function WorkspacePage() {
     } catch (error) {
       console.error('Error preparing production data:', error)
       // Fallback to basic production start
-      localStorage.setItem('reeled-production-arc', arcIndex.toString())
-      localStorage.setItem('reeled-auto-generate', 'true')
+      localStorage.setItem('greenlit-production-arc', arcIndex.toString())
+      localStorage.setItem('greenlit-auto-generate', 'true')
       router.push(`/preproduction/v2?arc=${arcIndex + 1}`)
     }
   }
@@ -367,8 +378,8 @@ export default function WorkspacePage() {
   const handleContinue = () => {
     // Automatically update story bible with latest episodes before continuing
     try {
-      const savedEpisodes = localStorage.getItem('reeled-episodes')
-      const savedBible = localStorage.getItem('reeled-story-bible')
+      const savedEpisodes = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')
+      const savedBible = localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
       
       if (savedEpisodes && savedBible) {
         const episodes = JSON.parse(savedEpisodes)
@@ -394,7 +405,8 @@ export default function WorkspacePage() {
     const totalEpisodes = storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0) || 60
     
     if (nextEpisode <= totalEpisodes) {
-      router.push(`/episode/${nextEpisode}`)
+      // Route to Episode Studio for enhanced two-stage generation
+      router.push(`/episode-studio/${nextEpisode}`)
     } else {
       // Series is complete
       alert('You have completed all episodes!')
@@ -402,11 +414,32 @@ export default function WorkspacePage() {
   }
   
   const handleRestart = () => {
-    if (confirm('Are you sure you want to restart? This will clear all your choices.')) {
-      // Clear choices but keep story bible
-      localStorage.removeItem('reeled-user-choices')
-      localStorage.removeItem('reeled-episodes')
-      localStorage.removeItem('reeled-completed-arcs')
+    if (confirm('Are you sure you want to restart? This will clear all your choices and episodes.')) {
+      console.log('🔄 Starting complete story restart...')
+      
+      // Clear ALL episode and choice data
+      const keysToRemove = [
+        'greenlit-user-choices',
+        'greenlit-episodes', 
+        'greenlit-completed-arcs',
+        'scorched-user-choices',
+        'scorched-episodes',
+        'scorched-completed-arcs',
+        'reeled-user-choices',
+        'reeled-episodes',
+        'reeled-completed-arcs'
+      ]
+      
+      let cleared = 0
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key)
+          console.log(`🗑️ Removed: ${key}`)
+          cleared++
+        }
+      })
+      
+      // Reset all state
       setUserChoices([])
       setLastViewedEpisode(1)
       setActiveArcIndex(0)
@@ -414,26 +447,80 @@ export default function WorkspacePage() {
       setHighestGeneratedEpisode(0)
       setHighestCompletedArc(0)
       setCompletedArcs({})
+      setProductionContentExists({})
+      
+      console.log(`✅ Cleared ${cleared} keys - story restarted!`)
+      alert(`✅ Story restarted! Cleared ${cleared} keys. You can now start fresh from Episode 1.`)
     }
   }
 
   const handleResetPreProduction = () => {
     if (confirm('Are you sure you want to reset pre-production results? This will clear all generated pre-production content and allow you to regenerate it.')) {
-      // Clear pre-production content
-      localStorage.removeItem('reeled-preproduction-content')
-      localStorage.removeItem('reeled-preproduction-data')
+      console.log('🗑️ Starting comprehensive pre-production cleanup...')
+      console.log('🔍 Current localStorage keys:', Object.keys(localStorage))
+
+      // Keys to clear (pre-production content only)
+      const keysToRemove = [
+        'greenlit-preproduction-content',
+        'greenlit-preproduction-data',
+        'reeled-preproduction-data',
+        'reeled-preproduction-content',
+        'scorched-preproduction-content',
+        'scorched-preproduction-data',
+        'greenlit-preproduction-0',  // Arc-specific keys
+        'greenlit-preproduction-1',
+        'greenlit-preproduction-2',
+        'greenlit-preproduction-3',
+        'greenlit-preproduction-4',
+        'reeled-preproduction-0',
+        'reeled-preproduction-1',
+        'reeled-preproduction-2',
+        'reeled-preproduction-3',
+        'reeled-preproduction-4',
+        'scorched-preproduction-0',
+        'scorched-preproduction-1',
+        'scorched-preproduction-2',
+        'scorched-preproduction-3',
+        'scorched-preproduction-4'
+      ]
+
+      let cleared = 0
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key)
+          console.log(`🗑️ Removed: ${key}`)
+          cleared++
+        }
+      })
+
+      // Also check for any other preproduction keys dynamically
+      Object.keys(localStorage).forEach(key => {
+        if ((key.includes('preproduction') || key.includes('preProduction')) && 
+            !key.includes('story-bible') && 
+            !key.includes('episodes') &&
+            !key.includes('workspace-episodes')) {
+          localStorage.removeItem(key)
+          console.log(`🗑️ Removed (dynamic): ${key}`)
+          cleared++
+        }
+      })
       
       // Reset production content existence flags
       setProductionContentExists({})
       
+      console.log(`✅ Cleared ${cleared} pre-production keys`)
+      console.log('📖 Preserved story bible and episodes data')
+      console.log('🔍 Remaining localStorage keys:', Object.keys(localStorage))
+      
       // Show success message
-      alert('Pre-production results have been cleared. You can now regenerate them using the "Start Production" button.')
+      alert(`✅ Pre-production cleared! Removed ${cleared} keys while preserving story bible and episodes. Ready to regenerate fresh content!`)
     }
   }
 
-  if (loading) {
+  if (!isClient || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a]" />
         <motion.div
           className="flex flex-col items-center"
           initial={{ opacity: 0 }}
@@ -441,7 +528,7 @@ export default function WorkspacePage() {
           transition={{ duration: 0.5 }}
         >
           <motion.div 
-            className="w-20 h-20 border-4 border-t-[#e2c376] border-r-[#e2c37650] border-b-[#e2c37630] border-l-[#e2c37620] rounded-full"
+            className="w-20 h-20 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full"
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           />
@@ -453,11 +540,12 @@ export default function WorkspacePage() {
 
   if (!storyBible) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+        <AnimatedBackground intensity="low" />
         <h2 className="text-xl text-[#e7e7e7]">Story Bible not found</h2>
         <p className="text-[#e7e7e7]/70 mt-2">You need to create a story bible first.</p>
         <button 
-          className="mt-6 px-4 py-2 bg-[#e2c376] text-black font-medium rounded-lg hover:bg-[#d4b46a] transition-colors"
+          className="mt-6 px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
           onClick={() => router.push('/')}
         >
           Create Story Bible
@@ -495,12 +583,13 @@ export default function WorkspacePage() {
 
   return (
     <motion.div 
-      className="min-h-screen p-4 sm:p-6 md:p-8"
+      className="min-h-screen p-4 sm:p-6 md:p-8 relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      style={{ fontFamily: 'League Spartan, sans-serif' }}
+      style={{ fontFamily: 'League Spartan, sans-serif', zIndex: 1 }}
     >
+      <AnimatedBackground intensity="low" />
       <div className="max-w-7xl mx-auto">
         {/* Revolutionary Header */}
         <motion.div
@@ -511,21 +600,43 @@ export default function WorkspacePage() {
         >
           {/* Fire Icon */}
           <motion.div
-            className="w-16 h-16 ember-shadow rounded-xl flex items-center justify-center mx-auto mb-6 animate-emberFloat"
+            className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-6"
             whileHover={{ scale: 1.1, rotate: 5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <span className="text-5xl">🔥</span>
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                opacity: [0.6, 1, 0.6],
+                filter: [
+                  "brightness(1) drop-shadow(0 0 10px rgba(0, 255, 153, 0.3))",
+                  "brightness(1.2) drop-shadow(0 0 20px rgba(0, 255, 153, 0.6))",
+                  "brightness(1) drop-shadow(0 0 10px rgba(0, 255, 153, 0.3))"
+                ]
+              }}
+              transition={{ 
+                duration: 2.5,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="w-12 h-12"
+            >
+              <img 
+                src="/greenlitailogo.png" 
+                alt="Greenlit Logo" 
+                className="w-full h-full object-contain"
+              />
+            </motion.div>
           </motion.div>
           
           {/* Series Title */}
           <motion.h1 
-            className="text-4xl sm:text-5xl md:text-6xl font-black mb-6 elegant-fire fire-gradient animate-flameFlicker"
+            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 font-medium greenlit-gradient"
             initial={{ letterSpacing: "-0.1em", opacity: 0 }}
             animate={{ letterSpacing: "0.02em", opacity: 1 }}
             transition={{ duration: 1.2, delay: 0.3 }}
           >
-            {storyBible.seriesTitle || "YOUR SCORCHED EMPIRE"}
+            {storyBible.seriesTitle || "YOUR GREENLIT SERIES"}
           </motion.h1>
 
           {/* Revolutionary Subtitle */}
@@ -535,8 +646,8 @@ export default function WorkspacePage() {
             transition={{ delay: 0.6, duration: 0.8 }}
             className="space-y-4"
           >
-            <p className="text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed elegant-fire">
-              Your revolutionary workspace where <span className="text-[#e2c376] font-bold">epic stories come to life</span> through AI-powered narrative generation
+            <p className="text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed font-medium">
+              Your professional workspace where <span className="text-[#00FF99] font-bold">epic stories come to life</span> through AI-powered narrative generation
             </p>
             
             {/* Revolutionary Stats */}
@@ -547,15 +658,15 @@ export default function WorkspacePage() {
               transition={{ delay: 1, duration: 0.6 }}
             >
             {storyBible.mainCharacters && (
-                <div className="px-4 py-2 bg-gradient-to-r from-[#D62828]/20 to-[#FF6B00]/20 border border-[#e2c376]/30 rounded-xl">
-                  <span className="text-[#e2c376] font-bold text-sm elegant-fire">👥 {storyBible.mainCharacters.length} REBEL CHARACTERS</span>
+                <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                  <span className="text-[#00FF99] font-bold text-sm font-medium">{storyBible.mainCharacters.length} MAIN CHARACTERS</span>
                 </div>
               )}
-              <div className="px-4 py-2 bg-gradient-to-r from-[#D62828]/20 to-[#FF6B00]/20 border border-[#e2c376]/30 rounded-xl">
-                <span className="text-[#e2c376] font-bold text-sm elegant-fire">📚 {(storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0)) || '40-80'} EPISODES</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                <span className="text-[#00FF99] font-bold text-sm font-medium">{(storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0)) || '40-80'} EPISODES</span>
               </div>
-              <div className="px-4 py-2 bg-gradient-to-r from-[#D62828]/20 to-[#FF6B00]/20 border border-[#e2c376]/30 rounded-xl">
-                <span className="text-[#e2c376] font-bold text-sm elegant-fire">⚡ {userChoices.length} CHOICES MADE</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                <span className="text-[#00FF99] font-bold text-sm font-medium">{userChoices.length} CHOICES MADE</span>
           </div>
             </motion.div>
           </motion.div>
@@ -568,11 +679,11 @@ export default function WorkspacePage() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 1.2, duration: 0.8 }}
         >
-          <div className="rebellious-card p-8">
+          <div className="bg-[#1e1e1e] border border-[#36393f] rounded-xl p-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-[#e2c376] mb-2 elegant-fire">🔥 REVOLUTIONARY PROGRESS</h2>
-                <p className="text-white/90 elegant-fire">
+                <h2 className="text-2xl font-bold text-[#00FF99] mb-2 font-medium cinematic-header">PROFESSIONAL PROGRESS</h2>
+                <p className="text-white/90 font-medium">
                   {userChoices.length} of {storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0) || '40-80'} episodes completed
                 </p>
               </div>
@@ -580,7 +691,7 @@ export default function WorkspacePage() {
               <div className="flex gap-4">
                 <motion.button
                   onClick={() => router.push('/story-bible')}
-                  className="px-6 py-3 border-2 border-[#e2c376] text-[#e2c376] rounded-xl font-bold elegant-fire hover:bg-[#e2c376]/10 transition-all"
+                  className="px-6 py-3 border-2 border-[#00FF99] text-[#00FF99] rounded-xl font-bold elegant-fire hover:bg-[#00FF99]/10 transition-all"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -603,9 +714,9 @@ export default function WorkspacePage() {
                 <span>Episode 1</span>
                 <span>Episode {storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0) || '40-80'}</span>
               </div>
-              <div className="h-4 bg-[#2a2a2a] rounded-full overflow-hidden border border-[#e2c376]/30">
-                <motion.div 
-                  className="h-full bg-gradient-to-r from-[#D62828] via-[#FF6B00] to-[#e2c376] rounded-full"
+              <div className="h-4 bg-[#2a2a2a] rounded-full overflow-hidden border border-[#00FF99]/30">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99] rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${(userChoices.length / (storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0) || 60)) * 100}%` }}
                   transition={{ delay: 1.5, duration: 1.5, ease: "easeOut" }}
@@ -622,7 +733,7 @@ export default function WorkspacePage() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 1.4, duration: 0.8 }}
         >
-          <h2 className="text-2xl font-bold text-[#e2c376] mb-6 text-center elegant-fire">📚 NARRATIVE ARCS</h2>
+          <h2 className="text-2xl font-bold text-[#00FF99] mb-6 text-center font-medium cinematic-header">NARRATIVE ARCS</h2>
           <div className="flex overflow-x-auto pb-2 gap-2">
             {storyBible.narrativeArcs?.map((arc: any, index: number) => {
               const isLocked = isArcLocked(index);
@@ -634,9 +745,9 @@ export default function WorkspacePage() {
                   onClick={() => !isLocked && setActiveArcIndex(index)}
                   className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors relative ${
                   activeArcIndex === index 
-                    ? 'bg-[#e2c376] text-black font-medium' 
-                      : isCompleted
-                        ? 'bg-[#2a2a2a] text-[#e2c376] border border-[#e2c37640]'
+                    ? 'bg-[#00FF99] text-black font-medium' 
+                    : isCompleted 
+                        ? 'bg-[#2a2a2a] text-[#00FF99] border border-[#00FF9940]'
                         : isLocked
                           ? 'bg-[#2a2a2a]/60 text-[#e7e7e7]/40 cursor-not-allowed'
                     : 'bg-[#2a2a2a] text-[#e7e7e7] hover:bg-[#36393f]'
@@ -644,7 +755,7 @@ export default function WorkspacePage() {
                   disabled={isLocked}
               >
                   {isCompleted && (
-                    <span className="inline-block w-2 h-2 rounded-full bg-[#e2c376] mr-1"></span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#00FF99] mr-1"></span>
                   )}
                 Arc {index + 1}: {arc.title}
                   
@@ -679,7 +790,7 @@ export default function WorkspacePage() {
               <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6">
                 <div className="flex flex-col md:flex-row justify-between items-start mb-6">
                   <div>
-                <h3 className="text-2xl font-bold text-[#e2c376] mb-2">
+                <h3 className="text-2xl font-bold text-[#00FF99] mb-2">
                   {storyBible.narrativeArcs[activeArcIndex].title}
                 </h3>
                     <p className="text-[#e7e7e7]/90 max-w-3xl">
@@ -697,7 +808,7 @@ export default function WorkspacePage() {
                         className={`px-5 py-3 font-bold rounded-lg shadow-lg flex items-center ${
                           productionContentExists[activeArcIndex] 
                             ? 'bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white' 
-                            : 'bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-black'
+                            : 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black'
                         }`}
                       >
                         {productionContentExists[activeArcIndex] ? (
@@ -742,23 +853,23 @@ export default function WorkspacePage() {
                       const EpisodeCard = () => (
                         <div className={`border rounded-lg p-4 transition-all relative ${
                             hasCompleted 
-                              ? 'bg-[#e2c37615] border-[#e2c37640] hover:border-[#e2c376]' 
+                              ? 'bg-[#00FF9915] border-[#00FF9940] hover:border-[#00FF99]' 
                               : isNext
-                                ? 'bg-[#2a2a2a] border-[#e2c37640] hover:border-[#e2c376]'
-                                : 'bg-[#2a2a2a] border-[#36393f] hover:border-[#e2c37640]'
+                                ? 'bg-[#2a2a2a] border-[#00FF9940] hover:border-[#00FF99]'
+                                : 'bg-[#2a2a2a] border-[#36393f] hover:border-[#00FF9940]'
                         }`}>
                           <div className="flex items-center justify-between mb-2">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${
                               hasCompleted 
-                                ? 'bg-[#e2c376] text-black' 
+                                ? 'bg-[#00FF99] text-black' 
                                 : isNext
-                                  ? 'bg-[#e2c37640] text-[#e2c376]'
+                                  ? 'bg-[#00FF9940] text-[#00FF99]'
                                   : 'bg-[#36393f] text-[#e7e7e7]/70'
                             }`}>
                               {episodeNumber}/{storyBible.narrativeArcs?.reduce((total: number, arc: any) => total + (arc.episodes?.length || 10), 0) || '40-80'}
                             </span>
                             {hasCompleted && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#e2c376]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#00FF99]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -778,7 +889,7 @@ export default function WorkspacePage() {
                           {hasCompleted && (
                             <div className="mt-2 pt-2 border-t border-[#36393f] text-xs">
                               <div className="text-[#e7e7e7]/50">Your choice:</div>
-                              <div className="text-[#e2c376]">
+                              <div className="text-[#00FF99]">
                                 {userChoices.find(c => c.episodeNumber === episodeNumber)?.choiceText || "Choice made"}
                               </div>
                             </div>
@@ -829,16 +940,16 @@ export default function WorkspacePage() {
               onClick={handleRestart}
               className="p-4 bg-[#2a2a2a] border border-[#36393f] rounded-lg hover:bg-[#36393f] transition-colors"
             >
-              <div className="font-medium mb-1">Reset Story Progress</div>
-              <div className="text-xs text-[#e7e7e7]/70">Clear all your choices and start from episode 1</div>
+              <div className="font-medium mb-1">🔄 Clear Episodes</div>
+              <div className="text-xs text-[#e7e7e7]/70">Clear all episodes, choices, and progress - start fresh</div>
             </button>
             
             <button
               onClick={handleResetPreProduction}
-              className="p-4 bg-[#2a2a2a] border border-[#dc2626] rounded-lg hover:bg-[#dc2626] hover:text-white transition-colors"
+              className="p-4 bg-[#2a2a2a] border border-[#00FF99] rounded-lg hover:bg-[#00FF99] hover:text-black transition-colors"
             >
-              <div className="font-medium mb-1">Reset Pre-Production</div>
-              <div className="text-xs text-[#e7e7e7]/70">Clear generated pre-production content to regenerate</div>
+              <div className="font-medium mb-1">🗑️ Clear Pre-Production</div>
+              <div className="text-xs text-[#e7e7e7]/70">Remove all cached pre-production data (preserves story bible & episodes)</div>
             </button>
             
             <button
@@ -853,7 +964,7 @@ export default function WorkspacePage() {
               onClick={() => router.push('/projects')}
               className="p-4 bg-[#2a2a2a] border border-[#e2c37640] rounded-lg hover:bg-[#e2c37620] transition-colors"
             >
-              <div className="font-medium mb-1 text-[#e2c376]">Project Workspace</div>
+              <div className="font-medium mb-1 text-[#00FF99]">Project Workspace</div>
               <div className="text-xs text-[#e7e7e7]/70">Access complete pre-production tools</div>
             </button>
             

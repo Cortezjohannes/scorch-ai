@@ -250,7 +250,7 @@ export class MysteryEngineV2 {
       const prompt = `Generate comprehensive mystery engine recommendation for ${context.mysteryType} project.`;
 
       const response = await generateContent(prompt, {
-        max_tokens: 3000,
+        maxTokens: 3000,
         temperature: 0.7
       });
 
@@ -579,15 +579,6 @@ export class MysteryEngineV2 {
     return frameworks[complexity] || 'Balanced Logical Structure';
   }
 
-  private static getCharacterIntegration(focus: string): string {
-    const integrations: { [key: string]: string } = {
-      'detective-driven': 'Detective-Centric Investigation',
-      'ensemble': 'Multi-Character Perspective',
-      'victim-focused': 'Victim Life Reconstruction',
-      'psychological': 'Deep Character Psychology'
-    };
-    return integrations[focus] || 'Balanced Character Development';
-  }
 
   private static getGenreHybridization(hybridization: string[]): string {
     if (hybridization.length === 0) return 'Pure Mystery';

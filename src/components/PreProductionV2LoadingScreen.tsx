@@ -24,7 +24,7 @@ const V2_STEPS: V2LoadingStep[] = [
   { 
     id: 'script', 
     name: 'Scripts', 
-    icon: '📝', 
+    icon: '', 
     description: 'Generating scene-by-scene scripts...', 
     type: 'per-scene',
     estimatedTime: 120
@@ -32,7 +32,7 @@ const V2_STEPS: V2LoadingStep[] = [
   { 
     id: 'storyboard', 
     name: 'Storyboards', 
-    icon: '🎬', 
+    icon: '', 
     description: 'Creating visual planning per scene...', 
     type: 'per-scene',
     estimatedTime: 150
@@ -56,7 +56,7 @@ const V2_STEPS: V2LoadingStep[] = [
   { 
     id: 'casting', 
     name: 'Casting', 
-    icon: '🎭', 
+    icon: '', 
     description: 'Creating casting guide for arc...', 
     type: 'per-arc',
     estimatedTime: 60
@@ -192,9 +192,9 @@ export default function PreProductionV2LoadingScreen({
 
             setProgress(prev => ({
               ...prev,
-              currentStepIndex: currentStep,
+              currentStepIndex: Math.max(prev.currentStepIndex, currentStep), // Never go backwards
               currentStepProgress,
-              overallProgress,
+              overallProgress: Math.max(prev.overallProgress, overallProgress), // Never decrease progress
               currentDetail
             }))
 
@@ -380,16 +380,16 @@ export default function PreProductionV2LoadingScreen({
             transition={{ type: "spring", stiffness: 300 }}
           >
             <div className="w-16 h-16 ember-shadow rounded-xl flex items-center justify-center animate-emberFloat">
-              <span className="text-4xl">🎬</span>
+              <span className="text-4xl">⚡</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black elegant-fire fire-gradient animate-flameFlicker">
-              REVOLUTIONARY PRE-PRODUCTION V2
+            <h1 className="text-4xl md:text-5xl font-bold font-medium fire-gradient animate-flameFlicker">
+              PROFESSIONAL PRE-PRODUCTION V2
             </h1>
           </motion.div>
-          <p className="text-xl md:text-2xl text-white/90 elegant-fire">
+          <p className="text-xl md:text-2xl text-white/90 font-medium">
             {storyBible?.seriesTitle || 'Your Series'} - Arc {arcIndex + 1}
           </p>
-          <p className="text-lg text-white/70 elegant-fire">
+          <p className="text-lg text-white/70 font-medium">
             {totalEpisodes} Episodes • {totalScenes} Scenes • Granular Empire Building
           </p>
         </motion.div>
@@ -397,17 +397,17 @@ export default function PreProductionV2LoadingScreen({
         {/* Revolutionary Overall Progress */}
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <span className="text-xl md:text-2xl font-black text-[#e2c376] elegant-fire">EMPIRE PROGRESS</span>
+            <span className="text-xl md:text-2xl font-bold text-[#00FF99] font-medium">PROFESSIONAL PROGRESS</span>
             <div className="flex items-center gap-6">
-              <span className="text-3xl md:text-4xl font-black text-[#e2c376] elegant-fire">{progress.overallProgress}%</span>
-              <span className="text-lg font-mono text-white/80 elegant-fire">
+              <span className="text-3xl md:text-4xl font-bold text-[#00FF99] font-medium">{progress.overallProgress}%</span>
+              <span className="text-lg font-mono text-white/80 font-medium">
                 ⏱️ {formatTime(elapsedTime)}
               </span>
             </div>
           </div>
-          <div className="h-6 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#e2c376]/20">
+          <div className="h-6 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#00FF99]/20">
             <motion.div
-              className="h-full bg-gradient-to-r from-[#D62828] via-[#FF6B00] to-[#e2c376]"
+              className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
               initial={{ width: 0 }}
               animate={{ width: `${progress.overallProgress}%` }}
               transition={{ duration: 0.5 }}
@@ -438,7 +438,7 @@ export default function PreProductionV2LoadingScreen({
                 <div className={`text-3xl ${index === progress.currentStepIndex ? 'animate-pulse' : ''}`}>
                   {step.icon}
                 </div>
-                <h3 className={`text-sm font-black elegant-fire ${
+                <h3 className={`text-sm font-bold font-medium ${
                   progress.completedSteps.includes(step.id)
                     ? 'text-[#e2c376]'
                     : index === progress.currentStepIndex
@@ -447,7 +447,7 @@ export default function PreProductionV2LoadingScreen({
                 }`}>
                   {step.name}
                 </h3>
-                <p className="text-xs text-white/60 leading-tight elegant-fire">
+                <p className="text-xs text-white/60 leading-tight font-medium">
                   {step.type === 'per-scene' ? `${totalScenes} scenes` :
                    step.type === 'per-episode' ? `${totalEpisodes} episodes` :
                    step.type === 'per-arc' ? '1 arc' : 'Simple'}
@@ -490,7 +490,7 @@ export default function PreProductionV2LoadingScreen({
                 <div className="mt-3">
                   <div className="h-2 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#e2c376]/20">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-[#D62828] via-[#FF6B00] to-[#e2c376]"
+                      className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
                       initial={{ width: 0 }}
                       animate={{ width: `${progress.currentStepProgress}%` }}
                       transition={{ duration: 0.3 }}
@@ -514,14 +514,14 @@ export default function PreProductionV2LoadingScreen({
             <div className="inline-flex items-center space-x-6 p-8 rebellious-card border-[#D62828]/40">
               <span className="text-4xl">{currentStep.icon}</span>
               <div className="text-left">
-                <h3 className="text-2xl font-black text-[#e2c376] elegant-fire">
+                <h3 className="text-2xl font-bold text-[#e2c376] font-medium">
                   {currentStep.name} ({progress.currentStepProgress}%)
                 </h3>
-                <p className="text-lg text-white/90 elegant-fire">
+                <p className="text-lg text-white/90 font-medium">
                   {progress.currentDetail}
                 </p>
                 {progress.retryCount > 0 && (
-                  <p className="text-sm text-[#FF6B00] mt-2 elegant-fire">
+                  <p className="text-sm text-[#FF6B00] mt-2 font-medium">
                     Retry attempt {progress.retryCount}/3
                   </p>
                 )}
@@ -531,7 +531,7 @@ export default function PreProductionV2LoadingScreen({
         </AnimatePresence>
 
         {/* Revolutionary Footer */}
-        <div className="flex justify-between text-sm text-white/60 elegant-fire">
+        <div className="flex justify-between text-sm text-white/60 font-medium">
           <div className="space-x-6">
             <span>V2 Revolutionary System</span>
             <span>Session {sessionId}</span>

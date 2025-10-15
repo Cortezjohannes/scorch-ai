@@ -1404,8 +1404,7 @@ export class WorldBuildingEngineV2 {
         realityPillars,
         genreFramework,
         advancedConsiderations,
-        transmediaElements,
-        requirements
+        transmediaElements
       );
       
       // Stage 7: Alternative Approaches
@@ -1601,8 +1600,7 @@ export class WorldBuildingEngineV2 {
     realityPillars: any,
     genreFramework: any,
     advancedConsiderations: any,
-    transmediaElements: any,
-    requirements: any
+    transmediaElements: any
   ): Promise<WorldBuildingAssessment> {
     
     return {
@@ -1782,69 +1780,8 @@ export class WorldBuildingEngineV2 {
       }
     };
   }
-
-  // ============================================================================
-  // CHUNK_3: PROPS & WARDROBE INTEGRATION FRAMEWORK
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Generate props & wardrobe world-building framework
-   */
-  static async generatePropsWardrobeWorldFramework(
-    worldFramework: any,
-    propsWardrobeRequirements: any,
-    context: any
-  ): Promise<{
-    propWorldIntegration: any;
-    wardrobeCulturalFramework: any;
-    materialCultureSystem: any;
-    continuityFramework: any;
-  }> {
-    
-    console.log('🌍 WORLD BUILDING ENGINE V2.0: Generating CHUNK_3 props & wardrobe integration...');
-    
-    try {
-      return {
-        propWorldIntegration: {
-          worldConsistency: worldFramework.internalLogic?.ruleConsistency || 'Standard consistency',
-          propEvolution: worldFramework.historicalMythology?.deepTime?.layeredHistory ? 'Multi-era prop development' : 'Single-era prop system',
-          culturalAuthenticity: worldFramework.culturalAuthenticity?.culturalResearch || 'Basic cultural research',
-          technologicalIntegration: worldFramework.economicTechnology?.technologyLevel || 'Standard technology'
-        },
-        
-        wardrobeCulturalFramework: {
-          culturalInfluences: worldFramework.culturalAuthenticity?.culturalInfluences || [],
-          socialHierarchy: worldFramework.socioCulturalMatrix?.socialStructures || 'Standard hierarchy',
-          climateAdaptation: worldFramework.environmentalStorytelling?.geographicDeterminism || 'Basic climate adaptation',
-          historicalPeriod: worldFramework.historicalMythology?.deepTime?.layeredHistory ? 'Multi-period wardrobe' : 'Single-period wardrobe'
-        },
-        
-        materialCultureSystem: {
-          resourceAvailability: worldFramework.economicTechnology?.resourceDistribution || 'Standard resources',
-          craftsmanship: worldFramework.culturalAuthenticity?.craftsmanshipLevel || 'Standard craftsmanship',
-          tradeNetworks: worldFramework.economicTechnology?.tradeSystems || 'Basic trade',
-          technologicalConstraints: worldFramework.economicTechnology?.technologyLevel || 'Standard technology'
-        },
-        
-        continuityFramework: {
-          timelineConsistency: worldFramework.historicalMythology?.deepTime?.layeredHistory ? 'Multi-era continuity' : 'Single-era continuity',
-          culturalEvolution: worldFramework.culturalAuthenticity?.culturalEvolution || 'Basic cultural development',
-          technologicalProgression: worldFramework.economicTechnology?.technologyProgression || 'Standard progression',
-          crossCulturalExchange: worldFramework.culturalAuthenticity?.crossCulturalInfluences || 'Basic exchange'
-        }
-      };
-      
-    } catch (error) {
-      console.error('❌ Failed to generate props & wardrobe world framework:', error);
-      return {
-        propWorldIntegration: {},
-        wardrobeCulturalFramework: {},
-        materialCultureSystem: {},
-        continuityFramework: {}
-      };
-    }
-  }
 }
 
-
+// Export the enhanced world-building types
+export type { WorldBuildingRecommendation, WorldBuildingAssessment, SubCreationTheoryFramework, AnthropologicalFramework };
  

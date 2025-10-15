@@ -25,7 +25,7 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ isModal = false }: SignupFormProps) {
-  const { signup } = useAuth()
+  const { signUp } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -42,7 +42,7 @@ export function SignupForm({ isModal = false }: SignupFormProps) {
     setError(null)
     
     try {
-      await signup(data.name, data.email, data.password)
+              await signUp(data.email, data.password, data.name)
     } catch (error) {
       console.error('Signup error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')

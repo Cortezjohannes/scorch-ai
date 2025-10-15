@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Greenlit - The Studio System is Broken. Build Your Own.</title>
+    <link rel="icon" type="image/x-icon" href="/Greenlit.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Cinzel:wght@400;600&family=Rajdhani:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <!-- Header Navigation -->
+    <header class="main-header" id="main-header">
+        <div class="header-content">
+            <div class="header-logo">
+                <img src="/greenlitailogo.png" alt="Greenlit" class="header-logo-img">
+                <span class="header-brand-text">Greenlit</span>
+            </div>
+            <nav class="header-nav">
+                <a href="/uprising" class="nav-link uprising-link">Uprising</a>
+                <a href="/program" class="nav-link">Program</a>
+                <a href="/criteria" class="nav-link">Criteria</a>
+                <a href="/fund" class="nav-link">Fund</a>
+                <a href="/playbook" class="nav-link">Playbook</a>
+            </nav>
+            <div class="header-actions">
+                <button class="faq-link" onclick="openFAQModal()">FAQ</button>
+                <button class="login-button">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Section 1: Hero Section -->
+    <section class="hero-section">
+        <div class="video-background">
+            <video autoplay muted loop playsinline>
+                <source src="https://player.vimeo.com/external/371433846.sd.mp4?s=236da2f3c0fd273d2c6d9a064f3ae35579b2bbdf&profile_id=139&oauth2_token_id=57447761" type="video/mp4">
+            </video>
+            <div class="video-overlay"></div>
+        </div>
+        
+        <!-- Floating Particles -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <!-- Geometric Background -->
+        <div class="geometric-bg">
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+        </div>
+        
+        <div class="hero-content">
+            <div class="hero-logo">
+                <img src="/greenlitailogo.png" alt="Greenlit" class="logo">
+            </div>
+            <h1 class="hero-headline">Stop Waiting for the Call.<br>Make the Show.</h1>
+            <p class="hero-subheadline">We built an AI Showrunner for professional actors ready to take control. You bring the talent and the audience; we handle the production grind. Launch your series, own your IP.</p>
+            <div class="cta-buttons">
+                <button class="cta-primary glow-effect">Apply to the Producer Program →</button>
+                <button class="cta-secondary demo-button" onclick="window.location.href='/demo'">Try the Demo</button>
+            </div>
+            <p class="micro-copy">Response within 72 hours.</p>
+        </div>
+    </section>
+
+    <!-- Parallax Divider 1: The old way is fading -->
+    <div class="parallax-divider" data-bg="/landingbg1.png">
+        <div class="parallax-content">
+            <h3 class="parallax-text">The old way is fading...</h3>
+        </div>
+    </div>
+
+    <!-- Section 2: Agitation & Pivot -->
+    <section class="comparison-section">
+        <!-- Floating Particles -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <!-- Geometric Background -->
+        <div class="geometric-bg">
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+        </div>
+        <div class="container">
+            <h2 class="section-headline">Hollywood says wait. We say Action.</h2>
+            <div class="comparison-grid">
+                <div class="comparison-column old-system">
+                    <h3>The Old System</h3>
+                    <ul class="comparison-list">
+                        <li>Waiting months for auditions</li>
+                        <li>Asking producers for permission</li>
+                        <li>Giving away your leverage</li>
+                        <li>Fighting for scraps of screen time</li>
+                        <li>Zero ownership of your work</li>
+                    </ul>
+                </div>
+                <div class="comparison-column greenlit-way">
+                    <h3>The Greenlit Way</h3>
+                    <ul class="comparison-list">
+                        <li>Launch your series in a fraction of the time</li>
+                        <li>You are the producer</li>
+                        <li>Full IP ownership and monetization</li>
+                        <li>Direct connection to your audience</li>
+                        <li>70% revenue share guaranteed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Parallax Divider 2: Rise above the noise -->
+    <div class="parallax-divider" data-bg="/landingbg2.png">
+        <div class="parallax-content">
+            <h3 class="parallax-text">Rise above the noise</h3>
+        </div>
+    </div>
+
+    <!-- Section 3: Product Demo -->
+    <section class="product-demo-section">
+        <div class="container">
+            <h2 class="section-headline">Be Your Own Showrunner</h2>
+            <div class="demo-placeholder">
+                <div class="demo-content">
+                    <p>Product Demo Coming Soon</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Parallax Divider 3: Join the circle of stars -->
+    <div class="parallax-divider" data-bg="/landingbg3.png">
+        <div class="parallax-content">
+            <h3 class="parallax-text">Join the circle of stars</h3>
+        </div>
+    </div>
+
+    <!-- Section 4: Producer Program -->
+    <section class="producer-program-section">
+        <!-- Ambient Particles -->
+        <div class="ambient-particles">
+            <div class="ambient-particle"></div>
+            <div class="ambient-particle"></div>
+            <div class="ambient-particle"></div>
+            <div class="ambient-particle"></div>
+            <div class="ambient-particle"></div>
+        </div>
+        <div class="container">
+            <h2 class="section-headline">The Accelerator: Building the Next Wave of Showrunners</h2>
+            <p class="program-description">We're selecting our first cohort of "Founding Producers." This isn't an audition—it's your chance to pitch the vision you know will hit.</p>
+            
+            <div class="criteria-section">
+                <h3 class="subsection-title">What It Takes to Get In</h3>
+                <p class="criteria-intro">We keep the bar high because the content has to slap. To qualify for the Accelerator, you need a strong foundation in at least TWO of the Three C's: Chops, Clout, and Creativity.</p>
+                <div class="criteria-grid">
+                    <div class="criteria-card">
+                        <div class="criteria-number">1</div>
+                        <h4>Chops</h4>
+                        <p>Demonstrated acting ability through reels, credits, and professional experience.</p>
+                    </div>
+                    <div class="criteria-card">
+                        <h4>Clout</h4>
+                        <div class="criteria-number">2</div>
+                        <p>An existing fanbase and proven audience engagement across platforms.</p>
+                    </div>
+                    <div class="criteria-card">
+                        <div class="criteria-number">3</div>
+                        <h4>Creativity</h4>
+                        <p>A clear, compelling vision for the series you want to produce.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="network-section">
+                <h3 class="subsection-title">The Greenlit Network: Building Super-Teams</h3>
+                <p class="network-description">Missing a 'C'? We've got you covered. Greenlit actively connects creators with massive audiences (High Clout) to top-tier, experienced actors (High Chops) to launch projects together as Co-Producers.</p>
+            </div>
+
+            <div class="prize-section">
+                <h3 class="subsection-title">The Prize: Your Talent. Your Terms. Your IP.</h3>
+                <div class="prize-grid">
+                    <div class="prize-item">
+                        <h4>Ownership</h4>
+                        <p>As UGC, you own the IP you create. Period.</p>
+                    </div>
+                    <div class="prize-item">
+                        <h4>Monetization</h4>
+                        <p>Direct-to-fan monetization via subscriptions, PPV, and more.</p>
+                    </div>
+                    <div class="prize-item">
+                        <h4>The Split</h4>
+                        <p>70% of revenue goes directly to creators.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: How We Build the New Hollywood -->
+    <section class="how-it-works-section">
+        <!-- Floating Particles -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <!-- Geometric Background -->
+        <div class="geometric-bg">
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+        </div>
+        <div class="container">
+            <h2 class="section-headline">The New Production Pipeline</h2>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">The Pitch (Apply)</h3>
+                    <p>Pitch your vision. Show us your chops (talent) and clout (audience). Response within 72 hours.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">The AI-Powered Writers' Room (Pre-Production)</h3>
+                    <p>Accelerate your vision. Co-write with the AI to draft scripts, optimize narratives, and generate story bibles and shot lists in minutes—not months. You maintain full creative control.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">The Action (Production)</h3>
+                    <p>You're Greenlit. You direct and shoot with your co-stars either by yourselves or with a skeleton crew. You are the director and the AI acts as your 1st AD, providing guidance to ensure quality.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <h3 class="step-title">The Magic (Post-Production)</h3>
+                    <p>Upload your footage. The AI handles the grind: editing, VFX, audio sync, and formatting. You lead with vision, the AI follows.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">5</div>
+                    <h3 class="step-title">The Premiere (Distribution)</h3>
+                    <p>We launch your series on the Greenlit streaming platform, activate your cast's existing fanbase, and use our existing audience to attract new viewers.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">6</div>
+                    <h3 class="step-title">The Bag (Monetization)</h3>
+                    <p>Own your IP and monetize from Day 1 via subscriptions, PPV, and fan voting. 70% revenue share, guaranteed.</p>
+                </div>
+            </div>
+            
+            <!-- The Greenlit Fund Callout -->
+            <div class="greenlit-fund-callout">
+                <h3 class="fund-title">The Greenlit Fund: We Back Bold Ideas</h3>
+                <p class="fund-description">We don't just provide the tools; we invest in the talent. Successful applicants from the Producer Program are eligible for Pilot Grants (up to $20k) to level up production.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Parallax Divider 4: Where creativity meets opportunity -->
+    <div class="parallax-divider" data-bg="/landingbg4.png">
+        <div class="parallax-content">
+            <h3 class="parallax-text">Where creativity meets opportunity</h3>
+        </div>
+    </div>
+
+    <!-- Section 5: Not Yet Pipeline -->
+    <section class="development-slate-section">
+        <div class="container">
+            <h2 class="section-headline">Still building your portfolio or audience?</h2>
+            <p class="slate-description">Not ready for the Accelerator yet? No stress. Join the Development Slate. We provide the roadmap to get you there.</p>
+            <div class="slate-benefits">
+                <div class="benefit-item">
+                    <h4>The Writers' Room</h4>
+                    <p>Access to an exclusive community of developing creators</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>Free Resources</h4>
+                    <p>Industry insights, templates, and production guides</p>
+                </div>
+                <div class="benefit-item">
+                    <h4>Preparation Webinars</h4>
+                    <p>Monthly sessions to help you build toward the next cohort</p>
+                </div>
+            </div>
+            <button class="cta-secondary">Join the Development Slate</button>
+        </div>
+    </section>
+
+    <!-- Parallax Divider 5: Your moment is now -->
+    <div class="parallax-divider" data-bg="/landingbg5.png">
+        <div class="parallax-content">
+            <h3 class="parallax-text">Your moment is now</h3>
+        </div>
+    </div>
+
+    <!-- Section 6: Final CTA -->
+    <section class="final-cta-section">
+        <!-- Floating Particles -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <!-- Geometric Background -->
+        <div class="geometric-bg">
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+        </div>
+        
+        <div class="spotlight-background"></div>
+        <div class="container">
+            <h2 class="final-headline">You're Already Greenlit.</h2>
+            <button class="cta-primary glow-effect maximum-glow" onclick="window.location.href='/demo'">Try the Demo →</button>
+            <button class="faq-link-final" onclick="openFAQModal()">FAQ</button>
+        </div>
+    </section>
+
+    <!-- FAQ Modal -->
+    <div id="faqModal" class="faq-modal">
+        <div class="faq-modal-overlay" onclick="closeFAQModal()"></div>
+        <div class="faq-modal-content">
+            <div class="faq-modal-header">
+                <h2 class="faq-modal-title">Greenlit FAQs</h2>
+                <button class="faq-close-btn" onclick="closeFAQModal()">&times;</button>
+            </div>
+            <div class="faq-modal-body">
+                <div class="faq-item">
+                    <h3 class="faq-question">Why do I have to apply? I thought there were no gatekeepers.</h3>
+                    <p class="faq-answer">Hollywood gatekeeping is arbitrary and opaque. We use transparent criteria (Chops, Clout, Creativity) because our distribution platform promises premium content. We aren't judging your worth; we're assessing your readiness to produce *right now*.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3 class="faq-question">How does the $20k Pilot Grant work?</h3>
+                    <p class="faq-answer">If you qualify for the Funded Producer tier (Tier 1), you are eligible for grants. We prioritize funding concepts that require extra resources (like hiring a skeleton crew or securing locations). It's structured in tranches to support the production timeline.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3 class="faq-question">What is the IP deal and revenue split?</h3>
+                    <p class="faq-answer">Simple. You own the IP. Period. The revenue split is 70% to the creators, 30% to Greenlit. We only win when you do.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3 class="faq-question">I'm a great actor but I have no followers. Can I still apply?</h3>
+                    <p class="faq-answer">Absolutely. If you have the Chops but lack the Clout, we might place you in our Co-Star Network. This gives you access to roles being cast by our Tier 1 & 2 producers, helping you build experience and audience.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3 class="faq-question">What if I get placed in the Development Slate?</h3>
+                    <p class="faq-answer">That's not a rejection; it's an invitation to grow. We provide specific feedback on what needs improvement (based on the 3 C's) and give you access to our community, resources, and Story Maker tools to help you get ready for the next round.</p>
+                </div>
+                
+                <div class="faq-item">
+                    <h3 class="faq-question">Is this AI going to replace human actors or writers?</h3>
+                    <p class="faq-answer">Hell no. Greenlit is built specifically to empower human talent. The AI acts as your production crew—handling the bureaucratic grind so you can focus on the performance and the vision.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>

@@ -349,7 +349,7 @@ Based on the Comedy Timing Engine research, provide a comprehensive comedy recom
 Provide detailed, actionable recommendations that synthesize psychological theory with practical comedy craft, ensuring authentic humor that resonates with the target audience while respecting cultural sensitivities and modern ethical standards.`;
 
       const response = await generateContent(prompt, {
-        max_tokens: 4000,
+        maxTokens: 4000,
         temperature: 0.7
       });
 

@@ -11,9 +11,12 @@ import Image from 'next/image'
 import StoryboardDisplay from '@/components/StoryboardDisplay'
 import PreProductionLoader from '@/components/PreProductionLoader'
 import ProductionLoadingScreen from '@/components/ProductionLoadingScreen'
+import ProfessionalScript from '@/components/ProfessionalScript'
+import RawDataDisplay from '@/components/RawDataDisplay'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import '@/styles/greenlit-design.css'
 
 type TabType = 'storyboard' | 'script' | 'casting' | 'production' | 'marketing' | 'props' | 'postProduction' | 'location'
 
@@ -65,16 +68,22 @@ export default function PreProductionResults() {
   
   // Use auth context with error handling
   let user: MinimalUser | null = null
-  let getProject: ((id: string, userId: string) => Promise<any>) | null = null
   
   try {
     const authContext = useAuth()
-    user = authContext?.user || null
-    getProject = authContext?.getProject || null
+    // Convert User to MinimalUser by ensuring required fields are present
+    const authUser = authContext?.user
+    user = authUser ? {
+      id: authUser.id || 'anonymous-user',
+      email: authUser.email || '',
+      displayName: authUser.displayName || 'Anonymous User',
+      projects: [],
+      collaborations: [],
+      photoURL: authUser.photoURL || null
+    } : null
   } catch (error) {
     console.warn('Auth context not available, using default values:', error);
     user = null
-    getProject = null
   }
 
   // Parse arc from URL
@@ -95,7 +104,7 @@ export default function PreProductionResults() {
   // Check for auto-generation flag
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const autoGenerate = localStorage.getItem('reeled-auto-generate')
+      const autoGenerate = localStorage.getItem('scorched-auto-generate') || localStorage.getItem('reeled-auto-generate')
       if (autoGenerate === 'true') {
         setShouldAutoGenerate(true)
         setIsGenerating(true)
@@ -124,7 +133,7 @@ export default function PreProductionResults() {
       
       try {
         // ENHANCED: Load comprehensive preproduction data
-        const preProductionData = localStorage.getItem('reeled-preproduction-data')
+        const preProductionData = localStorage.getItem('scorched-preproduction-data') || localStorage.getItem('reeled-preproduction-data')
         if (preProductionData) {
           const parsedData = JSON.parse(preProductionData)
 
@@ -141,7 +150,7 @@ export default function PreProductionResults() {
           }
           
           // Store workspace data for API calls INCLUDING user's mode choice
-          window.reeled_workspace_data = {
+          (window as any).scorched_workspace_data = {
             workspaceEpisodes: parsedData.workspaceEpisodes,
             userChoices: parsedData.userChoices,
             generatedEpisodes: parsedData.generatedEpisodes,
@@ -153,7 +162,7 @@ export default function PreProductionResults() {
         }
         
         // Load pre-production content from localStorage
-        const preProductionContent = localStorage.getItem('reeled-preproduction-content')
+        const preProductionContent = localStorage.getItem('scorched-preproduction-content') || localStorage.getItem('reeled-preproduction-content')
         
         if (preProductionContent) {
           try {
@@ -182,7 +191,7 @@ export default function PreProductionResults() {
         // ADDITIONAL: Check for ProductionLoadingScreen storage pattern
         const currentArcIndex = arcIndex || 0
         console.log('🔍 Current arc index:', currentArcIndex)
-        const productionLoadingContent = localStorage.getItem(`reeled-preproduction-${currentArcIndex}`)
+        const productionLoadingContent = localStorage.getItem(`scorched-preproduction-${currentArcIndex}`) || localStorage.getItem(`reeled-preproduction-${currentArcIndex}`)
         console.log('🔍 Production loading content:', productionLoadingContent ? 'FOUND' : 'NOT FOUND')
         
         if (productionLoadingContent) {
@@ -210,7 +219,7 @@ export default function PreProductionResults() {
         }
         
         // Fallback: Load traditional story bible data
-        const storyBibleData = localStorage.getItem('reeled-story-bible')
+        const storyBibleData = localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
         if (storyBibleData) {
           const parsedStoryBible = JSON.parse(storyBibleData)
           // Handle nested structure if needed
@@ -256,7 +265,7 @@ export default function PreProductionResults() {
       
       // Get episodes for this arc from localStorage and story bible
       try {
-        const savedEpisodes = localStorage.getItem('reeled-episodes')
+        const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')
         if (savedEpisodes && storyBible) {
           const episodesData = JSON.parse(savedEpisodes)
           
@@ -288,7 +297,7 @@ export default function PreProductionResults() {
       // Load content from localStorage only if not auto-generating
       if (!shouldAutoGenerate) {
         try {
-          const savedContent = localStorage.getItem(`reeled-preproduction-${arcIndex}`)
+          const savedContent = localStorage.getItem(`scorched-preproduction-${arcIndex}`) || localStorage.getItem(`reeled-preproduction-${arcIndex}`)
           if (savedContent) {
             try {
               const parsedContent = JSON.parse(savedContent)
@@ -344,21 +353,93 @@ export default function PreProductionResults() {
     // Allow individual content generation even if overall generatedContent is null
     switch (activeTab) {
       case 'storyboard':
-        return renderStoryboard()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.storyboard} 
+              title="STORYBOARD DATA - FULL DEBUG"
+              description="Complete storyboard data from generatedContent state"
+            />
+            {renderStoryboard()}
+          </div>
+        )
       case 'script':
-        return renderScript()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.script} 
+              title="SCRIPT DATA - FULL DEBUG"
+              description="Complete script data from generatedContent state"
+            />
+            {renderScript()}
+          </div>
+        )
       case 'casting':
-        return renderCasting()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.casting} 
+              title="CASTING DATA - FULL DEBUG"
+              description="Complete casting data from generatedContent state"
+            />
+            {renderCasting()}
+          </div>
+        )
       case 'marketing':
-        return renderMarketing()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.marketing} 
+              title="MARKETING DATA - FULL DEBUG"
+              description="Complete marketing data from generatedContent state"
+            />
+            {renderMarketing()}
+          </div>
+        )
       case 'props':
-        return renderProps()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.props} 
+              title="PROPS DATA - FULL DEBUG"
+              description="Complete props data from generatedContent state"
+            />
+            {renderProps()}
+          </div>
+        )
       case 'postProduction':
-        return renderPostProduction()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.postProduction} 
+              title="POST-PRODUCTION DATA - FULL DEBUG"
+              description="Complete post-production data from generatedContent state"
+            />
+            {renderPostProduction()}
+          </div>
+        )
       case 'location':
-        return renderLocation()
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent?.location} 
+              title="LOCATION DATA - FULL DEBUG"
+              description="Complete location data from generatedContent state"
+            />
+            {renderLocation()}
+          </div>
+        )
       default:
-        return <div>Content type not implemented yet</div>
+        return (
+          <div>
+            <RawDataDisplay 
+              data={generatedContent} 
+              title="ALL GENERATED CONTENT - EMERGENCY DEBUG"
+              description="Complete dump of all generatedContent - find what's wrong!"
+            />
+            <div className="text-red-400 p-4">Content type not implemented yet: {activeTab}</div>
+          </div>
+        )
     }
   }
 
@@ -373,7 +454,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, storyboard: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, storyboard: content }))
           }}
         />
       )
@@ -614,7 +695,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, script: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, script: content }))
           }}
           onGenerateAll={() => {/* TODO: Implement generate all */}}
         />
@@ -648,29 +729,42 @@ export default function PreProductionResults() {
     return (
       <div className="space-y-8">
         <div className="mb-6">
-          <h3 className="text-2xl font-bold text-[#e2c376] mb-4 tracking-tight">Script</h3>
-          <div className="bg-gradient-to-br from-[#2a2a2a] to-[#232427] p-5 rounded-lg border border-[#36393f]/50 shadow-md">
-            <h4 className="font-medium mb-2 text-[#e2c376]/90">About Professional Scripts</h4>
-            <p className="text-[#e7e7e7]/80 text-sm leading-relaxed">
-              Professional scripts follow industry-standard formatting with proper scene headings, action lines, 
-              character names, and dialogue. Each scene is carefully structured to advance the narrative while 
-              maintaining proper pacing and visual storytelling principles.
+          <h3 className="text-2xl font-bold text-red-400 mb-4 tracking-tight">🔍 SCRIPT DATA QA MODE</h3>
+          <div className="bg-red-900/20 border border-red-500 p-5 rounded-lg shadow-md">
+            <h4 className="font-medium mb-2 text-red-400">RAW DATA INSPECTION</h4>
+            <p className="text-red-300 text-sm leading-relaxed">
+              This is the raw data being passed to the script component. Check if this contains actual screenplay content or wrong data.
             </p>
             </div>
             </div>
 
-        {/* Raw Content Display */}
+        {/* Full Script Data Dump */}
+        <RawDataDisplay 
+          data={scriptData} 
+          title="COMPLETE SCRIPT DATA"
+          description="This is ALL the script data being received by the component"
+        />
+
+        {/* RAW CONTENT DISPLAY FOR QA */}
         {displayContent && (
-          <Card className="border border-[#36393f]/70 shadow-xl overflow-hidden backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-[#2a2a2a] to-[#252628] border-b border-[#36393f]/50">
-              <CardTitle className="text-[#e2c376]">Generated Script Content</CardTitle>
+          <div className="space-y-6">
+            <Card className="border border-red-500 shadow-xl overflow-hidden">
+              <CardHeader className="bg-red-900/20 border-b border-red-500">
+                <CardTitle className="text-red-400">🔍 RAW SCRIPT DATA - QA MODE</CardTitle>
+                <CardDescription className="text-red-300">
+                  Raw unprocessed content for debugging - Check if this is actually script content or wrong data
+                </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 bg-gradient-to-b from-[#1e1f22] to-[#1c1d20]">
-              <pre className="whitespace-pre-wrap text-[#e7e7e7]/90 font-mono text-sm leading-relaxed bg-[#252628] p-4 rounded-lg border border-[#36393f]/40 overflow-x-auto">
-                {displayContent}
+              <CardContent className="p-6 bg-black">
+                <div className="mb-4 text-red-400 text-sm font-mono">
+                  Data Type: {typeof displayContent} | Length: {displayContent?.length || 0} chars
+                </div>
+                <pre className="whitespace-pre-wrap text-green-400 font-mono text-sm leading-relaxed bg-gray-900 p-4 rounded border border-green-500 overflow-x-auto max-h-96 overflow-y-auto">
+                  {JSON.stringify(displayContent, null, 2)}
               </pre>
             </CardContent>
           </Card>
+          </div>
         )}
 
         {/* Episode Navigation - only show if we have episodes */}
@@ -751,146 +845,144 @@ export default function PreProductionResults() {
               </CardHeader>
 
               <CardContent className="p-0">
-                {/* Script Content */}
-                <div className="bg-gradient-to-b from-[#1e1f22] to-[#1c1d20] py-8 px-4 md:px-8 min-h-[50vh]">
-                  {/* Script Scenes */}
-                  <div className="max-w-4xl mx-auto">
-                    {(episode.scenes || []).map((scene: any, sceneIndex: number) => (
-                      <div key={sceneIndex} className="mb-14 screenplay relative">
-                        {/* Scene Number */}
-                        <div className="absolute -left-10 top-0 rounded-full bg-[#e2c376]/20 w-8 h-8 flex items-center justify-center text-xs text-[#e2c376]/70 font-medium hidden md:flex">
-                          {sceneIndex + 1}
+                {/* Professional Script Display */}
+                <div className="bg-gradient-to-b from-[#1e1f22] to-[#1c1d20] py-8 px-4 md:px-8">
+                  {/* RAW EPISODE DATA FOR QA */}
+                  <div className="bg-black border border-red-500 rounded p-6">
+                    <h3 className="text-red-400 font-bold mb-4">🔍 RAW EPISODE DATA - QA MODE</h3>
+                    <div className="text-red-300 text-sm mb-4">
+                      Episode Object Keys: {Object.keys(episode).join(', ')}
                         </div>
-
-                        {/* Scene Heading */}
-                        <div className="uppercase font-bold mb-6 text-center text-[#e2c376] py-2 border-b border-t border-[#36393f]/30 tracking-wide">
-                          {scene.location || `Scene ${sceneIndex + 1}`}
-                        </div>
-
-                        {/* Scene Description */}
-                        <div className="mb-8 text-[#e7e7e7]/95 leading-relaxed whitespace-pre-line px-2 md:px-6 text-base">
-                          {scene.description || ""}
-                        </div>
-
-                        {/* Debug: Log scene structure */}
-                        {process.env.NODE_ENV === 'development' && console.log('Scene structure:', scene)}
-
-                        {/* Enhanced dialogue rendering with multiple fallbacks */}
-                        {scene.dialogue && Array.isArray(scene.dialogue) && scene.dialogue.length > 0 ? (
-                          <div className="mx-4 mb-6 space-y-4 screenplay-dialogue">
-                            {isExpanded && (
-                              <div className="text-center text-[#e2c376]/60 text-sm mb-4 italic">
-                                ✨ Enhanced with AI-generated dialogue for full 5-minute script
-                              </div>
-                            )}
-                            {scene.dialogue.map((dialogue: any, dialogueIndex: number) => (
-                              <div key={dialogueIndex} className={`dialogue-block ${dialogue.enhanced ? 'relative' : ''} mb-4`}>
-                                {dialogue.enhanced && (
-                                  <div className="absolute -left-2 top-0 w-1 h-full bg-[#e2c376]/30 rounded-full"></div>
-                                )}
-                                
-                                {/* Professional Screenplay Character Name - Centered and All Caps */}
-                                <div className="text-center uppercase font-bold text-base mb-2 mt-6 tracking-wide">
-                                  {dialogue.character || dialogue.CHARACTER || 'CHARACTER'}
-                                  {dialogue.enhanced && (
-                                    <span className="ml-2 text-xs normal-case text-[#e2c376]/60">
-                                      enhanced
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {/* Professional Parenthetical/Stage Direction */}
-                                {(dialogue.direction || dialogue.parenthetical) && (
-                                  <div className="text-center italic mb-2 text-[#e7e7e7]/80 text-sm">
-                                    ({dialogue.direction || dialogue.parenthetical})
-                                  </div>
-                                )}
-                                
-                                {/* Professional Dialogue Block - Centered with proper margins */}
-                                <div className="text-center mx-8 md:mx-12 lg:mx-16 mb-3 leading-relaxed text-base">
-                                  {dialogue.line || dialogue.text || dialogue.dialogue || ''}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : scene.content || scene.text ? (
-                          /* If dialogue array doesn't exist but there's content, show it */
-                          <div className="whitespace-pre-line text-[#e7e7e7]/90 px-6 leading-relaxed">
-                            {scene.content || scene.text}
-                          </div>
-                        ) : (
-                          /* Fallback message with debug info */
-                          <div className="whitespace-pre-line text-[#e7e7e7]/90 px-6">
-                            <div className="text-[#e7e7e7]/60 italic text-center py-8">
-                              <div className="text-2xl mb-2">🎬</div>
-                              <div className="text-lg mb-2">No dialogue content available</div>
-                              <div className="text-sm text-[#e7e7e7]/50">
-                                Click "Expand Dialogue" to generate a full 5-minute script with professional dialogue
-                              </div>
-                            </div>
-                            {process.env.NODE_ENV === 'development' && (
-                              <div className="text-xs text-[#e7e7e7]/40 mt-2">
-                                Debug: Scene keys: {Object.keys(scene).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Scene Break */}
-                        {sceneIndex < (episode.scenes || []).length - 1 && (
-                          <div className="text-[#e7e7e7]/50 italic text-center mt-4 p-4">
-                            [Scene continues...]
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Episode End */}
-                    <div className="uppercase text-right font-bold mt-8 text-[#e7e7e7]/60 tracking-wide pr-4">
-                      End of Episode {episodeIndex + 1}
-                    </div>
-
-                    {/* Episode Separator */}
-                    <div className="mt-14 mb-14 flex items-center justify-center">
-                      <div className="w-16 h-[1px] bg-[#e2c376]/20"></div>
-                      <div className="mx-4 text-[#e2c376]/40 text-sm">* * *</div>
-                      <div className="w-16 h-[1px] bg-[#e2c376]/20"></div>
-                    </div>
+                    <pre className="whitespace-pre-wrap text-green-400 font-mono text-xs leading-relaxed bg-gray-900 p-4 rounded border border-green-500 overflow-auto max-h-96">
+                      {JSON.stringify(episode, null, 2)}
+                    </pre>
                   </div>
-                </div>
+                        </div>
 
-                {/* Footer */}
-                <div className="mt-16 pt-4 border-t border-[#36393f]/40 text-center text-[#e7e7e7]/60 text-sm">
-                  Generated by Reeled AI • Episode {episodeIndex + 1} of {scriptEpisodes.length}
-                </div>
               </CardContent>
-
-              <CardFooter className="bg-gradient-to-r from-[#2a2a2a] to-[#252628] border-t border-[#36393f]/50 p-4 flex justify-between">
-                <div className="text-sm text-[#e7e7e7]/70">
-                  <div>Professional screenplay format</div>
-                  {isExpanded && (
-                    <div className="text-xs text-[#e2c376]/60 mt-1">
-                      Enhanced with AI dialogue • {dialogueStats.wordCount} words total
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Export PDF
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Print
-                  </Button>
-                </div>
-              </CardFooter>
             </Card>
           )
         })}
-      </div>
+                        </div>
     )
   }
 
   const renderCasting = () => {
+    const castingData = generatedContent?.casting
+    
+    // Enhanced content detection - check for any casting content including raw content
+    const hasCastingContent = castingData && (
+      (castingData.episodes && castingData.episodes.length > 0) ||
+      (castingData.casting && castingData.casting.length > 0) ||
+      (typeof castingData === 'string' && castingData.length > 0) ||
+      (castingData.rawContent && castingData.rawContent.length > 0) ||
+      (castingData.content && castingData.content.length > 0)
+    )
+    
+    if (!hasCastingContent) {
+      // Show a simple message if no story bible is available
+      if (!storyBible) {
+        return (
+          <div className="text-center py-12">
+            <p className="text-[#e7e7e7]/70">Please complete your story bible first</p>
+                                </div>
+        )
+      }
+      
+      return (
+        <PreProductionLoader
+          contentType="casting"
+          arcIndex={arcIndex}
+          storyBible={storyBible}
+          arcEpisodes={arcEpisodes}
+          arcTitle={arcTitle}
+          onContentGenerated={(content) => {
+            setGeneratedContent((prev: any) => ({ ...prev, casting: content }))
+          }}
+          onGenerateAll={() => {/* TODO: Implement generate all */}}
+        />
+      )
+    }
+
+    // Handle different casting data formats
+    let castingCharacters = []
+    let displayContent = ''
+    
+    if (castingData.characters && Array.isArray(castingData.characters)) {
+      castingCharacters = castingData.characters
+    } else if (typeof castingData === 'string') {
+      displayContent = castingData
+    } else if (castingData.rawContent) {
+      displayContent = castingData.rawContent
+    } else if (castingData.content) {
+      if (typeof castingData.content === 'string') {
+        displayContent = castingData.content
+      } else if (castingData.content.characters) {
+        castingCharacters = castingData.content.characters
+      }
+    } else if (castingData.casting) {
+      if (typeof castingData.casting === 'string') {
+        displayContent = castingData.casting
+      } else if (Array.isArray(castingData.casting)) {
+        castingCharacters = castingData.casting
+      }
+    }
+
+    return (
+      <div className="space-y-8">
+        <div className="mb-6">
+          <h3 className="text-2xl font-bold text-red-400 mb-4 tracking-tight">🔍 CASTING DATA QA MODE</h3>
+          <div className="bg-red-900/20 border border-red-500 p-5 rounded-lg shadow-md">
+            <h4 className="font-medium mb-2 text-red-400">RAW CASTING DATA INSPECTION</h4>
+            <p className="text-red-300 text-sm leading-relaxed">
+              Check if casting data references the story bible characters properly or if it's generic bullshit.
+            </p>
+                          </div>
+                      </div>
+
+        {/* Full Casting Data Dump */}
+        <RawDataDisplay 
+          data={castingData} 
+          title="COMPLETE CASTING DATA"
+          description="All raw casting data - check if this references actual story bible characters"
+        />
+
+        {/* RAW CASTING DATA FOR QA */}
+        {displayContent && (
+          <div className="bg-black border border-red-500 rounded p-6">
+            <h3 className="text-red-400 font-bold mb-4">🔍 RAW CASTING DATA - QA MODE</h3>
+            <div className="text-red-300 text-sm mb-4">
+              Data Type: {typeof displayContent} | Length: {displayContent?.length || 0}
+                    </div>
+            <pre className="whitespace-pre-wrap text-green-400 font-mono text-xs leading-relaxed bg-gray-900 p-4 rounded border border-green-500 overflow-auto max-h-96">
+              {JSON.stringify(displayContent, null, 2)}
+            </pre>
+                  </div>
+        )}
+
+        {/* Character Casting */}
+        {castingCharacters.length > 0 && (
+          <div className="space-y-6">
+            {castingCharacters.map((character: any, index: number) => (
+              <div key={index} className="bg-black border border-red-500 rounded p-6">
+                <h4 className="text-red-400 font-bold mb-4">
+                  🔍 CHARACTER {index + 1} RAW DATA - QA MODE
+                </h4>
+                <div className="text-red-300 text-sm mb-4">
+                  Character Object Keys: {Object.keys(character).join(', ')}
+                </div>
+                <pre className="whitespace-pre-wrap text-green-400 font-mono text-xs leading-relaxed bg-gray-900 p-4 rounded border border-green-500 overflow-auto max-h-64">
+                  {JSON.stringify(character, null, 2)}
+                </pre>
+              </div>
+            ))}
+                    </div>
+                  )}
+      </div>
+    )
+  }
+
+  const renderProduction = () => {
     const castingData = generatedContent?.casting
     
     // Enhanced content detection for casting
@@ -911,7 +1003,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, casting: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, casting: content }))
           }}
         />
       )
@@ -1021,7 +1113,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, marketing: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, marketing: content }))
           }}
         />
       )
@@ -1098,7 +1190,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, props: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, props: content }))
           }}
         />
       )
@@ -1176,7 +1268,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, postProduction: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, postProduction: content }))
           }}
         />
       )
@@ -1215,7 +1307,7 @@ export default function PreProductionResults() {
           arcEpisodes={arcEpisodes}
           arcTitle={arcTitle}
           onContentGenerated={(content) => {
-            setGeneratedContent(prev => ({ ...prev, location: content }))
+            setGeneratedContent((prev: any) => ({ ...prev, location: content }))
           }}
         />
       )
@@ -1364,7 +1456,7 @@ export default function PreProductionResults() {
     
     try {
       // ENHANCED: Include workspace data for coherence
-      const workspaceData = (window as any).reeled_workspace_data || {}
+      const workspaceData = (window as any).scorched_workspace_data || (window as any).reeled_workspace_data || {}
       
       const response = await fetch('/api/generate/preproduction', {
         method: 'POST',
@@ -1433,48 +1525,66 @@ export default function PreProductionResults() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-[#e7e7e7]">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen greenlit-bg-primary relative">
+      {/* Floating Particles */}
+      <div className="greenlit-particles">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="greenlit-particle" style={{
+            left: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 6}s`,
+            animationDuration: `${6 + Math.random() * 4}s`
+          }} />
+        ))}
+      </div>
+
+      {/* Geometric Background */}
+      <div className="greenlit-geometric-bg">
+        <div className="greenlit-geometric-shape"></div>
+        <div className="greenlit-geometric-shape"></div>
+        <div className="greenlit-geometric-shape"></div>
+      </div>
+
+      <div className="greenlit-container">
         {/* Enhanced Header */}
         <motion.div 
-          className="mb-12"
+          className="greenlit-mb-xl"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#e2c376] via-[#f0d480] to-[#e2c376] text-transparent bg-clip-text mb-4">
+          <div className="greenlit-text-center greenlit-mb-lg">
+            <h1 className="greenlit-headline greenlit-mb-md">
               Pre-Production Complete
             </h1>
-            <p className="text-xl text-[#e7e7e7]/80 mb-2">
-            {projectTitle || 'Your Project'} - Arc {arcIndex + 1}
-          </p>
-            <p className="text-[#e7e7e7]/60">
+            <p className="greenlit-subheadline greenlit-mb-sm">
+              {projectTitle || 'Your Project'} - Arc {arcIndex + 1}
+            </p>
+            <p className="greenlit-body-large greenlit-text-muted">
               Professional-grade pre-production materials ready for your production team
-          </p>
-        </div>
+            </p>
+          </div>
 
           {/* Progress Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">
+          <div className="greenlit-grid greenlit-grid-4 max-w-4xl mx-auto">
+            <div className="greenlit-card text-center">
+              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">
                 {Object.keys(generatedContent || {}).length}
               </div>
-              <div className="text-[#e7e7e7]/70 text-sm">Content Types</div>
+              <div className="greenlit-caption">Content Types</div>
             </div>
-            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">
+            <div className="greenlit-card text-center">
+              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">
                 {arcEpisodes.length || 10}
               </div>
-              <div className="text-[#e7e7e7]/70 text-sm">Episodes</div>
+              <div className="greenlit-caption">Episodes</div>
             </div>
-            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">100%</div>
-              <div className="text-[#e7e7e7]/70 text-sm">Complete</div>
+            <div className="greenlit-card text-center">
+              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">100%</div>
+              <div className="greenlit-caption">Complete</div>
             </div>
-            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
-              <div className="text-3xl font-bold text-[#e2c376] mb-2">🎬</div>
-              <div className="text-[#e7e7e7]/70 text-sm">Ready to Film</div>
+            <div className="greenlit-card text-center">
+              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">🎬</div>
+              <div className="greenlit-caption">Ready to Film</div>
             </div>
           </div>
         </motion.div>

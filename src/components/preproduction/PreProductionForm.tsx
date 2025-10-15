@@ -89,7 +89,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
       setGenerationComplete(true);
       
       // Store the story bible in localStorage for persistence
-      localStorage.setItem('reeled-story-bible', JSON.stringify({
+      localStorage.setItem('scorched-story-bible', JSON.stringify({
         synopsis,
         theme,
         storyBible: data.storyBible,
@@ -143,7 +143,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
       >
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-transparent bg-clip-text">
+            <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-transparent bg-clip-text">
               Story Bible Creator
             </h2>
             <p className="text-[#e7e7e7]/70">
@@ -160,7 +160,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
             transition={{ duration: 0.6 }}
           >
             {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#e2c376]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00FF99]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#3f3f3f]/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
             
             <div className="relative p-6 sm:p-8">
@@ -181,7 +181,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
               
               <h3 className="text-xl font-bold mb-6 flex items-center">
                 <motion.span 
-                  className="inline-flex items-center justify-center w-8 h-8 mr-3 rounded-full bg-gradient-to-br from-[#e2c376] to-[#c4a75f] text-black"
+                  className="inline-flex items-center justify-center w-8 h-8 mr-3 rounded-full bg-gradient-to-br from-[#00FF99] to-[#00CC7A] text-black"
                   whileHover={{ scale: 1.1, rotate: 5 }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -194,7 +194,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
               
               <div className="space-y-6 mb-8">
                 <div className="relative group">
-                  <label htmlFor="synopsis" className="block mb-2 font-medium text-[#e2c376] group-focus-within:text-[#e2c376]">
+                  <label htmlFor="synopsis" className="block mb-2 font-medium text-[#00FF99] group-focus-within:text-[#00FF99]">
                     Synopsis
                   </label>
                   <div className="relative">
@@ -203,12 +203,12 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
                       value={synopsis}
                       onChange={(e) => setSynopsis(e.target.value)}
                       placeholder="Enter your story synopsis... What's the journey?"
-                      className="w-full p-4 bg-[#1a1a1a]/80 border border-gray-700 group-focus-within:border-[#e2c376]/70 focus:border-[#e2c376]/70 rounded-lg text-white transition-all duration-300 focus:ring-1 focus:ring-[#e2c376]/30"
+                      className="w-full p-4 bg-[#1a1a1a]/80 border border-gray-700 group-focus-within:border-[#00FF99]/70 focus:border-[#00FF99]/70 rounded-lg text-white transition-all duration-300 focus:ring-1 focus:ring-[#00FF99]/30"
                       style={{ minHeight: "140px" }}
                       disabled={isGenerating}
                     />
                     <motion.div 
-                      className="absolute bottom-3 right-3 text-[#e2c376]/30 pointer-events-none"
+                      className="absolute bottom-3 right-3 text-[#00FF99]/30 pointer-events-none"
                       animate={{ 
                         scale: [1, 1.05, 1],
                         opacity: [0.2, 0.4, 0.2]
@@ -224,7 +224,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
                 </div>
                 
                 <div className="relative group">
-                  <label htmlFor="theme" className="block mb-2 font-medium text-[#e2c376] group-focus-within:text-[#e2c376]">
+                  <label htmlFor="theme" className="block mb-2 font-medium text-[#00FF99] group-focus-within:text-[#00FF99]">
                     Theme
                   </label>
                   <div className="relative">
@@ -234,11 +234,11 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
                       value={theme}
                       onChange={(e) => setTheme(e.target.value)}
                       placeholder="Enter the main theme(s)... What's your message?"
-                      className="w-full p-4 bg-[#1a1a1a]/80 border border-gray-700 group-focus-within:border-[#e2c376]/70 focus:border-[#e2c376]/70 rounded-lg text-white transition-all duration-300 focus:ring-1 focus:ring-[#e2c376]/30"
+                      className="w-full p-4 bg-[#1a1a1a]/80 border border-gray-700 group-focus-within:border-[#00FF99]/70 focus:border-[#00FF99]/70 rounded-lg text-white transition-all duration-300 focus:ring-1 focus:ring-[#00FF99]/30"
                       disabled={isGenerating}
                     />
                     <motion.div 
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-[#e2c376]/30 pointer-events-none"
+                      className="absolute top-1/2 right-3 -translate-y-1/2 text-[#00FF99]/30 pointer-events-none"
                       animate={{ 
                         rotate: [0, 10, 0, -10, 0],
                       }}
@@ -263,9 +263,9 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
-                  <span className="px-4 py-1.5 bg-[#1f1f1f] border border-[#e2c376]/30 rounded-full flex items-center text-sm">
+                  <span className="px-4 py-1.5 bg-[#1f1f1f] border border-[#00FF99]/30 rounded-full flex items-center text-sm">
                     <motion.span 
-                      className="w-2 h-2 rounded-full bg-[#e2c376] mr-2"
+                      className="w-2 h-2 rounded-full bg-[#00FF99] mr-2"
                       animate={{ opacity: [0.5, 1, 0.5] }}
                       transition={{ duration: 1.5, repeat: Infinity }}
                     />
@@ -280,7 +280,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
                 disabled={!synopsis.trim() || !theme.trim() || isGenerating}
                 className={`relative overflow-hidden w-full py-5 text-lg font-medium rounded-lg transition-all duration-300 ${
                   synopsis.trim() && theme.trim() && !isGenerating
-                    ? 'bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-black shadow-lg shadow-[#e2c376]/20' 
+                    ? 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black shadow-lg shadow-[#00FF99]/20' 
                     : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
                 }`}
                 whileHover={synopsis.trim() && theme.trim() && !isGenerating ? { scale: 1.02, y: -2 } : {}}
@@ -365,7 +365,7 @@ export function PreProductionForm({ synopsis: initialSynopsis, theme: initialThe
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-[#e2c37610] border border-[#e2c37640] rounded-xl p-4 text-[#e2c376] mt-4"
+                className="bg-[#00FF9910] border border-[#00FF9940] rounded-xl p-4 text-[#00FF99] mt-4"
               >
                 {error}
               </motion.div>

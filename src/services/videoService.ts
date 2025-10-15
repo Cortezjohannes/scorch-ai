@@ -55,7 +55,7 @@ export const videoService = {
         type: file.type,
         duration: metadata.duration || 0,
         url: downloadURL,
-        createdAt: serverTimestamp(),
+        uploadDate: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         ...metadata
       };
@@ -100,7 +100,7 @@ export const videoService = {
         type: metadata.type || 'video/mp4',
         duration: metadata.duration || 0,
         url: downloadURL,
-        createdAt: serverTimestamp(),
+        uploadDate: new Date().toISOString(),
         updatedAt: serverTimestamp(),
         ...metadata
       };
@@ -126,7 +126,7 @@ export const videoService = {
     
     try {
       const videoCollection = collection(db, 'users', userId, 'videos');
-      const q = query(videoCollection, orderBy('createdAt', 'desc'));
+      const q = query(videoCollection, orderBy('uploadDate', 'desc'));
       const snapshot = await getDocs(q);
       
       return snapshot.docs.map(doc => ({

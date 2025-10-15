@@ -97,7 +97,7 @@ export class EngagementEngineV2 {
     try {
       const response = await generateContent(
         `Generate engagement recommendation for ${context.genre} with ${requirements.engagementDepth} depth and ${requirements.retentionStrategy} strategy.`,
-        { max_tokens: 2000, temperature: 0.7 }
+        { maxTokens: 2000, temperature: 0.7 }
       );
 
       return {

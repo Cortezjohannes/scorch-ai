@@ -27,16 +27,6 @@ export interface LivingWorldEngineRecommendation {
       politicalEvolution: string;
     };
     
-    // CHUNK_3: Dynamic Object Relationships for Props & Wardrobe
-    propsWardrobeEcosystem: {
-      propEvolution: string;
-      characterObjectRelationships: string;
-      crossEpisodeContinuity: string;
-      narrativeDepthThroughObjects: string;
-      objectHistories: string;
-      materialCultureDynamics: string;
-    };
-    
     // Emergent Narrative
     narrativeGeneration: {
       proceduralEvents: string;
@@ -87,7 +77,7 @@ export class LivingWorldEngineV2 {
     try {
       const response = await generateContent(
         `Generate living world engine recommendation for ${context.worldType} with ${requirements.simulationDepth} simulation depth.`,
-        { maxTokens: 2000, temperature: 0.7 }
+        { max_tokens: 2000, temperature: 0.7 }
       );
 
       return {
@@ -110,16 +100,6 @@ export class LivingWorldEngineV2 {
             socioEcological: this.getSocioEcological(requirements.simulationDepth),
             economicDynamics: this.getEconomicDynamics(requirements.simulationDepth),
             politicalEvolution: this.getPoliticalEvolution(requirements.simulationDepth)
-          },
-          
-          // CHUNK_3: Dynamic Object Relationships Implementation
-          propsWardrobeEcosystem: {
-            propEvolution: this.getPropEvolution(requirements.simulationDepth, requirements.worldPersistence),
-            characterObjectRelationships: this.getCharacterObjectRelationships(requirements.characterComplexity),
-            crossEpisodeContinuity: this.getCrossEpisodeContinuity(requirements.worldPersistence),
-            narrativeDepthThroughObjects: this.getNarrativeDepthThroughObjects(requirements.simulationDepth),
-            objectHistories: this.getObjectHistories(requirements.worldPersistence),
-            materialCultureDynamics: this.getMaterialCultureDynamics(requirements.simulationDepth)
           },
           
           narrativeGeneration: {
@@ -328,210 +308,5 @@ export class LivingWorldEngineV2 {
       'systemic': ['Fully emergent storytelling', 'AI-assisted narrative generation']
     };
     return guidance[control] || ['Hybrid narrative approach balancing authored and emergent content'];
-  }
-
-  // ============================================================================
-  // CHUNK_3: Dynamic Object Relationships for Props & Wardrobe Implementation
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Prop Evolution - Objects that change meaning or condition over time
-   */
-  private static getPropEvolution(depth: string, persistence: string): string {
-    const evolution: { [key: string]: string } = {
-      'surface': 'Basic prop condition tracking with visible wear and tear over episodes',
-      'moderate': 'Props gain emotional significance and altered meaning through character interactions',
-      'deep': 'Dynamic prop transformation reflecting character arcs and narrative themes',
-      'comprehensive': 'Full prop lifecycle modeling with cultural significance evolution and symbolic meaning shifts'
-    };
-    
-    const persistenceBonus = persistence === 'generational' ? ' across multiple character generations' :
-                           persistence === 'persistent' ? ' with long-term series continuity' :
-                           persistence === 'campaign' ? ' within story arcs' : '';
-    
-    return (evolution[depth] || 'Moderate prop evolution with meaning development') + persistenceBonus;
-  }
-
-  /**
-   * CHUNK_3: Character Object Relationships - Props that connect characters across episodes
-   */
-  private static getCharacterObjectRelationships(complexity: string): string {
-    const relationships: { [key: string]: string } = {
-      'simple': 'Basic object ownership tracking with shared family heirlooms and gifts',
-      'moderate': 'Props create emotional connections between characters with memory associations',
-      'complex': 'Objects as relationship anchors that trigger memories and shape character dynamics',
-      'advanced': 'Comprehensive prop-mediated relationship networks with inherited objects, shared histories, and cultural significance'
-    };
-    return relationships[complexity] || 'Props as meaningful connectors in character relationship networks';
-  }
-
-  /**
-   * CHUNK_3: Cross-Episode Continuity - Ensure objects maintain consistency across episodes
-   */
-  private static getCrossEpisodeContinuity(persistence: string): string {
-    const continuity: { [key: string]: string } = {
-      'session': 'Basic prop consistency within single episodes',
-      'campaign': 'Prop state tracking across story arcs with condition and location management',
-      'persistent': 'Comprehensive prop database maintaining condition, location, and ownership across entire series',
-      'generational': 'Multi-generational prop inheritance with family histories and cultural evolution'
-    };
-    return continuity[persistence] || 'Prop continuity tracking ensuring consistent object states and histories';
-  }
-
-  /**
-   * CHUNK_3: Narrative Depth Through Objects - Props that tell stories beyond their immediate function
-   */
-  private static getNarrativeDepthThroughObjects(depth: string): string {
-    const narrativeDepth: { [key: string]: string } = {
-      'surface': 'Props carry basic backstories and simple symbolic meaning',
-      'moderate': 'Objects embed character histories and cultural context within their design and condition',
-      'deep': 'Props as narrative vehicles revealing hidden character motivations and world history',
-      'comprehensive': 'Full environmental storytelling through objects that communicate complex themes, relationships, and world-building'
-    };
-    return narrativeDepth[depth] || 'Props as storytelling devices that communicate meaning beyond their function';
-  }
-
-  /**
-   * CHUNK_3: Object Histories - Dynamic tracking of prop backstories and significance
-   */
-  private static getObjectHistories(persistence: string): string {
-    const histories: { [key: string]: string } = {
-      'session': 'Basic prop origins and current ownership tracking',
-      'campaign': 'Detailed object backstories with creation context and previous owners',
-      'persistent': 'Complete prop genealogies tracking manufacturing, ownership chains, and cultural significance',
-      'generational': 'Multi-generational object chronicles with cultural evolution and legendary status development'
-    };
-    return histories[persistence] || 'Object history tracking providing depth and authenticity to prop narratives';
-  }
-
-  /**
-   * CHUNK_3: Material Culture Dynamics - How objects reflect and shape cultural practices
-   */
-  private static getMaterialCultureDynamics(depth: string): string {
-    const materialCulture: { [key: string]: string } = {
-      'surface': 'Props reflect basic cultural aesthetics and functional requirements',
-      'moderate': 'Objects embody cultural values and social status markers with regional variations',
-      'deep': 'Props as cultural artifacts that demonstrate technological level, trade relationships, and social hierarchies',
-      'comprehensive': 'Complete material culture system where objects actively shape cultural practices and social interactions'
-    };
-    return materialCulture[depth] || 'Props as material culture expressions reflecting and influencing social practices';
-  }
-
-  // ============================================================================
-  // CHUNK_3: Props & Wardrobe Integration Methods
-  // ============================================================================
-
-  /**
-   * CHUNK_3: Create prop ecosystem for dynamic object relationships
-   */
-  static async createPropEcosystem(
-    worldFramework: any,
-    characters: any[],
-    episodeRequirements: any
-  ): Promise<{
-    propRelationshipMatrix: any;
-    objectEvolutionTimeline: any;
-    characterObjectBonds: any;
-    narrativeObjectSignificance: any;
-  }> {
-    
-    console.log('🎭 LIVING WORLD ENGINE V2.0: Creating dynamic prop ecosystem for series continuity...');
-    
-    try {
-      // Generate comprehensive prop relationship analysis
-      const propAnalysisPrompt = `
-        Create a dynamic prop ecosystem analysis for a television series with the following context:
-        
-        World Framework: ${JSON.stringify(worldFramework?.culturalDesignFramework || {}, null, 2)}
-        Characters: ${characters.map(c => c.name || c.characterName).join(', ')}
-        Episode Requirements: ${JSON.stringify(episodeRequirements, null, 2)}
-        
-        Design a comprehensive system for:
-        1. Prop Evolution: How objects change meaning and condition over time
-        2. Character-Object Relationships: Which props connect which characters
-        3. Cross-Episode Continuity: Tracking object states and locations
-        4. Narrative Depth: How objects tell stories beyond their function
-        5. Object Histories: Backstories and cultural significance
-        6. Material Culture: How objects reflect social dynamics
-        
-        Provide specific examples and implementation strategies for television production.
-      `;
-
-      const response = await generateContent(propAnalysisPrompt, {
-        maxTokens: 3000,
-        temperature: 0.7
-      });
-
-      return {
-        propRelationshipMatrix: this.extractPropRelationships(response, characters),
-        objectEvolutionTimeline: this.extractObjectEvolution(response, episodeRequirements),
-        characterObjectBonds: this.extractCharacterObjectBonds(response, characters),
-        narrativeObjectSignificance: this.extractNarrativeSignificance(response)
-      };
-      
-    } catch (error) {
-      console.error('❌ Failed to create prop ecosystem:', error);
-      return {
-        propRelationshipMatrix: {},
-        objectEvolutionTimeline: {},
-        characterObjectBonds: {},
-        narrativeObjectSignificance: {}
-      };
-    }
-  }
-
-  /**
-   * Extract prop relationship matrix from AI analysis
-   */
-  private static extractPropRelationships(response: string, characters: any[]): any {
-    // Implementation would parse AI response for prop relationships
-    return {
-      sharedObjects: [],
-      inheritedItems: [],
-      giftedProps: [],
-      conflictObjects: []
-    };
-  }
-
-  /**
-   * Extract object evolution timeline from AI analysis
-   */
-  private static extractObjectEvolution(response: string, episodeRequirements: any): any {
-    // Implementation would parse AI response for object evolution patterns
-    return {
-      wearPatterns: {},
-      meaningShifts: {},
-      ownershipChanges: {},
-      culturalSignificance: {}
-    };
-  }
-
-  /**
-   * Extract character-object bonds from AI analysis
-   */
-  private static extractCharacterObjectBonds(response: string, characters: any[]): any {
-    // Implementation would parse AI response for character-object relationships
-    return characters.reduce((bonds: any, character: any) => {
-      bonds[character.name || character.characterName] = {
-        emotionalObjects: [],
-        functionalProps: [],
-        symbolicItems: [],
-        sharedObjects: []
-      };
-      return bonds;
-    }, {});
-  }
-
-  /**
-   * Extract narrative significance of objects from AI analysis
-   */
-  private static extractNarrativeSignificance(response: string): any {
-    // Implementation would parse AI response for narrative object significance
-    return {
-      thematicObjects: [],
-      plotDevices: [],
-      characterDevelopmentProps: [],
-      worldBuildingItems: []
-    };
   }
 }

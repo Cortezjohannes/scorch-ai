@@ -1,8 +1,8 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 
 interface Metric {
   title: string;
@@ -47,9 +47,8 @@ interface Episode {
   }[];
 }
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(true)
   const [preproductionData, setPreproductionData] = useState<any>(null)
   const [episodeData, setEpisodeData] = useState<Episode | null>(null)
@@ -199,8 +198,8 @@ export default function AnalyticsPage() {
     { time: '09:00', viewCount: 690 },
   ])
   
-  const episodeTitle = searchParams.get('title') || (episodeData ? `${episodeData.title} - Westbridge S1E${episodeData.number}` : 'The Price of Truth - Westbridge S1E9')
-  const episodeSynopsis = searchParams.get('synopsis') || (episodeData ? episodeData.synopsis : "Lia's exposé on the S4's wrongdoings goes viral, causing chaos at Westbridge and forcing Damon to choose between his loyalty to his friends and his growing feelings for Lia.")
+  const episodeTitle = episodeData ? `${episodeData.title} - Westbridge S1E${episodeData.number}` : 'The Price of Truth - Westbridge S1E9'
+  const episodeSynopsis = episodeData ? episodeData.synopsis : "Lia's exposé on the S4's wrongdoings goes viral, causing chaos at Westbridge and forcing Damon to choose between his loyalty to his friends and his growing feelings for Lia."
 
   useEffect(() => {
     // Simulate loading data
@@ -672,5 +671,29 @@ export default function AnalyticsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: 'League Spartan, sans-serif' }}>
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div
+            className="w-16 h-16 ember-shadow rounded-xl flex items-center justify-center mx-auto mb-6 animate-emberFloat"
+          >
+            <span className="text-4xl">🔥</span>
+          </motion.div>
+          <p className="text-white/90 text-lg elegant-fire">Loading analytics...</p>
+        </motion.div>
+      </div>
+    }>
+      <AnalyticsContent />
+    </Suspense>
   )
 } 

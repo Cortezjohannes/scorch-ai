@@ -427,18 +427,22 @@ export async function POST(request: Request) {
             prompt,
             [], // characters will be extracted from prompt
             {
-              visualStyle: 'cinematic',
-              shotComplexity: 'moderate',
-              budget: 'medium'
+              projectName: 'Generated Storyboard',
+              totalScenes: 1,
+              totalShots: 5,
+              genre: 'cinematic',
+              artisticStyle: 'professional',
+              director: 'AI Director',
+              cinematographer: 'AI Cinematographer'
             }
           );
           
-          if (storyboardBlueprint?.visualSequence) {
+          if (storyboardBlueprint?.sceneStoryboards) {
             console.log('✅ Generated professional storyboard with real engine');
             generatedContent = JSON.stringify({
-              visualSequence: storyboardBlueprint.visualSequence,
-              shotBreakdown: storyboardBlueprint.shotBreakdown || [],
-              visualDirections: storyboardBlueprint.visualDirections || {},
+              visualSequence: storyboardBlueprint.sceneStoryboards,
+              shotBreakdown: storyboardBlueprint.sceneStoryboards.flatMap(scene => scene.shots) || [],
+              styleGuide: storyboardBlueprint.styleGuide || {},
               engineUsed: 'StoryboardingEngine',
               professionalGrade: true
             }, null, 2);
@@ -644,7 +648,7 @@ async function generateContentWithGemini(prompt: string, phase: string) {
     const genResult = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
       generationConfig: {
-        temperature: 0.8,
+        temperature: 0.9, // CRANKED UP FOR PREMIUM CONTENT!
         maxOutputTokens: 8000,
       },
       safetySettings: [

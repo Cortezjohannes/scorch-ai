@@ -918,15 +918,35 @@ export class MysteryConstructionEngine {
       
       characters: [
         {
+          id: `char-${Date.now()}`,
           name: 'Mystery Detective',
-          background: `Investigator specializing in ${context.mysteryType} cases`,
+          backgroundStory: `Investigator specializing in ${context.mysteryType} cases`,
           motivation: context.mysteryObjectives[0] || 'Seeking truth',
           personalityTraits: requirements.characterFocus === 'detective-driven' ? 
             ['observant', 'logical', 'persistent'] : 
             ['collaborative', 'intuitive', 'empathetic'],
           skills: requirements.modernElements === 'forensic' ? 
             ['forensic analysis', 'scientific method'] : 
-            ['deduction', 'observation', 'interrogation']
+            ['deduction', 'observation', 'interrogation'],
+          internalConflicts: [],
+          externalConflicts: [],
+          characterArc: 'Professional growth through solving complex cases',
+          relationships: [],
+          dialogueStyle: 'analytical',
+          emotionalRange: 'controlled',
+          moralCompass: 'justice-oriented',
+          fears: 'failure to solve the case',
+          desires: 'bringing closure to victims',
+          secrets: [],
+          growthAreas: [],
+          strengths: ['logical thinking', 'attention to detail'],
+          weaknesses: ['emotional distance', 'perfectionism'],
+          backstory: `Experienced investigator with ${context.mysteryType} expertise`,
+          currentSituation: 'Leading the investigation',
+          futureGoals: 'Solving the case and preventing future crimes',
+          characterType: 'protagonist',
+          role: 'detective',
+          importance: 'primary'
         }
       ] as Character3D[],
       

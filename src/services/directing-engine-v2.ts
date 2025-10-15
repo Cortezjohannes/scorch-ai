@@ -1464,5 +1464,4 @@ Focus on creating a unified directorial methodology that serves the specific gen
 }
 
 // Export the enhanced directing types
-export type { DirectingEngineRecommendation, DirectingEngineAssessment, AuteurMethodologyFramework, VisionCommunicationFramework };
  

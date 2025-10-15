@@ -114,55 +114,91 @@ Return this exact JSON structure:
   }
 
   /**
-   * DYNAMIC CHARACTER COUNT: Determine optimal character count based on story type
+   * AI-DRIVEN CHARACTER COUNT: Let AI determine optimal character count based on story needs
    */
-  static getOptimalCharacterCount(storyType: string, totalFromSynopsis: number): { min: number, max: number, optimal: number } {
-    // Based on industry research - different story types need different character counts
-    const characterGuidelines = {
-      'high school drama': { min: 6, max: 10, optimal: 8 }, // Teens need tight friend groups
-      'college drama': { min: 7, max: 11, optimal: 9 }, // Slightly more complex social structures  
-      'workplace drama': { min: 8, max: 12, optimal: 10 }, // Office dynamics need hierarchy
-      'family drama': { min: 5, max: 9, optimal: 7 }, // Families are smaller, more intimate
-      'crime drama': { min: 8, max: 14, optimal: 11 }, // Law enforcement teams + criminals
-      'medical drama': { min: 8, max: 12, optimal: 10 }, // Hospital staff + patients
-      'fantasy drama': { min: 6, max: 15, optimal: 10 }, // Can vary wildly based on world
-      'sci-fi drama': { min: 6, max: 15, optimal: 10 }, // Similar to fantasy
-      'contemporary drama': { min: 6, max: 12, optimal: 9 } // General modern stories
-    };
+  static async getOptimalCharacterCount(
+    storyType: string, 
+    synopsis: string,
+    theme: string,
+    totalFromSynopsis: number
+  ): Promise<{ min: number, max: number, optimal: number }> {
+    console.log('🤖 Asking AI to determine optimal character count...');
+    
+    const prompt = `Analyze this story and determine the optimal number of characters:
 
-    const guidelines = characterGuidelines[storyType] || characterGuidelines['contemporary drama'];
-    
-    // If synopsis already has many characters, respect that but cap at reasonable limits
-    if (totalFromSynopsis >= guidelines.max) {
-      return { 
-        min: totalFromSynopsis, 
-        max: Math.min(totalFromSynopsis + 2, 15), // Don't go crazy
-        optimal: totalFromSynopsis 
-      };
-    }
-    
-    // If synopsis has very few characters, we need to add some but not too many
-    if (totalFromSynopsis < guidelines.min) {
+SYNOPSIS: ${synopsis}
+THEME: ${theme}
+STORY TYPE: ${storyType}
+CHARACTERS ALREADY IDENTIFIED: ${totalFromSynopsis}
+
+Based on this story's:
+- Scope and complexity
+- Number of plotlines that need exploration
+- World-building requirements
+- Theme depth
+- Genre conventions
+- Narrative needs
+
+Determine the OPTIMAL character count. Consider:
+- Too few characters = thin story
+- Too many characters = diluted focus
+- Different stories need different cast sizes
+
+Return ONLY a JSON object:
+{
+  "min": <minimum characters needed>,
+  "max": <maximum before it gets crowded>,
+  "optimal": <ideal number for THIS specific story>,
+  "reasoning": "<one sentence why>"
+}`;
+
+    try {
+      const response = await generateContent(prompt, {
+        systemPrompt: 'You are a master story architect. Determine optimal character counts based on specific story needs. Return valid JSON only.',
+        temperature: 0.7,
+        maxTokens: 300,
+        model: 'gpt-4.1' as any
+      });
+
+      const parsed = JSON.parse(response);
+      console.log(`✅ AI determined optimal count: ${parsed.optimal} characters (${parsed.reasoning})`);
+      
       return {
-        min: guidelines.min,
-        max: guidelines.max,
-        optimal: guidelines.optimal
+        min: parsed.min || 5,
+        max: parsed.max || 15,
+        optimal: parsed.optimal || totalFromSynopsis || 8
+      };
+    } catch (error) {
+      console.warn('⚠️ AI character count failed, using intelligent fallback based on synopsis length');
+      
+      // Intelligent fallback based on story complexity indicators
+      const hasMultiplePlotlines = synopsis.includes('and') && synopsis.includes('while');
+      const isEpic = synopsis.length > 300 || synopsis.includes('world') || synopsis.includes('journey');
+      const isIntimate = synopsis.length < 150 || synopsis.includes('family') || synopsis.includes('couple');
+      
+      let optimal = totalFromSynopsis;
+      if (isIntimate) optimal = Math.max(totalFromSynopsis, 6);
+      else if (isEpic) optimal = Math.max(totalFromSynopsis, 12);
+      else if (hasMultiplePlotlines) optimal = Math.max(totalFromSynopsis, 9);
+      else optimal = Math.max(totalFromSynopsis, 8);
+      
+      return {
+        min: Math.max(5, totalFromSynopsis),
+        max: Math.min(20, optimal + 5),
+        optimal: Math.min(optimal, 20)
       };
     }
-    
-    // Synopsis is in good range
-    return guidelines;
   }
 
   /**
    * Smart character expansion based on story needs
    */
-  static async expandCharacterRoles(drafts: CharacterDraft[], synopsis: string): Promise<CharacterDraft[]> {
+  static async expandCharacterRoles(drafts: CharacterDraft[], synopsis: string, theme: string = ''): Promise<CharacterDraft[]> {
     console.log('🎭 DYNAMIC CHARACTER EXPANSION: Analyzing story needs...')
     
     const storyType = this.detectStoryType(synopsis);
     const currentCount = drafts.length;
-    const charGuidelines = this.getOptimalCharacterCount(storyType, currentCount);
+    const charGuidelines = await this.getOptimalCharacterCount(storyType, synopsis, theme, currentCount);
     
     console.log(`📊 Story Type: ${storyType}`);
     console.log(`📊 Current Characters: ${currentCount}`);
@@ -250,7 +286,7 @@ Return array of characters:
    * Get prioritized roles for different story types
    */
   private static getRolesByPriority(storyType: string, existingRoles: string[]): string[] {
-    const rolePriorities = {
+    const rolePriorities: Record<string, string[]> = {
       'high school drama': ['love-interest', 'rival', 'friend', 'authority-figure', 'family', 'comic-relief'],
       'college drama': ['love-interest', 'rival', 'mentor', 'friend', 'authority-figure', 'comic-relief'],
       'workplace drama': ['mentor', 'rival', 'authority-figure', 'ally', 'love-interest', 'comic-relief'],
