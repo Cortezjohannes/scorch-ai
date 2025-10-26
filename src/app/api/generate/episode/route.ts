@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
-import { generateContent, generateStructuredContent } from '@/services/azure-openai'
 import { NextRequest } from 'next/server'
-import { logger, ENGINE_CONFIGS } from '@/services/console-logger'
-import { runComprehensiveEngines, ComprehensiveEngineNotes, ComprehensiveEngineMetadata } from '@/services/comprehensive-engines'
+import { logger } from '@/services/console-logger'
+import { generateEpisodeWithIntelligentDefaults } from '@/services/episode-generation-orchestrator'
+
+// Set maximum execution time to 5 minutes (300 seconds)
+export const maxDuration = 300
+
+// Legacy imports - kept for deprecated functions below (not used in main flow)
+import { generateContent, generateStructuredContent } from '@/services/azure-openai'
+import { runComprehensiveEngines, ComprehensiveEngineNotes } from '@/services/comprehensive-engines'
 import { runGeminiComprehensiveEngines } from '@/services/gemini-comprehensive-engines'
 import { generateContentWithGemini } from '@/services/gemini-ai'
 
@@ -38,7 +44,7 @@ const safeParseJSON = (text: string) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { storyBible, previousChoice, userChoices, useEngines = true, useComprehensiveEngines = false, useGeminiComprehensive = false } = body
+    const { storyBible, previousChoice, userChoices, useEngines, useComprehensiveEngines, useGeminiComprehensive, mode } = body
     const episodeNumber = body.episodeNumber ?? body.currentEpisodeNumber
     
     if (!storyBible || !episodeNumber) {
@@ -48,17 +54,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Initialize episode generation logging
-    logger.startNewSession(`Episode ${episodeNumber} Generation`)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // A/B TESTING SUPPORT: Allow old engine path if explicitly requested
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // If useEngines or useComprehensiveEngines is explicitly set, use old engine path for testing
+    if (useEngines === true || useComprehensiveEngines === true || useGeminiComprehensive === true) {
+      console.log(`🧪 A/B TEST MODE: Using OLD ENGINE PATH for comparison`)
+      console.log(`   useEngines: ${useEngines}, useComprehensiveEngines: ${useComprehensiveEngines}`)
+      
+      // Use old engine-based generation for A/B testing
+      logger.startNewSession(`Episode ${episodeNumber} Generation (WITH ENGINES)`)
     if (previousChoice) {
       logger.milestone(`User Choice: ${previousChoice}`)
     }
     
     logger.startPhase({
       name: 'Episode Generation',
-      totalSteps: useEngines ? 3 : 2,
+        totalSteps: useComprehensiveEngines ? 3 : 2,
       currentStep: 1,
-      engines: useEngines ? ['GPT-4.1 Draft', 'Comprehensive Engines (19-system)', 'GPT-4.1 Final Synthesis'] : ['GPT-4.1 Story Bible Generation'],
+        engines: useComprehensiveEngines ? ['GPT-4.1 Draft', 'Comprehensive Engines (19-system)', 'GPT-4.1 Final Synthesis'] : ['GPT-4.1 Story Bible Generation'],
       overallProgress: 25
     })
 
@@ -67,90 +82,144 @@ export async function POST(request: NextRequest) {
     const episodeDraft = await generateEpisodeDraft(storyBible, episodeNumber, previousChoice);
     logger.milestone(`Draft Complete: "${(episodeDraft as any).title}"`)
 
-    // 🚀 GEMINI 2.5 PRO COMPREHENSIVE PATH - Phase 7!
-    if (useGeminiComprehensive) {
-      console.log('🚀 GEMINI 2.5 PRO COMPREHENSIVE PATH: Maximum creative power...');
-      
-      logger.updatePhase('Gemini 2.5 Pro Draft Generation', 2)
-      // Generate enhanced draft with Gemini 2.5 Pro
-      const geminiEpisodeDraft = await generateGeminiEpisodeDraft(storyBible, episodeNumber, previousChoice);
-      logger.milestone(`Gemini Draft Complete: "${geminiEpisodeDraft.title}"`)
-      
-      logger.updatePhase('Running Gemini-optimized comprehensive engines (19-engine system)', 3)
-      // Run Gemini-optimized comprehensive engines
-      const { notes: comprehensiveNotes, metadata: engineMetadata } = await runGeminiComprehensiveEngines(geminiEpisodeDraft, storyBible, 'beast');
-      logger.milestone(`Gemini engines complete: ${engineMetadata.successfulEngines}/${engineMetadata.totalEnginesRun} engines (${engineMetadata.successRate.toFixed(1)}%)`)
-      
-      logger.updatePhase('Gemini 2.5 Pro Final synthesis with comprehensive engine notes', 4)
-      // Final synthesis with Gemini 2.5 Pro's 2M token context
-      const finalEpisode = await generateEpisodeWithGeminiComprehensiveEngines(geminiEpisodeDraft, storyBible, episodeNumber, previousChoice, comprehensiveNotes);
-      logger.milestone('Episode generation complete (Gemini 2.5 Pro + Story Bible + 19 Engines)')
-      
-      return NextResponse.json({
-        success: true,
-        episode: finalEpisode,
-        engineMetadata: engineMetadata,
-        aiProvider: 'gemini-2.5-pro-comprehensive',
-        contextTokens: 2097152, // Showcase massive context advantage
-        costReduction: '~75%'
-      });
-    }
-
-    // COMPREHENSIVE ENGINES PATH - Standard (mixed providers)
+      // COMPREHENSIVE ENGINES PATH
     if (useComprehensiveEngines) {
       console.log('🚀 COMPREHENSIVE ENGINES PATH: Running 19 engines...');
       
       logger.updatePhase('Running comprehensive engines (19-engine system)', 2)
-      // Run comprehensive engines
       const { notes: comprehensiveNotes, metadata: engineMetadata } = await runComprehensiveEngines(episodeDraft, storyBible, 'beast');
       logger.milestone(`Comprehensive engines complete: ${engineMetadata.successfulEngines}/${engineMetadata.totalEnginesRun} engines (${engineMetadata.successRate.toFixed(1)}%)`)
       
       logger.updatePhase('GPT-4.1 Final synthesis with comprehensive engine notes', 3)
-      // Generate final episode with enhancements
       const finalEpisode = await generateEpisodeWithComprehensiveEngines(episodeDraft, storyBible, episodeNumber, previousChoice, comprehensiveNotes);
       logger.milestone('Episode generation complete (GPT-4.1 + Story Bible + 19 Engines)')
       
-      return NextResponse.json({
-        success: true,
-        episode: finalEpisode,
-        engineMetadata: engineMetadata  // REAL METADATA NOW
-      });
-    }
-
-    if (!useEngines) {
-      // STAGE 2: Generate final episode using GPT-4.1 and Story Bible only (no engines)
-      logger.updatePhase('GPT-4.1 Story Bible episode synthesis (no engines)', 2)
-      const finalEpisode = await generateEpisodeWithAzure(episodeDraft, storyBible, episodeNumber, previousChoice);
-      logger.milestone('Episode generation complete (GPT-4.1 + Story Bible only)')
+      // Add completion flags
+      const enhancedEpisode = {
+        ...finalEpisode,
+        _generationComplete: true,
+        generationType: 'legacy-comprehensive'
+      }
 
       return NextResponse.json({
         success: true,
-        episode: finalEpisode
+        episode: enhancedEpisode,
+          engineMetadata: engineMetadata,
+          generationMethod: '19-engine-comprehensive'
       });
     }
 
-    // STAGE 2: Run comprehensive engine enhancements
-    logger.updatePhase('Running comprehensive engines (19-engine system)', 2)
+      // Simple engine path
+      if (useEngines) {
+        logger.updatePhase('Running basic engines', 2)
     const engineNotes = await runComprehensiveEngines(episodeDraft, storyBible, 'beast');
-    logger.milestone('Comprehensive engine enhancements complete')
+        logger.milestone('Engine enhancements complete')
 
-    // STAGE 3: Generate final episode using GPT-4.1 + Story Bible + Engine notes
     logger.updatePhase('GPT-4.1 Final synthesis with engine notes', 3)
     const finalEpisode = await generateEpisodeWithEngines(episodeDraft, storyBible, episodeNumber, previousChoice, engineNotes.notes);
     logger.milestone('Episode generation complete (GPT-4.1 + Story Bible + Engines)')
 
+      // Add completion flags
+      const enhancedEpisode = {
+        ...finalEpisode,
+        _generationComplete: true,
+        generationType: 'legacy-basic'
+      }
+
     return NextResponse.json({
       success: true,
-      episode: finalEpisode
-    });
+          episode: enhancedEpisode,
+          generationMethod: 'engines-basic'
+        });
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NEW INTELLIGENT WORKFLOW - Uses Orchestrator with AI-Analyzed Defaults
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    console.log(`🎭 Episode ${episodeNumber} Generation - Using Intelligent Orchestrator`)
+    console.log(`   Previous choice: ${previousChoice || 'None'}`)
+    console.log(`   User choices count: ${userChoices?.length || 0}`)
+    
+    // Use the orchestrator for intelligent, fast episode generation
+    const result = await generateEpisodeWithIntelligentDefaults({
+      storyBible,
+      episodeNumber,
+      previousChoice,
+      userChoices,
+      mode // Pass legacy mode parameter for compatibility
+    })
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Episode generation failed')
+    }
+    
+    // Add completion flags
+    const enhancedEpisode = {
+      ...result.episode,
+      _generationComplete: true,
+      generationType: 'intelligent-orchestrator'
+    }
+    
+    // Return response in same format as before for backward compatibility
+    return NextResponse.json({
+      success: true,
+      episode: enhancedEpisode,
+      // Include metadata about the new workflow
+      generationMethod: 'intelligent-orchestrator',
+      usedIntelligentDefaults: true,
+      analyzedSettings: result.metadata?.analyzedSettings,
+      timestamp: result.metadata?.timestamp
+    })
+    
   } catch (error) {
     console.error('Error generating episode:', error)
+    
+    // Enhanced error handling with specific error types
+    let errorMessage = 'Failed to generate episode'
+    let errorDetails = error instanceof Error ? error.message : 'Unknown error'
+    let statusCode = 500
+    
+    if (error instanceof Error) {
+      if (error.message.includes('API key') || error.message.includes('authentication')) {
+        errorMessage = 'AI service authentication failed'
+        errorDetails = 'Please check Azure OpenAI API configuration'
+        statusCode = 503
+      } else if (error.message.includes('timeout') || error.message.includes('ECONNRESET')) {
+        errorMessage = 'AI service timeout'
+        errorDetails = 'The AI service took too long to respond. Please try again.'
+        statusCode = 504
+      } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
+        errorMessage = 'AI service rate limit exceeded'
+        errorDetails = 'Too many requests. Please wait a moment and try again.'
+        statusCode = 429
+      } else if (error.message.includes('JSON') || error.message.includes('parse')) {
+        errorMessage = 'Invalid response format'
+        errorDetails = 'The AI service returned an unexpected response format.'
+        statusCode = 502
+      }
+    }
+    
+    // Log detailed error information for debugging
+    logger.error('Episode Generation', 'Orchestrator Route', `${errorMessage}: ${errorDetails}`)
+    
     return NextResponse.json(
-      { error: 'Failed to generate episode', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString(),
+        requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      },
+      { status: statusCode }
     )
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DEPRECATED FUNCTIONS - Kept for reference but no longer used
+// The orchestrator in episode-generation-orchestrator.ts handles all generation
+// ═══════════════════════════════════════════════════════════════════════════
 
 // STAGE 1: Generate episode draft (engineless, focused on narrative structure)
 async function generateEpisodeDraft(storyBible: any, episodeNumber: number, previousChoice?: string) {

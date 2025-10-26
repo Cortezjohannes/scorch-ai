@@ -111,11 +111,7 @@ export class FallbackRecoverySystem {
     const operationTimeout = options.timeout || 30000
     const maxRetries = options.retries || 2
     
-    console.log(`\n🛡️ ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 PROTECTED EXECUTION: ${operationId.toUpperCase()}`);
-    console.log(`⏱️ Timeout: ${operationTimeout}ms | Retries: ${maxRetries}`);
     console.log(`🔌 Circuit Breaker: ${options.circuitBreaker ? 'ENABLED' : 'DISABLED'}`);
-    console.log(`🛡️ ═══════════════════════════════════════════════════════════════════════════════════`);
 
     // Check circuit breaker status
     if (options.circuitBreaker) {
@@ -129,7 +125,6 @@ export class FallbackRecoverySystem {
     // Attempt primary operation with retries
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`⚡ Attempt ${attempt}/${maxRetries}: Executing primary operation...`);
         
         const result = await this.executeWithTimeout(primaryOperation, operationTimeout)
         const executionTime = Date.now() - startTime
@@ -137,8 +132,6 @@ export class FallbackRecoverySystem {
         // Record successful execution
         this.recordSuccessfulExecution(operationId, executionTime)
         
-        console.log(`✅ PRIMARY OPERATION SUCCESS: ${operationId} completed in ${executionTime}ms`);
-        console.log(`🛡️ ═══════════════════════════════════════════════════════════════════════════════════\n`);
         
         return {
           success: true,
@@ -156,7 +149,6 @@ export class FallbackRecoverySystem {
         
         // Check if we should retry or fallback
         if (attempt === maxRetries || this.shouldImmediateFallback(error instanceof Error ? error : new Error(String(error)))) {
-          console.log(`🛡️ Maximum retries reached or critical error, activating fallback...`);
           break
         }
         
@@ -182,14 +174,11 @@ export class FallbackRecoverySystem {
     fallbackReason: string
   ): Promise<FallbackResult<T>> {
     try {
-      console.log(`🛡️ FALLBACK ACTIVATED: ${fallbackReason}`);
       console.log(`📋 Executing bulletproof fallback for ${operationId}...`);
       
       const fallbackResult = await this.executeWithTimeout(fallbackOperation, 15000) // Shorter timeout for fallback
       const totalExecutionTime = Date.now() - startTime
       
-      console.log(`✅ FALLBACK SUCCESS: ${operationId} completed via fallback in ${totalExecutionTime}ms`);
-      console.log(`🛡️ ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
         success: true,
@@ -226,7 +215,6 @@ export class FallbackRecoverySystem {
     const emergencyResult = this.createEmergencyResult(operationId) as T
     
     console.log(`🚨 Emergency result created for ${operationId}`);
-    console.log(`🛡️ ═══════════════════════════════════════════════════════════════════════════════════\n`);
     
     return {
       success: false, // Mark as failed but still return usable data
@@ -261,7 +249,6 @@ export class FallbackRecoverySystem {
     
     for (const strategy of strategies) {
       try {
-        console.log(`🔧 Recovery attempt ${attemptNumber}: ${strategy}...`);
         
         const success = await this.executeRecoveryStrategy(strategy, systemId)
         const duration = Date.now() - recoveryStartTime
@@ -276,7 +263,6 @@ export class FallbackRecoverySystem {
           }
           
           this.recordRecoveryAttempt(systemId, successfulAttempt)
-          console.log(`✅ RECOVERY SUCCESS: ${systemId} restored using ${strategy}`);
           
           return successfulAttempt
         }
@@ -311,7 +297,6 @@ export class FallbackRecoverySystem {
   }
 
   async startHealthMonitoring(): Promise<void> {
-    console.log(`📊 Starting continuous health monitoring...`);
     
     setInterval(async () => {
       const health = await this.getSystemHealth()
@@ -434,7 +419,6 @@ export class FallbackRecoverySystem {
         
       case 'fallback_mode':
         // Switch to fallback mode
-        console.log(`🛡️ Switching ${systemId} to fallback mode`);
         return true
         
       case 'emergency_mode':

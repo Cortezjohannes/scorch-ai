@@ -7,16 +7,33 @@ import UltimateEngineLoader from '@/components/UltimateEngineLoader'
 import { RecentStories } from '@/components/RecentStories'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import PitchPlaybookModal from '@/components/PitchPlaybookModal'
-import '@/styles/greenlit-design.css'
+import { useAuth } from '@/context/AuthContext'
+import { saveStoryBible } from '@/services/story-bible-service'
+import { storyBibleTemplates, getTemplate } from '@/data/story-bible-templates'
+import { 
+  saveGenerationPreferences, 
+  loadGenerationPreferences, 
+  getDefaultPreferences,
+  type GenerationPreferences 
+} from '@/services/generation-preferences'
 
 
 export default function DemoPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const [selectedTemplate, setSelectedTemplate] = useState('blank')
   const [logline, setLogline] = useState<string>('')
   const [protagonist, setProtagonist] = useState<string>('')
   const [stakes, setStakes] = useState<string>('')
   const [vibe, setVibe] = useState<string>('')
   const [theme, setTheme] = useState<string>('')
+  
+  // Advanced generation options
+  const [advancedMode, setAdvancedMode] = useState(false)
+  const [tonePreference, setTonePreference] = useState<'balanced' | 'light' | 'dark' | 'gritty' | 'whimsical'>('balanced')
+  const [pacing, setPacing] = useState<'slow-burn' | 'moderate' | 'fast-paced'>('moderate')
+  const [complexity, setComplexity] = useState<'straightforward' | 'layered' | 'complex'>('layered')
+  const [focusArea, setFocusArea] = useState<'character' | 'plot' | 'world' | 'balanced'>('balanced')
   const [showLogoLoading, setShowLogoLoading] = useState(true)
   const [showIntroduction, setShowIntroduction] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -24,6 +41,18 @@ export default function DemoPage() {
   const [currentStep, setCurrentStep] = useState('Initializing Greenlit...')
   const [isFormVisible, setIsFormVisible] = useState(false)
   const [showPitchPlaybook, setShowPitchPlaybook] = useState(false)
+  
+  // Load saved generation preferences
+  useEffect(() => {
+    const savedPrefs = loadGenerationPreferences()
+    if (savedPrefs) {
+      setTonePreference(savedPrefs.tone)
+      setPacing(savedPrefs.pacing)
+      setComplexity(savedPrefs.complexity)
+      setFocusArea(savedPrefs.focusArea)
+      console.log('📖 Loaded saved preferences:', savedPrefs)
+    }
+  }, [])
   
   // Fallback to ensure form shows
   useEffect(() => {
@@ -49,6 +78,18 @@ export default function DemoPage() {
     return () => clearTimeout(logoTimer)
   }, [])
   
+  // Handle template selection
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId)
+    const template = getTemplate(templateId)
+    if (template) {
+      setLogline(template.defaultPrompt.logline)
+      setProtagonist(template.defaultPrompt.protagonist)
+      setStakes(template.defaultPrompt.stakes)
+      setVibe(template.defaultPrompt.vibe)
+      setTheme(template.defaultPrompt.theme)
+    }
+  }
 
   // Handle user selecting a creative mode and starting the flow
   const handleStart = async () => {
@@ -101,7 +142,20 @@ export default function DemoPage() {
     }, 3000); // Update every 3 seconds
     
     try {
+      // Save generation preferences if advanced mode was used (for future use)
+      if (advancedMode) {
+        saveGenerationPreferences({
+          tone: tonePreference,
+          pacing,
+          complexity,
+          focusArea
+        })
+        console.log('💾 Advanced preferences saved (will be integrated in future update)')
+      }
+      
       console.log('📡 Making API call to /api/generate/story-bible');
+      console.log('🎨 Advanced options:', { tone: tonePreference, pacing, complexity, focusArea });
+      
       // Generate story bible via API
       const response = await fetch('/api/generate/story-bible', {
         method: 'POST',
@@ -114,7 +168,11 @@ export default function DemoPage() {
           stakes: stakes.trim(),
           vibe: vibe.trim(),
           theme: theme.trim(),
-          // Multi-model AI - no mode parameter needed
+          // Advanced generation options
+          tone: tonePreference,
+          pacing,
+          complexity,
+          focusArea
         }),
       });
 
@@ -144,19 +202,39 @@ export default function DemoPage() {
           vibe: vibe.trim(),
           theme: theme.trim(),
           createdAt: new Date().toISOString(),
-          platform: 'Greenlit - AI Showrunner'
+          platform: 'Greenlit - Production Platform'
         };
         
-        console.log('🔥 Saving to localStorage:', storyBibleData);
+        console.log('🔥 Saving story bible...');
         localStorage.setItem('greenlit-story-bible', JSON.stringify(storyBibleData));
+        
+        // Also save to Firestore if user is logged in
+        if (user) {
+          try {
+            console.log('👤 User logged in, saving to Firestore...');
+            await saveStoryBible({
+              ...data.storyBible,
+              seriesTitle: data.storyBible.seriesTitle || logline.substring(0, 50),
+              status: 'draft'
+            }, user.id);
+            console.log('✅ Saved to Firestore successfully!');
+          } catch (error) {
+            console.error('❌ Error saving to Firestore:', error);
+            // Don't block if Firestore save fails - localStorage worked
+          }
+        }
         
         // Verify the save worked
         const verification = localStorage.getItem('greenlit-story-bible');
         console.log('🔍 Verification - localStorage contains:', verification ? 'Saved successfully!' : 'SAVE FAILED!');
         
-        console.log('🔥 Story Bible saved to localStorage, redirecting to story bible display...');
-        // Redirect to story bible results page
-        router.push('/story-bible');
+        console.log('🔥 Story Bible saved, redirecting...');
+        // Redirect based on auth status
+        if (user) {
+          router.push('/profile'); // Logged-in users go to dashboard
+        } else {
+          router.push('/story-bible'); // Guests go directly to story bible view
+        }
       } else {
         console.error('❌ No story bible data in response:', data);
         throw new Error('The process failed - no story data received');
@@ -190,31 +268,13 @@ export default function DemoPage() {
 
   
   return (
-    <div className="min-h-screen greenlit-bg-primary text-white relative">
+    <div className="min-h-screen bg-[#121212] text-white relative">
       <AnimatedBackground intensity="low" />
       <UltimateEngineLoader
         isVisible={isLoading}
         progress={loadingProgress}
         currentStep={currentStep}
       />
-
-      {/* Floating Particles */}
-      <div className="greenlit-particles">
-        {[...Array(9)].map((_, i) => (
-          <div key={i} className="greenlit-particle" style={{
-            left: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 6}s`,
-            animationDuration: `${6 + Math.random() * 4}s`
-          }} />
-        ))}
-      </div>
-
-      {/* Geometric Background */}
-      <div className="greenlit-geometric-bg">
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-      </div>
 
       {/* Twinkling Logo Loading Screen */}
       <AnimatePresence>
@@ -223,19 +283,19 @@ export default function DemoPage() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 1.1 }}
             transition={{ duration: 1.5, ease: "easeInOut" }}
-            className="fixed inset-0 greenlit-bg-secondary z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-black z-50 flex items-center justify-center"
           >
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 1.5, ease: "easeOut" }}
-              className="greenlit-text-center"
+              className="text-center"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.3, duration: 0.8, type: "spring", bounce: 0.4 }}
-                className="w-48 h-48 flex items-center justify-center mx-auto greenlit-mb-lg"
+                className="w-48 h-48 flex items-center justify-center mx-auto mb-8"
               >
                 <motion.div
                   animate={{ 
@@ -267,7 +327,14 @@ export default function DemoPage() {
                 initial={{ y: 30, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8, duration: 1 }}
-                className="greenlit-headline-large greenlit-mb-md"
+                className="text-4xl md:text-6xl font-bold mb-4"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff, #00FF99, #ffffff)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  fontSize: 'clamp(2.5rem, 5vw, 4rem)'
+                }}
               >
                 You're Already Greenlit.
               </motion.h1>
@@ -358,7 +425,7 @@ export default function DemoPage() {
                 transition={{ delay: 1.8, duration: 0.6 }}
                 className="mt-8 text-[#00FF99] text-lg font-medium"
               >
-                ⚡ Initializing AI Showrunner Systems...
+                ⚡ Initializing Production Systems...
               </motion.div>
             </motion.div>
           </motion.div>
@@ -400,27 +467,160 @@ export default function DemoPage() {
               initial={{ opacity: 0, y: 100, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 1.2, ease: "easeOut" }}
-              className="greenlit-container"
+              className="max-w-6xl w-full mx-auto"
             >
+              {/* Guest Warning Banner */}
+              {!user && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.6 }}
+                  className="mb-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30 rounded-xl p-4"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">⚠️</span>
+                      <div>
+                        <p className="text-white font-medium">You're not logged in</p>
+                        <p className="text-white/70 text-sm">Your story bible will only be saved locally on this device.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => router.push('/login')}
+                      className="px-4 py-2 bg-[#00FF99] text-black font-bold rounded-lg hover:bg-[#00CC7A] transition-colors text-sm whitespace-nowrap"
+                    >
+                      Login to Save Permanently
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Enhanced Template Gallery */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
+                className="mb-8"
+              >
+                {/* Section Header */}
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00FF99] to-[#00CC7A] mb-2">
+                    Choose Your Starting Point
+                  </h3>
+                  <p className="text-white/70 text-sm md:text-base max-w-2xl mx-auto">
+                    Start from scratch or use a template to speed up your creative process
+                  </p>
+                </div>
+                
+                {/* Template Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                  {storyBibleTemplates.map((template, index) => (
+                    <motion.button
+                      key={template.id}
+                      onClick={() => handleTemplateSelect(template.id)}
+                      className={`relative p-4 sm:p-5 rounded-xl border-2 transition-all text-left min-h-[140px] sm:min-h-[160px] group ${
+                        selectedTemplate === template.id
+                          ? 'border-[#00FF99] bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/10 shadow-lg shadow-[#00FF99]/20'
+                          : 'border-[#00FF99]/20 bg-[#1A1A1A]/50 hover:border-[#00FF99]/40 hover:bg-[#00FF99]/5 hover:shadow-md'
+                      }`}
+                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileTap={{ scale: 0.95 }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 + index * 0.05 }}
+                    >
+                      {/* Popular Badge */}
+                      {(template.id === 'drama' || template.id === 'crime') && (
+                        <motion.div 
+                          className="absolute top-2 right-2 bg-[#00FF99] text-black text-xs px-2 py-1 rounded-full font-bold shadow-md"
+                          initial={{ scale: 0, rotate: -45 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ delay: 0.8 + index * 0.05, type: "spring" }}
+                        >
+                          Popular
+                        </motion.div>
+                      )}
+                      
+                      {/* Selected Checkmark */}
+                      {selectedTemplate === template.id && (
+                        <motion.div 
+                          className="absolute top-2 left-2 w-6 h-6 bg-[#00FF99] rounded-full flex items-center justify-center shadow-lg"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <span className="text-black font-bold text-sm">✓</span>
+                        </motion.div>
+                      )}
+                      
+                      {/* Icon */}
+                      <div className="text-3xl sm:text-4xl mb-3 group-hover:scale-110 transition-transform duration-200">
+                        {template.icon}
+                      </div>
+                      
+                      {/* Content */}
+                      <h4 className="font-bold text-white text-sm sm:text-base mb-1.5">
+                        {template.name}
+                      </h4>
+                      <p className="text-white/60 text-xs sm:text-sm line-clamp-2 leading-snug">
+                        {template.description}
+                      </p>
+                      
+                      {/* Quick Start Indicator */}
+                      {template.id !== 'blank' && (
+                        <div className="mt-3 text-[#00FF99]/70 text-xs font-medium flex items-center gap-1">
+                          <span>⚡</span>
+                          <span>Quick Start</span>
+                        </div>
+                      )}
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+              
+              {/* Template Customization Notice */}
+              {selectedTemplate !== 'blank' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mb-6 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-xl p-4 overflow-hidden"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl flex-shrink-0">💡</span>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-[#00FF99] mb-1 text-sm sm:text-base">
+                        Template Active: {getTemplate(selectedTemplate)?.name}
+                      </h4>
+                      <p className="text-white/80 text-xs sm:text-sm leading-relaxed">
+                        We've filled in some suggestions to get you started quickly. 
+                        Feel free to customize anything to match your vision!
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              
               {/* Main Hero Card */}
               <motion.div 
                 initial={{ rotateX: -15, opacity: 0 }}
                 animate={{ rotateX: 0, opacity: 1 }}
                 transition={{ delay: 0.3, duration: 0.8 }}
-                className="greenlit-card-primary greenlit-mb-lg relative overflow-hidden"
+                className="rebellious-card mb-8 relative overflow-hidden"
                 style={{ transformStyle: 'preserve-3d' }}
               >
                 {/* Gradient overlay for depth */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#00CC7A]/10 via-transparent to-[#00FF99]/5 pointer-events-none" />
                 
-                <motion.div
+          <motion.div
                   initial={{ y: 30, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
+          animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.6, duration: 0.8 }}
-                  className="relative greenlit-text-center greenlit-mb-xl"
+                  className="relative text-center mb-10"
                 >
                   <motion.div
-                    className="w-16 h-16 flex items-center justify-center mx-auto greenlit-mb-md"
+                    className="w-16 h-16 flex items-center justify-center mx-auto mb-6"
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     transition={{ type: "spring", stiffness: 300 }}
                   >
@@ -447,46 +647,50 @@ export default function DemoPage() {
                         className="w-full h-full object-contain"
                       />
                     </motion.div>
-                  </motion.div>
+        </motion.div>
 
                   <motion.h1 
-                    className="greenlit-headline"
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="text-6xl md:text-7xl font-bold mb-6 font-medium greenlit-gradient tracking-tight"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ type: "spring", stiffness: 200 }}
+                    style={{ 
+                      textShadow: '0 0 30px rgba(0, 255, 153, 0.3), 0 0 60px rgba(0, 255, 153, 0.1)',
+                      letterSpacing: '-0.02em'
+                    }}
                   >
                     Writers' Room
                   </motion.h1>
                   
                   <motion.p 
-                    className="greenlit-subheadline max-w-4xl mx-auto"
+                    className="text-xl md:text-2xl text-white/90 max-w-4xl mx-auto leading-relaxed font-medium"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1, duration: 0.8 }}
                   >
                     Let's co-write your story.
                     <br />
-                    <span className="text-[#00FF99] font-bold">Greenlit AI will build the world.</span>
+                    <span className="text-[#00FF99] font-bold">Greenlit will build the world.</span>
                   </motion.p>
                   
                   <motion.div 
-                    className="greenlit-body-large greenlit-text-muted greenlit-mt-lg"
+                    className="mt-6 text-white/70 text-lg font-medium"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.4, duration: 0.6 }}
                   >
-                    30+ AI Production Engines • 70% Revenue Share • Direct-to-Audience Distribution
+                    30+ Production Engines • 70% Revenue Share • Direct-to-Audience Distribution
                   </motion.div>
                   
                   {/* Pitch Playbook Trigger */}
                   <motion.div
-                    className="greenlit-mt-lg"
+                    className="mt-8"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.6, duration: 0.6 }}
                   >
                     <button
                       onClick={() => setShowPitchPlaybook(true)}
-                      className="greenlit-button-secondary inline-flex items-center group"
+                      className="inline-flex items-center px-6 py-3 bg-transparent border-2 border-[#00FF99]/30 text-[#00FF99] font-semibold rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99] transition-all duration-300 group"
                     >
                       <span className="mr-2">📖</span>
                       The Pitch Playbook: How to Craft Your Vision
@@ -497,7 +701,7 @@ export default function DemoPage() {
 
                 {/* Professional Form - The 5 Essential Questions */}
                 <motion.div 
-                  className="space-y-10"
+                  className="space-y-8"
                   initial={{ opacity: 0, y: 40 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.8, duration: 0.8 }}
@@ -509,13 +713,13 @@ export default function DemoPage() {
                     transition={{ delay: 1, duration: 0.6 }}
                     className="relative"
                   >
-                    <label htmlFor="logline" className="greenlit-label greenlit-mb-md block">
+                    <label htmlFor="logline" className="block mb-3 text-white font-bold text-lg font-medium cinematic-subheader">
                       1. The Story: What's the epic tale you're about to tell?
                     </label>
                     <motion.div className="relative">
                       <motion.textarea
                         id="logline"
-                        className="greenlit-textarea w-full"
+                        className="input-field min-h-[120px] resize-none"
                         rows={4}
                         placeholder="(e.g., A hopeless romantic architect tells his kids the epic story of how he met their mother, recounting years of dating mishaps, friendship drama, and the one that got away - all while sitting in a booth at MacLaren's Pub.)"
                         value={logline}
@@ -542,13 +746,13 @@ export default function DemoPage() {
                     transition={{ delay: 1.2, duration: 0.6 }}
                     className="relative"
                   >
-                    <label htmlFor="protagonist" className="greenlit-label greenlit-mb-md block">
+                    <label htmlFor="protagonist" className="block mb-3 text-white font-bold text-lg font-medium cinematic-subheader">
                       2. The Hero: Who's the main character we'll root for through every twist and turn?
                     </label>
                     <motion.div className="relative">
                       <motion.textarea
                         id="protagonist"
-                        className="greenlit-textarea w-full"
+                        className="input-field min-h-[100px] resize-none"
                         rows={3}
                         placeholder="(e.g., Ted Mosby, a 27-year-old architect with an idealistic view of love and destiny. He's searching for 'the one' while navigating the chaotic world of dating in New York City with his best friends Marshall, Lily, Barney, and Robin.)"
                         value={protagonist}
@@ -575,13 +779,13 @@ export default function DemoPage() {
                     transition={{ delay: 1.4, duration: 0.6 }}
                     className="relative"
                   >
-                    <label htmlFor="stakes" className="greenlit-label greenlit-mb-md block">
+                    <label htmlFor="stakes" className="block mb-3 text-white font-bold text-lg font-medium cinematic-subheader">
                       3. The Drama: What's at risk if our hero doesn't succeed?
                     </label>
                     <motion.div className="relative">
                       <motion.textarea
                         id="stakes"
-                        className="greenlit-textarea w-full"
+                        className="input-field min-h-[100px] resize-none"
                         rows={3}
                         placeholder="(e.g., If Ted doesn't find true love soon, he'll settle for someone who's 'good enough' and miss out on the epic romance he's been waiting for. Meanwhile, Marshall and Lily's relationship faces the ultimate test as they navigate career changes and the pressure to start a family.)"
                         value={stakes}
@@ -608,14 +812,14 @@ export default function DemoPage() {
                     transition={{ delay: 1.6, duration: 0.6 }}
                     className="relative"
                   >
-                    <label htmlFor="vibe" className="greenlit-label greenlit-mb-md block">
+                    <label htmlFor="vibe" className="block mb-3 text-white font-bold text-lg font-medium cinematic-subheader">
                       4. The Feel: What's the mood and energy? ('X meets Y' format works best)
                     </label>
                     <motion.div className="relative">
                       <motion.input
                         type="text"
                         id="vibe"
-                        className="greenlit-input w-full"
+                        className="input-field"
                         placeholder="(e.g., Witty ensemble comedy with heart and nostalgia. 'Friends' meets 'The Wonder Years' with a romantic twist - think warm, relatable humor mixed with genuine emotional moments and clever storytelling.)"
                         value={vibe}
                         onChange={(e) => setVibe(e.target.value)}
@@ -641,14 +845,14 @@ export default function DemoPage() {
                     transition={{ delay: 1.8, duration: 0.6 }}
                     className="relative"
                   >
-                    <label htmlFor="theme" className="greenlit-label greenlit-mb-md block">
+                    <label htmlFor="theme" className="block mb-3 text-white font-bold text-lg font-medium cinematic-subheader">
                       5. The Heart: What deeper message will resonate with your audience?
                     </label>
                     <motion.div className="relative">
                       <motion.input
                         type="text"
                         id="theme"
-                        className="greenlit-input w-full"
+                        className="input-field"
                         placeholder="(e.g., The journey to finding true love, The importance of friendship and chosen family, Growing up and accepting change, The difference between settling and finding 'the one', The power of timing in relationships.)"
                         value={theme}
                         onChange={(e) => setTheme(e.target.value)}
@@ -666,24 +870,136 @@ export default function DemoPage() {
                       )}
                     </motion.div>
                   </motion.div>
+                  
+                  {/* Advanced Options Toggle */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 2, duration: 0.6 }}
+                    className="mt-6"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setAdvancedMode(!advancedMode)}
+                      className="flex items-center gap-2 text-[#00FF99] hover:text-[#00CC7A] transition-colors text-sm font-medium underline underline-offset-4"
+                    >
+                      <span>{advancedMode ? '▼' : '▶'}</span>
+                      <span>{advancedMode ? 'Hide' : 'Show'} Advanced Options</span>
+                      <span className="text-white/50 text-xs">(Optional)</span>
+                    </button>
+                  </motion.div>
+
+                  {/* Advanced Options Panel */}
+                  <AnimatePresence>
+                    {advancedMode && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mt-6 p-6 bg-[#1A1A1A]/50 rounded-xl border border-[#00FF99]/20 overflow-hidden"
+                      >
+                        <div className="mb-4">
+                          <h4 className="text-lg font-bold text-[#00FF99] mb-2 flex items-center gap-2">
+                            Fine-tune Your Story
+                            <span className="text-xs px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/40">
+                              Coming Soon
+                            </span>
+                          </h4>
+                          <p className="text-white/60 text-sm">
+                            These options will help tailor the story bible to your specific vision. Your preferences are saved for when this feature is fully integrated with our narrative engines.
+                          </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Tone Preference */}
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-2">
+                              Tone Preference
+                            </label>
+                            <select
+                              value={tonePreference}
+                              onChange={(e) => setTonePreference(e.target.value as any)}
+                              className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white focus:outline-none focus:border-[#00FF99]/40 transition-colors min-h-[44px]"
+                            >
+                              <option value="balanced">Balanced</option>
+                              <option value="light">Light & Hopeful</option>
+                              <option value="dark">Dark & Intense</option>
+                              <option value="gritty">Gritty & Realistic</option>
+                              <option value="whimsical">Whimsical & Playful</option>
+                            </select>
+                          </div>
+                          
+                          {/* Pacing */}
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-2">
+                              Story Pacing
+                            </label>
+                            <select
+                              value={pacing}
+                              onChange={(e) => setPacing(e.target.value as any)}
+                              className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white focus:outline-none focus:border-[#00FF99]/40 transition-colors min-h-[44px]"
+                            >
+                              <option value="slow-burn">Slow Burn</option>
+                              <option value="moderate">Moderate</option>
+                              <option value="fast-paced">Fast-Paced</option>
+                            </select>
+                          </div>
+                          
+                          {/* Complexity */}
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-2">
+                              Narrative Complexity
+                            </label>
+                            <select
+                              value={complexity}
+                              onChange={(e) => setComplexity(e.target.value as any)}
+                              className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white focus:outline-none focus:border-[#00FF99]/40 transition-colors min-h-[44px]"
+                            >
+                              <option value="straightforward">Straightforward</option>
+                              <option value="layered">Layered</option>
+                              <option value="complex">Complex</option>
+                            </select>
+                          </div>
+                          
+                          {/* Focus Area */}
+                          <div>
+                            <label className="block text-sm font-medium text-white/80 mb-2">
+                              Primary Focus
+                            </label>
+                            <select
+                              value={focusArea}
+                              onChange={(e) => setFocusArea(e.target.value as any)}
+                              className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white focus:outline-none focus:border-[#00FF99]/40 transition-colors min-h-[44px]"
+                            >
+                              <option value="balanced">Balanced</option>
+                              <option value="character">Character-Driven</option>
+                              <option value="plot">Plot-Driven</option>
+                              <option value="world">World-Building</option>
+                            </select>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Professional Action Button */}
                   <motion.div 
-                    className="greenlit-mt-lg"
+                    className="pt-6"
                     initial={{ y: 50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 1.6, duration: 0.8 }}
                   >
-                    <motion.button
-                      onClick={handleStart}
-                      disabled={isLoading || !logline.trim() || !protagonist.trim() || !stakes.trim() || !vibe.trim() || !theme.trim()}
-                      className={`greenlit-button-primary greenlit-button-glow w-full py-6 text-xl relative ${
-                        isLoading || !logline.trim() || !protagonist.trim() || !stakes.trim() || !vibe.trim() || !theme.trim() ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      <motion.button
+              onClick={handleStart}
+              disabled={isLoading || !logline.trim() || !protagonist.trim() || !stakes.trim() || !vibe.trim() || !theme.trim()}
+                      className={`burn-button w-full py-6 text-xl relative ${
+                isLoading || !logline.trim() || !protagonist.trim() || !stakes.trim() || !vibe.trim() || !theme.trim() ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
                       whileHover={logline.trim() && protagonist.trim() && stakes.trim() && vibe.trim() && theme.trim() && !isLoading ? { 
                         y: -3, 
                         scale: 1.02,
-                        boxShadow: "0 15px 40px rgba(0, 255, 153, 0.4)"
+                        boxShadow: "0 15px 40px rgba(214, 40, 40, 0.4)"
                       } : {}}
                       whileTap={logline.trim() && protagonist.trim() && stakes.trim() && vibe.trim() && theme.trim() && !isLoading ? { 
                         y: -1, 
@@ -692,7 +1008,7 @@ export default function DemoPage() {
                       transition={{ type: "spring", stiffness: 200 }}
                     >
                       <span className="relative z-10 font-medium">
-                        {isLoading 
+                            {isLoading 
                           ? '✨ CREATING YOUR SERIES...'
                           : 'Activate the Murphy Engine →'
                         }
@@ -711,10 +1027,10 @@ export default function DemoPage() {
                           }}
                         />
                       )}
-                    </motion.button>
+            </motion.button>
                     
                     <motion.div 
-                      className="greenlit-mt-md greenlit-text-center greenlit-caption"
+                      className="mt-4 text-center text-white/50 text-sm font-medium"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 2 }}
@@ -725,71 +1041,71 @@ export default function DemoPage() {
                 </motion.div>
               </motion.div>
               
-              {/* Recent Series Section */}
+              {/* Recent Rebellions Section */}
               <motion.div
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 2, duration: 0.8 }}
-                className="greenlit-mt-xl"
+                className="mt-12"
               >
                 <motion.div
-                  className="greenlit-card"
+                  className="rebellious-card"
                   whileHover={{ scale: 1.01, y: -2 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
-                  <h3 className="greenlit-headline greenlit-text-center greenlit-mb-md" style={{ fontSize: '1.5rem' }}>
+                  <h3 className="text-2xl font-bold text-[#00FF99] mb-6 font-medium text-center">
                     ✨ Recent Series
                   </h3>
-                  <RecentStories />
+        <RecentStories />
                 </motion.div>
               </motion.div>
 
               {/* Professional Footer */}
               <motion.div 
-                className="greenlit-mt-xl greenlit-text-center"
+                className="mt-12 text-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 2.5, duration: 0.8 }}
               >
                 <motion.div 
-                  className="inline-block greenlit-card-primary"
+                  className="inline-block px-6 py-3 border border-[#00FF99]/30 rounded-xl bg-black/40 backdrop-blur-sm"
                   whileHover={{ 
                     borderColor: "#00FF99", 
-                    boxShadow: "0 0 20px rgba(0, 255, 153, 0.2)" 
+                    boxShadow: "0 0 20px rgba(226, 195, 118, 0.2)" 
                   }}
                   transition={{ duration: 0.3 }}
                 >
-                  <p className="greenlit-body-large greenlit-text-muted">
-                    <span className="text-[#00FF99] font-bold">Greenlit v2.0</span> - The AI Showrunner Platform
+                  <p className="text-white/70 font-medium">
+                    <span className="text-[#00FF99] font-bold">Greenlit v2.0</span> - The Production Platform
                   </p>
-                  <p className="greenlit-caption greenlit-mt-sm">
+                  <p className="text-white/50 text-sm mt-1 font-medium">
                     Empowering actors, not replacing them • 70% revenue share guaranteed
                   </p>
                 </motion.div>
                 
                 <motion.div 
-                  className="greenlit-mt-md flex justify-center space-x-8 greenlit-text-dim"
+                  className="mt-6 flex justify-center space-x-8 text-white/40"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 3, duration: 0.6 }}
                 >
                   <motion.a 
                     href="#platform" 
-                    className="greenlit-body hover:text-[#00FF99] transition-colors"
+                    className="font-medium hover:text-[#00FF99] transition-colors"
                     whileHover={{ scale: 1.1 }}
                   >
                     Platform
                   </motion.a>
                   <motion.a 
-                    href="#criteria" 
-                    className="greenlit-body hover:text-[#00FF99] transition-colors"
+                    href="#platform" 
+                    className="font-medium hover:text-[#00FF99] transition-colors"
                     whileHover={{ scale: 1.1 }}
                   >
-                    Criteria
+                    Platform
                   </motion.a>
                   <motion.a 
                     href="#founders" 
-                    className="greenlit-body hover:text-[#00FF99] transition-colors"
+                    className="font-medium hover:text-[#00FF99] transition-colors"
                     whileHover={{ scale: 1.1 }}
                   >
                     Founders

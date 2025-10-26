@@ -1,142 +1,55 @@
-# Dependencies
-node_modules/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# Next.js
-.next/
-out/
-build/
+# env files (can opt-in for committing if needed)
+.env*
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# vercel
+.vercel
 
-# Production files
-*.log
-*.pid
-*.seed
-*.pid.lock
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+# Ignore Python bytecode files
+**/*.pyc
+**/__pycache__/
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Large backup files
+backups/*.zip
+backups/*.tar.gz
 
-# Coverage directory used by tools like istanbul
-coverage/
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-node_modules/
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Test files
-test-*.json
-*-test-*.js
-*-test-*.ts
-quick-*.js
-quick-*.ts
-validate-*.js
-validate-*.ts
-comprehensive-workflow-test.ts
-run-workflow-test.sh
-
-# Generated content samples
-quick-test-story-bible.json
-test-baseline-episode.json
-test-comprehensive-episode.json
-test-gemini-episode.json
-test-phase1-preproduction.json
-test-preproduction-status.json
-test-results-comprehensive.json
-test-story-bible-features.html
-
-# Log files
-*.log
-workflow-test-*.log
-full-workflow-test.log
-
-# Firebase
-.firebase/
-firebase-debug.log
-firebase-debug.*.log
-
-# Google Cloud
-.gcloudignore
-
-# Docker
-.dockerignore
-
-# Deployment scripts with secrets
-deploy-*.sh
-cloudbuild-*.yaml
-service.yaml
-build-vars.yaml
-deploy.yaml
+# Large media files
+*.mp4
+*.mov
+*.avi
+*.mkv
+public/*.mp4

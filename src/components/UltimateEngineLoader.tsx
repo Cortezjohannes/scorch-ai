@@ -265,7 +265,7 @@ export default function UltimateEngineLoader({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a] flex items-center justify-center"
+        className="fixed inset-0 z-50 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a] overflow-y-auto"
         style={{ fontFamily: 'League Spartan, sans-serif' }}
       >
         {/* Animated Background with Brand Colors */}
@@ -321,8 +321,9 @@ export default function UltimateEngineLoader({
             }}
           />
         </div>
-        {/* Main Container - More Compact */}
-        <div className="w-full max-w-5xl p-4 space-y-4">
+        {/* Main Container - Scrollable with Centered Layout */}
+        <div className="min-h-screen flex items-center justify-center py-8 px-4">
+          <div className="w-full max-w-5xl space-y-4">
           
         {/* Sophisticated Header */}
         <motion.div
@@ -509,7 +510,7 @@ export default function UltimateEngineLoader({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="grid grid-cols-4 gap-4 max-w-5xl mx-auto"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl mx-auto"
         >
             {REAL_ENGINES.map((engine, index) => {
               const isActive = index === currentEngineIndex
@@ -716,12 +717,12 @@ export default function UltimateEngineLoader({
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.7 }}
-          className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-black/95 via-black/90 to-black/95 backdrop-blur-md border-t border-[#00FF99]/30 p-6"
+          className="bg-gradient-to-r from-black/95 via-black/90 to-black/95 backdrop-blur-md border border-[#00FF99]/30 rounded-2xl p-6 mt-6"
         >
           <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               {/* Left side - Phase info */}
-              <div className="flex items-center space-x-8">
+              <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8">
                 <motion.div
                   className="flex items-center space-x-3"
                   animate={{
@@ -745,7 +746,7 @@ export default function UltimateEngineLoader({
             </div>
 
               {/* Right side - Engine stats */}
-              <div className="flex items-center space-x-8">
+              <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8">
                 <motion.div
                   className="flex items-center space-x-2"
                   animate={{
@@ -791,6 +792,7 @@ export default function UltimateEngineLoader({
             </div>
           </motion.div>
           </div>
+        </div>
       </motion.div>
     </AnimatePresence>
   )

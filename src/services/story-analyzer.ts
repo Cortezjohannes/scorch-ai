@@ -115,13 +115,11 @@ Return ONLY valid JSON in this exact format:
 
   console.log('🤖 Sending story analysis request to AI...')
   
-  const result = await generateContent(analysisPrompt, 
-    'You are an expert story analyst and creative director. Analyze stories and provide intelligent creative settings for episode generation.',
-    {
-      temperature: 0.7,
-      maxTokens: 1000
-    }
-  )
+  const result = await generateContent(analysisPrompt, {
+    systemPrompt: 'You are an expert story analyst and creative director. Analyze stories and provide intelligent creative settings for episode generation.',
+    temperature: 0.7,
+    maxTokens: 1000
+  })
   
   // Parse result
   let parsed: any

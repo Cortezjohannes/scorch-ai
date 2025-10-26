@@ -1,0 +1,628 @@
+'use client'
+
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import Image from 'next/image'
+import { useAuth } from '@/context/AuthContext'
+import Link from 'next/link'
+import { getStoryBibles, deleteStoryBible, hasLocalStorageBibles, getLocalStorageBibles, migrateAllLocalBibles, StoryBible } from '@/services/story-bible-service'
+import { getUserShareLinks, revokeShareLink, ShareLink } from '@/services/share-link-service'
+import DeleteConfirmModal from '@/components/modals/DeleteConfirmModal'
+import MigrationPromptModal from '@/components/modals/MigrationPromptModal'
+import ShareLinkCard from '@/components/dashboard/ShareLinkCard'
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const { user, isAuthenticated, isLoading, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [storyBibles, setStoryBibles] = useState<StoryBible[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(true)
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; storyBible: StoryBible | null }>({
+    isOpen: false,
+    storyBible: null,
+  })
+  const [showMigrationModal, setShowMigrationModal] = useState(false)
+  const [localBibles, setLocalBibles] = useState<StoryBible[]>([])
+  const [isMigrating, setIsMigrating] = useState(false)
+  
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'in-progress' | 'complete'>('all')
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'a-z' | 'z-a'>('recent')
+  
+  // Shared links states
+  const [shareLinks, setShareLinks] = useState<ShareLink[]>([])
+  const [loadingSharedLinks, setLoadingSharedLinks] = useState(true)
+  const [showSharedLinks, setShowSharedLinks] = useState(false)
+  
+  // Touch support for mobile cards
+  const [expandedCard, setExpandedCard] = useState<string | null>(null)
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    console.log('🔍 Profile Page Auth Check:');
+    console.log('  - isLoading:', isLoading);
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - user:', user);
+    
+    if (!isLoading && !isAuthenticated) {
+      console.log('  → Redirecting to login...');
+      router.push('/login?redirect=/profile')
+    } else if (!isLoading && isAuthenticated) {
+      console.log('  ✅ Authenticated, staying on profile');
+    }
+  }, [isAuthenticated, isLoading, user, router])
+
+  // Load story bibles
+  useEffect(() => {
+    async function loadStoryBibles() {
+      if (user) {
+        setLoadingProjects(true)
+        try {
+          const bibles = await getStoryBibles(user.id)
+          setStoryBibles(bibles)
+        } catch (error) {
+          console.error('Error loading story bibles:', error)
+        } finally {
+          setLoadingProjects(false)
+        }
+      } else {
+        setLoadingProjects(false)
+      }
+    }
+
+    if (!isLoading) {
+      loadStoryBibles()
+    }
+  }, [user, isLoading])
+
+  // Load shared links
+  useEffect(() => {
+    async function loadSharedLinks() {
+      if (user) {
+        setLoadingSharedLinks(true)
+        try {
+          const links = await getUserShareLinks(user.id)
+          setShareLinks(links)
+          // Auto-expand if user has 5 or fewer links
+          setShowSharedLinks(links.length > 0 && links.length <= 5)
+        } catch (error) {
+          console.error('Error loading shared links:', error)
+        } finally {
+          setLoadingSharedLinks(false)
+        }
+      } else {
+        setLoadingSharedLinks(false)
+      }
+    }
+
+    if (!isLoading) {
+      loadSharedLinks()
+    }
+  }, [user, isLoading])
+
+  // Check for localStorage story bibles and prompt migration (simplified - primary migration is on login)
+  useEffect(() => {
+    // Only check if user has been on the dashboard for a while without migrating
+    if (user && !loadingProjects && storyBibles.length === 0) {
+      if (hasLocalStorageBibles()) {
+        const bibles = getLocalStorageBibles()
+        if (bibles.length > 0) {
+          setLocalBibles(bibles)
+          setShowMigrationModal(true)
+        }
+      }
+    }
+  }, [user, loadingProjects, storyBibles])
+
+  const handleMigrate = async (options: { skipDuplicates: boolean; clearLocal: boolean }) => {
+    if (!user) return
+    
+    try {
+      setIsMigrating(true)
+      const result = await migrateAllLocalBibles(user.id, {
+        skipDuplicates: options.skipDuplicates,
+        clearAfterMigration: options.clearLocal
+      })
+      
+      console.log(`✅ Migration complete: ${result.migrated} migrated, ${result.skipped} skipped, ${result.errors} errors`)
+      
+      // Reload story bibles
+      const bibles = await getStoryBibles(user.id)
+      setStoryBibles(bibles)
+      
+      setShowMigrationModal(false)
+      setLocalBibles([])
+    } catch (error) {
+      console.error('❌ Migration error:', error)
+      alert('Failed to migrate story bibles. Please try again.')
+    } finally {
+      setIsMigrating(false)
+    }
+  }
+
+  // Handle revoking a shared link
+  const handleRevokeLink = async (shareId: string) => {
+    if (!user) return
+    
+    try {
+      await revokeShareLink(shareId, user.id)
+      // Remove from local state
+      setShareLinks(prev => prev.filter(link => link.shareId !== shareId))
+    } catch (error) {
+      console.error('Error revoking link:', error)
+      alert('Failed to revoke link. Please try again.')
+    }
+  }
+
+  // Filter and sort story bibles
+  const filteredAndSortedBibles = React.useMemo(() => {
+    let filtered = storyBibles
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(bible =>
+        bible.seriesTitle?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(bible => bible.status === statusFilter)
+    }
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        case 'oldest':
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+        case 'a-z':
+          return (a.seriesTitle || '').localeCompare(b.seriesTitle || '')
+        case 'z-a':
+          return (b.seriesTitle || '').localeCompare(a.seriesTitle || '')
+        default:
+          return 0
+      }
+    })
+
+    return sorted
+  }, [storyBibles, searchQuery, statusFilter, sortBy])
+
+  const handleDelete = async () => {
+    if (!deleteModal.storyBible) return
+
+    try {
+      await deleteStoryBible(deleteModal.storyBible.id, user?.id)
+      setStoryBibles(prev => prev.filter(sb => sb.id !== deleteModal.storyBible?.id))
+      setDeleteModal({ isOpen: false, storyBible: null })
+    } catch (error) {
+      console.error('Error deleting story bible:', error)
+    }
+  }
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      await signOut()
+      router.push('/')
+    } catch (error) {
+      console.error('Error signing out:', error)
+      setIsSigningOut(false)
+    }
+  }
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: 'League Spartan, sans-serif' }}>
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div
+            className="w-16 h-16 bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border-2 border-[#00FF99]/30 rounded-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#00FF99]/20 overflow-hidden"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <Image 
+              src="/greenlitailogo.png" 
+              alt="Greenlit Logo" 
+              width={48}
+              height={48}
+              className="object-contain"
+            />
+          </motion.div>
+          <motion.div 
+            className="w-12 h-12 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          />
+          <p className="text-white/90 text-lg">Loading profile...</p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  return (
+    <motion.div 
+      className="min-h-screen py-16"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+      style={{ fontFamily: 'League Spartan, sans-serif' }}
+    >
+      <div className="container mx-auto px-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#00FF99] to-[#00CC7A] mb-4">
+              Your Profile
+            </h1>
+            <p className="text-white/70 text-lg">
+              Manage your Greenlit account and projects
+            </p>
+          </motion.div>
+
+          {/* Profile Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl p-8 mb-6 shadow-2xl"
+          >
+            {/* Background glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/5 to-transparent opacity-50 rounded-2xl pointer-events-none"></div>
+            
+            <div className="relative">
+              {/* Profile Header */}
+              <div className="flex items-center gap-6 mb-8 pb-8 border-b border-[#00FF99]/20">
+                {/* Avatar */}
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border-2 border-[#00FF99]/40 flex items-center justify-center shadow-lg shadow-[#00FF99]/20">
+                  {user.photoURL ? (
+                    <Image 
+                      src={user.photoURL} 
+                      alt={user.displayName || 'User'} 
+                      width={96}
+                      height={96}
+                      className="rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-bold text-[#00FF99]">
+                      {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* User Info */}
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {user.displayName || 'Greenlit User'}
+                  </h2>
+                  <p className="text-[#00FF99] text-sm mb-1">
+                    {user.email}
+                  </p>
+                  <p className="text-white/50 text-sm">
+                    Member since {new Date().toLocaleDateString()}
+                  </p>
+                </div>
+
+                {/* Status Badge */}
+                <div className="px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-[#00FF99] rounded-full animate-pulse" />
+                    <span className="text-[#00FF99] text-sm font-medium">Active</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Story Bibles Dashboard */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-white">Your Story Bibles</h3>
+                  <Link
+                    href="/demo"
+                    className="px-4 py-2 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all text-sm"
+                  >
+                    + Create New
+                  </Link>
+                </div>
+
+                {/* Search & Filter Controls */}
+                {storyBibles.length >= 3 && (
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 mb-6 bg-[#1A1A1A]/50 border border-[#00FF99]/10 rounded-lg p-4">
+                    {/* Search */}
+                    <div className="flex-1 min-w-[200px] sm:min-w-[250px]">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="🔍 Search by title..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full px-4 py-2 min-h-[44px] bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-[#00FF99]/40 text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status Filter */}
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as any)}
+                      className="px-4 py-2 min-h-[44px] min-w-[140px] bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white text-sm focus:outline-none focus:border-[#00FF99]/40 cursor-pointer"
+                    >
+                      <option value="all">Status: All</option>
+                      <option value="draft">Draft</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="complete">Complete</option>
+                    </select>
+
+                    {/* Sort */}
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="px-4 py-2 min-h-[44px] min-w-[140px] bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white text-sm focus:outline-none focus:border-[#00FF99]/40 cursor-pointer"
+                    >
+                      <option value="recent">Sort: Recent</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="a-z">A-Z</option>
+                      <option value="z-a">Z-A</option>
+                    </select>
+
+                    {/* Results Count */}
+                    {(searchQuery || statusFilter !== 'all') && (
+                      <div className="text-white/60 text-sm whitespace-nowrap">
+                        Showing {filteredAndSortedBibles.length} of {storyBibles.length}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {loadingProjects ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[1, 2].map(i => (
+                      <div key={i} className="bg-[#121212] rounded-xl p-4 border border-[#00FF99]/10 animate-pulse">
+                        <div className="h-6 bg-[#00FF99]/10 rounded mb-3 w-3/4"></div>
+                        <div className="h-4 bg-[#00FF99]/10 rounded mb-2 w-1/2"></div>
+                        <div className="h-4 bg-[#00FF99]/10 rounded w-1/3"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : storyBibles.length === 0 ? (
+                  <div className="bg-[#121212] rounded-xl p-12 border border-[#00FF99]/10 text-center">
+                    <div className="text-6xl mb-4">📖</div>
+                    <h4 className="text-xl font-bold text-white mb-2">No Story Bibles Yet</h4>
+                    <p className="text-white/50 mb-6">Create your first story bible to get started</p>
+                    <Link
+                      href="/demo"
+                      className="inline-block px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all"
+                    >
+                      Create Story Bible
+                    </Link>
+                  </div>
+                ) : filteredAndSortedBibles.length === 0 ? (
+                  <div className="bg-[#121212] rounded-xl p-8 border border-[#00FF99]/10 text-center">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <h4 className="text-lg font-bold text-white mb-2">No matching story bibles</h4>
+                    <p className="text-white/50 mb-4 text-sm">Try adjusting your search or filters</p>
+                    <button
+                      onClick={() => {
+                        setSearchQuery('')
+                        setStatusFilter('all')
+                      }}
+                      className="px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] rounded-lg hover:bg-[#00FF99]/20 transition-all text-sm"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredAndSortedBibles.map((bible, index) => (
+                      <motion.div
+                        key={bible.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        onClick={() => setExpandedCard(expandedCard === bible.id ? null : bible.id)}
+                        className="bg-[#121212] rounded-xl p-4 border border-[#00FF99]/10 hover:border-[#00FF99]/30 hover:bg-[#1A1A1A] transition-all group cursor-pointer relative overflow-hidden"
+                      >
+                        {/* Background glow on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                        
+                        <div className="relative">
+                          {/* Primary Info - Always Visible */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xl">📖</span>
+                                <h4 className="text-lg font-bold text-white line-clamp-1">
+                                  {bible.seriesTitle || 'Untitled Story Bible'}
+                                </h4>
+                              </div>
+                            </div>
+                            
+                            {/* Status Badge */}
+                            <div className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ml-2 ${
+                              bible.status === 'complete' 
+                                ? 'bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40' 
+                                : bible.status === 'in-progress'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
+                            }`}>
+                              {bible.status === 'complete' ? '✓' : bible.status === 'in-progress' ? '⚡' : '📝'}
+                            </div>
+                          </div>
+
+                          {/* Secondary Info - Visible on Hover or Tap */}
+                          <div className={`space-y-2 mb-3 transition-all duration-300 ${
+                            expandedCard === bible.id 
+                              ? 'opacity-100 max-h-24' 
+                              : 'opacity-0 group-hover:opacity-100 max-h-0 group-hover:max-h-24'
+                          } overflow-hidden`}>
+                            <p className="text-white/50 text-xs leading-snug">
+                              Last edited: {new Date(bible.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                            <div className="flex gap-3 text-xs text-white/60 leading-snug">
+                              <span>{bible.mainCharacters?.length || bible.characters?.length || 0} characters</span>
+                              <span>•</span>
+                              <span>{bible.narrativeArcs?.length || bible.storyArcs?.length || 0} arcs</span>
+                              {bible.worldElements && bible.worldElements.length > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>{bible.worldElements.length} locations</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions - Visible on Hover or Tap */}
+                          <div className={`flex gap-2 transition-all duration-300 ${
+                            expandedCard === bible.id
+                              ? 'opacity-100 max-h-16'
+                              : 'opacity-0 group-hover:opacity-100 max-h-0 group-hover:max-h-16'
+                          } overflow-hidden`}>
+                            <Link
+                              href={`/story-bible?id=${bible.id}`}
+                              className="flex-1 px-3 py-2.5 min-h-[44px] flex items-center justify-center bg-[#00FF99]/10 text-[#00FF99] rounded-lg hover:bg-[#00FF99]/20 transition-all text-center text-sm font-medium border border-[#00FF99]/20 hover:border-[#00FF99]/40"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteModal({ isOpen: true, storyBible: bible });
+                              }}
+                              className="px-3 py-2.5 min-h-[44px] bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-sm font-medium border border-red-500/20 hover:border-red-500/40"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Shared Links Section */}
+          {shareLinks.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.35 }}
+              className="bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl p-8 mb-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6 cursor-pointer" onClick={() => setShowSharedLinks(!showSharedLinks)}>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-xl font-bold text-white">Shared Links</h3>
+                  <span className="px-2 py-1 bg-[#00FF99]/10 text-[#00FF99] rounded-full text-xs font-medium">
+                    {shareLinks.filter(l => l.isActive).length} active
+                  </span>
+                </div>
+                <button className="text-white/60 hover:text-white transition-colors">
+                  {showSharedLinks ? '▼' : '▶'}
+                </button>
+              </div>
+
+              {showSharedLinks && (
+                <div className="space-y-3">
+                  {loadingSharedLinks ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[1, 2].map(i => (
+                        <div key={i} className="bg-[#121212] rounded-lg p-4 border border-[#00FF99]/10 animate-pulse">
+                          <div className="h-5 bg-[#00FF99]/10 rounded mb-3 w-3/4"></div>
+                          <div className="h-4 bg-[#00FF99]/10 rounded w-1/2"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {shareLinks.map((link) => {
+                        const storyBible = storyBibles.find(sb => sb.id === link.storyBibleId)
+                        return (
+                          <ShareLinkCard
+                            key={link.shareId}
+                            link={link}
+                            storyBibleTitle={storyBible?.seriesTitle}
+                            onRevoke={handleRevokeLink}
+                          />
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Danger Zone */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="bg-[#1A1A1A] border border-red-500/30 rounded-2xl p-8 shadow-2xl"
+          >
+            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <span>⚠️</span> Danger Zone
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b border-red-500/20">
+                <div>
+                  <div className="text-white font-medium mb-1">Sign Out</div>
+                  <div className="text-white/50 text-sm">Sign out of your account on this device</div>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                  className="px-6 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium mb-1">Delete Account</div>
+                  <div className="text-white/50 text-sm">Permanently delete your account and all data</div>
+                </div>
+                <button className="px-6 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Story Bible?"
+        message={`Are you sure you want to delete "${deleteModal.storyBible?.seriesTitle || 'this story bible'}"?`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, storyBible: null })}
+      />
+
+      {/* Migration Prompt Modal */}
+      <MigrationPromptModal
+        isOpen={showMigrationModal}
+        localBibles={localBibles}
+        onMigrate={handleMigrate}
+        onClose={() => setShowMigrationModal(false)}
+        isLoading={isMigrating}
+      />
+    </motion.div>
+  )
+}
+

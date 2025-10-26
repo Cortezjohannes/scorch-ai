@@ -4,10 +4,12 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '@/context/AuthContext'
 
 export default function Navigation() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { user, isAuthenticated, signOut } = useAuth()
 
   const links = [
     { href: '/', label: 'Home' },
@@ -67,6 +69,42 @@ export default function Navigation() {
             )}
           </Link>
         ))}
+        
+        {/* Auth Links */}
+        <div className="ml-4 flex items-center space-x-2">
+          {isAuthenticated && user ? (
+            <>
+              <Link
+                href="/profile"
+                className="px-4 py-2 rounded-lg text-sm text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A] transition-colors flex items-center gap-2 max-w-[200px]"
+              >
+                <span className="text-lg flex-shrink-0">👤</span>
+                <span className="truncate">{user.displayName || user.email}</span>
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="px-4 py-2 rounded-lg text-sm bg-[#00FF991A] text-[#00FF99] hover:bg-[#00FF9930] transition-colors"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="px-4 py-2 rounded-lg text-sm text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A] transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="px-4 py-2 rounded-lg text-sm bg-[#00FF99] text-black font-medium hover:bg-[#00CC7A] transition-colors"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+        </div>
       </div>
       
       {/* Mobile menu button */}
@@ -123,9 +161,9 @@ export default function Navigation() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="absolute top-16 left-4 right-4 bg-[#121212]/95 backdrop-blur-md border border-[#00FF99]/20 rounded-xl shadow-2xl md:hidden z-50"
+              className="absolute top-16 left-4 right-4 max-h-[calc(100vh-5rem)] overflow-y-auto bg-[#121212]/95 backdrop-blur-md border border-[#00FF99]/20 rounded-xl shadow-2xl md:hidden z-50"
             >
-              <div className="p-4 space-y-2">
+              <div className="p-4 space-y-2 safe-area-padding">
                 {links.map((link, index) => (
                   <motion.div
                     key={link.href}
@@ -165,6 +203,51 @@ export default function Navigation() {
                     </Link>
                   </motion.div>
                 ))}
+                
+                {/* Mobile Auth Links */}
+                <div className="border-t border-[#00FF99]/20 pt-2 mt-2 space-y-2">
+                  {isAuthenticated && user ? (
+                    <>
+                      <div className="px-4 py-2 text-[#E7E7E7]/70 text-sm flex items-center gap-2">
+                        <span className="text-lg flex-shrink-0">👤</span>
+                        <span className="truncate">{user.displayName || user.email}</span>
+                      </div>
+                      <Link
+                        href="/profile"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 rounded-lg text-[#E7E7E7]/80 hover:bg-[#1E1E1E] hover:text-white transition-all"
+                      >
+                        View Profile
+                      </Link>
+                      <button
+                        onClick={() => {
+                          signOut();
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-3 rounded-lg bg-[#00FF991A] text-[#00FF99] hover:bg-[#00FF9930] transition-colors text-left"
+                      >
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 rounded-lg text-[#E7E7E7]/80 hover:bg-[#1E1E1E] hover:text-white transition-all"
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        href="/signup"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block px-4 py-3 rounded-lg bg-[#00FF99] text-black font-medium hover:bg-[#00CC7A] transition-colors text-center"
+                      >
+                        Sign Up
+                      </Link>
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           </>

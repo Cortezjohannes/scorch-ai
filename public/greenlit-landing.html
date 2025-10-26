@@ -27,10 +27,30 @@
             </nav>
             <div class="header-actions">
                 <button class="faq-link" onclick="openFAQModal()">FAQ</button>
-                <button class="login-button">Login</button>
+                <div id="auth-buttons">
+                    <button class="login-button" onclick="window.location.href='/login'">Login</button>
+                </div>
+                <!-- Mobile Menu Button -->
+                <button id="mobile-menu-btn" class="mobile-menu-button" aria-label="Toggle menu">
+                    <span class="hamburger-icon"></span>
+                    <span class="hamburger-icon"></span>
+                    <span class="hamburger-icon"></span>
+                </button>
             </div>
         </div>
     </header>
+    
+    <!-- Mobile Menu Overlay -->
+    <div id="mobile-menu" class="mobile-menu">
+        <div class="mobile-menu-content">
+            <a href="/uprising" class="mobile-nav-link">Uprising</a>
+            <a href="/program" class="mobile-nav-link">Program</a>
+            <a href="/criteria" class="mobile-nav-link">Criteria</a>
+            <a href="/fund" class="mobile-nav-link">Fund</a>
+            <a href="/playbook" class="mobile-nav-link">Playbook</a>
+            <button class="mobile-nav-link" onclick="openFAQModal(); closeMobileMenu()">FAQ</button>
+        </div>
+    </div>
 
     <!-- Section 1: Hero Section -->
     <section class="hero-section">
@@ -66,10 +86,10 @@
                 <img src="/greenlitailogo.png" alt="Greenlit" class="logo">
             </div>
             <h1 class="hero-headline">Stop Waiting for the Call.<br>Make the Show.</h1>
-            <p class="hero-subheadline">We built an AI Showrunner for professional actors ready to take control. You bring the talent and the audience; we handle the production grind. Launch your series, own your IP.</p>
+            <p class="hero-subheadline">We built a Showrunner for professional actors ready to take control. You bring the talent and the audience; we handle the production grind. Launch your series, own your IP.</p>
             <div class="cta-buttons">
                 <button class="cta-primary glow-effect">Apply to the Producer Program →</button>
-                <button class="cta-secondary demo-button" onclick="window.location.href='/demo'">Try the Demo</button>
+                <button class="cta-secondary demo-button" id="hero-cta-button" onclick="window.location.href='/demo'">Try the Demo</button>
             </div>
             <p class="micro-copy">Response within 72 hours.</p>
         </div>
@@ -132,13 +152,148 @@
         </div>
     </div>
 
-    <!-- Section 3: Product Demo -->
-    <section class="product-demo-section">
+    <!-- Section 3: Stories Carousel -->
+    <section class="stories-carousel-section">
+        <!-- Floating Particles -->
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        
+        <!-- Geometric Background -->
+        <div class="geometric-bg">
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+            <div class="geometric-shape"></div>
+        </div>
+        
         <div class="container">
-            <h2 class="section-headline">Be Your Own Showrunner</h2>
-            <div class="demo-placeholder">
-                <div class="demo-content">
-                    <p>Product Demo Coming Soon</p>
+            <div class="stories-content">
+                <div class="stories-text">
+                    <h2 class="section-headline">Stories You Can Tell</h2>
+                    <p class="stories-description">The possibilities are <span class="highlight">endless</span>. Our platform empowers you to bring to life the stories that traditional studios would never greenlight. From intimate character studies to bold genre experiments, from underrepresented voices to unconventional narratives—if you can envision it, you can create it.</p>
+                    <p class="stories-tagline">No gatekeepers. No compromises. Just pure creative <span class="highlight">freedom</span>.</p>
+                    <p class="stories-vision">These are just a glimpse of what creators like you could produce. Your <span class="highlight">vision</span>. Your voice. Your series.</p>
+                </div>
+                
+                <div class="carousel-container">
+                    <div class="carousel-wrapper">
+                        <div class="carousel-slides" id="carouselSlides">
+                            <!-- Slide 1: Psychological Drama -->
+                            <div class="carousel-slide active">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-1.JPG" alt="Psychological Drama" class="poster-image">
+                                </div>
+                                <div class="genre-label">Psychological Drama</div>
+                            </div>
+                            
+                            <!-- Slide 2: Social Drama -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-2.JPG" alt="Social Drama" class="poster-image">
+                                </div>
+                                <div class="genre-label">Social Drama</div>
+                            </div>
+                            
+                            <!-- Slide 3: Mystery/Crime -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-3.JPG" alt="Mystery/Crime" class="poster-image">
+                                </div>
+                                <div class="genre-label">Mystery/Crime</div>
+                            </div>
+                            
+                            <!-- Slide 4: Horror -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-4.JPG" alt="Horror" class="poster-image">
+                                </div>
+                                <div class="genre-label">Horror</div>
+                            </div>
+                            
+                            <!-- Slide 5: LGBTQ+ Romance -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-5.JPG" alt="LGBTQ+ Romance" class="poster-image">
+                                </div>
+                                <div class="genre-label">LGBTQ+ Romance</div>
+                            </div>
+                            
+                            <!-- Slide 6: Coming-of-Age -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-6.JPG" alt="Coming-of-Age" class="poster-image">
+                                </div>
+                                <div class="genre-label">Coming-of-Age</div>
+                            </div>
+                            
+                            <!-- Slide 7: Sci-Fi Thriller -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-7.JPG" alt="Sci-Fi Thriller" class="poster-image">
+                                </div>
+                                <div class="genre-label">Sci-Fi Thriller</div>
+                            </div>
+                            
+                            <!-- Slide 8: Family Drama -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-8.JPG" alt="Family Drama" class="poster-image">
+                                </div>
+                                <div class="genre-label">Family Drama</div>
+                            </div>
+                            
+                            <!-- Slide 9: Experimental -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-9.JPG" alt="Experimental" class="poster-image">
+                                </div>
+                                <div class="genre-label">Experimental</div>
+                            </div>
+                            
+                            <!-- Slide 10: Action Thriller -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-10.JPG" alt="Action Thriller" class="poster-image">
+                                </div>
+                                <div class="genre-label">Action Thriller</div>
+                            </div>
+                            
+                            <!-- Slide 11: Fantasy -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-11.JPG" alt="Fantasy" class="poster-image">
+                                </div>
+                                <div class="genre-label">Fantasy</div>
+                            </div>
+                            
+                            <!-- Slide 12: Comedy -->
+                            <div class="carousel-slide">
+                                <div class="phone-mockup">
+                                    <img src="/images/series-posters/poster-12.JPG" alt="Comedy" class="poster-image">
+                                </div>
+                                <div class="genre-label">Comedy</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Navigation Controls -->
+                        <div class="carousel-nav">
+                            <button class="carousel-prev" id="carouselPrev">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="carousel-next" id="carouselNext">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -240,18 +395,18 @@
                 </div>
                 <div class="step-card">
                     <div class="step-number">2</div>
-                    <h3 class="step-title">The AI-Powered Writers' Room (Pre-Production)</h3>
-                    <p>Accelerate your vision. Co-write with the AI to draft scripts, optimize narratives, and generate story bibles and shot lists in minutes—not months. You maintain full creative control.</p>
+                    <h3 class="step-title">The Writers' Room (Pre-Production)</h3>
+                    <p>Accelerate your vision. Co-write with our platform to draft scripts, optimize narratives, and generate story bibles and shot lists in minutes—not months. You maintain full creative control.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">3</div>
                     <h3 class="step-title">The Action (Production)</h3>
-                    <p>You're Greenlit. You direct and shoot with your co-stars either by yourselves or with a skeleton crew. You are the director and the AI acts as your 1st AD, providing guidance to ensure quality.</p>
+                    <p>You're Greenlit. You direct and shoot with your co-stars either by yourselves or with a skeleton crew. You are the director and our platform acts as your 1st AD, providing guidance to ensure quality.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">4</div>
                     <h3 class="step-title">The Magic (Post-Production)</h3>
-                    <p>Upload your footage. The AI handles the grind: editing, VFX, audio sync, and formatting. You lead with vision, the AI follows.</p>
+                    <p>Upload your footage. Our platform handles the grind: editing, VFX, audio sync, and formatting. You lead with vision, we follow.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">5</div>
@@ -333,7 +488,7 @@
         <div class="spotlight-background"></div>
         <div class="container">
             <h2 class="final-headline">You're Already Greenlit.</h2>
-            <button class="cta-primary glow-effect maximum-glow" onclick="window.location.href='/demo'">Try the Demo →</button>
+            <button class="cta-primary glow-effect maximum-glow" id="footer-cta-button" onclick="window.location.href='/demo'">Try the Demo →</button>
             <button class="faq-link-final" onclick="openFAQModal()">FAQ</button>
         </div>
     </section>
@@ -346,7 +501,7 @@
                 <h2 class="faq-modal-title">Greenlit FAQs</h2>
                 <button class="faq-close-btn" onclick="closeFAQModal()">&times;</button>
             </div>
-            <div class="faq-modal-body">
+            <div class="faq-modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 10px;">
                 <div class="faq-item">
                     <h3 class="faq-question">Why do I have to apply? I thought there were no gatekeepers.</h3>
                     <p class="faq-answer">Hollywood gatekeeping is arbitrary and opaque. We use transparent criteria (Chops, Clout, Creativity) because our distribution platform promises premium content. We aren't judging your worth; we're assessing your readiness to produce *right now*.</p>
@@ -373,13 +528,92 @@
                 </div>
                 
                 <div class="faq-item">
-                    <h3 class="faq-question">Is this AI going to replace human actors or writers?</h3>
-                    <p class="faq-answer">Hell no. Greenlit is built specifically to empower human talent. The AI acts as your production crew—handling the bureaucratic grind so you can focus on the performance and the vision.</p>
+                    <h3 class="faq-question">Is this platform going to replace human actors or writers?</h3>
+                    <p class="faq-answer">Hell no. Greenlit is built specifically to empower human talent. The platform acts as your production crew—handling the bureaucratic grind so you can focus on the performance and the vision.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="/script.js"></script>
+    
+    <!-- Firebase Auth Integration -->
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        
+        // Firebase config from env
+        const firebaseConfig = {
+            apiKey: "AIzaSyB6yfJSsYGBE3m0B0kslIMJ86cSktV5w3U",
+            authDomain: "greenlitai.firebaseapp.com",
+            projectId: "greenlitai",
+            storageBucket: "greenlitai.firebasestorage.app",
+            messagingSenderId: "42640188111",
+            appId: "1:42640188111:web:89e69efb3cf94522ac8dba",
+            measurementId: "G-VZNLRYMNH0"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        
+        // Check auth state and update navigation
+        onAuthStateChanged(auth, (user) => {
+            const authButtons = document.getElementById('auth-buttons');
+            const heroCTA = document.getElementById('hero-cta-button');
+            const footerCTA = document.getElementById('footer-cta-button');
+            
+            if (user) {
+                // User is logged in - show profile and logout
+                const email = user.email || 'User';
+                const displayName = user.displayName || email.split('@')[0];
+                
+                authButtons.innerHTML = `
+                    <button class="login-button" onclick="window.location.href='/profile'" style="background: transparent; border: 1px solid #00FF99;">
+                        👤 ${displayName}
+                    </button>
+                    <button class="login-button" onclick="signOutUser()" style="background: rgba(0, 255, 153, 0.1); color: #00FF99; margin-left: 10px;">
+                        Logout
+                    </button>
+                `;
+                
+                // Update CTA buttons for logged-in users
+                if (heroCTA) {
+                    heroCTA.textContent = 'Go to Dashboard';
+                    heroCTA.onclick = () => window.location.href = '/profile';
+                }
+                if (footerCTA) {
+                    footerCTA.textContent = 'Go to Dashboard →';
+                    footerCTA.onclick = () => window.location.href = '/profile';
+                }
+            } else {
+                // User is not logged in - show login button
+                authButtons.innerHTML = `
+                    <button class="login-button" onclick="window.location.href='/login'">Login</button>
+                `;
+                
+                // Update CTA buttons for guests
+                if (heroCTA) {
+                    heroCTA.textContent = 'Try the Demo';
+                    heroCTA.onclick = () => window.location.href = '/demo';
+                }
+                if (footerCTA) {
+                    footerCTA.textContent = 'Try the Demo →';
+                    footerCTA.onclick = () => window.location.href = '/demo';
+                }
+            }
+        });
+        
+        // Make signOut available globally
+        window.signOutUser = async function() {
+            try {
+                await auth.signOut();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        };
+    </script>
 </body>
 </html>

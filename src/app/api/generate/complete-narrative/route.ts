@@ -138,7 +138,6 @@ Return as JSON: {"description": "world description", "locations": ["location1", 
       temperature: 0.7
     }, 'WorldBuildingEngine');
     const worldBlueprint: any = worldResponse.data || { description: 'Rich story world', locations: ['Main Setting'], atmosphere: 'Immersive' };
-    console.log(`✅ WORLD BUILDING ENGINE: Created comprehensive world with ${worldBlueprint.locations?.length || 0} locations`);
     
     // ========================================================================
     // PHASE 2: NARRATIVE ARCHITECTURE ENGINES - Story Structure
@@ -148,10 +147,8 @@ Return as JSON: {"description": "world description", "locations": ["location1", 
     // ENGINE 4: FRACTAL NARRATIVE ENGINE - Multi-layered Story Structure
     console.log('🌊 ENGINE 4: FRACTAL NARRATIVE ENGINE - Creating fractal story structure...');
     const narrativeArc = await FractalNarrativeEngine.generateNarrativeArc(premise, allCharacters, 3, 12);
-    console.log(`✅ FRACTAL NARRATIVE ENGINE: Generated ${narrativeArc.acts?.length || 3}-act structure with ${narrativeArc.episodes?.length || 12} episodes`);
     
     // ENGINE 5: INTELLIGENT TROPE SYSTEM - Sophisticated Trope Deployment
-    console.log('🎭 ENGINE 5: INTELLIGENT TROPE SYSTEM - Deploying sophisticated tropes...');
     const tropeResponse = await AIOrchestrator.generateStructuredContent({
       prompt: `Analyze and recommend sophisticated tropes for this story:
 
@@ -165,7 +162,6 @@ Return as JSON: {"recommendedTropes": ["trope1", "trope2"], "avoidedCliches": ["
       temperature: 0.6
     }, 'IntelligentTropeSystem');
     const tropeBlueprint: any = tropeResponse.data || { recommendedTropes: ['Character Growth', 'Dramatic Irony'], avoidedCliches: [], innovations: [] };
-    console.log(`✅ INTELLIGENT TROPE SYSTEM: Deployed ${tropeBlueprint.recommendedTropes?.length || 0} sophisticated tropes`);
     
     // ========================================================================
     // PHASE 3: GENRE SPECIALIZATION ENGINES - Genre-Perfect Execution  
@@ -173,13 +169,10 @@ Return as JSON: {"recommendedTropes": ["trope1", "trope2"], "avoidedCliches": ["
     console.log('🎨 PHASE 3: GENRE SPECIALIZATION ENGINES - Applying genre mastery...');
     
     // ENGINE 6: GENRE MASTERY SYSTEM - Genre Coordination
-    console.log('🎯 ENGINE 6: GENRE MASTERY SYSTEM - Coordinating genre elements...');
     const genreProfile = await GenreMasterySystem.generateGenreProfileAI(detectedGenre);
-    console.log(`✅ GENRE MASTERY SYSTEM: Mastered ${detectedGenre} with ${genreProfile.dialogueConventions?.length || 0} dialogue conventions`);
     
     // GENRE-SPECIFIC SPECIALIZATION ENGINES
     let genreSpecializationResults = {};
-    console.log('🎯 GENRE SPECIALIZATION: Activating genre-specific engines...');
     
     // Use AI Orchestrator for genre specializations to demonstrate the concept
     const genreSpecResponse = await AIOrchestrator.generateStructuredContent({
@@ -208,12 +201,10 @@ Return as JSON: {"genreEnhancements": ["enhancement1", "enhancement2"], "special
       specializedElements: ['Genre-specific storytelling'],
       audienceEngagement: ['Targeted audience experience']
     };
-    console.log(`✅ ${detectedGenre.toUpperCase()} SPECIALIZATION: Applied sophisticated genre mastery`);
     
     // ========================================================================
     // PHASE 4: ENGAGEMENT ENGINES - Audience Connection & Interactivity
     // ========================================================================
-    console.log('⚡ PHASE 4: ENGAGEMENT ENGINES - Maximizing audience connection...');
     
     // ENGINE 7: TENSION ESCALATION ENGINE - Dramatic Momentum
     console.log('📈 ENGINE 7: TENSION ESCALATION ENGINE - Building dramatic momentum...');
@@ -236,7 +227,6 @@ Return as JSON: {"escalationPattern": "pattern type", "tensionBeats": ["beat1", 
       temperature: 0.6
     }, 'TensionEscalationEngine');
     const tensionBlueprint: any = tensionResponse.data || { escalationPattern: 'dramatic', tensionBeats: ['Setup', 'Conflict', 'Climax'], climaxStructure: 'satisfying', audienceEngagement: 'high' };
-    console.log(`✅ TENSION ESCALATION ENGINE: Created ${tensionBlueprint.escalationPattern || 'dynamic'} tension pattern`);
     
     // ENGINE 8: INTERACTIVE CHOICE ENGINE - Branching Narratives
     console.log('🎮 ENGINE 8: INTERACTIVE CHOICE ENGINE - Creating meaningful choices...');
@@ -259,7 +249,6 @@ Return as JSON: {"choices": [{"text": "choice text", "consequence": "potential o
       temperature: 0.7
     }, 'InteractiveChoiceEngine');
     const interactiveChoices = (choiceResponse.data as any)?.choices || [{ text: 'Continue the journey', consequence: 'Story progression', characterRelevance: 'All characters' }];
-    console.log(`✅ INTERACTIVE CHOICE ENGINE: Generated ${interactiveChoices.length} consequential choices`);
     
     // ========================================================================
     // PHASE 5: DIALOGUE & LIVING WORLD ENGINES - Authentic Voice & Dynamic Environment
@@ -267,7 +256,6 @@ Return as JSON: {"choices": [{"text": "choice text", "consequence": "potential o
     console.log('💬 PHASE 5: DIALOGUE & LIVING WORLD ENGINES - Creating authentic voices...');
     
     // ENGINE 9: STRATEGIC DIALOGUE ENGINE - Character Voice & Conversation
-    console.log('🗣️ ENGINE 9: STRATEGIC DIALOGUE ENGINE - Crafting authentic dialogue...');
     const dialogueResponse = await AIOrchestrator.generateStructuredContent({
       prompt: `Create sophisticated dialogue sample for these characters:
       
@@ -286,7 +274,6 @@ Return as JSON: {"dialogueSamples": [{"speaker": "name", "line": "dialogue", "ch
     }, 'StrategicDialogueEngine');
     
     const dialogueSamples = (dialogueResponse.data as any)?.dialogueSamples || [];
-    console.log(`✅ STRATEGIC DIALOGUE ENGINE: Created ${dialogueSamples.length} authentic character voices (${mode} mode)`);
     
     // ENGINE 10: LIVING WORLD ENGINE - Dynamic Environment Evolution
     console.log('🌱 ENGINE 10: LIVING WORLD ENGINE - Creating dynamic world evolution...');
@@ -309,16 +296,13 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.7
     }, 'LivingWorldEngine');
     const livingWorld: any = livingWorldResponse.data || { dynamicSystems: ['Character relationships', 'Environmental changes'], worldEvolution: 'Progressive development', characterInteraction: 'Meaningful impact', atmosphere: 'Living and breathing' };
-    console.log(`✅ LIVING WORLD ENGINE: Created dynamic world with ${livingWorld.dynamicSystems?.length || 0} evolving systems`);
     
     // ==================================================================================
     // 🚀 PHASE 6: ADDITIONAL ENGINE LAYERS - SHOWCASE ALL 60+ ENGINES
     // ==================================================================================
-    console.log('🚀 PHASE 6: ADDITIONAL ENGINE LAYERS - Demonstrating ALL 60+ engines...');
     console.log('💎 MAXIMUM MURPHY PILLAR POWER - EVERY ENGINE ENGAGED');
     
     // 🎯 PACING & RHYTHM ENGINES (6 engines)
-    console.log('🎯 PACING ENGINES: Pacing-Rhythm System + Hook-Cliffhanger + Engagement V2...');
     const pacingResponse = await AIOrchestrator.generateStructuredContent({
       prompt: `Create comprehensive pacing strategy using multiple engines:\n\nSTORY: ${premise.premiseStatement}\nNARRATIVE ARC: ${JSON.stringify(narrativeArc, null, 2)}\nTENSION: ${JSON.stringify(tensionBlueprint, null, 2)}\n\nApply: Pacing-Rhythm System, Hook-Cliffhanger Engine, Engagement Engine V2, Serialized Continuity Engine.\n\nReturn as JSON: {"pacingRhythm": "rhythm pattern", "hookStrategy": ["hooks"], "cliffhangerPlacements": ["placements"], "engagementOptimization": ["optimizations"], "serializedContinuity": "continuity strategy"}`,
       systemPrompt: 'You are the unified Pacing & Rhythm Engine constellation, optimizing story flow and audience engagement.',
@@ -326,7 +310,6 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.6
     }, 'PacingRhythmConstellation');
     const pacingStrategy = pacingResponse.data || { pacingRhythm: 'Dynamic', hookStrategy: ['Opening hook'], engagementOptimization: ['High engagement'] };
-    console.log('✅ PACING ENGINES: 6 engines optimized story rhythm and engagement');
     
     // 🎨 VISUAL & DESIGN ENGINES (10 engines)
     console.log('🎨 VISUAL ENGINES: Visual-Storytelling + Visual-Design + Cinematography + Storyboarding...');
@@ -337,7 +320,6 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.7
     }, 'VisualDesignConstellation');
     const visualStrategy = visualResponse.data || { visualStorytelling: 'Cinematic', visualDesign: ['Professional design'], cinematography: ['Dynamic cameras'] };
-    console.log('✅ VISUAL ENGINES: 10 engines created comprehensive visual strategy');
     
     // 🎵 AUDIO & ENVIRONMENT ENGINES (4 engines)
     console.log('🎵 AUDIO ENGINES: Sound-Design + Sound-Design V2 + Living-World + Living-World V2...');
@@ -348,7 +330,6 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.7
     }, 'AudioEnvironmentConstellation');
     const audioStrategy = audioResponse.data || { soundDesign: ['Professional audio'], audioAtmosphere: 'Immersive', environmentalAudio: ['Rich soundscape'] };
-    console.log('✅ AUDIO ENGINES: 4 engines created immersive audio environment');
     
     // 🏭 PRODUCTION ENGINES (10 engines)
     console.log('🏭 PRODUCTION ENGINES: Production-Scheduling + Casting + Location + Directing + Performance-Coaching...');
@@ -359,7 +340,6 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.6
     }, 'ProductionConstellation');
     const productionStrategy = productionResponse.data || { productionSchedule: 'Professional', castingStrategy: ['Expert casting'], locationPlan: ['Optimal locations'] };
-    console.log('✅ PRODUCTION ENGINES: 10 engines orchestrated complete production pipeline');
     
     // 💬 DIALOGUE & COMMUNICATION ENGINES (6 engines)
     console.log('💬 COMMUNICATION ENGINES: Strategic-Dialogue + Dialogue V2 + Language + Language V2 + Performance-Coaching...');
@@ -370,10 +350,8 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.8
     }, 'CommunicationConstellation');
     const communicationStrategy = communicationResponse.data || { strategicDialogue: ['Professional dialogue'], characterVoices: ['Distinct voices'], performanceNotes: ['Expert guidance'] };
-    console.log('✅ COMMUNICATION ENGINES: 6 engines perfected character communication');
     
     // 🎬 SPECIALIZED FORMAT ENGINES (6 engines)  
-    console.log('🎬 FORMAT ENGINES: Short-Form + Five-Minute-Canvas + Serialized-Continuity + Theme-Integration...');
     const formatResponse = await AIOrchestrator.generateStructuredContent({
       prompt: `Create comprehensive format strategy using multiple engines:\n\nSTORY: ${premise.premiseStatement}\nNARRATIVE: ${JSON.stringify(narrativeArc, null, 2)}\nCOMPLEXITY: ${complexity}\n\nApply: Short-Form-Format Engine, Five-Minute-Canvas Engine V2, Serialized-Continuity Engine V2, Theme-Integration Engine, Theme-Integration Engine V2.\n\nReturn as JSON: {"shortFormAdaptation": "short form strategy", "fiveMinuteCanvas": ["canvas elements"], "serializedContinuity": "continuity approach", "themeIntegration": ["theme strategies"], "formatOptimization": ["optimizations"], "adaptabilityMatrix": ["adaptation options"]}`,
       systemPrompt: 'You are the unified Format Engine constellation, optimizing story presentation across all formats.',
@@ -381,10 +359,8 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.6
     }, 'FormatConstellation');
     const formatStrategy = formatResponse.data || { shortFormAdaptation: 'Versatile', themeIntegration: ['Strong themes'], formatOptimization: ['Multi-format ready'] };
-    console.log('✅ FORMAT ENGINES: 6 engines optimized multi-format presentation');
     
     // 🏗️ CONFLICT & ARCHITECTURE ENGINES (4 engines)
-    console.log('🏗️ CONFLICT ENGINES: Conflict-Architecture + Conflict-Architecture V2 + Episode-Cohesion + Episode-Cohesion V2...');
     const conflictResponse = await AIOrchestrator.generateStructuredContent({
       prompt: `Create comprehensive conflict strategy using multiple engines:\n\nPREMISE: ${premise.premiseStatement}\nCHARACTERS: ${allCharacters.map(c => `${c.name} (${c.psychology?.primaryFlaw || 'character flaw'})`).join(', ')}\nTENSION: ${JSON.stringify(tensionBlueprint, null, 2)}\n\nApply: Conflict-Architecture Engine, Conflict-Architecture Engine V2, Episode-Cohesion Engine, Episode-Cohesion Engine V2.\n\nReturn as JSON: {"conflictArchitecture": ["conflict structures"], "episodeCohesion": "cohesion strategy", "conflictEscalation": ["escalation patterns"], "resolutionStrategies": ["resolution approaches"], "characterConflicts": ["character conflicts"], "thematicConflicts": ["thematic conflicts"]}`,
       systemPrompt: 'You are the unified Conflict & Architecture Engine constellation, building sophisticated dramatic conflicts.',
@@ -392,7 +368,6 @@ Return as JSON: {"dynamicSystems": ["system1", "system2"], "worldEvolution": "ho
       temperature: 0.7
     }, 'ConflictArchitectureConstellation');
     const conflictStrategy = conflictResponse.data || { conflictArchitecture: ['Multi-layered conflicts'], episodeCohesion: 'Strong cohesion', characterConflicts: ['Deep character conflicts'] };
-    console.log('✅ CONFLICT ENGINES: 4 engines architected sophisticated dramatic conflicts');
     
     console.log('🎊 ALL 60+ ENGINES SUCCESSFULLY ORCHESTRATED!');
     console.log('🏆 MURPHY PILLAR SYSTEM OPERATING AT MAXIMUM CAPACITY');
@@ -601,8 +576,6 @@ Return just the genre name (e.g., "drama", "comedy", "horror", "mystery", "roman
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🎭 ONE-CLICK COMPLETE NARRATIVE GENERATION INITIATED')
-    console.log('🏛️ Murphy Pillar Master Conductor - Ultimate Feature Activated')
     
     // Parse request body
     const body = await request.json()
@@ -623,12 +596,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`🎯 COMPLETE NARRATIVE GENERATION PARAMETERS:`)
     console.log(`📝 Prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`)
     console.log(`🎨 Genre: ${genre || 'Auto-detect'}`)
     console.log(`📏 Length: ${length}`)
     console.log(`🧠 Complexity: ${complexity}`)
-    console.log(`🎭 Specializations: ${specializations.join(', ') || 'Auto-select'}`)
     console.log(`🔥 MODE: ${mode.toUpperCase()} - ${mode === 'beast' ? 'AZURE OPENAI (ULTIMATE QUALITY)' : 'GEMINI (STABLE)'}`)
 
     // Initialize generation timer
@@ -636,7 +607,6 @@ export async function POST(request: NextRequest) {
     
     // 🎼 ULTIMATE MURPHY PILLAR ORCHESTRATION - ALL 60+ ENGINES IN PERFECT HARMONY
     console.log('🎼 ORCHESTRATING ALL 60+ ENGINES FOR COMPLETE NARRATIVE GENERATION...')
-    console.log('🚀 ENGINES ACTIVATING: Premise → Characters → Structure → Dialogue → World → Visual → Audio → Production → Communication → Format → Conflict → Specializations...')
     console.log('💎 MAXIMUM ENGINE UTILIZATION FOR ULTIMATE AI SHOWRUNNER EXPERIENCE')
     console.log('🏆 MURPHY PILLAR SYSTEM: FULL POWER ENGAGED - 60+ ENGINES READY')
     
@@ -647,10 +617,6 @@ export async function POST(request: NextRequest) {
     const endTime = Date.now()
     const generationTime = endTime - startTime
     
-    console.log('✅ COMPLETE NARRATIVE GENERATION SUCCESSFUL')
-    console.log(`⚡ Generation time: ${generationTime}ms`)
-    console.log(`📊 Story quality: Professional grade`)
-    console.log(`🛠️ Engines coordinated: All 14 engines in perfect harmony`)
     
     // Add generation metadata
     const responseData = {

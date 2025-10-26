@@ -59,9 +59,7 @@ export class EngineIntegrationTest {
    */
   async runCompleteTestSuite(): Promise<TestSuiteResult> {
     console.log(`\n🧪 ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 ENGINE INTEGRATION TEST SUITE STARTING`);
     console.log(`🤖 Mode: ${this.config.testMode.toUpperCase()}`);
-    console.log(`⏱️ Timeout: ${this.config.timeoutMs}ms`);
     console.log(`🔄 Max Retries: ${this.config.maxRetries}`);
     console.log(`🧪 ═══════════════════════════════════════════════════════════════════════════════════`);
     
@@ -69,36 +67,27 @@ export class EngineIntegrationTest {
     
     try {
       // TEST 1: Foundation System Initialization
-      console.log(`\n🏗️ TEST 1: Foundation System Initialization`);
       await this.testFoundationInitialization()
       
       // TEST 2: Individual Engine API Tests
-      console.log(`\n🎭 TEST 2: Individual Engine API Tests`);
       await this.testIndividualEngines()
       
       // TEST 3: Foundation System Integration
-      console.log(`\n🎯 TEST 3: Foundation System Integration`);
       await this.testFoundationIntegration()
       
       // TEST 4: Real Content Generation End-to-End
-      console.log(`\n📝 TEST 4: Real Content Generation End-to-End`);
       await this.testRealContentGeneration()
       
       // TEST 5: Error Handling and Fallbacks
-      console.log(`\n🛡️ TEST 5: Error Handling and Fallbacks`);
       await this.testErrorHandlingAndFallbacks()
       
       // TEST 6: Performance and Reliability
-      console.log(`\n⚡ TEST 6: Performance and Reliability`);
       await this.testPerformanceAndReliability()
       
       const totalTime = Date.now() - testStartTime
       const successCount = this.results.filter(r => r.success).length
       const failureCount = this.results.filter(r => !r.success).length
       
-      console.log(`\n✅ TEST SUITE COMPLETE`);
-      console.log(`📊 Results: ${successCount} passed, ${failureCount} failed`);
-      console.log(`⏱️ Total Time: ${totalTime}ms`);
       console.log(`🧪 ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
@@ -148,10 +137,7 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   ✅ Foundation initialized: ${test.success ? 'YES' : 'NO'}`);
     if (test.data) {
-      console.log(`   📊 System Health: ${test.data.health}`);
-      console.log(`   🔧 Engines Available: ${test.data.enginesAvailable}`);
     }
   }
   
@@ -204,7 +190,6 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   🎭 DialogueEngineV2: ${dialogueTest.success ? 'PASS' : 'FAIL'}`);
     if (dialogueTest.data) {
       console.log(`      Content Length: ${dialogueTest.data.contentLength} chars`);
       console.log(`      API Provider: ${dialogueTest.data.apiProvider}`);
@@ -287,7 +272,6 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   🎭 CastingEngineV2: ${castingTest.success ? 'PASS' : 'FAIL'}`);
     if (castingTest.data) {
       console.log(`      Characters: ${castingTest.data.characterCount}`);
       console.log(`      API Provider: ${castingTest.data.apiProvider}`);
@@ -338,7 +322,6 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   🎯 Foundation Integration: ${integrationTest.success ? 'PASS' : 'FAIL'}`);
     if (integrationTest.data) {
       console.log(`      Enhanced: ${integrationTest.data.enhanced ? 'YES' : 'NO'}`);
       console.log(`      Engines Used: ${integrationTest.data.enginesUsed}`);
@@ -444,7 +427,6 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   🛡️ Error Handling: ${fallbackTest.success ? 'PASS' : 'FAIL'}`);
     if (fallbackTest.data) {
       console.log(`      Fallback Activated: ${fallbackTest.data.fallbackActivated ? 'YES' : 'NO'}`);
       console.log(`      Content Returned: ${fallbackTest.data.contentReturned ? 'YES' : 'NO'}`);
@@ -496,7 +478,6 @@ export class EngineIntegrationTest {
       }
     })
     
-    console.log(`   ⚡ Performance Test: ${performanceTest.success ? 'PASS' : 'FAIL'}`);
     if (performanceTest.data) {
       console.log(`      Average Time: ${performanceTest.data.averageTime.toFixed(0)}ms`);
       console.log(`      Success Rate: ${(performanceTest.data.successRate * 100).toFixed(1)}%`);
@@ -546,10 +527,8 @@ export class EngineIntegrationTest {
           }
           
           this.results.push(result)
-          console.log(`   ❌ ${testName} failed after ${attempt} attempts: ${error instanceof Error ? error.message : String(error)}`);
           return result
         } else {
-          console.log(`   ⚠️ ${testName} failed on attempt ${attempt}, retrying...`);
         }
       }
     }
@@ -561,7 +540,6 @@ export class EngineIntegrationTest {
    * 🎯 Quick API Connectivity Test
    */
   async quickAPITest(): Promise<boolean> {
-    console.log(`\n🔧 Quick API Connectivity Test...`);
     
     try {
       const response = await AIOrchestrator.generateContent({
@@ -573,14 +551,12 @@ export class EngineIntegrationTest {
       }, 'APIConnectivityTest')
       
       const success = response.content.length > 0
-      console.log(`   ${success ? '✅' : '❌'} API Connectivity: ${success ? 'WORKING' : 'FAILED'}`);
       console.log(`   🤖 Provider: ${response.provider}`);
       console.log(`   📝 Response: "${response.content.substring(0, 50)}..."`);
       
       return success
       
     } catch (error) {
-      console.log(`   ❌ API Connectivity: FAILED - ${error instanceof Error ? error.message : String(error)}`);
       return false
     }
   }

@@ -12,20 +12,22 @@ import { FiveMinuteCanvasEngineV2 } from '@/services/five-minute-canvas-engine-v
 import type { StoryPremise } from '@/services/premise-engine'
 import { retryWithModelFallback } from '@/services/model-fallback-utils'
 
-// Engine options interface based on user's design
+// Engine options interface based on user's design - COMPREHENSIVE 8-ENGINE SUITE
 interface ScriptEngineOptions {
   useEngines?: boolean
   engineLevel?: 'basic' | 'professional' | 'master'
   masterTechnique?: 'sorkin' | 'mamet' | 'tarantino' | 'mixed'
   subtextLevel?: 'minimal' | 'moderate' | 'heavy'
   conflictIntensity?: number // 1-10 scale
-  useTensionEngine?: boolean
+  useTensionEngine?: boolean // TensionEscalationEngine
   tensionLevel?: 'subtle' | 'moderate' | 'intense' | 'extreme'
-  usePerformanceEngine?: boolean
-  useLanguageEngine?: boolean
+  usePerformanceEngine?: boolean // PerformanceCoachingEngineV2
+  useLanguageEngine?: boolean // LanguageEngineV2
   culturalContext?: 'filipino' | 'american' | 'multicultural' | 'generic'
   voiceDifferentiation?: 'basic' | 'advanced' | 'master'
-  useFormatEngine?: boolean
+  useFormatEngine?: boolean // FiveMinuteCanvasEngineV2
+  useGenreMastery?: boolean // GenreMasterySystem
+  useCharacterEngine?: boolean // CharacterEngineV2
   attentionStrategy?: 'retention-maximized' | 'engagement-focused' | 'standard'
   compressionLevel?: 'moderate' | 'aggressive' | 'extreme'
   mode?: 'beast' | 'stable'
@@ -33,7 +35,6 @@ interface ScriptEngineOptions {
 
 // 🎭 ENGINE-ENHANCED SCRIPT GENERATION (Based on user's ENHANCED_SCRIPT_USAGE_DEMO.md)
 async function generateEngineEnhancedScript(scene: any, storyBible: any, options: ScriptEngineOptions) {
-  console.log(`🚀 Generating engine-enhanced script: ${options.masterTechnique || 'mixed'} technique`);
   
   try {
     // Build proper context for DialogueEngineV2
@@ -70,7 +71,6 @@ async function generateEngineEnhancedScript(scene: any, storyBible: any, options
       dialogueOptions
     );
 
-    console.log(`✅ Engine-enhanced script generated using DialogueEngineV2`);
     
     // Generate actual screenplay format using the dialogue result
     const screenplayContent = await generateActualScreenplayFromDialogue(dialogueResult, scene, storyBible);
@@ -94,7 +94,6 @@ async function generateEngineEnhancedScript(scene: any, storyBible: any, options
 
 // Generate actual screenplay format from dialogue result
 async function generateActualScreenplayFromDialogue(dialogueResult: any, scene: any, storyBible: any): Promise<string> {
-  console.log('🎬 Converting dialogue result to proper screenplay format...');
   
   try {
     // Extract dialogue and characters from the result
@@ -173,7 +172,6 @@ async function retryWithFallback<T>(
     try {
       console.log(`🔄 ${operationName} - Attempt ${attempt}/${maxRetries}`);
       const result = await operation();
-      console.log(`✅ ${operationName} - Success on attempt ${attempt}`);
       return result;
     } catch (error) {
       console.warn(`⚠️ ${operationName} - Attempt ${attempt} failed:`, error);
@@ -206,7 +204,6 @@ export async function generateV2Scripts(
   // 🚀 ENGINE ENHANCEMENT LOGIC (Based on user's design)
   const useEngines = options.useEngines || context.useEngines;
   if (useEngines) {
-    console.log(`🎭 SCRIPT ENGINES ENABLED: ${options.engineLevel || 'professional'} level with ${options.masterTechnique || 'mixed'} technique`);
   } else {
     console.log('📝 Using standard script generation (no engines)');
   }
@@ -406,6 +403,8 @@ export interface StoryboardEnhancementOptions {
   cameraMovementPreference?: 'static' | 'fluid' | 'dynamic' | 'minimal' | 'extensive'
   genreConsideration?: boolean
   colorPsychologyFocus?: boolean
+  generateImages?: boolean // NEW: Enable AI image generation for shots
+  imageQuality?: 'standard' | 'hd'
 }
 
 // STEP 3: Generate Storyboards Per Scene (Based on Script)
@@ -418,7 +417,6 @@ export async function generateV2Storyboards(context: any, narrative: any, script
     return await generateV2StoryboardsWithEngines(context, narrative, script, updateProgress, options);
   }
   
-  console.log('🎬 Using standard storyboard generation (no engines)');
   return await generateV2StoryboardsOriginal(context, narrative, script, updateProgress);
 }
 
@@ -654,7 +652,6 @@ Purpose: [Emotional/narrative purpose]`;
 
             // This code path should not be reached with current configuration
             // but keeping it for future use with specialized engines
-            console.log("⚠️ Using specialized StoryboardEngineV2 - this path should not be reached with current config");
             const { StoryboardEngineV2 } = await import('./storyboard-engine-v2');
             
             const storyboardSequence = await StoryboardEngineV2.generateStoryboardSequence(
@@ -680,7 +677,6 @@ Purpose: [Emotional/narrative purpose]`;
               }
             );
             
-            console.log(`✅ STORYBOARD ENGINE V2.0: Generated ${storyboardSequence.shots.length} shots with ${options.cinematographerStyle || 'naturalistic'} style`);          
             
             // Format the storyboard sequence into a text representation
             let formattedStoryboard = `ENHANCED STORYBOARD - Scene ${j+1} - ${options.cinematographerStyle || 'naturalistic'} style\n\n`;
@@ -720,11 +716,46 @@ Purpose: [Emotional/narrative purpose]`;
         }
       );
 
+      // 🎨 GENERATE AI REFERENCE IMAGES if enabled
+      let shotImages: string[] = [];
+      if (options.generateImages && storyboard?.storyboard) {
+        try {
+          console.log(`🎨 Generating AI reference images for scene ${episode.episodeNumber}-${j + 1}...`);
+          const { AIImageGenerator } = await import('./ai-image-generator');
+          
+          // Extract shots from storyboard text (simplified approach)
+          const shotMatches = storyboard.storyboard.match(/SHOT \d+:([^\n]+)/gi) || [];
+          const shotDescriptions = shotMatches.slice(0, 5); // Max 5 images per scene
+          
+          for (let k = 0; k < shotDescriptions.length; k++) {
+            const shotDesc = shotDescriptions[k].replace(/SHOT \d+:/i, '').trim();
+            const shotType = shotDesc.split(/\n/)[0].trim();
+            
+            const imageUrl = await AIImageGenerator.generateStoryboardFrame(
+              scene.content,
+              shotType,
+              '16:9',
+              { quality: options.imageQuality || 'standard' }
+            );
+            
+            shotImages.push(imageUrl);
+            console.log(`   ✓ Generated image ${k + 1}/${shotDescriptions.length} for shot: ${shotType.substring(0, 40)}...`);
+          }
+          
+          console.log(`✅ Generated ${shotImages.length} AI reference images for scene ${episode.episodeNumber}-${j + 1}`);
+        } catch (error) {
+          console.warn(`Failed to generate images for scene ${episode.episodeNumber}-${j + 1}:`, error);
+          // Continue without images - not a fatal error
+        }
+      }
+
       storyboardScenes.push({
         sceneNumber: j + 1,
         storyboard: storyboard?.storyboard || storyboard?.enhancedContent || "Storyboard generation failed",
         // Store visual metadata for consistency tracking if available
-        visualMetadata: storyboard?.metadata || null
+        visualMetadata: storyboard?.metadata || null,
+        // NEW: AI-generated reference images
+        referenceImages: shotImages.length > 0 ? shotImages : undefined
       });
     }
 
@@ -758,6 +789,8 @@ export interface PropsEnhancementOptions {
   narrativeIntegration?: boolean
   productionConstraints?: string[]
   visualStyle?: string
+  generateImages?: boolean // NEW: Enable AI image generation for props/wardrobe
+  imageQuality?: 'standard' | 'hd'
 }
 
 // STEP 4: Generate Props Per Episode (Based on Narrative & Storyboard)
@@ -890,7 +923,6 @@ export async function generateV2PropsWithEngines(
           visualStyle: options.visualStyle || storyBible.visualStyle || 'standard'
         });
         
-        console.log(`✅ PROPS ENGINE: Generated enhanced production design for episode ${episode.episodeNumber}`);
         
         return { 
           propsList: propsDesign,
@@ -908,12 +940,45 @@ export async function generateV2PropsWithEngines(
       }
     }, `Enhanced Props Episode ${episode.episodeNumber}`);
 
+    // 🎨 GENERATE AI REFERENCE IMAGES FOR KEY PROPS if enabled
+    let propImages: Record<string, string> = {};
+    if (options.generateImages && props?.propsList) {
+      try {
+        console.log(`🎨 Generating AI reference images for props in episode ${episode.episodeNumber}...`);
+        const { AIImageGenerator } = await import('./ai-image-generator');
+        
+        // Extract hero props from the props list (simplified approach)
+        // Look for items marked as "hero" or "key" or extract first few items
+        const propMatches = props.propsList.match(/(?:^|\n)[-•]\s*([^:\n]+):/gm) || [];
+        const keyProps = propMatches.slice(0, 8).map((m: string) => m.replace(/[-•\n]/g, '').replace(':', '').trim());
+        
+        for (let k = 0; k < Math.min(keyProps.length, 5); k++) {
+          const propName = keyProps[k];
+          
+          const imageUrl = await AIImageGenerator.generatePropReference(
+            propName,
+            { quality: options.imageQuality || 'standard' }
+          );
+          
+          propImages[propName] = imageUrl;
+          console.log(`   ✓ Generated prop image ${k + 1}/${Math.min(keyProps.length, 5)}: ${propName.substring(0, 40)}...`);
+        }
+        
+        console.log(`✅ Generated ${Object.keys(propImages).length} AI prop reference images for episode ${episode.episodeNumber}`);
+      } catch (error) {
+        console.warn(`Failed to generate prop images for episode ${episode.episodeNumber}:`, error);
+        // Continue without images - not a fatal error
+      }
+    }
+
     episodes.push({
       episodeNumber: episode.episodeNumber,
       episodeTitle: episode.episodeTitle || episode.title,
       props: props?.propsList || props?.enhancedContent || "Props generation failed",
       // NEW: Design metadata for production planning
-      propsMetadata: props?.metadata || null
+      propsMetadata: props?.metadata || null,
+      // NEW: AI-generated prop reference images
+      propImages: Object.keys(propImages).length > 0 ? propImages : undefined
     });
   }
   
@@ -995,6 +1060,8 @@ export interface LocationsEnhancementOptions {
   logisticsOptimization?: boolean
   budgetConstraints?: boolean
   visualRequirements?: string[]
+  generateImages?: boolean // NEW: Enable AI image generation for locations
+  imageQuality?: 'standard' | 'hd'
 }
 
 // STEP 5: Generate Locations Per Episode (Based on Narrative & Storyboard)
@@ -1131,7 +1198,6 @@ export async function generateV2LocationsWithEngines(
           visualRequirements: options.visualRequirements || []
         });
         
-        console.log(`✅ LOCATIONS ENGINE: Generated enhanced location guide for episode ${episode.episodeNumber}`);
         
         return { 
           locationGuide: locationGuide,
@@ -1242,6 +1308,8 @@ export interface CastingEnhancementOptions {
   representationGoals?: string[]
   ensembleOptimization?: boolean
   riskAssessment?: boolean
+  includeActorReferences?: boolean // NEW: Add real-world actor references for inspiration
+  referencesPerCharacter?: number // How many actor references per character (2-3 recommended)
 }
 
 // STEP 6: Generate Casting Per Arc (Based on Narrative & Story Bible)
@@ -1250,7 +1318,6 @@ export async function generateV2Casting(context: any, narrative: any, updateProg
   
   // Check if enhanced casting generation is enabled
   if ((useEnhancedCasting || options.useEngines) && context.useEngines) {
-    console.log('🎭 CASTING ENGINES ENABLED: Using professional casting analysis...');
     return await generateV2CastingWithEngines(context, narrative, updateProgress, options);
   }
   
@@ -1380,7 +1447,6 @@ export async function generateV2CastingWithEngines(
   // ENHANCED: Use engine-powered casting analysis with fallback
   const casting = await retryWithFallback(async () => {
     try {
-      console.log(`🎭 CASTING ENGINE V2.0: Analyzing characters with ${options.castingApproach || 'artistic_integrity'} approach...`);
       
       // Import and use CastingEngineV2
       const { CastingEngineV2 } = await import('./casting-engine-v2');
@@ -1451,7 +1517,6 @@ export async function generateV2CastingWithEngines(
       // Format the enhanced casting breakdown
       const enhancedBreakdown = formatEnhancedCastingBreakdown(castingRecommendations, storyBible);
       
-      console.log(`✅ CASTING ENGINE V2.0: Generated professional casting breakdown with ${characterProfiles.length} characters`);
       
       return { 
         castingBreakdown: enhancedBreakdown,
@@ -2010,11 +2075,9 @@ export async function generateV2PostProduction(context: any, storyboard: any, up
   
   // Check if enhanced post-production generation is enabled
   if ((useEnhancedDistribution || options.useEngines) && context.useEngines) {
-    console.log('🎞️ POST-PRODUCTION ENGINES ENABLED: Using enhanced workflow...');
     return await generateV2PostProductionWithEngines(context, storyboard, updateProgress, options);
   }
   
-  console.log('🎬 Using standard post-production generation (no engines)');
   
   // Safety checks
   if (!actualEpisodes || !Array.isArray(actualEpisodes) || actualEpisodes.length === 0) {

@@ -1,3 +1,193 @@
+// ============================================
+// STORIES CAROUSEL FUNCTIONALITY
+// ============================================
+
+class StoriesCarousel {
+    constructor() {
+        this.slides = document.querySelectorAll('.carousel-slide');
+        this.slidesContainer = document.getElementById('carouselSlides');
+        this.prevBtn = document.getElementById('carouselPrev');
+        this.nextBtn = document.getElementById('carouselNext');
+        this.currentIndex = 0;
+        this.totalSlides = this.slides.length;
+        this.autoPlayInterval = null;
+        this.autoPlayDelay = 4000; // 4 seconds
+        this.isTransitioning = false;
+        
+        this.init();
+    }
+    
+    init() {
+        if (!this.slides.length) return;
+        
+        this.setupEventListeners();
+        this.startAutoPlay();
+        this.updateSlidePositions();
+        
+        // Respect reduced motion preferences
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            this.stopAutoPlay();
+        }
+    }
+    
+    setupEventListeners() {
+        // Navigation buttons
+        this.prevBtn?.addEventListener('click', () => this.previousSlide());
+        this.nextBtn?.addEventListener('click', () => this.nextSlide());
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                this.previousSlide();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                this.nextSlide();
+            }
+        });
+        
+        // Touch/swipe support
+        this.setupTouchEvents();
+        
+        // Pause on hover
+        const carouselContainer = document.querySelector('.carousel-container');
+        carouselContainer?.addEventListener('mouseenter', () => this.stopAutoPlay());
+        carouselContainer?.addEventListener('mouseleave', () => this.startAutoPlay());
+        
+        // Pause on focus (accessibility)
+        carouselContainer?.addEventListener('focusin', () => this.stopAutoPlay());
+        carouselContainer?.addEventListener('focusout', () => this.startAutoPlay());
+    }
+    
+    setupTouchEvents() {
+        let startX = 0;
+        let startY = 0;
+        let endX = 0;
+        let endY = 0;
+        
+        this.slidesContainer.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        });
+        
+        this.slidesContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+        });
+        
+        this.slidesContainer.addEventListener('touchend', (e) => {
+            endX = e.changedTouches[0].clientX;
+            endY = e.changedTouches[0].clientY;
+            
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+            
+            // Only trigger swipe if horizontal movement is greater than vertical
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                if (deltaX > 0) {
+                    this.previousSlide();
+                } else {
+                    this.nextSlide();
+                }
+            }
+        });
+    }
+    
+    nextSlide() {
+        if (this.isTransitioning) return;
+        
+        this.currentIndex = (this.currentIndex + 1) % this.totalSlides;
+        this.updateSlides();
+    }
+    
+    previousSlide() {
+        if (this.isTransitioning) return;
+        
+        this.currentIndex = (this.currentIndex - 1 + this.totalSlides) % this.totalSlides;
+        this.updateSlides();
+    }
+    
+    updateSlides() {
+        this.isTransitioning = true;
+        
+        // Remove all classes from slides
+        this.slides.forEach(slide => {
+            slide.classList.remove('active', 'prev', 'next');
+        });
+        
+        // Add appropriate classes for 3-card layout
+        this.slides[this.currentIndex].classList.add('active');
+        
+        const prevIndex = (this.currentIndex - 1 + this.totalSlides) % this.totalSlides;
+        const nextIndex = (this.currentIndex + 1) % this.totalSlides;
+        
+        this.slides[prevIndex].classList.add('prev');
+        this.slides[nextIndex].classList.add('next');
+        
+        // Update slide positions for 3-card layout
+        this.updateSlidePositions();
+        
+        // Reset transition flag
+        setTimeout(() => {
+            this.isTransitioning = false;
+        }, 600);
+    }
+    
+    updateSlidePositions() {
+        // For absolute positioned slides, we don't need to transform the container
+        // The CSS handles the positioning with absolute positioning
+    }
+    
+    startAutoPlay() {
+        this.stopAutoPlay(); // Clear any existing interval
+        this.autoPlayInterval = setInterval(() => {
+            this.nextSlide();
+        }, this.autoPlayDelay);
+    }
+    
+    stopAutoPlay() {
+        if (this.autoPlayInterval) {
+            clearInterval(this.autoPlayInterval);
+            this.autoPlayInterval = null;
+        }
+    }
+    
+    // Public method to go to specific slide
+    goToSlide(index) {
+        if (index >= 0 && index < this.totalSlides && !this.isTransitioning) {
+            this.currentIndex = index;
+            this.updateSlides();
+        }
+    }
+}
+
+// Initialize carousel when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize stories carousel
+    new StoriesCarousel();
+    
+    // Add intersection observer for carousel animations
+    const carouselSection = document.querySelector('.stories-carousel-section');
+    if (carouselSection) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate');
+                    
+                    // Trigger staggered animation for text elements
+                    const textElements = entry.target.querySelectorAll('.stories-text > *');
+                    textElements.forEach((element, index) => {
+                        setTimeout(() => {
+                            element.classList.add('animate');
+                        }, index * 200);
+                    });
+                }
+            });
+        }, { threshold: 0.2 });
+        
+        observer.observe(carouselSection);
+    }
+});
+
 // Smooth scrolling for internal links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
@@ -72,7 +262,67 @@ function closeFAQModal() {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeFAQModal();
+        closeMobileMenu();
     }
+});
+
+// ============================================
+// MOBILE MENU FUNCTIONALITY
+// ============================================
+
+function toggleMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    const isOpen = mobileMenu.classList.contains('open');
+    
+    if (isOpen) {
+        closeMobileMenu();
+    } else {
+        openMobileMenu();
+    }
+}
+
+function openMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenu.classList.add('open');
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+function closeMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenu.classList.remove('open');
+    document.body.style.overflow = 'auto'; // Restore scrolling
+}
+
+// Initialize mobile menu button
+document.addEventListener('DOMContentLoaded', () => {
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    // Toggle on button click
+    mobileMenuBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMobileMenu();
+    });
+    
+    // Close when clicking outside menu content
+    mobileMenu?.addEventListener('click', (e) => {
+        if (e.target === mobileMenu) {
+            closeMobileMenu();
+        }
+    });
+    
+    // Close menu when clicking any link
+    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+    mobileNavLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            // Delay close slightly for FAQ modal to open if it's the FAQ button
+            setTimeout(() => {
+                if (!link.textContent.includes('FAQ')) {
+                    closeMobileMenu();
+                }
+            }, 100);
+        });
+    });
 });
 
 // Initialize all animations on load

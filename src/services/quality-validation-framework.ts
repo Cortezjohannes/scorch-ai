@@ -101,16 +101,10 @@ export class QualityValidationFramework {
     const validationStartTime = Date.now()
     const { content, contentType, originalContent, context, benchmarks, options } = request
     
-    console.log(`\n🎯 ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`📊 QUALITY VALIDATION: ${contentType.toUpperCase()} CONTENT ASSESSMENT`);
-    console.log(`🎭 Genre: ${context.genre.join(', ')}`);
-    console.log(`🎬 Budget Level: ${context.productionBudget.toUpperCase()}`);
     console.log(`📋 Benchmarks: ${benchmarks.length} standards`);
-    console.log(`🎯 ═══════════════════════════════════════════════════════════════════════════════════`);
 
     try {
       // STAGE 1: Multi-dimensional Quality Assessment
-      console.log(`📊 Stage 1: Multi-dimensional quality assessment...`);
       const dimensionScores = await this.assessQualityDimensions(content, contentType, context, options)
       
       // STAGE 2: Benchmark Comparisons
@@ -174,12 +168,8 @@ export class QualityValidationFramework {
       // Store validation history
       this.storeValidationResult(contentType, result)
       
-      console.log(`✅ QUALITY VALIDATION COMPLETE`);
-      console.log(`📊 Overall Score: ${(overallScore * 100).toFixed(1)}%`);
       console.log(`🏆 Quality Level: ${qualityLevel.toUpperCase()}`);
       console.log(`🏭 Industry Acceptance: ${industrialAcceptance.level}`);
-      console.log(`⏱️ Validation Time: ${validationMetadata.validationTime}ms`);
-      console.log(`🎯 ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return result
       
@@ -251,7 +241,6 @@ export class QualityValidationFramework {
       }
     }
     
-    console.log(`📊 A/B Test Results:`);
     console.log(`   Original Score: ${(originalResult.overallScore * 100).toFixed(1)}%`);
     console.log(`   Enhanced Score: ${(enhancedResult.overallScore * 100).toFixed(1)}%`);
     console.log(`   Improvement: ${(improvement.percentageImprovement * 100).toFixed(1)}%`);

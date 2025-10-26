@@ -39,13 +39,11 @@ async function generateBasicScript(prompt: string, context: any): Promise<any> {
     quality: 'basic'
   }
   
-  console.log(`✅ Basic script generated`);
   return basicScript
 }
 
 // AFTER: Engine-enhanced script generation (zero breaking changes)
 async function generateEnhancedScript(prompt: string, context: any, storyBible?: any): Promise<any> {
-  console.log(`🚀 Generating enhanced script with AI engines...`);
   
   // Use the enhancement middleware to wrap the original function
   const result = await enhanceScript(
@@ -55,8 +53,6 @@ async function generateEnhancedScript(prompt: string, context: any, storyBible?:
     storyBible
   )
   
-  console.log(`✅ Enhanced script generated with ${result.enhancementMetadata.enginesUsed.length} engines`);
-  console.log(`📊 Quality improvement: ${(result.enhancementMetadata.qualityScore * 100).toFixed(1)}%`);
   
   return result.content // Same interface as original
 }
@@ -84,7 +80,6 @@ async function generateBasicStoryboard(prompt: string, context: any): Promise<an
 
 // AFTER: Engine-enhanced storyboard generation
 async function generateEnhancedStoryboard(prompt: string, context: any, storyBible?: any): Promise<any> {
-  console.log(`🚀 Generating enhanced storyboard with visual storytelling engines...`);
   
   const result = await enhanceStoryboard(
     generateBasicStoryboard,
@@ -93,7 +88,6 @@ async function generateEnhancedStoryboard(prompt: string, context: any, storyBib
     storyBible
   )
   
-  console.log(`✅ Enhanced storyboard with cinematographer-level planning`);
   return result.content
 }
 
@@ -103,7 +97,6 @@ async function generateEnhancedStoryboard(prompt: string, context: any, storyBib
 
 // BEFORE: Basic casting generation
 async function generateBasicCasting(prompt: string, context: any): Promise<any> {
-  console.log(`🎭 Generating basic casting recommendations...`);
   
   const basicCasting = {
     characters: [
@@ -119,7 +112,6 @@ async function generateBasicCasting(prompt: string, context: any): Promise<any> 
 
 // AFTER: Engine-enhanced casting generation
 async function generateEnhancedCasting(prompt: string, context: any, storyBible?: any): Promise<any> {
-  console.log(`🚀 Generating enhanced casting with performance coaching...`);
   
   const result = await enhanceCasting(
     generateBasicCasting,
@@ -128,7 +120,6 @@ async function generateEnhancedCasting(prompt: string, context: any, storyBible?
     storyBible
   )
   
-  console.log(`✅ Enhanced casting with professional performance direction`);
   return result.content
 }
 
@@ -179,7 +170,6 @@ export class ContentGenerationUpgrade {
           })
       }
       
-      console.log(`✅ ${enhancementType} successfully enhanced`);
       return result.content
       
     } catch (error) {
@@ -211,7 +201,6 @@ export class ContentGenerationUpgrade {
     
     if (useEnhancement) {
       try {
-        console.log(`🚀 Using enhanced generation...`);
         return await enhancedFunction(...args)
       } catch (error) {
         console.warn(`⚠️ Enhanced generation failed, falling back to original:`, error);
@@ -234,9 +223,6 @@ export class EnhancementDemo {
    * 🎬 Run complete demonstration of enhancement system
    */
   static async runFullDemo() {
-    console.log(`\n🎬 ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 CONTENT ENHANCEMENT SYSTEM DEMONSTRATION`);
-    console.log(`🎬 ═══════════════════════════════════════════════════════════════════════════════════\n`);
     
     const demoPrompt = "Create a compelling coffee shop scene between two friends discussing a life-changing decision"
     const demoContext = {
@@ -260,7 +246,6 @@ export class EnhancementDemo {
       console.log(`📋 Basic Script Quality: ${basicScript.quality}`);
       
       const enhancedScript = await generateEnhancedScript(demoPrompt, demoContext, demoStoryBible)
-      console.log(`🚀 Enhanced Script Generated Successfully`);
       
       // Demo 2: Storyboard Enhancement
       console.log(`\n🎨 DEMO 2: STORYBOARD ENHANCEMENT`);
@@ -270,17 +255,14 @@ export class EnhancementDemo {
       console.log(`📋 Basic Storyboard: ${basicStoryboard.shotList.length} shots`);
       
       const enhancedStoryboard = await generateEnhancedStoryboard(demoPrompt, demoContext, demoStoryBible)
-      console.log(`🚀 Enhanced Storyboard Generated Successfully`);
       
       // Demo 3: Casting Enhancement
-      console.log(`\n🎭 DEMO 3: CASTING ENHANCEMENT`);
       console.log(`════════════════════════════════════════════════════════════════════════════════`);
       
       const basicCasting = await generateBasicCasting(demoPrompt, demoContext)
       console.log(`📋 Basic Casting: ${basicCasting.characters.length} characters`);
       
       const enhancedCasting = await generateEnhancedCasting(demoPrompt, demoContext, demoStoryBible)
-      console.log(`🚀 Enhanced Casting Generated Successfully`);
       
       // Demo 4: Progressive Enhancement Pattern
       console.log(`\n🔄 DEMO 4: PROGRESSIVE ENHANCEMENT PATTERN`);
@@ -293,10 +275,8 @@ export class EnhancementDemo {
         demoContext,
         demoStoryBible
       )
-      console.log(`🎯 Progressive Enhancement Pattern: SUCCESS`);
       
       // Demo 5: Feature Flag Pattern
-      console.log(`\n🎚️ DEMO 5: FEATURE FLAG DEMONSTRATION`);
       console.log(`════════════════════════════════════════════════════════════════════════════════`);
       
       // Test with enhancement enabled
@@ -308,7 +288,6 @@ export class EnhancementDemo {
         demoContext,
         demoStoryBible
       )
-      console.log(`🚀 Feature Flag (Enhanced): SUCCESS`);
       
       // Test with enhancement disabled
       const originalVersionResult = await ContentGenerationUpgrade.generateWithFeatureFlag(
@@ -321,8 +300,6 @@ export class EnhancementDemo {
       )
       console.log(`📝 Feature Flag (Original): SUCCESS`);
       
-      console.log(`\n✅ ALL DEMONSTRATIONS COMPLETED SUCCESSFULLY`);
-      console.log(`🎬 ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
         success: true,
@@ -361,7 +338,6 @@ export class EnhancementDemo {
         { genre: ['comedy'] }
       )
       
-      console.log(`✅ Quick test passed: ${testResult.enhanced ? 'Enhanced' : 'Original'} content generated`);
       return testResult
       
     } catch (error) {

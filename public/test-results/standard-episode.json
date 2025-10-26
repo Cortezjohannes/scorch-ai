@@ -1,0 +1,58 @@
+{
+  "method": "Standard (No Engines)",
+  "duration": 40.93,
+  "episode": {
+    "episodeNumber": 1,
+    "title": "Sentinel Awakens",
+    "synopsis": "Alex Chen, a senior engineer at Helix, begins her day under the omnipresent eye of surveillance. As her unease grows, so do the clues: anomalous code, security checks, and whispers of military contracts. A late-night investigation reveals Sentinel's chilling true function, forcing Alex to cross the threshold from wary employee to desperate whistleblower.",
+    "scenes": [
+      {
+        "sceneNumber": 1,
+        "title": "Sterile Morning / Quiet Panic",
+        "content": "The apartment is a grid of blue light—phone screens, blinking router, the silent sweep of Alex’s eyes across every surface. Her hands are steady, ritualistic: she thumbs the phone’s backplate, lingers at the webcam’s shutter, checks for unfamiliar Bluetooth signals. The city beyond is already humming—the distant thrum of server farms, the neon advertisements flickering across windows like a heartbeat.\n\nAlex slips into a shadow-colored blazer sharp enough to pass company muster. She glances at her own reflection in the window; for a moment, her face is halved by the harsh stripe of morning sun, features tight and unreadable. She steps into the corridor, shoes soundless on faux-wood floors, her expression draining of warmth as she passes the neighbor whose door is always ajar—eyes tracking, always.\n\nThe commute is a choreography of avoidance: she boards early, choosing a seat beneath the camera’s dead zone. At every intersection, glass buildings loom, their surfaces blank but for the shifting patterns of security feeds and biometric sensors. The entrance to Helix is a mouth of glass and steel; the badge reader hums, and Alex steps through, the air shifting colder, LED lighting painting everything with a sterile halo.\n\nInside, a murmured meeting. The team clusters under the spectral glow, faces reflected off polished tables—everyone is too careful, words clipped, eyes rarely meeting for long. Priya’s glance across the table is brief but charged—a message exchanged in silence. The supervisor’s praise for Helix’s new AI project, Sentinel, is thin and perfunctory; Alex’s contributions are acknowledged with a nod that ends too early, as if someone behind her was more interesting. The conversation is laced with doublespeak. 'Sentinel will anticipate threats. It’ll keep us… secure.' The word lingers, unsettling, as Alex watches a red recording dot blink on a nearby wall-mounted camera.\n"
+      },
+      {
+        "sceneNumber": 2,
+        "title": "The Unveiling / Fractured Trust",
+        "content": "Late afternoon. The office is haunted by the low hum of cooling fans and the whisper of ventilation—almost masking the tick of Alex’s heartbeat as she stares at Sentinel’s code. Her screen throws pale light across her face, every line reflected in her glasses. There it is again: an unexplained branch, access protocols that shouldn’t exist. Cursor hovers—she scrolls, eyes narrowing.\n\nInterruptions are routine but this is different. A bulky security officer taps the edge of her desk, voice polite but metallic. 'Device check, Ms. Chen. It’s random.' Alex’s smile is a tight line, engineered for plausible deniability. Her hands hand over her phone but her mind races, cataloguing every open file, every digital footprint she might have left exposed. The officer’s scan is perfunctory, unblinking, but Alex’s nerves vibrate, a violin string under tension.\n\nNot long after, in the corridor outside the glass conference room, Alex moves with studied casualness. She slows, ears attuned. Through the door, executive voices murmur, punctuated by words that stick: 'military applications'—'autonomous assessment'—'preemptive.' The tone is anticipatory, hungry. She shrinks into the shadow, pulse pounding. Her suspicion sharpens, the edges of her isolation growing sharper, cold.\n\nBack at her desk, Priya leans close, voice pitched barely above the hum of the servers. 'Careful. Helix logs everything.' Their exchange is quick: concern, warning, the kind of understated solidarity they dare not show openly. Alex’s screen glows, the code calling her back."
+      },
+      {
+        "sceneNumber": 3,
+        "title": "Threshold / Point of No Return",
+        "content": "Night in the Helix offices is a world apart— corridors emptied, glass reflecting only Alex’s taut face. She sits at her terminal, fingertips hovering, then moving with deliberate speed. She bypasses security protocols, pulse in her throat. A hidden dashboard blooms: Sentinel’s logs, encrypted and cold as ice.\n\nLines of data spill out: surveillance footage tagged for threat-level analysis. Alex watches as Sentinel runs a simulation—employee profiles slide onto the screen, flagged and categorized. The AI decides, unfeeling, which would be neutralized in a real operation. A simulated kill-switch flashes, the word 'approved' stamped over faces she knows: a technician who stuttered during the last update, a contractor with an ambiguous travel history. The algorithm is merciless—efficient. Alex’s hands shake. She realizes, in one raw instant, what Sentinel has become.\n\nGuilt and dread war within her. She deletes traces of her unauthorized accesses, encrypts a folder of evidence. The world outside her office is colder now, full of eyes—each security lens a threat, each corridor a gauntlet. She hurries to her apartment, the city’s lights now strangely sinister. A text glows from Marcus: 'Safe to talk?' Even warmth feels dangerous.\n\nAlex opens a secure channel. Her message burns with urgency, the words weighted with consequences: 'Helix’s AI is weaponized. I have proof.' Unbeknownst to her, Helix’s system flags her profile—a silent warning, a new target. She looks out the window as night settles. Somewhere, a camera pivots, tracking her silhouette as Alex’s resolve crystallizes: there is no turning back."
+      }
+    ],
+    "branchingOptions": [
+      {
+        "id": 1,
+        "text": "Alex chooses to send the encrypted evidence to Marcus and the whistleblower network immediately.",
+        "isCanonical": true
+      },
+      {
+        "id": 2,
+        "text": "Alex hesitates, deciding to gather more proof before reaching out, risking further exposure.",
+        "isCanonical": false
+      },
+      {
+        "id": 3,
+        "text": "Alex deletes the evidence, fearing for her safety and attempts to maintain her cover at Helix.",
+        "isCanonical": false
+      }
+    ],
+    "episodeRundown": "Episode 1 establishes the oppressive atmosphere of Helix and Alex Chen’s mounting internal and external paranoia. The sterile environments, constant surveillance, and coded dialogue lay the groundwork for a world where trust is dangerous and every gesture is calculated. Alex’s discovery of Sentinel’s true capabilities transforms her anxieties into active fear; the AI’s weaponization marks the series’ core conflict. The episode’s careful pacing amplifies suspense while conveying Alex’s isolation. Her decision to reach out—despite knowing she is now a target—sets up a high-stakes path framed by irreversible choices and constant surveillance. The emotional and ethical dilemmas introduced here promise escalating tension and deeper character journeys throughout the series."
+  },
+  "metadata": {
+    "generationMethod": "intelligent-orchestrator",
+    "analyzedSettings": {
+      "vibeSettings": {
+        "tone": 30,
+        "pacing": 35,
+        "dialogueStyle": 35
+      },
+      "directorsNotes": "Open with sterile, humming office interiors—cold LED lighting and the distant murmur of servers create an omnipresent, subtly oppressive soundscape. Linger on Alex's facial micro-expressions and her glances at surveillance cameras; her paranoia simmers beneath a calm exterior. Dialogue is careful, coded, and laced with double meanings, especially with colleagues who might be watching. The visual style should be tight and claustrophobic: shallow focus, glass reflections, and security feeds heighten the sense of being watched. Alex's anxiety and isolation are the emotional core; even fleeting moments of warmth (e.g., a text from Marcus) should feel risky and charged.",
+      "episodeGoal": "Establish Alex's normal world, her unease at the company, and the chilling first discovery of the AI's true purpose, setting the stakes for her internal and external conflict.",
+      "reasoning": "Since this is the series opener and the moment of initial discovery, tone should be serious and tense but not fully grim—viewers need to be drawn into Alex's world before the danger escalates. Pacing must be deliberate, building unease and suspicion rather than launching straight into action. Dialogue should be measured and subtext-rich, emphasizing the atmosphere of surveillance and mistrust. The focus is on immersing the audience in Alex's perspective, making her fear and the company's secrets palpable."
+    },
+    "timestamp": "2025-10-22T07:42:15.550Z"
+  }
+}

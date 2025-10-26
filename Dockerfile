@@ -22,6 +22,12 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Copy public directory to standalone output
+RUN cp -r public .next/standalone/
+
+# Copy static assets (CRITICAL for Next.js standalone)
+RUN cp -r .next/static .next/standalone/.next/
+
 # Expose the port
 EXPOSE 8080
 

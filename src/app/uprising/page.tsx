@@ -435,7 +435,7 @@ export default function UprisingPage() {
               transition={{ duration: 1 }}
               className="text-xl md:text-2xl leading-relaxed mb-8"
             >
-              Greenlit AI is not a software company.
+              Greenlit is not a software company.
             </motion.p>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -467,7 +467,7 @@ export default function UprisingPage() {
               transition={{ duration: 1, delay: 1.2 }}
               className="text-xl md:text-2xl leading-relaxed mb-4"
             >
-              We built the AI Showrunner to dismantle their leverage.
+              We built the Showrunner to dismantle their leverage.
             </motion.p>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -614,7 +614,7 @@ export default function UprisingPage() {
         <footer className="py-16 px-4">
           <div className="max-w-4xl mx-auto text-center">
             <p className="text-sm text-[#E7E7E7]/60">
-              Greenlit AI. Stop Waiting. Start Creating.
+              Greenlit. Stop Waiting. Start Creating.
             </p>
           </div>
         </footer>

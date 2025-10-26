@@ -55,10 +55,6 @@ export class AIOrchestrator {
     const timestamp = new Date().toISOString().substring(11, 23); // HH:MM:SS.mmm
     console.log(`\n🔥 [${timestamp}] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`🤖 [${timestamp}] AI ORCHESTRATOR: ${engineName.toUpperCase()} ENGINE ACTIVATION`);
-    console.log(`⚡ [${timestamp}] MODE: ${mode.toUpperCase()} (${mode === 'beast' ? 'AZURE OPENAI - MAXIMUM QUALITY' : 'GEMINI - STABLE PERFORMANCE'})`);
-    console.log(`🎯 [${timestamp}] PROCESSING: ${prompt.length > 100 ? prompt.substring(0, 100) + '...' : prompt}`);
-    console.log(`🧠 [${timestamp}] TEMPERATURE: ${temperature} | MAX TOKENS: ${maxTokens}`);
-    console.log(`🚀 [${timestamp}] ${engineName} ENGINE: INITIALIZING...`);
 
     try {
       let response: AIResponse;
@@ -73,8 +69,6 @@ export class AIOrchestrator {
       }
       
       const endTimestamp = new Date().toISOString().substring(11, 23);
-      console.log(`✅ [${endTimestamp}] ${engineName} ENGINE: COMPLETED SUCCESSFULLY`);
-      console.log(`📊 [${endTimestamp}] OUTPUT: ${response.content.length} characters generated`);
       console.log(`🏆 [${endTimestamp}] PROVIDER: ${response.provider.toUpperCase()} | MODEL: ${response.model}`);
       console.log(`🔥 [${endTimestamp}] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       
@@ -89,7 +83,6 @@ export class AIOrchestrator {
       return response;
     } catch (error) {
       const errorTimestamp = new Date().toISOString().substring(11, 23);
-      console.log(`❌ [${errorTimestamp}] ${engineName} ENGINE: FAILED`);
       console.log(`💥 [${errorTimestamp}] ERROR: ${error}`);
       console.log(`🔥 [${errorTimestamp}] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
       
@@ -118,7 +111,6 @@ export class AIOrchestrator {
       console.log(`🦁 [${timestamp}] BEAST MODE: ${engineName} connecting to Azure OpenAI ${model}...`);
       console.log(`🔌 [${timestamp}] ${engineName}: Establishing secure connection to Azure endpoint...`);
       console.log(`📡 [${timestamp}] ${engineName}: Transmitting ${prompt.length} character prompt...`);
-      console.log(`⚙️  [${timestamp}] ${engineName}: Azure processing with temperature ${temperature}...`);
       
       const content = await generateWithAzure(prompt, {
         systemPrompt,
@@ -131,7 +123,6 @@ export class AIOrchestrator {
       const duration = ((endTime - startTime) / 1000).toFixed(2);
       const endTimestamp = new Date().toISOString().substring(11, 23);
       
-      console.log(`🎯 [${endTimestamp}] ${engineName}: Azure OpenAI processing complete`);
       console.log(`📈 [${endTimestamp}] ${engineName}: Generated ${content.length} characters in ${duration}s`);
       console.log(`🏆 [${endTimestamp}] BEAST MODE SUCCESS: ${engineName} delivered premium quality with Azure ${model}`);
 
@@ -176,7 +167,6 @@ export class AIOrchestrator {
       console.log(`🔹 [${timestamp}] STABLE MODE: ${engineName} connecting to Google Gemini ${geminiModel}...`);
       console.log(`🌐 [${timestamp}] ${engineName}: Establishing connection to Google AI endpoint...`);
       console.log(`📨 [${timestamp}] ${engineName}: Transmitting ${prompt.length} character prompt to Gemini...`);
-      console.log(`🔧 [${timestamp}] ${engineName}: Gemini processing with optimized parameters...`);
       
       const content = await generateContentWithGemini(systemPrompt, prompt, geminiModel);
 
@@ -184,9 +174,6 @@ export class AIOrchestrator {
       const duration = ((endTime - startTime) / 1000).toFixed(2);
       const endTimestamp = new Date().toISOString().substring(11, 23);
       
-      console.log(`🎯 [${endTimestamp}] ${engineName}: Google Gemini processing complete`);
-      console.log(`📊 [${endTimestamp}] ${engineName}: Generated ${content.length} characters in ${duration}s`);
-      console.log(`✅ [${endTimestamp}] STABLE MODE SUCCESS: ${engineName} delivered reliable quality with Gemini ${geminiModel}`);
 
       return {
         content,

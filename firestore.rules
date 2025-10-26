@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Test collection for connection testing (temporary)
+    match /connection_test/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // User profile documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // User projects (nested under users)
+    match /users/{userId}/projects/{projectId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // User story bibles (nested under users)
+    match /users/{userId}/storyBibles/{storyBibleId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Episodes nested under story bibles
+      match /episodes/{episodeId} {
+        // Only owner can access their story bible's episodes
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // Ensure storyBibleId in document matches path on create/update
+        allow create, update: if request.auth != null && 
+                                request.auth.uid == userId &&
+                                request.resource.data.storyBibleId == storyBibleId;
+      }
+      
+      // Pre-production nested under story bibles
+      match /preproduction/{preProductionId} {
+        // Only owner can access their story bible's pre-production
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        
+        // Ensure storyBibleId in document matches path on create/update
+        allow create, update: if request.auth != null && 
+                                request.auth.uid == userId &&
+                                request.resource.data.storyBibleId == storyBibleId;
+      }
+    }
+    
+    // ========== STORY BIBLE SHARING FEATURE ==========
+    
+    // Shared story bibles - PUBLIC read, authenticated create, restricted update
+    match /sharedStoryBibles/{shareId} {
+      allow read: if true; // public read
+      allow create: if request.auth != null; // authenticated users can create
+      allow update: if isValidShareLink(shareId); // only update if link is valid
+      allow delete: if request.auth != null && 
+                       resource.data.ownerId == request.auth.uid; // owner can delete
+    }
+    
+    // Share link management
+    match /shareLinks/{linkId} {
+      allow read: if true; // public read to validate links
+      allow create: if request.auth != null && 
+                       request.resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null && 
+                       resource.data.ownerId == request.auth.uid;
+      allow delete: if request.auth != null && 
+                       resource.data.ownerId == request.auth.uid;
+    }
+    
+    // Helper function to validate share links
+    function isValidShareLink(shareId) {
+      let link = getAfter(/databases/$(database)/documents/shareLinks/$(shareId));
+      return link != null && 
+             link.data.isActive == true && 
+             (link.data.expiresAt == null || link.data.expiresAt > request.time);
+    }
+  }
+}
+

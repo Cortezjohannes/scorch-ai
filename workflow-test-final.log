@@ -1,0 +1,86 @@
+╔══════════════════════════════════════════════════════════════╗
+║   🧪 COMPREHENSIVE WORKFLOW VALIDATION TEST SUITE          ║
+║   Testing: APIs → Backend → Engines → Client               ║
+╚══════════════════════════════════════════════════════════════╝
+
+📍 Base URL: http://localhost:3000
+⏱️  Timeout: 180000ms
+🎯 Min Quality Score: 7
+⚙️  Min Engine Success: 90%
+
+
+🔧 TEST SUITE 1: Environment & Configuration Validation
+
+✅ [Environment] API Keys Configuration - Both Gemini and Azure OpenAI keys configured (0ms)
+✅ [Environment] Model Deployments - GPT-4.1: true, Gemini: true (0ms)
+
+📖 TEST SUITE 2: Story Bible Generation
+
+   Generating story bible (this may take 2-3 minutes)...
+(node:5358) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/yohan/Documents/reeled-ai-openai/comprehensive-workflow-test.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/yohan/Documents/reeled-ai-openai/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ [Story Bible] Story Bible Generation - Story bible generation failed (300007ms)
+   Error: Request timeout after 300000ms
+
+🎬 TEST SUITE 3: Episode Generation - Baseline (No Engines)
+
+⏭️ [Episode Generation] Episode Generation Baseline - Skipped due to missing story bible (0ms)
+
+⚡ TEST SUITE 4: Episode Generation - Comprehensive Engines
+
+⏭️ [Episode Generation] Episode Generation Comprehensive - Skipped due to missing story bible (0ms)
+
+🚀 TEST SUITE 5: Episode Generation - Gemini 2.5 Pro Comprehensive
+
+⏭️ [Episode Generation] Episode Generation Gemini - Skipped due to missing story bible (0ms)
+
+🎭 TEST SUITE 6: Pre-Production System
+
+⏭️ [Pre-Production] Pre-Production Generators - Skipped due to missing story bible or episodes (0ms)
+
+🔌 TEST SUITE 7: API Endpoints
+
+✅ [API Endpoints] Engine Status API - Engine status endpoint responding (76ms)
+
+⚠️ TEST SUITE 8: Error Handling & Fallbacks
+
+✅ [Error Handling] Invalid Input Handling - API correctly rejected invalid input (36ms)
+✅ [Error Handling] Missing Parameter Handling - API correctly rejected missing parameter (35ms)
+
+
+╔══════════════════════════════════════════════════════════════╗
+║                    📊 TEST RESULTS SUMMARY                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+Total Tests: 10
+✅ Passed: 5
+❌ Failed: 1
+⚠️  Warnings: 0
+⏭️  Skipped: 4
+📈 Pass Rate: 50.0%
+⏱️  Total Time: 300.2s
+
+📋 Results by Category:
+
+  Environment: 2/2 passed
+  Story Bible: 0/1 passed
+  Episode Generation: 0/3 passed
+  Pre-Production: 0/1 passed
+  API Endpoints: 1/1 passed
+  Error Handling: 2/2 passed
+
+❌ Failed Tests:
+
+  • Story Bible Generation
+    Story bible generation failed
+    Error: Request timeout after 300000ms
+
+
+📄 Detailed report saved to: /Users/yohan/Documents/reeled-ai-openai/test-results-comprehensive.json
+
+╔══════════════════════════════════════════════════════════════╗
+║                    ❌ TESTS FAILED                          ║
+╚══════════════════════════════════════════════════════════════╝
+

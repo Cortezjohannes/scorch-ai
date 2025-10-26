@@ -16,7 +16,6 @@ import RawDataDisplay from '@/components/RawDataDisplay'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import '@/styles/greenlit-design.css'
 
 type TabType = 'storyboard' | 'script' | 'casting' | 'production' | 'marketing' | 'props' | 'postProduction' | 'location'
 
@@ -1525,66 +1524,48 @@ export default function PreProductionResults() {
   }
 
   return (
-    <div className="min-h-screen greenlit-bg-primary relative">
-      {/* Floating Particles */}
-      <div className="greenlit-particles">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="greenlit-particle" style={{
-            left: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 6}s`,
-            animationDuration: `${6 + Math.random() * 4}s`
-          }} />
-        ))}
-      </div>
-
-      {/* Geometric Background */}
-      <div className="greenlit-geometric-bg">
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-      </div>
-
-      <div className="greenlit-container">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-[#e7e7e7]">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Enhanced Header */}
         <motion.div 
-          className="greenlit-mb-xl"
+          className="mb-12"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="greenlit-text-center greenlit-mb-lg">
-            <h1 className="greenlit-headline greenlit-mb-md">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-[#e2c376] via-[#f0d480] to-[#e2c376] text-transparent bg-clip-text mb-4">
               Pre-Production Complete
             </h1>
-            <p className="greenlit-subheadline greenlit-mb-sm">
-              {projectTitle || 'Your Project'} - Arc {arcIndex + 1}
-            </p>
-            <p className="greenlit-body-large greenlit-text-muted">
+            <p className="text-xl text-[#e7e7e7]/80 mb-2">
+            {projectTitle || 'Your Project'} - Arc {arcIndex + 1}
+          </p>
+            <p className="text-[#e7e7e7]/60">
               Professional-grade pre-production materials ready for your production team
-            </p>
-          </div>
+          </p>
+        </div>
 
           {/* Progress Stats */}
-          <div className="greenlit-grid greenlit-grid-4 max-w-4xl mx-auto">
-            <div className="greenlit-card text-center">
-              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
+              <div className="text-3xl font-bold text-[#e2c376] mb-2">
                 {Object.keys(generatedContent || {}).length}
               </div>
-              <div className="greenlit-caption">Content Types</div>
+              <div className="text-[#e7e7e7]/70 text-sm">Content Types</div>
             </div>
-            <div className="greenlit-card text-center">
-              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">
+            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
+              <div className="text-3xl font-bold text-[#e2c376] mb-2">
                 {arcEpisodes.length || 10}
               </div>
-              <div className="greenlit-caption">Episodes</div>
+              <div className="text-[#e7e7e7]/70 text-sm">Episodes</div>
             </div>
-            <div className="greenlit-card text-center">
-              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">100%</div>
-              <div className="greenlit-caption">Complete</div>
+            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
+              <div className="text-3xl font-bold text-[#e2c376] mb-2">100%</div>
+              <div className="text-[#e7e7e7]/70 text-sm">Complete</div>
             </div>
-            <div className="greenlit-card text-center">
-              <div className="text-3xl font-bold text-[#00FF99] greenlit-mb-sm">🎬</div>
-              <div className="greenlit-caption">Ready to Film</div>
+            <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1e1e1e] rounded-xl p-6 text-center border border-[#36393f]/50">
+              <div className="text-3xl font-bold text-[#e2c376] mb-2">🎬</div>
+              <div className="text-[#e7e7e7]/70 text-sm">Ready to Film</div>
             </div>
           </div>
         </motion.div>

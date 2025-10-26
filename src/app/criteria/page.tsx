@@ -266,7 +266,7 @@ export default function CriteriaPage() {
               Missing a 'C'? We've Got You Covered.
             </h2>
             <p className="text-xl text-[#E7E7E7]/80 mb-12 max-w-4xl mx-auto">
-              This is our moat. Greenlit AI actively connects creators with massive audiences (High Clout) to top-tier actors (High Chops) to launch projects together as Co-Producers. We don't just provide tools; we build teams.
+              This is our moat. Greenlit actively connects creators with massive audiences (High Clout) to top-tier actors (High Chops) to launch projects together as Co-Producers. We don't just provide tools; we build teams.
             </p>
             
             <div className="grid md:grid-cols-3 gap-8 mt-12">

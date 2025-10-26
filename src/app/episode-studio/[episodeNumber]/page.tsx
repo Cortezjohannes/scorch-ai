@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import EpisodeStudio from '@/components/EpisodeStudio'
-import '@/styles/greenlit-design.css'
+import { useAuth } from '@/context/AuthContext'
+import { getStoryBible } from '@/services/story-bible-service'
 
 export default function EpisodeStudioPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const router = useRouter()
+  const { user } = useAuth()
   const [storyBible, setStoryBible] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -15,19 +18,31 @@ export default function EpisodeStudioPage() {
   const episodeNumber = parseInt(params.episodeNumber as string)
 
   useEffect(() => {
-    const loadStoryBible = () => {
+    const loadStoryBible = async () => {
       try {
-        // Load story bible from localStorage
-        const greenlitBible = localStorage.getItem('greenlit-story-bible')
-        const scorchedBible = localStorage.getItem('scorched-story-bible') 
-        const reeledBible = localStorage.getItem('reeled-story-bible')
-        const savedBible = greenlitBible || scorchedBible || reeledBible
+        // Check for story bible ID in URL params
+        const storyBibleId = searchParams.get('storyBibleId')
         
-        if (savedBible) {
-          const parsed = JSON.parse(savedBible)
-          setStoryBible(parsed.storyBible)
+        if (storyBibleId && user) {
+          // Load specific story bible from Firestore
+          console.log('🔍 Loading story bible from Firestore with ID:', storyBibleId)
+          try {
+            const firestoreBible = await getStoryBible(storyBibleId, user.id)
+            if (firestoreBible) {
+              setStoryBible(firestoreBible)
+              console.log('✅ Story bible loaded from Firestore')
+            } else {
+              console.warn('⚠️ Story bible not found in Firestore, falling back to localStorage')
+              loadFromLocalStorage()
+            }
+          } catch (error) {
+            console.error('Error loading from Firestore:', error)
+            loadFromLocalStorage()
+          }
         } else {
-          setError('No story bible found. Please create a series first.')
+          // No ID specified, load from localStorage (legacy behavior)
+          console.log('📂 No story bible ID specified, loading from localStorage')
+          loadFromLocalStorage()
         }
       } catch (err) {
         console.error('Error loading story bible:', err)
@@ -36,9 +51,24 @@ export default function EpisodeStudioPage() {
         setLoading(false)
       }
     }
+    
+    const loadFromLocalStorage = () => {
+      const greenlitBible = localStorage.getItem('greenlit-story-bible')
+      const scorchedBible = localStorage.getItem('scorched-story-bible') 
+      const reeledBible = localStorage.getItem('reeled-story-bible')
+      const savedBible = greenlitBible || scorchedBible || reeledBible
+      
+      if (savedBible) {
+        const parsed = JSON.parse(savedBible)
+        setStoryBible(parsed.storyBible)
+        console.log('✅ Story bible loaded from localStorage')
+      } else {
+        setError('No story bible found. Please create a series first.')
+      }
+    }
 
     loadStoryBible()
-  }, [])
+  }, [searchParams, user])
 
   // Get previous choice if available
   const getPreviousChoice = (): string | undefined => {
@@ -108,11 +138,14 @@ export default function EpisodeStudioPage() {
     )
   }
 
+  const storyBibleId = searchParams.get('storyBibleId')
+
   return (
     <EpisodeStudio
       storyBible={storyBible}
       episodeNumber={episodeNumber}
       previousChoice={getPreviousChoice()}
+      storyBibleId={storyBibleId || undefined}
     />
   )
 }

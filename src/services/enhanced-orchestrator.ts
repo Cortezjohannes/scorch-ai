@@ -132,13 +132,7 @@ export class EnhancedPreProductionOrchestrator {
     const startTime = Date.now()
     const { tabType, originalContent, narrativeContext, enhancementOptions } = request
     
-    console.log(`\n🎭 ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 ENHANCED ORCHESTRATOR: ${tabType.toUpperCase()} TAB ENHANCEMENT INITIATED`);
-    console.log(`⚡ Quality Level: ${enhancementOptions.qualityLevel.toUpperCase()}`);
     console.log(`🧠 AI Mode: ${enhancementOptions.mode.toUpperCase()}`);
-    console.log(`🛡️ Fallback Protection: ${enhancementOptions.fallbackOnError ? 'ENABLED' : 'DISABLED'}`);
-    console.log(`📊 Performance Optimization: ${enhancementOptions.performanceOptimization ? 'ENABLED' : 'DISABLED'}`);
-    console.log(`🎭 ═══════════════════════════════════════════════════════════════════════════════════`);
 
     // SAFETY CHECK: Return original content if engines disabled
     if (!enhancementOptions.useEngines) {
@@ -157,7 +151,6 @@ export class EnhancedPreProductionOrchestrator {
       // STAGE 1: Intelligent Engine Selection
       const enginePlan = await this.createEngineExecutionPlan(tabType, narrativeContext, enhancementOptions)
       console.log(`🧠 Engine plan created: ${enginePlan.engines.length} engines selected`);
-      console.log(`⏱️ Estimated processing time: ${enginePlan.estimatedTotalTime}ms`);
       
       // STAGE 2: Content Enhancement Pipeline Execution
       const enhancedContent = await this.executeEnhancementPipeline(
@@ -179,10 +172,6 @@ export class EnhancedPreProductionOrchestrator {
       const performanceMetrics = this.collectPerformanceMetrics(startTime, enginePlan)
       
       const processingTime = Date.now() - startTime
-      console.log(`✅ ENHANCEMENT COMPLETE: ${tabType} enhanced in ${processingTime}ms`);
-      console.log(`📊 Quality Score: ${(qualityScore * 100).toFixed(1)}%`);
-      console.log(`🎯 Engines Used: ${enginePlan.engines.map(e => e.name).join(', ')}`);
-      console.log(`🎭 ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
         content: enhancedContent,
@@ -257,7 +246,6 @@ export class EnhancedPreProductionOrchestrator {
     const failedEngines: string[] = []
 
     console.log(`🔄 Starting enhancement pipeline with ${enginePlan.engines.length} engines...`);
-    console.log(`📊 Execution Strategy: ${enginePlan.executionOrder.toUpperCase()}`);
 
     if (enginePlan.executionOrder === 'parallel' || enginePlan.executionOrder === 'hybrid') {
       // Execute parallel groups
@@ -277,7 +265,6 @@ export class EnhancedPreProductionOrchestrator {
           if (result.status === 'fulfilled') {
             enhancedContent = this.integrateEngineResult(enhancedContent, result.value, engine)
             processedEngines.push(engine.id)
-            console.log(`✅ ${engine.name} (parallel) completed successfully`);
           } else {
             failedEngines.push(engine.id)
             console.warn(`⚠️ ${engine.name} (parallel) failed:`, result.reason);
@@ -288,7 +275,6 @@ export class EnhancedPreProductionOrchestrator {
       // Sequential execution
       for (const engine of enginePlan.engines) {
         try {
-          console.log(`⚡ Processing with ${engine.name}...`);
           
           const engineResult = await this.executeEngineWithProtection(
             engine,
@@ -300,7 +286,6 @@ export class EnhancedPreProductionOrchestrator {
           enhancedContent = this.integrateEngineResult(enhancedContent, engineResult, engine)
           processedEngines.push(engine.id)
           
-          console.log(`✅ ${engine.name} completed successfully`);
           
         } catch (engineError) {
           failedEngines.push(engine.id)
@@ -315,11 +300,8 @@ export class EnhancedPreProductionOrchestrator {
     }
 
     const successRate = processedEngines.length / enginePlan.engines.length
-    console.log(`✅ Enhancement pipeline completed.`);
-    console.log(`📊 Success Rate: ${(successRate * 100).toFixed(1)}% (${processedEngines.length}/${enginePlan.engines.length})`);
     
     if (failedEngines.length > 0) {
-      console.log(`⚠️ Failed Engines: ${failedEngines.join(', ')}`);
     }
 
     return enhancedContent
@@ -436,8 +418,6 @@ export class EnhancedPreProductionOrchestrator {
     console.error(`❌ ENHANCEMENT FAILED for ${tabType} after ${processingTime}ms:`, error);
     
     if (options.fallbackOnError) {
-      console.log(`🛡️ FALLBACK ACTIVATED: Returning original ${tabType} content`);
-      console.log(`🎭 ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
         content: originalContent,

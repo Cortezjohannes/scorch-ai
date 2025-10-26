@@ -183,7 +183,9 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         }
       })
 
-      console.log(`🎯 Dynamic Structure: ${narrativeArcs.length} arcs, ${narrativeArcs.reduce((t, a) => t + a.episodes.length, 0)} total episodes`)
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+      }
       
       return narrativeArcs
       
@@ -245,21 +247,16 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
   ): Promise<EnhancedStoryBible | null> {
     
     try {
-      console.log('🏛️ Murphy Pillar Master Conductor: Analyzing enhancement opportunity...')
-      console.log(`🎭 Input Analysis: "${synopsis.substring(0, 50)}..." | Theme: "${theme}" | Mode: ${mode}`)
       
       // STEP 1: Generate foundational premise using Premise Engine
-      console.log('🎯 Step 1: Master Conductor activating Premise Engine...')
       const premise = await PremiseEngine.generatePremise(theme, synopsis);
       const premiseEquation = PremiseEngine.expandToEquation(premise, synopsis);
       const validation = PremiseEngine.validatePremise(premise);
       
       if (!validation.isValid) {
-        console.log('⚠️ Premise validation failed, falling back to original system');
         return null;
       }
       
-      console.log(`✅ Premise Engine: "${premise.premiseStatement}" (${validation.strength})`);
       
       // STEP 2: Generate 3D Characters using Character Engine (8-12 characters)
       console.log('👥 Step 2: Master Conductor activating 3D Character Engine...')
@@ -273,7 +270,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       if (synopsis.length > 200 || premise.premiseType === 'opposing-values') {
         deuteragonist = await Character3DEngine.generateProtagonist(premise, synopsis + ' (deuteragonist perspective)');
         deuteragonist.premiseRole = 'deuteragonist';
-        console.log('🎭 Generated deuteragonist for complex narrative');
       }
       
       // Generate supporting antagonistic force
@@ -317,18 +313,12 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         ensemble2.premiseRole = 'ensemble';
         
         characters3D.push(ensemble1, ensemble2);
-        console.log('🎪 Generated ensemble characters for group dynamics');
       }
       const relationships = Character3DEngine.generateRelationships(characters3D, premise);
       
-      console.log(`✅ 3D Character Engine: Generated ${characters3D.length} complex characters`);
-      console.log(`   🎭 Protagonist: ${protagonist.name} (${protagonist.psychology.coreValue})`);
-      console.log(`   🎭 Antagonist: ${antagonist.name} (${antagonist.psychology.coreValue})`);
       if (deuteragonist) {
-        console.log(`   🎭 Deuteragonist: ${deuteragonist.name} (${deuteragonist.psychology.coreValue})`);
       }
       console.log(`   👥 Supporting Cast: ${characters3D.length - 2} characters with diverse roles`);
-      console.log(`   🎪 Character Roles: ${characters3D.map(c => c.premiseRole).join(', ')}`);
       
       // STEP 3: Generate DYNAMIC Narrative Structure using Fractal Narrative Engine
       console.log('📚 Step 3: Master Conductor activating Dynamic Fractal Narrative Engine...')
@@ -337,7 +327,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       // No more hard-coded 4 arcs or 60 episodes!
       const narrativeArcs = await this.generateDynamicNarrativeStructure(premise, protagonist, characters3D)
       
-      console.log(`✅ Dynamic Narrative Engine: Generated ${narrativeArcs.length} narrative arcs (${narrativeArcs.reduce((total, arc) => total + arc.episodes.length, 0)} total episodes)`);
       
       // STEP 4: Enhance Dialogue using Strategic Dialogue Engine
       console.log('💬 Step 4: Master Conductor activating Strategic Dialogue Engine...')
@@ -347,17 +336,14 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         premiseAlignment: char.premiseFunction
       }));
       
-      console.log(`✅ Strategic Dialogue Engine: Generated dialogue patterns for ${dialoguePatterns.length} characters`);
       
       // STEP 5: Apply Intelligent Trope System
-      console.log('🎪 Step 5: Master Conductor activating Intelligent Trope System...')
       const tropeStrategy = {
         appliedTropes: ['Hero\'s Journey', 'Moral Premise Arc', 'Character Foil Dynamics'],
         subvertedTropes: ['Perfect Hero', 'Pure Evil Villain'],
         strategicUse: 'Premise-driven trope deployment'
       };
       
-      console.log(`✅ Intelligent Trope System: Applied ${tropeStrategy.appliedTropes?.length || 0} strategic tropes`);
       
       // STEP 6: Build Living World using World Building Engine
       console.log('🌍 Step 6: Master Conductor activating World Building Engine...')
@@ -390,11 +376,8 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         ]
       };
       
-      console.log(`✅ World Building Engine: Created ${worldBuilding.locations?.length || 0} locations`);
       
       // STEP 7: CRITICAL - Use Azure OpenAI to generate REAL content based on the structural foundation
-      console.log('🎯 Step 7: Master Conductor calling Azure OpenAI for REAL content generation...')
-      console.log('⏱️ This will take 30-60 seconds for quality AI generation...')
       
       try {
         // Import the Azure OpenAI generation function
@@ -404,7 +387,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         const realStoryBible = await generateStoryBibleWithAzure(synopsis, theme);
         
         if (realStoryBible && realStoryBible.characters && realStoryBible.characters.length > 0) {
-          console.log('✅ Step 7: Azure OpenAI generated REAL content - enhancing with Murphy Pillar structure')
           
           // Enhance the real AI content with our structural intelligence
           const enhancedStoryBible: EnhancedStoryBible = {
@@ -422,18 +404,15 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
           console.log('🎉 MURPHY PILLAR SUCCESS with REAL AI CONTENT: Structure + Azure OpenAI generation complete')
           return enhancedStoryBible;
         } else {
-          console.log('⚠️ Azure OpenAI returned invalid content, using structural framework only')
           return null;
         }
       } catch (azureError) {
         console.error('💥 Azure OpenAI generation failed:', (azureError as Error).message)
-        console.log('⚠️ Falling back to structural framework without real content')
         return null;
       }
       
     } catch (error) {
       console.error('Master Conductor enhancement error:', error);
-      console.log('⚠️ Murphy Pillar fallback - using original generation system');
       return null;
     }
   }
@@ -482,7 +461,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       
       // If analysis fails, return null to trigger fallback
       if (!analysis) {
-        console.log('🎭 Master Conductor: Preproduction analysis not available, using fallback generation');
         return null;
       }
       
@@ -491,7 +469,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       
       // If planning fails, return null to trigger fallback
       if (!enginePlan) {
-        console.log('🎭 Master Conductor: Preproduction planning not available, using fallback generation');
         return null;
       }
       
@@ -500,7 +477,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       
       // If generation fails, return null to trigger fallback
       if (!enhancedContent) {
-        console.log('🎭 Master Conductor: Preproduction generation not available, using fallback generation');
         return null;
       }
       
@@ -508,7 +484,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
       return this.formatPreproductionOutput(enhancedContent, contentType);
       
     } catch (error) {
-      console.log('🎭 Master Conductor: Preproduction enhancement failed, using fallback generation:', error);
       return null;
     }
   }
@@ -665,7 +640,6 @@ Make the structure organic to THIS specific story. Don't force generic numbers.`
         // 🎭 DYNAMIC CHARACTER COUNT - Let AI determine optimal count
         const storyType = this.detectStoryType(context.synopsis || '', context.theme || '');
         
-        console.log(`🎭 Letting AI determine optimal character count for ${storyType} story...`);
         
         const characters = await Character3DEngine.generateCharacters(
           context.premise,

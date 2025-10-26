@@ -3,11 +3,17 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/context/AuthContext'
+import { saveEpisode, getEpisode, deleteEpisode } from '@/services/episode-service'
+import EpisodeGenerationModal from './EpisodeGenerationModal'
+import DuplicateEpisodeConfirmDialog from './DuplicateEpisodeConfirmDialog'
+import GuestModeWarning from './GuestModeWarning'
 
 interface EpisodeStudioProps {
   storyBible: any
   episodeNumber: number
   previousChoice?: string
+  storyBibleId?: string
 }
 
 interface VibeSettings {
@@ -27,8 +33,9 @@ interface ScriptGeneration {
   error: string | null
 }
 
-export default function EpisodeStudio({ storyBible, episodeNumber, previousChoice }: EpisodeStudioProps) {
+export default function EpisodeStudio({ storyBible, episodeNumber, previousChoice, storyBibleId }: EpisodeStudioProps) {
   const router = useRouter()
+  const { user } = useAuth()
   
   // State management
   const [episodeGoal, setEpisodeGoal] = useState('')
@@ -39,6 +46,17 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
     pacing: 50,
     dialogueStyle: 50
   })
+  
+  // Premium Mode toggle (with 19 engines)
+  const [premiumMode, setPremiumMode] = useState(true)
+  
+  // Modal state for generation loader
+  const [showGenerationModal, setShowGenerationModal] = useState(false)
+  const [generatedEpisodeData, setGeneratedEpisodeData] = useState<any>(null)
+  
+  // Duplicate episode handling
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
+  const [pendingGeneration, setPendingGeneration] = useState<(() => Promise<void>) | null>(null)
   
   const [beatSheetGen, setBeatSheetGen] = useState<BeatSheetGeneration>({
     isGenerating: false,
@@ -166,6 +184,18 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
     }
   }
 
+  // Check for duplicate episodes before generation
+  const checkForDuplicate = async (): Promise<boolean> => {
+    if (!storyBibleId) return false
+    try {
+      const existing = await getEpisode(storyBibleId, episodeNumber, user?.id)
+      return !!existing
+    } catch (error) {
+      console.error('Error checking for duplicate:', error)
+      return false
+    }
+  }
+
   // STAGE 2: Generate Script
   const handleWriteScript = async () => {
     if (!beatSheet.trim()) {
@@ -173,10 +203,28 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
       return
     }
 
+    // Check for duplicate FIRST
+    const isDuplicate = await checkForDuplicate()
+    if (isDuplicate) {
+      setPendingGeneration(() => () => doWriteScript())
+      setShowDuplicateDialog(true)
+      return
+    }
+
+    await doWriteScript()
+  }
+
+  const doWriteScript = async () => {
     setScriptGen({ isGenerating: true, error: null })
+    
+    // Show modal IMMEDIATELY before API call
+    setShowGenerationModal(true)
 
     try {
-      const response = await fetch('/api/generate/episode-from-beats', {
+      // Use premium endpoint if premium mode is enabled
+      const endpoint = premiumMode ? '/api/generate/episode-premium' : '/api/generate/episode-from-beats'
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -186,7 +234,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           vibeSettings,
           directorsNotes: directorsNotes.trim(),
           previousChoice,
-          editedScenes: getEditedScenesFromPreviousEpisodes()
+          editedScenes: premiumMode ? undefined : getEditedScenesFromPreviousEpisodes() // Premium doesn't use edited scenes yet
         })
       })
 
@@ -197,19 +245,37 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
       const data = await response.json()
       
       if (data.success && data.episode) {
-        // Save episode to storage
-        const savedEpisodes = localStorage.getItem('greenlit-episodes') || '{}'
-        const episodes = JSON.parse(savedEpisodes)
-        episodes[episodeNumber] = data.episode
-        localStorage.setItem('greenlit-episodes', JSON.stringify(episodes))
-
-        // Navigate to episode view
-        router.push(`/episode/${episodeNumber}`)
+        // Get story bible ID
+        // Use existing ID or create a deterministic one (NO Date.now()!)
+        const storyBibleId = storyBible?.id || `bible_${storyBible?.seriesTitle?.replace(/\s+/g, '_').toLowerCase()}`
+        if (!storyBible?.id) {
+          console.warn('⚠️ Story bible missing ID! Using deterministic fallback:', storyBibleId)
+        }
+        
+        // Store episode data WITHOUT completion flag
+        // The completion flag will be set when it's actually saved to localStorage
+        const finalEpisode = {
+          ...data.episode,
+          episodeNumber,
+          storyBibleId, // REQUIRED - tie to story bible
+          _generationComplete: false, // Don't set true yet - wait for save
+          generationType: data.episode.generationType || (premiumMode ? 'premium-enhanced' : 'standard'),
+          version: data.episode.version || 1,
+          editCount: data.episode.editCount || 0,
+          generatedAt: data.episode.generatedAt || new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          status: 'completed' as const
+        }
+        
+        // DON'T save yet - pass to modal which will save when engines actually finish
+        setGeneratedEpisodeData(finalEpisode)
+        console.log(`✅ Episode ${episodeNumber} ready, passing to modal for save...`)
       } else {
         throw new Error(data.error || 'Failed to generate script')
       }
     } catch (error) {
       console.error('Script generation error:', error)
+      setShowGenerationModal(false) // Hide modal on error
       setScriptGen({ 
         isGenerating: false, 
         error: error instanceof Error ? error.message : 'Failed to generate script'
@@ -217,20 +283,91 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
     }
   }
 
-  // SURPRISE ME: Generate beat sheet automatically, then create episode
+  // SURPRISE ME: AI-analyzed intelligent episode generation
   const handleSurpriseMe = async () => {
-    // First, generate a beat sheet if we don't have one
-    if (!beatSheet.trim()) {
+    // Client-side validation before making API calls
+    if (!storyBible || !storyBible.seriesTitle) {
+      setScriptGen({ 
+        isGenerating: false, 
+        error: 'Story bible is missing or incomplete. Please create a story bible first.'
+      })
+      return
+    }
+    
+    if (!storyBible.mainCharacters || storyBible.mainCharacters.length === 0) {
+      setScriptGen({ 
+        isGenerating: false, 
+        error: 'No characters found in story bible. Please add at least one character.'
+      })
+      return
+    }
+    
+    if (!episodeNumber || episodeNumber < 1) {
+      setScriptGen({ 
+        isGenerating: false, 
+        error: 'Invalid episode number. Please enter a valid episode number.'
+      })
+      return
+    }
+
+    // Check for duplicate FIRST
+    const isDuplicate = await checkForDuplicate()
+    if (isDuplicate) {
+      setPendingGeneration(() => () => doSurpriseMe())
+      setShowDuplicateDialog(true)
+      return
+    }
+
+    await doSurpriseMe()
+  }
+
+  const doSurpriseMe = async () => {
+    // STEP 1: Analyze story and get intelligent settings
+    console.log('✨ SURPRISE ME: Analyzing story for intelligent settings...')
       setBeatSheetGen({ isGenerating: true, error: null, generatedBeats: '' })
       
+      // DON'T show modal - only fill forms
+      
       try {
+      const analysisResponse = await fetch('/api/analyze-story-for-episode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBible,
+          episodeNumber,
+          previousChoice
+        })
+      })
+
+      if (!analysisResponse.ok) {
+        const errorData = await analysisResponse.json().catch(() => ({}))
+        console.error('Analysis API error:', errorData)
+        throw new Error(errorData.error || errorData.details || 'Failed to analyze story context')
+      }
+
+      const analysisData = await analysisResponse.json()
+      
+      if (analysisData.success && analysisData.settings) {
+        const { vibeSettings: analyzedVibes, directorsNotes: analyzedNotes, episodeGoal: analyzedGoal } = analysisData.settings
+        
+        // Apply the AI-analyzed settings
+        setVibeSettings(analyzedVibes)
+        setDirectorsNotes(analyzedNotes)
+        setEpisodeGoal(analyzedGoal)
+        
+        console.log('✅ Intelligent settings applied:')
+        console.log(`   Tone: ${analyzedVibes.tone}/100`)
+        console.log(`   Pacing: ${analyzedVibes.pacing}/100`)
+        console.log(`   Dialogue: ${analyzedVibes.dialogueStyle}/100`)
+        
+        // STEP 2: Generate beat sheet with the analyzed goal
         const beatResponse = await fetch('/api/generate/beat-sheet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             storyBible,
             episodeNumber,
-            episodeGoal: episodeGoal.trim() || 'Create an exciting and engaging episode',
+            episodeGoal: analyzedGoal,
             previousChoice
           })
         })
@@ -244,61 +381,41 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
         if (beatData.success && beatData.beatSheet) {
           setBeatSheet(beatData.beatSheet)
           setBeatSheetGen({ isGenerating: false, error: null, generatedBeats: beatData.beatSheet })
+          
+          // STOP HERE - don't auto-generate episode
+          // User will manually click "Write the Script" button
+          console.log('✅ Surprise Me complete - forms filled, ready for manual generation')
         } else {
           throw new Error(beatData.error || 'Failed to generate beat sheet')
         }
-      } catch (error) {
-        console.error('Beat sheet generation error:', error)
-        setBeatSheetGen({ 
-          isGenerating: false, 
-          error: error instanceof Error ? error.message : 'Failed to generate beat sheet',
-          generatedBeats: ''
-        })
-        return // Stop if beat sheet generation fails
-      }
-    }
-
-    // Now generate the episode from the beat sheet (using the Director's Chair workflow)
-    setScriptGen({ isGenerating: true, error: null })
-
-    try {
-      const response = await fetch('/api/generate/episode-from-beats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyBible,
-          episodeNumber,
-          beatSheet: beatSheet.trim() || beatSheetGen.generatedBeats,
-          vibeSettings,
-          directorsNotes: directorsNotes.trim() || 'Create an engaging, surprise episode with creative freedom',
-          previousChoice,
-          editedScenes: getEditedScenesFromPreviousEpisodes()
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.success && data.episode) {
-        // Save episode to storage
-        const savedEpisodes = localStorage.getItem('greenlit-episodes') || '{}'
-        const episodes = JSON.parse(savedEpisodes)
-        episodes[episodeNumber] = data.episode
-        localStorage.setItem('greenlit-episodes', JSON.stringify(episodes))
-
-        // Navigate to episode view
-        router.push(`/episode/${episodeNumber}`)
       } else {
-        throw new Error(data.error || 'Failed to generate surprise episode')
+        throw new Error('Failed to analyze story context')
       }
     } catch (error) {
       console.error('Surprise episode generation error:', error)
+      setShowGenerationModal(false) // Hide modal on error
+      setBeatSheetGen({ isGenerating: false, error: null, generatedBeats: '' })
+      
+      // Enhanced error handling with user-friendly messages
+      let userMessage = 'Failed to generate surprise episode'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('HTTP error! status: 400')) {
+          userMessage = 'Invalid story data. Please check your story bible and try again.'
+        } else if (error.message.includes('HTTP error! status: 500')) {
+          userMessage = 'Server error occurred. Please try again in a moment.'
+        } else if (error.message.includes('Failed to fetch')) {
+          userMessage = 'Network connection issue. Please check your internet connection.'
+        } else if (error.message.includes('timeout')) {
+          userMessage = 'Generation timed out. Please try again.'
+        } else {
+          userMessage = `Generation failed: ${error.message}`
+        }
+      }
+      
       setScriptGen({ 
         isGenerating: false, 
-        error: error instanceof Error ? error.message : 'Failed to generate surprise episode'
+        error: userMessage
       })
     }
   }
@@ -348,6 +465,11 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Guest Mode Warning */}
+      <div className="max-w-7xl mx-auto px-6 pt-6">
+        <GuestModeWarning />
       </div>
 
       {/* Story Bible Cheat Sheet - Fixed Sidebar */}
@@ -573,7 +695,45 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
               {/* Vibe Check Sliders */}
               <div className="space-y-6 mb-8">
+                <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-[#e2c376]">Vibe Check</h3>
+                  
+                  {/* Premium Mode Toggle */}
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={premiumMode}
+                        onChange={(e) => setPremiumMode(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-600 peer-checked:to-pink-600"></div>
+                    </label>
+                    <div className="flex flex-col">
+                      <span className={`text-xs font-semibold ${premiumMode ? 'text-purple-400' : 'text-gray-400'}`}>
+                        {premiumMode ? '🏆 PREMIUM' : 'STANDARD'}
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        {premiumMode ? '+19 Engines' : 'Fast'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                {premiumMode && (
+                  <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">🏆</span>
+                      <div>
+                        <h4 className="text-sm font-bold text-purple-300 mb-1">Premium Mode Active</h4>
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          Your episode will be enhanced by 19 sophisticated AI engines for maximum quality. 
+                          This takes ~90s instead of ~30s, but produces significantly better storytelling.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Tone Slider */}
                 <div>
@@ -670,7 +830,12 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 {scriptGen.isGenerating ? (
                   <div className="flex items-center justify-center gap-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
-                    Writing the Script...
+                    <div className="text-center">
+                      <div className="font-semibold">Writing the Script...</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Creating cinematic scenes from your beat sheet
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   '🎬 Write the Script'
@@ -1171,6 +1336,62 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           );
         }
       `}</style>
+      
+      {/* Generation Modal */}
+      <EpisodeGenerationModal
+        isOpen={showGenerationModal}
+        episodeNumber={episodeNumber}
+        seriesTitle={storyBible.seriesTitle}
+        isPremiumMode={premiumMode}
+        episodeData={generatedEpisodeData}
+        onComplete={async () => {
+          // NOW save the episode with completion flag set to true
+          if (generatedEpisodeData && storyBibleId) {
+            try {
+              // Set the completion flag NOW before saving
+              const episodeToSave = {
+                ...generatedEpisodeData,
+                _generationComplete: true // Set true NOW so localStorage polling detects it
+              }
+              await saveEpisode(episodeToSave, storyBibleId, user?.id)
+              console.log(`✅ Episode ${episodeNumber} saved with completion flag`)
+            } catch (error) {
+              console.error('Failed to save episode:', error)
+            }
+          }
+          setShowGenerationModal(false)
+          const episodeUrl = storyBibleId 
+            ? `/episode/${episodeNumber}?storyBibleId=${storyBibleId}`
+            : `/episode/${episodeNumber}`
+          router.push(episodeUrl)
+        }}
+      />
+      
+      {/* Duplicate Episode Confirmation Dialog */}
+      <DuplicateEpisodeConfirmDialog
+        isOpen={showDuplicateDialog}
+        episodeNumber={episodeNumber}
+        onConfirm={async () => {
+          setShowDuplicateDialog(false)
+          // Delete old episode
+          if (storyBibleId) {
+            try {
+              await deleteEpisode(storyBibleId, episodeNumber, user?.id)
+              console.log(`🗑️ Deleted old Episode ${episodeNumber}`)
+            } catch (error) {
+              console.error('Failed to delete old episode:', error)
+            }
+          }
+          // Run pending generation
+          if (pendingGeneration) {
+            await pendingGeneration()
+          }
+        }}
+        onCancel={() => {
+          setShowDuplicateDialog(false)
+          setPendingGeneration(null)
+        }}
+      />
     </div>
   )
 }

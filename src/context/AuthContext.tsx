@@ -78,19 +78,16 @@ const createUserProfile = (firebaseUser: FirebaseUser): User => {
     };
 };
 
-// More reliable check if Firebase is available and correctly initialized
-const isFirebaseAvailable = () => {
+// Check if Firebase credentials are configured
+const isFirebaseConfigured = () => {
   if (isServer) return false; // Firebase isn't available on server
   
-  try {
-    // Check if auth is properly initialized and methods exist
-    return !!auth && 
-           typeof auth.currentUser !== 'undefined' &&
-           typeof auth.onAuthStateChanged === 'function';
-  } catch (error) {
-    console.warn('Firebase appears to be unavailable:', error);
-    return false;
-  }
+  // Check if environment variables are set
+  return !!(
+    typeof window !== 'undefined' &&
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'dummy-api-key'
+  );
 };
 
 export const useAuth = () => {
@@ -112,36 +109,48 @@ interface AuthProviderProps {
 
 // Create a mock auth implementation for development or when Firebase is disabled
 const createMockAuthImplementation = (): AuthContextProps => {
-  // Create a mock user
-  const mockUser: User = {
-    id: 'mock-user-123',
-    email: 'user@example.com',
-    displayName: 'Test User',
-    projects: ['mock-project-1', 'mock-project-2'],
-    collaborations: [],
-    photoURL: null
-  };
-  
-  console.log('Using mock auth implementation');
+  // Don't auto-authenticate with mock - let user actually login
+  console.log('Using mock auth implementation (not authenticated by default)');
   
   return {
-    user: mockUser,
-    isAuthenticated: true,
+    user: null,
+    isAuthenticated: false,
     isLoading: false,
     error: null,
-    signUp: async () => { console.log('Mock sign up called'); },
-    signIn: async () => { console.log('Mock sign in called'); },
-    signOut: async () => { console.log('Mock sign out called'); },
-    resetPassword: async () => { console.log('Mock reset password called'); },
-    updateUserProfile: async () => { console.log('Mock update profile called'); },
-    getCollaborators: async () => {
-      return [mockUser];
+    signUp: async () => { 
+      console.log('Mock sign up called - Firebase not configured'); 
+      throw new Error('Firebase not configured. Please add Firebase credentials to .env.local');
     },
-    addCollaborator: async () => { console.log('Mock add collaborator called'); },
-    removeCollaborator: async () => { console.log('Mock remove collaborator called'); },
-    updateUserAvailability: async () => { console.log('Mock update availability called'); },
+    signIn: async () => { 
+      console.log('Mock sign in called - Firebase not configured'); 
+      throw new Error('Firebase not configured. Please add Firebase credentials to .env.local');
+    },
+    signOut: async () => { console.log('Mock sign out called'); },
+    resetPassword: async () => { 
+      console.log('Mock reset password called'); 
+      throw new Error('Firebase not configured');
+    },
+    updateUserProfile: async () => { 
+      console.log('Mock update profile called'); 
+      throw new Error('Firebase not configured');
+    },
+    getCollaborators: async () => {
+      return [];
+    },
+    addCollaborator: async () => { 
+      console.log('Mock add collaborator called'); 
+      throw new Error('Firebase not configured');
+    },
+    removeCollaborator: async () => { 
+      console.log('Mock remove collaborator called'); 
+      throw new Error('Firebase not configured');
+    },
+    updateUserAvailability: async () => { 
+      console.log('Mock update availability called'); 
+      throw new Error('Firebase not configured');
+    },
     getUserAvailability: async () => {
-      return [{ date: '2025-04-15', hours: [9, 10, 11, 12] }];
+      return [];
     }
   };
 };
@@ -151,26 +160,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Mark component as mounted on client-side only
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
-  // Determine if we should use the mock implementation
-  const [useMockAuth] = useState(() => {
-    // Always use the mock implementation on the server
-    if (isServer) return true;
-    
-    // Check if Firebase is properly available
-    const firebaseAvailable = isFirebaseAvailable();
-    console.log('Firebase available:', firebaseAvailable);
-    
-    return !firebaseAvailable;
-  });
+  // Always use real Firebase on client (when configured), mocks only on server or before mount
+  const useMockAuth = !isMounted || isServer || !isFirebaseConfigured();
   
   useEffect(() => {
+    // Wait for component to mount before initializing
+    if (!isMounted) return;
+    
     // If we're using the mock implementation, set up mock data
     if (useMockAuth) {
-      console.log('Firebase disabled: Using mock implementation');
-      const mockImpl = createMockAuthImplementation();
-      setUser(mockImpl.user);
-      setIsAuthenticated(true);
+      console.log('⚠️ Firebase not configured: Using mock implementation (no auto-login)');
+      // Don't auto-authenticate - let user actually sign in
+      setUser(null);
+      setIsAuthenticated(false);
       setIsLoading(false);
       return () => {}; // Empty cleanup function
     }
@@ -240,18 +249,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => unsubscribe()
     } catch (err: any) {
       // Handle initialization errors
-      console.error('Firebase auth initialization error:', err);
+      console.error('❌ Firebase auth initialization error:', err);
       setError(err.message);
       setIsLoading(false);
       
-      // Fall back to mock implementation
-      const mockImpl = createMockAuthImplementation();
-      setUser(mockImpl.user);
-      setIsAuthenticated(true);
+      // Fall back to unauthenticated state
+      setUser(null);
+      setIsAuthenticated(false);
       
       return () => {};
     }
-  }, [useMockAuth])
+  }, [isMounted, useMockAuth])
 
   // Rest of the functions
   // Either use the real implementation or the mock implementation
@@ -285,12 +293,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 AuthContext.signIn called');
+    console.log('  - useMockAuth:', useMockAuth);
+    console.log('  - isMounted:', isMounted);
+    
+    if (useMockAuth) {
+      console.error('❌ Firebase not configured - cannot sign in');
+      const error = new Error('Firebase not configured. Please add Firebase credentials to .env.local');
+      setError(error.message);
+      throw error;
+    }
+    
     try {
+      console.log('  - Attempting Firebase signIn...');
       setError(null);
       setIsLoading(true);
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Firebase signIn successful!', result.user.email);
     } catch (err: any) {
-      console.error('Sign in error:', err);
+      console.error('❌ Sign in error:', err);
+      console.error('  - Error code:', err.code);
+      console.error('  - Error message:', err.message);
       setError(err.message);
       throw err;
     } finally {

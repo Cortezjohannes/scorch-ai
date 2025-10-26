@@ -111,15 +111,9 @@ export class PerformanceOptimizationSystem {
     const startTime = Date.now()
     const executionId = this.generateExecutionId()
     
-    console.log(`\n⚡ ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 PERFORMANCE OPTIMIZED EXECUTION: ${executionId}`);
-    console.log(`📊 Operations: ${engineOperations.length} | Context: ${context.contentType}`);
-    console.log(`🎯 Optimization Level: ${options.level || 'standard'}`);
-    console.log(`⚡ ═══════════════════════════════════════════════════════════════════════════════════`);
 
     try {
       // STAGE 1: Cache Analysis and Hit Detection
-      console.log(`🔍 Stage 1: Analyzing cache opportunities...`);
       const cacheAnalysis = await this.analyzeCacheOpportunities(engineOperations, context)
       
       // STAGE 2: Dependency Analysis for Parallel Execution
@@ -127,7 +121,6 @@ export class PerformanceOptimizationSystem {
       const dependencyGraph = await this.buildDependencyGraph(engineOperations)
       
       // STAGE 3: Execution Plan Optimization
-      console.log(`⚙️ Stage 3: Creating optimized execution plan...`);
       const executionPlan = await this.createOptimizedExecutionPlan(
         engineOperations,
         cacheAnalysis,
@@ -136,11 +129,9 @@ export class PerformanceOptimizationSystem {
       )
       
       // STAGE 4: Execute with Performance Monitoring
-      console.log(`⚡ Stage 4: Executing optimized plan...`);
       const results = await this.executeOptimizedPlan(executionPlan, context)
       
       // STAGE 5: Performance Analysis and Learning
-      console.log(`📊 Stage 5: Analyzing performance metrics...`);
       const performanceResults = await this.analyzePerformanceResults(
         results,
         startTime,
@@ -152,10 +143,6 @@ export class PerformanceOptimizationSystem {
       await this.optimizer.learnFromExecution(executionPlan, performanceResults)
       
       const totalTime = Date.now() - startTime
-      console.log(`✅ OPTIMIZED EXECUTION COMPLETE: ${totalTime}ms`);
-      console.log(`📊 Speedup Factor: ${performanceResults.speedupFactor.toFixed(2)}x`);
-      console.log(`🎯 Cache Hit Rate: ${(performanceResults.cacheHits / engineOperations.length * 100).toFixed(1)}%`);
-      console.log(`⚡ ═══════════════════════════════════════════════════════════════════════════════════\n`);
       
       return {
         results: results.data,
@@ -182,12 +169,10 @@ export class PerformanceOptimizationSystem {
     context: ExecutionContext,
     generator: () => Promise<T>
   ): Promise<CachedResult<T>> {
-    console.log(`🔍 Checking cache for key: ${cacheKey.substring(0, 50)}...`);
     
     // Check cache first
     const cachedData = await this.cache.get<T>(cacheKey)
     if (cachedData && this.isCacheValid(cachedData, context)) {
-      console.log(`✅ Cache HIT: ${cacheKey.substring(0, 50)}`);
       
       this.performanceMonitor.recordCacheHit(cacheKey)
       return {
@@ -198,7 +183,6 @@ export class PerformanceOptimizationSystem {
       }
     }
     
-    console.log(`❌ Cache MISS: ${cacheKey.substring(0, 50)}`);
     this.performanceMonitor.recordCacheMiss(cacheKey)
     
     // Generate new result
@@ -234,18 +218,15 @@ export class PerformanceOptimizationSystem {
     dependencyGraph: DependencyGraph,
     context: ExecutionContext
   ): Promise<ParallelExecutionResult<T>> {
-    console.log(`⚡ Executing ${operations.length} operations in parallel...`);
     
     const executionGroups = this.groupOperationsByDependencies(operations, dependencyGraph)
     const results: Map<string, T> = new Map()
     const executionTimes: Map<string, number> = new Map()
     const errors: Map<string, Error> = new Map()
     
-    console.log(`📊 Execution groups: ${executionGroups.length}`);
     
     for (let groupIndex = 0; groupIndex < executionGroups.length; groupIndex++) {
       const group = executionGroups[groupIndex]
-      console.log(`⚡ Executing group ${groupIndex + 1}/${executionGroups.length} (${group.length} operations)`);
       
       // Execute all operations in this group in parallel
       const groupPromises = group.map(async (operation) => {
@@ -258,7 +239,6 @@ export class PerformanceOptimizationSystem {
           results.set(operation.id, result)
           executionTimes.set(operation.id, executionTime)
           
-          console.log(`✅ ${operation.name} completed in ${executionTime}ms`);
           
         } catch (error) {
           errors.set(operation.id, error as Error)
@@ -274,7 +254,6 @@ export class PerformanceOptimizationSystem {
     const failureCount = errors.size
     const successRate = successCount / operations.length
     
-    console.log(`📊 Parallel execution complete: ${successCount}/${operations.length} successful (${(successRate * 100).toFixed(1)}%)`);
     
     return {
       results,
@@ -295,24 +274,20 @@ export class PerformanceOptimizationSystem {
   }
 
   async startPerformanceMonitoring(): Promise<void> {
-    console.log(`📊 Starting real-time performance monitoring...`);
     
     setInterval(async () => {
       const metrics = await this.getPerformanceMetrics()
       
       // Adaptive optimization based on performance metrics
       if (metrics.averageResponseTime > this.configuration.optimization.responseTimeThreshold) {
-        console.log(`⚠️ Response time threshold exceeded: ${metrics.averageResponseTime}ms`);
         await this.optimizer.optimizeForResponseTime()
       }
       
       if (metrics.cacheHitRate < this.configuration.optimization.cacheHitThreshold) {
-        console.log(`⚠️ Cache hit rate below threshold: ${(metrics.cacheHitRate * 100).toFixed(1)}%`);
         await this.optimizer.optimizeCacheStrategy()
       }
       
       if (metrics.memoryUsage > this.configuration.resourceLimits.maxMemoryUsage) {
-        console.log(`⚠️ Memory usage threshold exceeded: ${metrics.memoryUsage}MB`);
         await this.cache.performMemoryOptimization()
       }
       
@@ -334,7 +309,6 @@ export class PerformanceOptimizationSystem {
     
     const afterMetrics = await this.cache.getMetrics()
     
-    console.log(`✅ Cache optimization complete:`);
     console.log(`   - Removed expired: ${removed} entries`);
     console.log(`   - Compressed: ${compressed} entries`);
     console.log(`   - Rebalanced: ${rebalanced} partitions`);
@@ -498,7 +472,6 @@ export class PerformanceOptimizationSystem {
     const cacheHits: string[] = []
     
     for (const phase of plan.phases) {
-      console.log(`⚡ Executing phase ${phase.index + 1}/${plan.phases.length} (${phase.executionMode})`);
       
       if (phase.executionMode === 'parallel') {
         const parallelResult = await this.executeInParallel(phase.operations, { nodes: new Map(), edges: new Map(), levels: [] }, context)
@@ -545,7 +518,6 @@ export class PerformanceOptimizationSystem {
     context: ExecutionContext,
     startTime: number
   ): Promise<OptimizedExecutionResult<T>> {
-    console.log(`🛡️ Executing sequential fallback...`);
     
     const results: Map<string, T> = new Map()
     const executionTimes: Map<string, number> = new Map()

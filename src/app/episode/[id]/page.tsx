@@ -5,7 +5,6 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import EpisodeEngineLoader from '@/components/EpisodeEngineLoader'
 import AnimatedBackground from '@/components/AnimatedBackground'
-import '@/styles/greenlit-design.css'
 
 interface BranchingOption {
   id: number
@@ -622,20 +621,54 @@ export default function EpisodePage() {
   const [editingSceneContent, setEditingSceneContent] = useState<string>('')
   const [isSceneLocked, setIsSceneLocked] = useState<boolean>(false)
 
-  // Effect to set client-side flag
+  // Theme state (light mode default)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set([0])) // First scene open by default
+
+  // Effect to set client-side flag and load theme
   useEffect(() => {
     setIsClient(true)
+    // Load theme preference from localStorage
+    const savedTheme = localStorage.getItem('episode-viewer-theme') as 'light' | 'dark' | null
+    if (savedTheme) {
+      setTheme(savedTheme)
+    }
   }, [])
 
-  // Effect to load story bible and previous choices from localStorage
+  // Toggle theme
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(newTheme)
+    localStorage.setItem('episode-viewer-theme', newTheme)
+  }
+  
+  // Toggle scene expansion
+  const toggleScene = (index: number) => {
+    const newExpanded = new Set(expandedScenes)
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index)
+    } else {
+      newExpanded.add(index)
+    }
+    setExpandedScenes(newExpanded)
+  }
+
+  // Effect to load story bible and previous choices from localStorage or Firestore
   useEffect(() => {
     // Only run on client side to prevent hydration errors
     if (typeof window === 'undefined') return
     
-    const loadData = () => {
+    const loadData = async () => {
       try {
-        // Load story bible
-        const savedBible = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')) : null
+        // Check for story bible ID in URL params (coming from EpisodeStudio)
+        const storyBibleId = searchParams.get('storyBibleId')
+        
+        // Helper function to load from localStorage
+        const loadFromLocalStorage = () => {
+          const savedBible = localStorage.getItem('greenlit-story-bible') || 
+                            localStorage.getItem('scorched-story-bible') || 
+                            localStorage.getItem('reeled-story-bible')
+          
         if (savedBible) {
           const parsed = JSON.parse(savedBible)
           
@@ -645,6 +678,42 @@ export default function EpisodePage() {
           }
           
           setStoryBible(parsed.storyBible)
+            return true
+          }
+          return false
+        }
+        
+        // Try to load from Firestore if storyBibleId is provided
+        if (storyBibleId) {
+          try {
+            const { getStoryBible } = await import('@/services/story-bible-service')
+            const { useAuth } = await import('@/context/AuthContext')
+            
+            // Note: We can't use hooks here, so we'll fall back to localStorage
+            // The story bible should already be saved to localStorage from EpisodeStudio
+            const loaded = loadFromLocalStorage()
+            if (!loaded) {
+              console.warn('⚠️ Story bible not found in localStorage, redirecting to home')
+              router.push('/')
+              return
+            }
+          } catch (error) {
+            console.error('Error loading from Firestore:', error)
+            const loaded = loadFromLocalStorage()
+            if (!loaded) {
+              router.push('/')
+              return
+            }
+          }
+        } else {
+          // Try localStorage first
+          const loaded = loadFromLocalStorage()
+          if (!loaded) {
+            // If no story bible found, redirect to home
+            router.push('/')
+            return
+          }
+        }
           
           // Check if this episode should be accessible
           if (episodeId > 1) {
@@ -686,10 +755,6 @@ export default function EpisodePage() {
           const savedChoices = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-user-choices') || localStorage.getItem('scorched-user-choices') || localStorage.getItem('reeled-user-choices')) : null
           if (savedChoices) {
             setUserChoices(JSON.parse(savedChoices))
-          }
-        } else {
-          // If no story bible found, redirect to home
-          router.push('/')
         }
       } catch (error) {
         console.error('Error loading data:', error)
@@ -702,92 +767,10 @@ export default function EpisodePage() {
     }
 
     loadData()
-  }, [router, episodeId])
+  }, [router, episodeId, searchParams])
 
-  // Effect to poll localStorage for episodes when in loading state
-  useEffect(() => {
-    // Only run on client side to prevent hydration errors
-    if (typeof window === 'undefined') return
-    
-    // Only start polling if we're in loading/generating state
-    if ((loading || generating) && episodeId > 0 && !localStoragePollingInterval) {
-      console.log(`Starting localStorage polling for episode ${episodeId}`);
-      
-      // Set generation start time if not set
-      if (!generationStartTime) {
-        setGenerationStartTime(Date.now());
-      }
-      
-      // Check localStorage every 2 seconds
-      const interval = setInterval(() => {
-        try {
-          const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null;
-          if (savedEpisodes) {
-            const episodes = JSON.parse(savedEpisodes);
-            
-            // If this episode exists in localStorage but not in our state
-            // CRITICAL: Only display if it's marked as fully enhanced (not just a draft)
-            if (episodes[episodeId] && !episodeData) {
-              const episode = episodes[episodeId];
-              
-              // Check if this is a complete, enhanced episode
-              const isEnhanced = episode._generationComplete === true || 
-                                episode.generationType === 'comprehensive-enhanced' ||
-                                episode.generationType === 'legacy-enhanced' ||
-                                episode.generationType === 'story-bible-only';
-              
-              if (isEnhanced) {
-                console.log(`✅ Found ENHANCED episode ${episodeId} in localStorage during polling`);
-                
-                // Calculate how long we've been generating
-                const generationTimeElapsed = generationStartTime ? (Date.now() - generationStartTime) / 1000 : 0;
-                console.log(`🎉 Generation took approximately ${generationTimeElapsed.toFixed(1)} seconds`);
-                
-                // Clear intervals and timeouts
-                if (generationTimeout) {
-                  clearTimeout(generationTimeout);
-                  setGenerationTimeout(null);
-                }
-                
-                // Display the enhanced episode
-                setEpisodeData(episodes[episodeId]);
-                setLoading(false);
-                setGenerating(false);
-                // Clear the polling interval
-                clearInterval(interval);
-                setLocalStoragePollingInterval(null);
-              } else {
-                console.log(`⏳ Found DRAFT episode ${episodeId} in localStorage - waiting for enhancement to complete...`);
-                // Continue polling - don't display the draft
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error polling localStorage:', error);
-        }
-      }, 2000); // Poll every 2 seconds
-      
-      setLocalStoragePollingInterval(interval);
-      
-      // If we've been polling for over 2 minutes, force a refresh
-      const forceRefreshTimeout = setTimeout(() => {
-        console.log(`Force refreshing for episode ${episodeId} after extended polling`);
-        window.location.reload();
-      }, 120000); // 2 minutes
-      
-      return () => {
-        clearInterval(interval);
-        clearTimeout(forceRefreshTimeout);
-        setLocalStoragePollingInterval(null);
-      };
-    }
-    
-    // Clear polling if we're no longer loading/generating
-    if (!loading && !generating && localStoragePollingInterval) {
-      clearInterval(localStoragePollingInterval);
-      setLocalStoragePollingInterval(null);
-    }
-  }, [loading, generating, episodeId, episodeData, generationStartTime, localStoragePollingInterval, generationTimeout]);
+  // NOTE: Polling logic is now handled by EpisodeGenerationLoader component
+  // which polls localStorage and calls onComplete when episode is ready
 
   // Effect to redirect to episode studio if episode doesn't exist yet
   useEffect(() => {
@@ -1289,34 +1272,13 @@ export default function EpisodePage() {
     )
   }
 
-  // Loading state with our in-brand loader
-  if (!error && (loading || generating || !isValidEpisodeData) && !episodeData) {
-    try {
-      const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes');
-      if (savedEpisodes) {
-        const episodes = JSON.parse(savedEpisodes);
-        if (episodes[episodeId] && !episodeData) {
-          setTimeout(() => {
-            setEpisodeData(episodes[episodeId]);
-            setLoading(false);
-            setGenerating(false);
-          }, 0);
-        }
-      }
-    } catch (e) {
-      console.error('Error checking localStorage in loading state:', e);
-    }
-    
+  // Simple loading state
+  if (loading) {
     return (
-      <>
-        <EpisodeEngineLoader
-          open={true}
-          episodeNumber={episodeId}
-          seriesTitle={storyBible?.seriesTitle}
-          useEngines={true}
-        />
-      </>
-    );
+      <div className="min-h-screen flex items-center justify-center bg-[#121212]">
+        <div className="text-xl text-[#e7e7e7]/70">Loading episode...</div>
+      </div>
+    )
   }
 
   // Error state
@@ -1378,286 +1340,307 @@ export default function EpisodePage() {
     )
   }
 
+  // Theme colors
+  const themeColors = theme === 'light' ? {
+    bg: 'bg-[#faf9f7]',
+    text: 'text-[#2a2a2a]',
+    textMuted: 'text-[#6b6b6b]',
+    accent: 'text-[#c9a961]',
+    border: 'border-[#c9a961]/30',
+    cardBg: 'bg-white',
+    shadow: 'shadow-lg',
+    divider: 'border-[#c9a961]/20'
+  } : {
+    bg: 'bg-[#1a1a1a]',
+    text: 'text-[#e7e7e7]',
+    textMuted: 'text-[#9a9a9a]',
+    accent: 'text-[#d4af37]',
+    border: 'border-[#d4af37]/30',
+    cardBg: 'bg-[#2a2a2a]',
+    shadow: 'shadow-2xl',
+    divider: 'border-[#d4af37]/20'
+  }
+
   return (
-    <div className="min-h-screen bg-black p-4 sm:p-6 md:p-8 pb-24 relative" style={{ zIndex: 1 }}>
-      <AnimatedBackground intensity="medium" />
-      <div className="max-w-4xl mx-auto">
+    <div className={`min-h-screen ${themeColors.bg} ${themeColors.text} transition-colors duration-300`}>
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed top-6 right-6 z-50 p-3 ${themeColors.cardBg} ${themeColors.border} border rounded-full ${themeColors.shadow} hover:scale-110 transition-all duration-200`}
+        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      >
+        {theme === 'light' ? '🌙' : '☀️'}
+      </button>
+
+      <div className="max-w-3xl mx-auto px-6 md:px-12 py-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Episode Content */}
-          <div className="bg-black border border-[#00FF99]/20 rounded-xl overflow-hidden">
             {episodeData ? (
-              <div>
+            <article className="space-y-16">
+              {/* FADE IN marker */}
+              <div className={`text-center font-mono text-xs tracking-widest uppercase ${themeColors.textMuted}`}>
+                Fade In:
+              </div>
+
                 {/* Episode Header */}
-                <div className="bg-black p-8 border-b border-[#00FF99]/20">
-                  <div className="max-w-3xl mx-auto">
-                    <h1 className="text-4xl sm:text-5xl font-bold text-[#00FF99] mb-4 tracking-wide leading-tight font-medium cinematic-header">
+              <header className="space-y-8">
+                <h1 className={`font-serif text-5xl md:text-6xl font-bold ${themeColors.text} tracking-tight leading-tight text-center`}>
                       {episodeData.episodeTitle}
                     </h1>
-                    <div className="text-white/90 flex items-center text-lg tracking-wide">
-                      <span className="mr-3">Episode {episodeId}/60</span>
-                      <span className="text-[#00FF99]/60">•</span>
-                      <span className="ml-3">Arc {arcIndex + 1}/6: Episode {episodeWithinArc}/10</span>
+                
+                {/* Meta Information */}
+                <div className={`flex flex-wrap justify-center gap-2 text-sm ${themeColors.textMuted} font-sans tracking-wide`}>
+                  <span>Episode {episodeId}/60</span>
+                  <span>•</span>
+                  <span>Arc {arcIndex + 1}/6: Episode {episodeWithinArc}/10</span>
                       {narrativeArc?.title && narrativeArc.title !== `Arc ${arcIndex + 1}` && (
                         <>
-                          <span className="text-[#00FF99]/60 mx-3">•</span>
-                          <span className="text-[#00FF99]/80">{narrativeArc.title}</span>
+                      <span>•</span>
+                      <span className={themeColors.accent}>{narrativeArc.title}</span>
                         </>
                       )}
                     </div>
                     
                     {/* Episode Synopsis */}
-                    <div className="mt-8 bg-gradient-to-r from-[#00FF99]/10 to-transparent p-6 rounded-lg border border-[#00FF99]/20">
-                      <div className="text-white/95 text-xl leading-relaxed tracking-wide">
-                        <span className="italic font-light">"{episodeData.synopsis}"</span>
+                <div className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-8`}>
+                  <p className={`font-serif text-lg md:text-xl leading-relaxed ${themeColors.text} text-center italic`}>
+                    "{episodeData.synopsis}"
+                  </p>
                       </div>
-                    </div>
-                  </div>
-                </div>
+              </header>
                 
-                {/* Main Content with Scenes */}
-                <div className="p-8 sm:p-10 bg-black">
-                  <div className="max-w-3xl mx-auto">
-                    {/* Divider */}
-                    <div className="border-t border-[#00FF99]/20 mb-10"></div>
+              {/* Film Strip Divider */}
+              <div className={`flex items-center gap-4 ${themeColors.textMuted}`}>
+                <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+                <span className="font-mono text-xs tracking-widest uppercase">🎬</span>
+                <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+                </div>
                     
                     {/* Scenes */}
-                    <div className="space-y-12">
+              <section className="space-y-6">
                       {episodeData.scenes && Array.isArray(episodeData.scenes) ? 
                         episodeData.scenes.map((scene, index) => {
-                          const totalScenes = episodeData.scenes.length;
-                          
-                          // Dynamic scene labels based on total scene count
-                          const getSceneLabel = (sceneIndex: number, total: number) => {
-                            if (total === 1) return "The scene";
-                            if (total === 2) return sceneIndex === 0 ? "First scene" : "Final scene";
-                            if (total === 3) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === 1) return "Second scene";
-                              return "Final scene";
-                            }
-                            if (total === 4) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === 1) return "Second scene";
-                              if (sceneIndex === 2) return "Third scene";
-                              return "Final scene";
-                            }
-                            if (total === 5) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === 1) return "Second scene";
-                              if (sceneIndex === 2) return "Third scene";
-                              if (sceneIndex === 3) return "Fourth scene";
-                              return "Final scene";
-                            }
-                            if (total === 6) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === total - 1) return "Final scene";
-                              return `Scene ${sceneIndex + 1}`;
-                            }
-                            if (total === 7) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === total - 1) return "Final scene";
-                              return `Scene ${sceneIndex + 1}`;
-                            }
-                            if (total === 8) {
-                              if (sceneIndex === 0) return "Opening scene";
-                              if (sceneIndex === total - 1) return "Final scene";
-                              return `Scene ${sceneIndex + 1}`;
-                            }
-                            return `Scene ${sceneIndex + 1}`;
-                          };
+                    const isExpanded = expandedScenes.has(index)
+                    const sceneNumber = (index + 1).toString().padStart(2, '0')
                           
                           return (
-                          <div key={scene.sceneNumber || index} className="mb-16 group">
-                            {/* Scene Header with Chapter-like Styling */}
-                            <div className="border-l-4 border-[#00FF99] pl-6 mb-8">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h2 className="text-2xl font-semibold text-[#00FF99] mb-2 tracking-wide">
-                              {getSceneLabel(index, totalScenes)}
-                            </h2>
+                      <div 
+                        key={scene.sceneNumber || index} 
+                        className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl overflow-hidden transition-all duration-300`}
+                      >
+                        {/* Scene Header - Always Visible */}
+                        <button
+                          onClick={() => toggleScene(index)}
+                          className="w-full p-6 flex items-center justify-between hover:bg-opacity-80 transition-all duration-200"
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className={`font-mono text-sm tracking-widest uppercase ${themeColors.accent} font-semibold`}>
+                              SCENE {sceneNumber}
+                            </span>
                                   {scene.title && (
-                                    <p className="text-white/70 text-lg italic">
+                              <span className={`font-serif italic ${themeColors.textMuted}`}>
                                       {scene.title}
-                                    </p>
+                              </span>
                                   )}
                                 </div>
                                 
-                                {/* Edit Scene Button */}
+                          <div className="flex items-center gap-3">
                                 {!isSceneLocked && (
                                   <button
-                                    onClick={() => startEditingScene(index)}
-                                    className="opacity-0 group-hover:opacity-100 text-[#00FF99]/70 hover:text-[#00FF99] transition-all text-sm px-3 py-1 bg-[#00FF99]/10 rounded-lg border border-[#00FF99]/30 hover:bg-[#00FF99]/20"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  startEditingScene(index)
+                                }}
+                                className={`text-sm px-3 py-1 ${themeColors.border} border rounded-lg hover:bg-opacity-10 transition-all`}
                                     title="Edit scene content"
                                   >
-                                    ✏️ Edit Scene
+                                ✏️
                                   </button>
                                 )}
-                                
-                                {/* Lock Notice */}
                                 {isSceneLocked && (
-                                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                                    🔒 Locked
-                                  </div>
-                                )}
+                              <span className={`text-xs ${themeColors.textMuted}`}>🔒</span>
+                            )}
+                            <motion.span
+                              animate={{ rotate: isExpanded ? 180 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className={themeColors.textMuted}
+                            >
+                              ▼
+                            </motion.span>
                               </div>
-                            </div>
-                            
-                            {/* Scene Content with Book-like Typography */}
-                            <div className="prose prose-lg prose-invert max-w-none">
+                        </button>
+                        
+                        {/* Scene Content - Collapsible */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="overflow-hidden"
+                            >
+                              <div className={`px-8 pb-8 pt-4 border-t ${themeColors.divider}`}>
                               {editingScene === index ? (
-                                /* Inline Editing Mode */
+                                  /* Editing Mode */
                                 <div className="space-y-4">
-                                  <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
                                     <textarea
                                       value={editingSceneContent}
                                       onChange={(e) => setEditingSceneContent(e.target.value)}
-                                      className="w-full bg-transparent text-white/95 text-xl leading-relaxed tracking-wide font-light resize-none border-none outline-none min-h-[300px]"
+                                      className={`w-full ${themeColors.cardBg} ${themeColors.text} ${themeColors.border} border rounded-lg p-4 font-serif text-lg leading-relaxed resize-none min-h-[300px] focus:outline-none focus:ring-2 focus:ring-opacity-50`}
                                       placeholder="Edit scene content..."
                                     />
-                                  </div>
                                   <div className="flex items-center gap-3">
                                     <button
                                       onClick={saveSceneEdit}
-                                      className="px-4 py-2 bg-[#00FF99] text-black font-semibold rounded-lg hover:bg-[#00CC7A] transition-colors flex items-center gap-2"
+                                        className={`px-4 py-2 ${theme === 'light' ? 'bg-[#c9a961] text-white' : 'bg-[#d4af37] text-black'} font-semibold rounded-lg hover:opacity-90 transition-all`}
                                     >
                                       ✓ Save Changes
                                     </button>
                                     <button
                                       onClick={cancelEditingScene}
-                                      className="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                                        className={`px-4 py-2 ${themeColors.border} border ${themeColors.text} font-semibold rounded-lg hover:bg-opacity-10 transition-all`}
                                     >
                                       ✕ Cancel
                                     </button>
-                                    <div className="text-sm text-gray-400">
-                                      Changes will be saved to localStorage
-                                    </div>
                                   </div>
                                 </div>
                               ) : (
                                 /* Display Mode */
-                                <div className="text-white/95 leading-relaxed text-xl tracking-wide font-light space-y-4">
+                                  <div className="space-y-6">
                                   {scene.content.split('\n\n').map((paragraph, pIndex) => (
-                                    <p key={pIndex} className="mb-6 text-justify">
+                                      <p key={pIndex} className={`font-serif text-lg leading-relaxed ${themeColors.text}`}>
                                       {paragraph}
                                     </p>
                                   ))}
                                 </div>
                               )}
                               </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                                 </div>
-                        )}) : 
-                        <div>
-                          <h2 className="text-2xl font-bold text-[#00FF99] mb-4">Scene information unavailable</h2>
-                          <div className="text-white/80">Scene content could not be loaded.</div>
+                    )
+                  }) : 
+                  <div className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-8 text-center`}>
+                    <p className={themeColors.textMuted}>Scene content could not be loaded.</p>
                             </div>
                       }
                       
-                      {/* Episode rundown */}
+              </section>
+
+              {/* Episode Rundown */}
                       {episodeData.rundown && (
-                        <div className="mt-16 pt-8 border-t border-[#00FF99]/20">
-                          <div className="border-l-4 border-[#00FF99] pl-6 mb-6">
-                            <h2 className="text-2xl font-semibold text-[#00FF99] mb-2 tracking-wide">
+                <>
+                  {/* Film Strip Divider */}
+                  <div className={`flex items-center gap-4 ${themeColors.textMuted}`}>
+                    <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+                    <span className="font-mono text-xs tracking-widest uppercase">📝</span>
+                    <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+                  </div>
+
+                  <section className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-8`}>
+                    <h2 className={`font-serif text-2xl font-bold ${themeColors.text} mb-4`}>
                               Episode Analysis
                           </h2>
-                            <p className="text-white/70 text-lg italic">
+                    <p className={`font-serif italic ${themeColors.textMuted} mb-6`}>
                               Behind the scenes insights
                             </p>
-                          </div>
-                          <div className="prose prose-lg prose-invert max-w-none">
-                            <div className="text-white/90 leading-relaxed text-lg tracking-wide font-light">
+                    <div className="space-y-4">
                               {episodeData.rundown.split('\n\n').map((paragraph, pIndex) => (
-                                <p key={pIndex} className="mb-4 text-justify">
+                        <p key={pIndex} className={`font-serif text-lg leading-relaxed ${themeColors.text}`}>
                                   {paragraph}
                                 </p>
                               ))}
                             </div>
-                        </div>
-                      </div>
+                  </section>
+                </>
                       )}
+
+              {/* FADE OUT marker */}
+              <div className={`text-center font-mono text-xs tracking-widest uppercase ${themeColors.textMuted}`}>
+                Fade Out.
                 </div>
                     
-                    {/* Divider */}
-                    <div className="border-t border-[#00FF99]/20 my-8"></div>
+              {/* Film Strip Divider */}
+              <div className={`flex items-center gap-4 ${themeColors.textMuted}`}>
+                <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+                <span className="font-mono text-xs tracking-widest uppercase">🎞️</span>
+                <div className={`flex-1 border-t ${themeColors.divider}`}></div>
+              </div>
                 
                 {/* Continue to Next Episode */}
-                    <div>
-                      <h2 className="text-2xl font-bold text-[#00FF99] mb-6 text-center tracking-wide">
+              <section className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-8 text-center space-y-6`}>
+                <h2 className={`font-serif text-3xl font-bold ${themeColors.text}`}>
                     Ready for the next episode?
                       </h2>
                       
-                  <div className="text-center space-y-4">
-                    <p className="text-white/80 text-lg leading-relaxed">
+                <p className={`font-sans text-lg ${themeColors.textMuted} leading-relaxed`}>
                       Use the Director's Chair to craft your next episode with precision and creative control.
                     </p>
                     
                         <motion.button
                       onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
-                      className="w-full max-w-md mx-auto bg-gradient-to-r from-[#00FF99] to-[#00cc7a] text-black px-8 py-4 rounded-lg font-semibold text-lg hover:from-[#00cc7a] hover:to-[#00b366] transition-all duration-200 shadow-[0_0_20px_rgba(0,255,153,0.3)] hover:shadow-[0_0_25px_rgba(0,255,153,0.5)]"
+                  className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 ${themeColors.shadow}`}
                           whileHover={{ y: -2 }}
                           whileTap={{ y: 0 }}
                         >
                       📽️ Go to Director's Chair
                         </motion.button>
                         
-                    <p className="text-[#e7e7e7]/60 text-sm">
+                <p className={`text-sm ${themeColors.textMuted}`}>
                       Craft Episode {episodeId + 1} with the Episode Studio
                     </p>
-                            </div>
-                            </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-black">
-                <p className="text-white/70">Episode data not found.</p>
+              </section>
+            </article>
+          ) : (
+            <div className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-12 text-center`}>
+              <p className={`${themeColors.textMuted} mb-4`}>Episode data not found.</p>
                 <button
                   onClick={() => router.push('/story-bible')}
-                  className="mt-4 px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+                className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-6 py-3 rounded-lg font-semibold transition-all`}
                 >
                   Return to Story Bible
                 </button>
               </div>
             )}
-          </div>
           
           {/* Navigation */}
-          <div className="flex justify-between mt-8">
+          <nav className="flex flex-wrap justify-center gap-4 mt-12">
             {episodeId > 1 && (
               <button
                 onClick={() => router.push(`/episode/${episodeId - 1}`)}
-                className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors flex items-center tracking-wide"
+                className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 flex items-center gap-2`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                Previous Episode
+                Previous
               </button>
             )}
             
             <button
               onClick={() => router.push('/workspace')}
-              className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors tracking-wide"
+              className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105`}
             >
               Workspace
             </button>
             
-            {/* Only show next episode button if a choice has been made */}
             {userChoices.some(choice => choice.episodeNumber === episodeId) && episodeId < 60 && (
               <button
                 onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
-                className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 hover:border-[#00FF99]/50 transition-colors flex items-center tracking-wide"
+                className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 flex items-center gap-2`}
               >
-                Next Episode
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                Next
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
               </button>
             )}
-          </div>
+          </nav>
         </motion.div>
       </div>
       

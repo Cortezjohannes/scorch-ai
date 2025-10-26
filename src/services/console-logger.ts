@@ -36,18 +36,21 @@ export class ConsoleLogger {
 
   // Clear and initialize the console for a new generation session
   startNewSession(sessionName: string) {
-    console.clear()
-    this.startTime = Date.now()
-    this.phaseStartTime = Date.now()
-    this.currentPhase = null
-    this.engines = []
-    
-    console.log(`
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.clear()
+      this.startTime = Date.now()
+      this.phaseStartTime = Date.now()
+      this.currentPhase = null
+      this.engines = []
+      
+      console.log(`
 ┌─────────────────────────────────────────────────────────────────┐
 │                       🎬 REELED AI STUDIO                       │
 │                     ${sessionName.padStart(20).padEnd(40)}                     │
 └─────────────────────────────────────────────────────────────────┘
 `)
+    }
   }
 
   // Start a new phase with its engines
@@ -55,21 +58,22 @@ export class ConsoleLogger {
     this.currentPhase = phase
     this.phaseStartTime = Date.now()
     
-    const overallPercent = phase.overallProgress || 0
-    const phasePercent = Math.round((phase.currentStep / phase.totalSteps) * 100)
-    
-    console.log(`
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const overallPercent = phase.overallProgress || 0
+      const phasePercent = Math.round((phase.currentStep / phase.totalSteps) * 100)
+      
+      console.log(`
 ┌─ PHASE: ${phase.name.toUpperCase().padEnd(50)} ─┐
 │ Progress: Step ${phase.currentStep}/${phase.totalSteps} (${phasePercent}%) │ Overall: ${overallPercent}%  │
 └─────────────────────────────────────────────────────────────────┘`)
 
-    // Show engines for this phase
-    if (phase.engines && phase.engines.length > 0) {
-      console.log('🏛️  Murphy Pillar Engines:')
-      phase.engines.forEach(engine => {
-        console.log(`   ⚡ ${engine}`)
-      })
-      console.log('')
+      // Show engines for this phase
+      if (phase.engines && phase.engines.length > 0) {
+        phase.engines.forEach(engine => {
+        })
+        console.log('')
+      }
     }
   }
 
@@ -81,52 +85,69 @@ export class ConsoleLogger {
       this.currentPhase.currentStep = currentStep
     }
     
-    const phasePercent = Math.round((this.currentPhase.currentStep / this.currentPhase.totalSteps) * 100)
-    const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
-    
-    console.log(`⏳ ${stepName} | ${phasePercent}% | ${timeElapsed}s elapsed`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const phasePercent = Math.round((this.currentPhase.currentStep / this.currentPhase.totalSteps) * 100)
+      const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
+      
+      console.log(`⏳ ${stepName} | ${phasePercent}% | ${timeElapsed}s elapsed`)
+    }
   }
 
   // Log engine activation
   activateEngine(engineName: string, engineIcon: string = '⚡') {
-    const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
-    console.log(`${engineIcon} ${engineName} Engine → ACTIVATED (${timeElapsed}s)`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
+      console.log(`${engineIcon} ${engineName} Engine → ACTIVATED (${timeElapsed}s)`)
+    }
   }
 
   // Log engine processing
   processEngine(engineName: string, details: string, engineIcon: string = '⚡') {
-    console.log(`   ${engineIcon} ${engineName}: ${details}`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`   ${engineIcon} ${engineName}: ${details}`)
+    }
   }
 
   // Log engine completion
   completeEngine(engineName: string, result: string, engineIcon: string = '✅') {
-    const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
-    console.log(`${engineIcon} ${engineName} Engine → COMPLETE | ${result} (${timeElapsed}s)`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const timeElapsed = Math.round((Date.now() - this.phaseStartTime) / 1000)
+      console.log(`${engineIcon} ${engineName} Engine → COMPLETE | ${result} (${timeElapsed}s)`)
+    }
   }
 
   // Log important milestones
   milestone(message: string, icon: string = '🎯') {
-    const timeElapsed = Math.round((Date.now() - this.startTime) / 1000)
-    console.log(`${icon} MILESTONE: ${message} | Total: ${timeElapsed}s`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const timeElapsed = Math.round((Date.now() - this.startTime) / 1000)
+      console.log(`${icon} MILESTONE: ${message} | Total: ${timeElapsed}s`)
+    }
   }
 
-  // Log errors with context
+  // Log errors with context - ALWAYS LOG ERRORS
   error(phase: string, engine: string, error: string) {
-    console.log(`❌ ERROR in ${phase} → ${engine}: ${error}`)
+    console.error(`❌ ERROR in ${phase} → ${engine}: ${error}`)
   }
 
-  // Log warnings
+  // Log warnings - ALWAYS LOG WARNINGS
   warning(message: string) {
-    console.log(`⚠️  WARNING: ${message}`)
+    console.warn(`⚠️  WARNING: ${message}`)
   }
 
   // Complete the entire session
   completeSession(sessionName: string, finalResult: string) {
-    const totalTime = Math.round((Date.now() - this.startTime) / 1000)
-    const minutes = Math.floor(totalTime / 60)
-    const seconds = totalTime % 60
-    
-    console.log(`
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const totalTime = Math.round((Date.now() - this.startTime) / 1000)
+      const minutes = Math.floor(totalTime / 60)
+      const seconds = totalTime % 60
+      
+      console.log(`
 ┌─────────────────────────────────────────────────────────────────┐
 │                    ✅ SESSION COMPLETE                          │
 │ ${sessionName.padEnd(63)} │
@@ -134,27 +155,40 @@ export class ConsoleLogger {
 │ Total Time: ${minutes}m ${seconds}s${' '.repeat(47 - `${minutes}m ${seconds}s`.length)} │
 └─────────────────────────────────────────────────────────────────┘
 `)
+    }
   }
 
   // Log JSON parsing attempts
   logJsonParsing(attempt: number, strategy: string, success: boolean) {
-    const status = success ? '✅' : '❌'
-    console.log(`   ${status} JSON Parse Attempt ${attempt}: ${strategy}`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const status = success ? '✅' : '❌'
+      console.log(`   ${status} JSON Parse Attempt ${attempt}: ${strategy}`)
+    }
   }
 
   // Log API calls
   logApiCall(service: string, model: string, purpose: string) {
-    console.log(`🌐 API CALL: ${service} (${model}) → ${purpose}`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🌐 API CALL: ${service} (${model}) → ${purpose}`)
+    }
   }
 
   // Log fallback usage
   logFallback(primary: string, fallback: string, reason: string) {
-    console.log(`🔄 FALLBACK: ${primary} → ${fallback} (${reason})`)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔄 FALLBACK: ${primary} → ${fallback} (${reason})`)
+    }
   }
 
   // Raw console output for backward compatibility
   raw(message: string) {
-    console.log(message)
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(message)
+    }
   }
 }
 

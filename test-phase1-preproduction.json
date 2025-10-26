@@ -1,0 +1,55 @@
+{
+  "series_title": "Shadows of Havenwood",
+  "episodes": [
+    {
+      "number": 1,
+      "title": "Whispers in the Pines",
+      "synopsis": "Detective Sarah Martinez arrives in Havenwood to investigate the murder of a young woman. She clashes with the local, complacent Chief Miller and begins to suspect a cover-up, finding an unlikely ally in the town's reclusive doctor, Alistair Finch."
+    },
+    {
+      "number": 2,
+      "title": "Ghosts of Yesterday",
+      "synopsis": "Sarah delves deeper into the victim's life, uncovering secrets and rivalries within the tight-knit community. Flashbacks reveal Sarah's own troubled past, haunted by a case she couldn't solve, fueling her determination in Havenwood."
+    },
+    {
+      "number": 3,
+      "title": "The O'Connell Connection",
+      "synopsis": "Suspicion falls on Liam O'Connell, the victim's ex-boyfriend, a volatile man with a history of violence. Sarah questions him, but his alibi seems airtight, leading her to consider other possibilities and potential accomplices."
+    },
+    {
+      "number": 4,
+      "title": "Buried Secrets",
+      "synopsis": "Sarah discovers a decades-old cold case with striking similarities to the current murder, suggesting a pattern of violence in Havenwood. She unearths evidence linking the cold case to Javier Rojas, a powerful local businessman."
+    },
+    {
+      "number": 5,
+      "title": "The Vance Estate",
+      "synopsis": "Sarah investigates Eleanor Vance, a wealthy and influential matriarch with a dark secret connected to the town's history. Dr. Finch provides Sarah with crucial medical evidence that challenges the initial timeline of the murder, creating new leads."
+    },
+    {
+      "number": 6,
+      "title": "Betrayal",
+      "synopsis": "Sarah uncovers a web of deceit and betrayal that implicates Chief Miller in covering up the cold case. Trust is shattered as Sarah realizes she's alone in her pursuit of justice, with potential enemies closing in."
+    },
+    {
+      "number": 7,
+      "title": "Maya's Revelation",
+      "synopsis": "Maya Kapoor, a childhood friend of the victim, comes forward with new information that could break the case. However, Maya fears for her safety, leading Sarah to question whether the killer is closer than she thought."
+    },
+    {
+      "number": 8,
+      "title": "The Price of Silence",
+      "synopsis": "Sarah confronts Javier Rojas with the evidence from the cold case, but he denies any involvement. A new murder occurs, proving that the killer is still at large, and Havenwood descends into panic."
+    },
+    {
+      "number": 9,
+      "title": "Confrontation",
+      "synopsis": "Sarah pieces together the final clues, realizing Dr. Finch holds the key to unlocking the truth. She confronts him, leading to a tense showdown where the killer's motive is revealed and Sarah is forced to make a difficult choice."
+    },
+    {
+      "number": 10,
+      "title": "Redemption's Dawn",
+      "synopsis": "The killer is brought to justice, but the scars of Havenwood's secrets remain. Sarah confronts her own demons, finding a measure of peace and redemption, before deciding whether to stay in Havenwood or move on, forever changed by her experience."
+    }
+  ]
+}

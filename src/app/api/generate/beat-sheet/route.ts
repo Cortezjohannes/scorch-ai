@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateContent } from '@/services/azure-openai'
 import { logger } from '@/services/console-logger'
 
+// Set maximum execution time to 3 minutes (180 seconds) - beat sheets are faster
+export const maxDuration = 180
+
 // 🎯 STAGE 1: Beat Sheet Generation from Episode Goal
 export async function POST(request: NextRequest) {
   try {

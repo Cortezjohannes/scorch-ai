@@ -18,7 +18,7 @@ export default function ProgramPage() {
   const producerProgramFAQ = [
     {
       question: "What is the time commitment for the Producer Program?",
-      answer: "This is your studio; you set the pace. The Accelerator includes an intensive onboarding Bootcamp (1-2 weeks) to get you production-ready. After that, we expect serious producers to be actively creating, leveraging the AI for maximum velocity."
+      answer: "This is your studio; you set the pace. The Accelerator includes an intensive onboarding Bootcamp (1-2 weeks) to get you production-ready. After that, we expect serious producers to be actively creating, leveraging the platform for maximum velocity."
     },
     {
       question: "Can I move between Tiers?",
@@ -30,7 +30,7 @@ export default function ProgramPage() {
     },
     {
       question: "How is this different from just making content on YouTube or TikTok?",
-      answer: "Greenlit AI is built for premium, serialized narrative drama. We provide professional-grade production tools and a business model focused on sustainable IP ownership and direct monetization (subscriptions/PPV), not just ad revenue."
+      answer: "Greenlit is built for premium, serialized narrative drama. We provide professional-grade production tools and a business model focused on sustainable IP ownership and direct monetization (subscriptions/PPV), not just ad revenue."
     }
   ]
 
@@ -70,7 +70,7 @@ export default function ProgramPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl md:text-2xl text-[#E7E7E7]/80 mb-8 max-w-4xl mx-auto"
           >
-            This isn't an audition. It's the infrastructure for the New Hollywood. We provide the AI Showrunner, the network, and the funding to turn professional talent into producers.
+            This isn't an audition. It's the infrastructure for the New Hollywood. We provide the production platform, the network, and the funding to turn professional talent into producers.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -100,7 +100,7 @@ export default function ProgramPage() {
             >
               <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Velocity (100x Faster)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed">
-                The Murphy Engine (30+ AI Agents) collapses months of work into days. The AI handles the grind.
+                The Murphy Engine (30+ Production Engines) collapses months of work into days. Our platform handles the grind.
               </p>
             </motion.div>
             
@@ -152,7 +152,7 @@ export default function ProgramPage() {
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Vanguard</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">Aced the pitch across all pillars. Ready NOW.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
-                <li>• Full AI Suite Access</li>
+                <li>• Full Platform Access</li>
                 <li>• Automatic allocation of <strong>Pilot Grants</strong> (up to $20k)</li>
                 <li>• Featured Distribution</li>
                 <li>• Dedicated Support</li>
@@ -169,7 +169,7 @@ export default function ProgramPage() {
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Hustlers</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">High potential, strong vision, ready to build.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
-                <li>• Full AI Suite Access</li>
+                <li>• Full Platform Access</li>
                 <li>• Automatic allocation of <strong>Strategic Micro-Grants</strong></li>
                 <li>• Immediate monetization</li>
                 <li>• Clear pathway to Studio Partner status</li>

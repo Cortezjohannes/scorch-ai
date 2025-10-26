@@ -776,7 +776,13 @@ Synopsis: ${synopsis}
 Theme: ${theme}
 Characters: ${optimalCharacterCount} main characters
 
-How many narrative arcs would be optimal? Consider story scope and character development needs. Respond with just a number between 2-8.`
+How many narrative arcs would be optimal for THIS specific story? Consider:
+- Story scope and complexity
+- Character development needs across the series
+- Thematic exploration requirements
+- Natural narrative phases this story needs
+
+Respond with just the optimal number for this story. Base your decision purely on story needs - a simple intimate story might need 1-3 arcs, while an epic saga might need 10+ arcs.`
     console.log('🤖 NARRATIVE ENGINE: Determining optimal arc count...')
     const arcCountResponse = await generateContentWithGemini(narrativePrompt)
     const optimalArcCount = parseInt(arcCountResponse) || 4
@@ -785,7 +791,13 @@ How many narrative arcs would be optimal? Consider story scope and character dev
     progressTracker.updateProgress('narrative', 50, 'AI determining optimal episode structure...')
     
     // ACTUAL AI CALL: Generate episode structure
-    const episodePrompt = `For ${optimalArcCount} narrative arcs, how many episodes per arc would be optimal? Consider pacing and development needs. Respond with ${optimalArcCount} numbers between 6-20.`
+    const episodePrompt = `For ${optimalArcCount} narrative arcs, how many episodes per arc would be optimal for THIS specific story? Consider:
+- Each arc's complexity and what it needs to accomplish
+- Character development pacing requirements
+- Plot resolution needs for each arc
+- Natural rhythm and pacing of the story
+
+Respond with ${optimalArcCount} numbers representing episodes for each arc. Base decisions purely on story needs - a quick setup arc might need 2-4 episodes, while a complex climax arc might need 15-25 episodes.`
     console.log('🤖 NARRATIVE ENGINE: Determining episode structure...')
     const episodeStructure = await generateContentWithGemini(episodePrompt)
     console.log('✅ NARRATIVE ENGINE: Generated episode structure')
@@ -1394,7 +1406,7 @@ Please follow this EXACT JSON format without any markdown or additional text:
     }
     // Generate the optimal number of main characters based on story complexity and needs
     // Consider: story scope, number of plot threads, relationship dynamics needed
-    // Range: 5-15 characters depending on story requirements
+    // Determine the count that serves THIS specific story best
   ],
   "narrativeArcs": [
     {
@@ -1408,12 +1420,12 @@ Please follow this EXACT JSON format without any markdown or additional text:
         }
         // Generate the optimal number of episodes per arc based on story pacing needs
         // Consider: arc complexity, character development time, plot resolution needs
-        // Range: 3-20 episodes per arc depending on story requirements
+        // Each arc should have the episode count it naturally needs
       ]
     }
     // Generate the optimal number of narrative arcs based on story complexity
     // Consider: story scope, character development needs, thematic exploration
-    // Range: 2-8 arcs depending on story requirements
+    // Let the story determine how many narrative phases it needs
   ],
   "potentialBranchingPaths": "Description of major choices and consequences available to viewers throughout the series",
   "worldBuilding": {
@@ -1431,13 +1443,13 @@ Please follow this EXACT JSON format without any markdown or additional text:
 
 IMPORTANT GUIDELINES:
 - Let the story determine the optimal counts - don't force specific numbers
-- Character count should reflect story complexity (5-15 range)
-- Episode count per arc should reflect pacing needs (3-20 range)  
-- Arc count should reflect story scope (2-8 range)
+- Character count should reflect story complexity and the number of perspectives needed
+- Episode count per arc should reflect each arc's specific pacing and development needs
+- Arc count should reflect the story's natural narrative phases and scope
 - Each story should feel unique and non-generic
 - Focus on what serves the story best, not template adherence
 
-CRITICAL: Analyze the story needs and determine optimal counts dynamically. Don't use fixed numbers - let the story breathe and find its natural structure.`
+CRITICAL: Analyze THIS story's specific needs and determine optimal counts dynamically. Don't anchor to typical ranges - let the story breathe and find its natural structure. An intimate 2-character drama is as valid as a sprawling 40-character epic. A 3-episode mini-series is as valid as a 100-episode saga.`
 
   try {
     const result = await model.generateContent(prompt)
@@ -1479,6 +1491,14 @@ export async function POST(request: Request) {
     // Handle new 5-question format
     if (requestData.logline && requestData.protagonist && requestData.stakes && requestData.vibe && requestData.theme) {
       const { logline, protagonist, stakes, vibe, theme: themeInput } = requestData
+      
+      // NOTE: Advanced options (tone, pacing, complexity, focusArea) are accepted but not yet integrated
+      // They will be properly integrated with the Murphy Conductor system in a future update
+      const { tone, pacing, complexity, focusArea } = requestData
+      if (tone || pacing || complexity || focusArea) {
+        console.log('ℹ️ Advanced options received but not yet integrated:', { tone, pacing, complexity, focusArea })
+        console.log('   These will be properly integrated with the narrative engines in a future update')
+      }
       
       // Synthesize synopsis from the 5 questions for backward compatibility
       synopsis = `${logline} The story follows ${protagonist}. ${stakes} The overall vibe is ${vibe}, exploring themes of ${themeInput}.`

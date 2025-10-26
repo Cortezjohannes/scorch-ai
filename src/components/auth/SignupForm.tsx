@@ -185,14 +185,14 @@ export function SignupForm({ isModal = false }: SignupFormProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="card max-w-md mx-auto"
+      className="card max-w-md mx-auto max-h-[90vh] overflow-y-auto"
     >
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-transparent bg-clip-text">
           Create Your Account
         </h2>
         <p className="text-[#e7e7e7]/70">
-          Join Reeled AI to save your projects and track your creative journey.
+          Join Reeled to save your projects and track your creative journey.
         </p>
       </div>
 

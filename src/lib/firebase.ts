@@ -52,20 +52,28 @@ let auth: Auth;
 let storage: FirebaseStorage;
 let app: any;
 
-// If we're on the server or in development without API keys, use mocks
-if (isServer || (process.env.NODE_ENV === 'development' && 
-    (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 
-     process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'dummy-api-key'))) {
-  console.warn('Firebase disabled: Using mock implementation');
-  
-  // Use mock implementations
+// Check if Firebase credentials are available
+const hasFirebaseConfig = 
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'dummy-api-key';
+
+// Use mocks on server side, real Firebase on client side (if configured)
+if (isServer) {
+  // Server-side: always use mocks (Firebase should only run on client)
+  db = createMockFirestore();
+  auth = createMockAuth();
+  storage = createMockStorage();
+  app = {};
+} else if (!hasFirebaseConfig) {
+  // Client-side but no config: use mocks
+  console.warn('Firebase disabled: Using mock implementation (missing credentials)');
   db = createMockFirestore();
   auth = createMockAuth();
   storage = createMockStorage();
   app = {};
 } else {
+  // Client-side with config: initialize real Firebase
   try {
-    // Configure Firebase
     const firebaseConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -76,6 +84,9 @@ if (isServer || (process.env.NODE_ENV === 'development' &&
       measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     };
 
+    console.log('🔥 Initializing Firebase on client...');
+    console.log('  Project ID:', firebaseConfig.projectId);
+    
     // Initialize Firebase
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     
@@ -83,8 +94,11 @@ if (isServer || (process.env.NODE_ENV === 'development' &&
     db = getFirestore(app);
     auth = getAuth(app);
     storage = getStorage(app);
+    
+    console.log('✅ Firebase initialized successfully!');
+    console.log('✅ Firestore, Auth, and Storage ready');
   } catch (error) {
-    console.error('Error initializing Firebase:', error);
+    console.error('❌ Error initializing Firebase:', error);
     
     // Provide mock implementations on error
     db = createMockFirestore();

@@ -326,12 +326,10 @@ async function generateScripts(narrative: string) {
 
 // Generate casting suggestions using REAL CastingEngine
 async function generateCasting(narrative: string) {
-  console.log('🎭 Using REAL CastingEngine for professional casting analysis...');
   
   try {
     // TODO: Implement proper character profile extraction from narrative
     // For now, skip the casting engine until proper types are available
-    console.log('⚠️ Skipping CastingEngine due to type mismatch, using AI fallback');
   } catch (engineError) {
     console.warn('⚠️ CastingEngine failed, using AI fallback:', engineError);
   }
@@ -357,7 +355,6 @@ async function generateCasting(narrative: string) {
       systemPrompt: 'You are a casting director with deep knowledge of actors and their roles, capabilities and performance styles.'
     });
     
-    console.log('✅ Generated casting suggestions with Azure OpenAI fallback');
     return result;
   } catch (error) {
     console.error('❌ All casting methods failed:', error);
@@ -420,7 +417,6 @@ export async function POST(request: Request) {
         break;
       
       case 'storyboard':
-        console.log('🎬 Using REAL StoryboardingEngine for professional visual planning...')
         // Use the actual StoryboardingEngine for professional storyboards
         try {
           const storyboardBlueprint = await StoryboardingEngine.generateStoryboardBlueprint(
@@ -438,7 +434,6 @@ export async function POST(request: Request) {
           );
           
           if (storyboardBlueprint?.sceneStoryboards) {
-            console.log('✅ Generated professional storyboard with real engine');
             generatedContent = JSON.stringify({
               visualSequence: storyboardBlueprint.sceneStoryboards,
               shotBreakdown: storyboardBlueprint.sceneStoryboards.flatMap(scene => scene.shots) || [],

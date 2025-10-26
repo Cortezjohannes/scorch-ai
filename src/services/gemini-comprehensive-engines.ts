@@ -508,7 +508,9 @@ export async function runGeminiComprehensiveEngines(
   try {
     // Execute core engines (15 engines) in parallel
     const coreEngines = [
-      'FractalNarrativeEngineV2', 'EpisodeCohesionEngineV2', 'ConflictArchitectureEngineV2',
+      'FractalNarrativeEngineV2', 
+      'EpisodeCohesionEngineV2', 
+      'ConflictArchitectureEngineV2',
       'HookCliffhangerEngineV2', 'SerializedContinuityEngineV2', 'PacingRhythmEngineV2',
       'DialogueEngineV2', 'StrategicDialogueEngine',
       'WorldBuildingEngineV2', 'LivingWorldEngineV2', 'LanguageEngineV2',

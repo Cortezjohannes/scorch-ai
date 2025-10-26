@@ -32,27 +32,24 @@ export class EngineLogger {
     this.entries = [];
     this.engineStartTimes.clear();
 
-    const timestamp = new Date().toISOString().substring(11, 23);
-    
-    console.log('\n🚀 ════════════════════════════════════════════════════════════════════════════════');
-    console.log(`🎬 MURPHY PILLAR ENGINE ORCHESTRATION SESSION ${this.sessionId.toUpperCase()}`);
-    console.log(`⚡ MODE: ${mode.toUpperCase()} | TARGET: ${totalEngines} ENGINES | START: ${timestamp}`);
-    console.log('🚀 ════════════════════════════════════════════════════════════════════════════════\n');
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const timestamp = new Date().toISOString().substring(11, 23);
+      
+    }
   }
 
   /**
    * Log phase start with comprehensive details
    */
   static logPhaseStart(phase: string, engineCount: number, description: string) {
-    const timestamp = new Date().toISOString().substring(11, 23);
-    const sessionDuration = ((Date.now() - this.sessionStartTime) / 1000).toFixed(1);
-    
-    console.log(`\n🏗️  [${timestamp}] ═══════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🎭 [${timestamp}] PHASE: ${phase.toUpperCase()}`);
-    console.log(`⚙️  [${timestamp}] ENGINES: ${engineCount} engines in this phase`);
-    console.log(`📝 [${timestamp}] DESCRIPTION: ${description}`);
-    console.log(`⏱️  [${timestamp}] SESSION TIME: ${sessionDuration}s`);
-    console.log(`🚀 [${timestamp}] ═══════════════════════════════════════════════════════════════════════════════`);
+    // Only log in development
+    if (process.env.NODE_ENV === 'development') {
+      const timestamp = new Date().toISOString().substring(11, 23);
+      const sessionDuration = ((Date.now() - this.sessionStartTime) / 1000).toFixed(1);
+      
+      console.log(`📝 [${timestamp}] DESCRIPTION: ${description}`);
+    }
   }
 
   /**
@@ -80,16 +77,13 @@ export class EngineLogger {
     };
     this.entries.push(entry);
 
-    // Enhanced console logging
-    console.log(`\n🔧 [${timestamp}] ══════════════════════════════════════════════════════════════════════════════`);
-    console.log(`⚡ [${timestamp}] ${engineName.toUpperCase()} ENGINE: INITIALIZING`);
-    console.log(`🎯 [${timestamp}] └─ PHASE: ${phase}`);
-    console.log(`📋 [${timestamp}] └─ TASK: ${description}`);
-    console.log(`🎛️  [${timestamp}] └─ MODE: ${mode.toUpperCase()} (${mode === 'beast' ? 'Azure OpenAI - Maximum Quality' : 'Gemini - Stable Performance'})`);
-    if (inputSize) {
-      console.log(`📊 [${timestamp}] └─ INPUT: ${inputSize} characters`);
+    // Enhanced console logging - only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📋 [${timestamp}] └─ TASK: ${description}`);
+      if (inputSize) {
+      }
+      console.log(`🔄 [${timestamp}] └─ STATUS: Starting advanced ${engineName.toLowerCase()} algorithms...`);
     }
-    console.log(`🔄 [${timestamp}] └─ STATUS: Starting advanced ${engineName.toLowerCase()} algorithms...`);
   }
 
   /**
@@ -143,9 +137,6 @@ export class EngineLogger {
     const completedCount = this.entries.filter(e => e.status === 'completed').length;
     const totalEngines = this.entries.length;
 
-    console.log(`✅ [${timestamp}] ✨ ${engineName.toUpperCase()}: COMPLETED SUCCESSFULLY`);
-    console.log(`🎯 [${timestamp}] └─ RESULT: ${result}`);
-    console.log(`⏱️  [${timestamp}] └─ DURATION: ${duration.toFixed(2)}s`);
     if (outputSize) {
       console.log(`📈 [${timestamp}] └─ OUTPUT: ${outputSize} characters generated`);
     }
@@ -154,7 +145,6 @@ export class EngineLogger {
     }
     // Calculate progress percentage safely
     const progressPercent = totalEngines > 0 ? (completedCount/totalEngines*100).toFixed(1) : '100.0';
-    console.log(`📊 [${timestamp}] └─ PROGRESS: ${completedCount}/${totalEngines || 1} engines (${progressPercent}%)`);
     console.log(`🔥 [${timestamp}] ══════════════════════════════════════════════════════════════════════════════`);
 
     // Clear start time
@@ -177,13 +167,10 @@ export class EngineLogger {
       entry.details = error;
     }
 
-    console.log(`❌ [${timestamp}] 💥 ${engineName.toUpperCase()}: FAILED`);
     console.log(`🚨 [${timestamp}] └─ ERROR: ${error}`);
-    console.log(`⏱️  [${timestamp}] └─ FAILED AFTER: ${duration.toFixed(2)}s`);
     if (errorDetails) {
       console.log(`📋 [${timestamp}] └─ DETAILS: ${errorDetails}`);
     }
-    console.log(`🔧 [${timestamp}] └─ ATTEMPTING FALLBACK RECOVERY...`);
 
     // Clear start time
     this.engineStartTimes.delete(engineName);
@@ -198,10 +185,7 @@ export class EngineLogger {
     const avgDuration = phaseEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / phaseEntries.length;
     const successRate = (successCount / totalCount * 100).toFixed(1);
 
-    console.log(`\n✅ [${timestamp}] 🎊 PHASE COMPLETE: ${phase.toUpperCase()}`);
     console.log(`📈 [${timestamp}] └─ SUCCESS RATE: ${successRate}% (${successCount}/${totalCount} engines)`);
-    console.log(`⏱️  [${timestamp}] └─ AVERAGE DURATION: ${avgDuration.toFixed(2)}s per engine`);
-    console.log(`🎯 [${timestamp}] └─ PHASE STATUS: ${successCount === totalCount ? 'PERFECT EXECUTION' : 'PARTIAL SUCCESS'}`);
   }
 
   /**
@@ -218,17 +202,10 @@ export class EngineLogger {
 
     console.log(`\n🎊 [${timestamp}] ═══════════════════════════════════════════════════════════════════════════════`);
     console.log(`🏆 [${timestamp}] SESSION ${this.sessionId.toUpperCase()} COMPLETE!`);
-    console.log(`📊 [${timestamp}] FINAL STATISTICS:`);
     console.log(`📈 [${timestamp}] └─ SUCCESS RATE: ${successRate}% (${completedEngines}/${totalEngines} engines)`);
-    console.log(`⏱️  [${timestamp}] └─ TOTAL DURATION: ${sessionDuration.toFixed(2)}s`);
-    console.log(`⚡ [${timestamp}] └─ AVERAGE ENGINE TIME: ${avgDuration.toFixed(2)}s`);
-    console.log(`🎯 [${timestamp}] └─ THROUGHPUT: ${(totalEngines / sessionDuration * 60).toFixed(1)} engines/minute`);
     if (failedEngines > 0) {
-      console.log(`⚠️  [${timestamp}] └─ FAILED ENGINES: ${failedEngines}`);
     }
     console.log(`💎 [${timestamp}] └─ QUALITY SCORE: ${successRate === '100.0' ? '99.5/100 - PERFECT EXECUTION' : `${Math.min(parseFloat(successRate) + 5, 95)}/100`}`);
-    console.log(`🎬 [${timestamp}] └─ AI SHOWRUNNER STATUS: ${successRate === '100.0' ? 'ULTIMATE MASTERY ACHIEVED' : 'PROFESSIONAL QUALITY DELIVERED'}`);
-    console.log(`🚀 [${timestamp}] ═══════════════════════════════════════════════════════════════════════════════\n`);
   }
 
   /**
@@ -288,7 +265,6 @@ export class EngineLogger {
     const bar = '█'.repeat(filledLength) + '░'.repeat(barLength - filledLength);
     
     const timestamp = new Date().toISOString().substring(11, 23);
-    console.log(`📊 [${timestamp}] PROGRESS: [${bar}] ${progressPercent.toFixed(1)}% (${stats.completedEngines}/${stats.totalEngines})`);
   }
 }
 

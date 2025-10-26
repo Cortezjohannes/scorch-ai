@@ -33,13 +33,17 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
   })
 
   const onSubmit = async (data: LoginFormData) => {
+    console.log('🔐 Login attempt started...');
+    console.log('  Email:', data.email);
     setIsSubmitting(true)
     setError(null)
     
     try {
-              await signIn(data.email, data.password)
+      console.log('  Calling signIn...');
+      await signIn(data.email, data.password)
+      console.log('✅ Login successful!');
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ Login error:', error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
     } finally {
       setIsSubmitting(false)
@@ -134,7 +138,7 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="card max-w-md mx-auto"
+      className="card max-w-md mx-auto max-h-[90vh] overflow-y-auto"
     >
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-transparent bg-clip-text">

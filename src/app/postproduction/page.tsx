@@ -18,7 +18,6 @@ import { GenerationIndicator } from '@/components/GenerationIndicator'
 
 // Import VideoContext provider
 import { VideoProvider } from '@/context/VideoContext'
-import '@/styles/greenlit-design.css'
 
 export default function PostProductionPage() {
   const router = useRouter()
@@ -65,28 +64,11 @@ export default function PostProductionPage() {
   
   return (
     <VideoProvider>
-      <div className="min-h-screen greenlit-bg-primary relative">
-        {/* Floating Particles */}
-        <div className="greenlit-particles">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="greenlit-particle" style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 6}s`,
-              animationDuration: `${6 + Math.random() * 4}s`
-            }} />
-          ))}
-        </div>
-
-        {/* Geometric Background */}
-        <div className="greenlit-geometric-bg">
-          <div className="greenlit-geometric-shape"></div>
-          <div className="greenlit-geometric-shape"></div>
-        </div>
-
-        <div className="greenlit-container">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
+        <div className="container mx-auto px-4 py-8">
           <motion.button
             onClick={handleBack}
-            className="greenlit-button-secondary greenlit-mb-lg flex items-center gap-2"
+            className="mb-6 px-6 py-3 rounded-lg bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 text-[#00FF99] hover:bg-gradient-to-r hover:from-[#00FF99]/30 hover:to-[#00CC7A]/30 transition-all duration-300 flex items-center gap-2"
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -102,9 +84,9 @@ export default function PostProductionPage() {
             transition={{ duration: 0.5 }}
             className="space-y-6 sm:space-y-8"
           >
-            <div className="greenlit-text-center">
+            <div className="text-center">
               <motion.h1
-                className="greenlit-headline greenlit-mb-md"
+                className="text-4xl sm:text-5xl font-black mb-4 bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99] bg-clip-text text-transparent"
                 animate={{
                   backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
                 }}

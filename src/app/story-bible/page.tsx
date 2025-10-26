@@ -2,16 +2,31 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import StoryBiblePlaybookModal from '@/components/StoryBiblePlaybookModal'
-import '@/styles/greenlit-design.css'
+import ShareStoryBibleModal from '@/components/share/ShareStoryBibleModal'
+import AuthStatusModal from '@/components/auth/AuthStatusModal'
+import { useAuth } from '@/context/AuthContext'
+import { saveStoryBible as saveStoryBibleToFirestore, getStoryBible as getStoryBibleFromFirestore, StoryBibleStatus } from '@/services/story-bible-service'
+import { exportAsJSON, copyAsText, downloadMarkdown } from '@/utils/export-story-bible'
+import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
 
 export default function StoryBiblePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useAuth()
   const [storyBible, setStoryBible] = useState<any>(null)
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 Story Bible Page Debug:');
+    console.log('  - User:', user ? `${user.displayName || user.email} (${user.id})` : 'null');
+    console.log('  - Story Bible loaded:', !!storyBible);
+    console.log('  - Share button should be:', (!user || !storyBible) ? 'DISABLED' : 'ENABLED');
+  }, [user, storyBible])
   // Add premise tab to the active tab state
   const [activeTab, setActiveTab] = useState<'premise' | 'overview' | 'characters' | 'arcs' | 'world' | 'choices' | 'tension' | 'choice-arch' | 'living-world' | 'trope' | 'cohesion' | 'dialogue' | 'genre' | 'theme'>('premise')
   const [loading, setLoading] = useState(true)
@@ -27,9 +42,32 @@ export default function StoryBiblePage() {
   const [editValue, setEditValue] = useState('')
   const [showAddCharacterModal, setShowAddCharacterModal] = useState(false)
   const [showAddWorldModal, setShowAddWorldModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [hasSkippedLogin, setHasSkippedLogin] = useState(false)
+  const [storyBibleStatus, setStoryBibleStatus] = useState<StoryBibleStatus>('draft')
   
   // Story Bible lock state (locked after first episode)
   const [isStoryBibleLocked, setIsStoryBibleLocked] = useState(false)
+
+  // Helper function to save story bible to both localStorage and Firestore
+  const saveStoryBibleData = async (updatedBible: any) => {
+    // Use the service function to save (it ensures ID is generated and consistent)
+    const savedBible = await saveStoryBibleToFirestore({
+      ...updatedBible,
+      status: storyBibleStatus,
+      seriesTitle: updatedBible.seriesTitle || 'Untitled Story Bible'
+    }, user?.id) // Service handles both Firestore and localStorage
+    
+    // Update local state with the saved bible (which now has an ID)
+    setStoryBible(savedBible)
+    
+    console.log('✅ Story bible saved with ID:', savedBible.id)
+    
+    return savedBible // Return the saved bible so callers can access the ID
+  }
   
   // Effect to set client-side flag and load regeneration count
   useEffect(() => {
@@ -153,9 +191,54 @@ export default function StoryBiblePage() {
   }
   
   useEffect(() => {
-    const loadStoryBible = () => {
+    const loadStoryBible = async () => {
       try {
-        // Updated to look for Greenlit localStorage key
+        // Check for ?shared= query parameter first (load from shared collection)
+        const sharedLinkId = searchParams.get('shared')
+        
+        if (sharedLinkId) {
+          console.log('🔗 Loading shared story bible with link ID:', sharedLinkId)
+          try {
+            const { getSharedStoryBible } = await import('@/services/share-link-service')
+            const sharedData = await getSharedStoryBible(sharedLinkId)
+            if (sharedData) {
+              console.log('✅ Loaded shared story bible successfully!')
+              setStoryBible(sharedData.storyBible)
+              setIsStoryBibleLocked(true) // Lock editing for shared bibles
+              return // Exit early
+            } else {
+              console.error('❌ Shared story bible not found')
+              alert('This shared link is invalid or has been revoked.')
+              return
+            }
+          } catch (error) {
+            console.error('❌ Error loading shared story bible:', error)
+            alert('Failed to load shared story bible.')
+            return
+          }
+        }
+        
+        // Check for ?id= query parameter (load from user's Firestore)
+        const storyBibleId = searchParams.get('id')
+        
+        if (storyBibleId && user) {
+          console.log('🔍 Loading story bible from Firestore with ID:', storyBibleId)
+          try {
+            const firestoreBible = await getStoryBibleFromFirestore(storyBibleId, user.id)
+            if (firestoreBible) {
+              console.log('✅ Loaded from Firestore successfully!')
+              setStoryBible(firestoreBible)
+              return // Exit early, we found it in Firestore
+            } else {
+              console.warn('⚠️ Story bible not found in Firestore, falling back to localStorage')
+            }
+          } catch (error) {
+            console.error('❌ Error loading from Firestore:', error)
+            // Fall through to localStorage
+          }
+        }
+        
+        // Fall back to localStorage
         const savedBible = localStorage.getItem('greenlit-story-bible') || localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible')
         const savedEpisodes = localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')
         
@@ -283,7 +366,7 @@ export default function StoryBiblePage() {
             mainCharacters: [{ name: 'Test Character', archetype: 'Hero' }]
           },
           createdAt: new Date().toISOString(),
-          platform: 'Greenlit - AI Showrunner'
+          platform: 'Greenlit - Production Platform'
         }
         
         // Save test data
@@ -592,7 +675,7 @@ export default function StoryBiblePage() {
     setEditValue('')
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingField || !storyBible) return
 
     const updatedBible = { ...storyBible }
@@ -619,11 +702,9 @@ export default function StoryBiblePage() {
       updatedBible.narrativeArcs[arcIndex].episodes[episodeIndex][editingField.field!] = editValue
     }
 
-    // Save to state and localStorage
+    // Save to state and both storage locations
     setStoryBible(updatedBible)
-    const savedData = JSON.parse(localStorage.getItem('greenlit-story-bible') || '{}')
-    savedData.storyBible = updatedBible
-    localStorage.setItem('greenlit-story-bible', JSON.stringify(savedData))
+    await saveStoryBibleData(updatedBible)
 
     // Clear editing state
     cancelEditing()
@@ -680,7 +761,7 @@ export default function StoryBiblePage() {
           theme,
           storyBible: data.storyBible,
           createdAt: new Date().toISOString(),
-          platform: 'Greenlit - AI Showrunner'
+          platform: 'Greenlit - Production Platform'
         }
         localStorage.setItem('greenlit-story-bible', JSON.stringify(savedData))
         setStoryBible(data.storyBible)
@@ -697,11 +778,33 @@ export default function StoryBiblePage() {
     }
   }
 
+  // Status change function
+  const handleStatusChange = async (newStatus: StoryBibleStatus) => {
+    if (!storyBible || !user) return
+    
+    // Update local state
+    const updatedBible = { ...storyBible, status: newStatus }
+    setStoryBible(updatedBible)
+    
+    // Save to localStorage
+    localStorage.setItem('greenlit-story-bible', JSON.stringify(updatedBible))
+    
+    // Save to Firestore
+    try {
+      await saveStoryBibleToFirestore(updatedBible, user.id)
+      console.log('✅ Status updated to:', newStatus)
+    } catch (error) {
+      console.error('❌ Error updating status:', error)
+    }
+    
+    setShowStatusDropdown(false)
+  }
+
     // ========================================
   // CHARACTER CRUD FUNCTIONS
   // ========================================
   
-  const addNewCharacter = () => {
+  const addNewCharacter = async () => {
     if (!storyBible) return
     
     const newCharacter = {
@@ -747,20 +850,13 @@ export default function StoryBiblePage() {
     const updatedCharacters = [...(storyBible.characters || []), newCharacter]
     const updatedBible = { ...storyBible, characters: updatedCharacters }
     setStoryBible(updatedBible)
-    
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.characters = updatedCharacters
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
+    await saveStoryBibleData(updatedBible)
     
     setCurrentCharacterIndex(updatedCharacters.length - 1)
     setShowAddCharacterModal(false)
   }
   
-  const deleteCharacter = (index: number) => {
+  const deleteCharacter = async (index: number) => {
     if (isStoryBibleLocked) {
       alert('🔒 Story Bible is locked! You cannot delete characters after episodes have been generated.')
       return
@@ -771,14 +867,7 @@ export default function StoryBiblePage() {
     const updatedCharacters = storyBible.characters.filter((_: any, i: number) => i !== index)
     const updatedBible = { ...storyBible, characters: updatedCharacters }
     setStoryBible(updatedBible)
-    
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.characters = updatedCharacters
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
+    await saveStoryBibleData(updatedBible)
     
     // Adjust current index if needed
     if (currentCharacterIndex >= updatedCharacters.length) {
@@ -1122,7 +1211,21 @@ export default function StoryBiblePage() {
             
             <button 
               className="px-6 py-3 border-2 border-[#00FF99] text-[#00FF99] font-bold rounded-lg hover:bg-[#00FF99]/10 transition-colors"
-              onClick={() => router.push('/workspace')}
+              onClick={async () => {
+                if (!storyBible) {
+                  console.error('No story bible to save')
+                  return
+                }
+                
+                // Save story bible before navigating
+                console.log('💾 Saving story bible before navigating to workspace...')
+                const savedBible = await saveStoryBibleData(storyBible)
+                
+                // Navigate to workspace with story bible ID
+                const bibleId = savedBible?.id || storyBible.id
+                console.log('✅ Navigating to workspace with ID:', bibleId)
+                router.push(`/workspace?id=${bibleId}`)
+              }}
             >
               ⚡ Go to Workspace
             </button>
@@ -1134,43 +1237,24 @@ export default function StoryBiblePage() {
 
   return (
     <motion.div 
-      className="min-h-screen greenlit-bg-primary relative"
+      className="min-h-screen p-4 sm:p-6 md:p-8 relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      style={{ zIndex: 1 }}
+      style={{ fontFamily: 'League Spartan, sans-serif', zIndex: 1 }}
     >
       <AnimatedBackground intensity="medium" />
-      
-      {/* Floating Particles */}
-      <div className="greenlit-particles">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="greenlit-particle" style={{
-            left: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 6}s`,
-            animationDuration: `${6 + Math.random() * 4}s`
-          }} />
-        ))}
-      </div>
-
-      {/* Geometric Background */}
-      <div className="greenlit-geometric-bg">
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-        <div className="greenlit-geometric-shape"></div>
-      </div>
-
-      <div className="greenlit-container">
+      <div className="max-w-7xl mx-auto">
         {/* Professional Header */}
         <motion.div
-          className="greenlit-mb-xl greenlit-text-center"
+          className="mb-12 text-center"
           initial={{ y: 50, opacity: 0, scale: 0.9 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: "easeOut" }}
         >
           {/* Fire Icon */}
           <motion.div
-            className="w-20 h-20 flex items-center justify-center mx-auto greenlit-mb-md"
+            className="w-20 h-20 flex items-center justify-center mx-auto mb-6"
             whileHover={{ scale: 1.1, rotate: 5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
@@ -1200,19 +1284,19 @@ export default function StoryBiblePage() {
           </motion.div>
           
           {/* Series Title with Edit Button */}
-          <div className="flex items-center justify-center gap-4 greenlit-mb-md">
+          <div className="flex items-center justify-center gap-4 mb-6">
             {editingField?.type === 'seriesTitle' ? (
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="greenlit-headline-large greenlit-input"
+                  className="text-4xl sm:text-5xl md:text-6xl font-bold bg-[#2a2a2a] border-2 border-[#00FF99] rounded-lg px-4 py-2 text-white"
                   autoFocus
                 />
                 <button
                   onClick={saveEdit}
-                  className="greenlit-button-primary"
+                  className="bg-[#00FF99] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#00CC7A]"
                 >
                   ✓
                 </button>
@@ -1226,7 +1310,7 @@ export default function StoryBiblePage() {
             ) : (
               <>
                 <motion.h1 
-                  className="greenlit-headline-large"
+                  className="text-5xl sm:text-6xl md:text-7xl font-bold font-medium"
                   initial={{ letterSpacing: "-0.1em", opacity: 0 }}
                   animate={{ letterSpacing: "0.02em", opacity: 1 }}
                   transition={{ duration: 1.2, delay: 0.3 }}
@@ -1258,26 +1342,59 @@ export default function StoryBiblePage() {
           >
             
             <motion.div 
-              className="flex flex-wrap justify-center gap-4 greenlit-mt-md"
+              className="flex flex-wrap justify-center gap-4 mt-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1, duration: 0.6 }}
             >
-              <div className="greenlit-card-primary px-4 py-2">
-                <span className="greenlit-caption">PREMISE ENGINE</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                <span className="text-[#00FF99] font-bold text-sm font-medium">PREMISE ENGINE</span>
               </div>
-              <div className="greenlit-card-primary px-4 py-2">
-                <span className="greenlit-caption">CHARACTER FORGE</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                <span className="text-[#00FF99] font-bold text-sm font-medium">CHARACTER FORGE</span>
               </div>
-              <div className="greenlit-card-primary px-4 py-2">
-                <span className="greenlit-caption">WORLD BUILDER</span>
+              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
+                <span className="text-[#00FF99] font-bold text-sm font-medium">WORLD BUILDER</span>
+              </div>
+            </motion.div>
+
+            {/* Login Status Indicator */}
+            <motion.div
+              className="flex flex-wrap justify-center gap-4 mt-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1, duration: 0.6 }}
+            >
+              <div className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                user 
+                  ? 'bg-[#00FF99]/10 border border-[#00FF99]/30' 
+                  : 'bg-orange-500/10 border border-orange-500/30'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  user ? 'bg-[#00FF99] animate-pulse' : 'bg-orange-500 animate-pulse'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  user ? 'text-[#00FF99]' : 'text-orange-300'
+                }`}>
+                  {user 
+                    ? `✓ Logged in as ${user.displayName || user.email}` 
+                    : '⚠️ Not logged in - Limited features'}
+                </span>
+                {!user && (
+                  <button
+                    onClick={() => setHasSkippedLogin(false)}
+                    className="ml-2 px-3 py-1 bg-[#00FF99] text-black text-xs font-bold rounded hover:bg-[#00CC7A] transition-colors"
+                  >
+                    Login
+                  </button>
+                )}
               </div>
             </motion.div>
 
             {/* Story Bible Lock Notice */}
             {isStoryBibleLocked && (
               <motion.div
-                className="flex flex-wrap justify-center gap-4 greenlit-mt-lg"
+                className="flex flex-wrap justify-center gap-4 mt-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.2, duration: 0.6 }}
@@ -1293,14 +1410,14 @@ export default function StoryBiblePage() {
 
             {/* Playbook Button */}
             <motion.div
-              className="flex flex-wrap justify-center gap-4 greenlit-mt-md"
+              className="flex flex-wrap justify-center gap-4 mt-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.4, duration: 0.6 }}
             >
               <button
                 onClick={() => setShowPlaybook(true)}
-                className="greenlit-button-secondary text-sm flex items-center gap-2"
+                className="text-white/60 hover:text-white/90 text-sm px-3 py-2 rounded-md hover:bg-white/10 transition-all flex items-center gap-2"
                 title="How to Use the Story Bible"
               >
                 <span>📖</span>
@@ -1317,37 +1434,265 @@ export default function StoryBiblePage() {
           onClose={() => setShowPlaybook(false)} 
         />
 
+        {/* Clean Toolbar */}
+        <motion.div
+          className="max-w-5xl mx-auto mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+        >
+          {/* Left: Primary Actions */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <Link
+              href="/profile"
+              className="px-4 py-2 bg-[#1A1A1A] border border-[#00FF99]/20 rounded-lg text-white/80 hover:text-white hover:border-[#00FF99]/40 transition-all flex items-center gap-2 text-sm font-medium"
+            >
+              <span>←</span>
+              <span>Dashboard</span>
+            </Link>
+            
+            <motion.button
+              onClick={async () => {
+                if (!storyBible) return
+                
+                if (user) {
+                  // Logged in user - save to both localStorage and Firestore
+                  await saveStoryBibleData(storyBible)
+                  alert('Story bible saved!')
+                } else {
+                  // Guest user - prompt to create account
+                  const shouldLogin = confirm(
+                    "Create an account to save your story bible and access it from any device.\n\nClick OK to create an account, or Cancel to save locally only."
+                  )
+                  
+                  if (shouldLogin) {
+                    // Save to localStorage first (preserve work)
+                    await saveStoryBibleData(storyBible)
+                    
+                    // Redirect to login with return path
+                    router.push('/login?redirect=/story-bible')
+                  } else {
+                    // Just save to localStorage
+                    await saveStoryBibleData(storyBible)
+                    alert('Story bible saved locally on this device.')
+                  }
+                }
+              }}
+              disabled={!storyBible}
+              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+                storyBible
+                  ? 'bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] hover:bg-[#00FF99]/20'
+                  : 'bg-gray-700/50 border border-gray-600 text-gray-500 cursor-not-allowed'
+              }`}
+              whileHover={storyBible ? { scale: 1.05 } : {}}
+              whileTap={storyBible ? { scale: 0.95 } : {}}
+            >
+              <span>💾</span>
+              <span>Save</span>
+            </motion.button>
+
+            <motion.button
+              onClick={() => setShowShareModal(true)}
+              disabled={!user || !storyBible}
+              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+                user && storyBible
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg'
+                  : 'bg-gray-700/50 border border-gray-600 text-gray-500 cursor-not-allowed'
+              }`}
+              whileHover={user && storyBible ? { scale: 1.05 } : {}}
+              whileTap={user && storyBible ? { scale: 0.95 } : {}}
+              title={!user ? 'Sign in to share' : 'Share this story bible'}
+            >
+              <span>🔗</span>
+              <span>Share</span>
+            </motion.button>
+
+            {/* More Actions Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowActionsMenu(!showActionsMenu)}
+                className="px-3 py-2 bg-[#1A1A1A] border border-[#00FF99]/20 rounded-lg text-white/80 hover:text-white hover:border-[#00FF99]/40 transition-all"
+                title="More actions"
+              >
+                <span className="text-lg">⋮</span>
+              </button>
+              
+              {showActionsMenu && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-[#1A1A1A] border border-[#00FF99]/30 rounded-lg shadow-xl z-50">
+                  <button
+                    onClick={() => {
+                      handleRegenerate()
+                      setShowActionsMenu(false)
+                    }}
+                    disabled={isRegenerating || regenerationsRemaining <= 0}
+                    className="w-full px-4 py-3 text-left text-white/80 hover:bg-[#00FF99]/10 hover:text-white transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>🔄</span>
+                    <span>Regenerate ({regenerationsRemaining}/5)</span>
+                  </button>
+                  
+                  {/* Export with submenu */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      className="w-full px-4 py-3 text-left text-white/80 hover:bg-[#00FF99]/10 hover:text-white transition-all flex items-center gap-2 justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>📥</span>
+                        <span>Export</span>
+                      </div>
+                      <span className="text-xs">{showExportMenu ? '▼' : '▶'}</span>
+                    </button>
+                    
+                    {showExportMenu && (
+                      <div className="pl-8 pr-4 py-2 bg-[#0A0A0A] border-l-2 border-[#00FF99]/20">
+                        <button
+                          onClick={() => {
+                            exportAsJSON(storyBible)
+                            setShowActionsMenu(false)
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                        >
+                          <span>📄</span>
+                          <span>JSON (Backup)</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            downloadMarkdown(storyBible)
+                            setShowActionsMenu(false)
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                        >
+                          <span>📝</span>
+                          <span>Markdown</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            copyAsText(storyBible)
+                            setShowActionsMenu(false)
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                        >
+                          <span>📋</span>
+                          <span>Copy as Text</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this story bible? This cannot be undone.')) {
+                        // Delete logic here
+                      }
+                      setShowActionsMenu(false)
+                    }}
+                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 border-t border-[#00FF99]/10"
+                  >
+                    <span>🗑️</span>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Status & Metadata */}
+          <div className="flex items-center gap-2 sm:gap-3 text-sm flex-wrap justify-center sm:justify-end">
+            {/* Status Selector Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => user && setShowStatusDropdown(!showStatusDropdown)}
+                disabled={!user}
+                className={`px-3 py-1.5 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${
+                  storyBible?.status === 'complete' 
+                    ? 'bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40'
+                    : storyBible?.status === 'in-progress'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
+                } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={user ? "Click to change status" : "Login to change status"}
+              >
+                <span>{storyBible?.status === 'complete' ? '✓ Complete' : storyBible?.status === 'in-progress' ? '⚡ In Progress' : '📝 Draft'}</span>
+                {user && <span className="text-xs">▼</span>}
+              </button>
+              
+              {showStatusDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1A1A1A] border border-[#00FF99]/30 rounded-lg shadow-xl z-50">
+                  <button
+                    onClick={() => handleStatusChange('draft')}
+                    className="w-full px-4 py-3 text-left text-gray-400 hover:bg-gray-500/10 hover:text-gray-300 transition-all flex items-center gap-2"
+                  >
+                    <span>📝</span>
+                    <span>Draft</span>
+                    {storyBible?.status === 'draft' && <span className="ml-auto text-[#00FF99]">✓</span>}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleStatusChange('in-progress')}
+                    className="w-full px-4 py-3 text-left text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 transition-all flex items-center gap-2"
+                  >
+                    <span>⚡</span>
+                    <span>In Progress</span>
+                    {storyBible?.status === 'in-progress' && <span className="ml-auto text-[#00FF99]">✓</span>}
+                  </button>
+                  
+                  <button
+                    onClick={() => handleStatusChange('complete')}
+                    className="w-full px-4 py-3 text-left text-[#00FF99] hover:bg-[#00FF99]/10 hover:text-[#00CC7A] transition-all flex items-center gap-2"
+                  >
+                    <span>✓</span>
+                    <span>Complete</span>
+                    {storyBible?.status === 'complete' && <span className="ml-auto text-[#00FF99]">✓</span>}
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Counts */}
+            <div className="text-white/60">
+              {storyBible?.mainCharacters?.length || 0} Characters • {storyBible?.narrativeArcs?.length || 0} Arcs
+            </div>
+          </div>
+        </motion.div>
+
         {/* Professional Navigation */}
         <motion.div 
-          className="flex flex-col items-center greenlit-mb-xl space-y-6"
+          className="flex flex-col items-center mb-12 space-y-6"
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 1.2, duration: 0.8 }}
         >
-          {/* Main Rebellious Tabs */}
+          {/* Main Tabs - Core Content */}
+          <div className="space-y-4 w-full max-w-4xl">
+            {/* Core Content Tabs - Primary */}
           <motion.div 
-            className="greenlit-card p-2 flex flex-wrap justify-center gap-2"
+            className="rebellious-card p-2 flex flex-wrap justify-center gap-2"
             whileHover={{ scale: 1.01 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            {(['premise', 'overview', 'characters', 'arcs', 'world', 'choices'] as const).map((tab, index) => (
+              {(['premise', 'overview', 'characters', 'arcs', 'world'] as const).map((tab, index) => (
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`greenlit-tab ${activeTab === tab ? 'active' : ''}`}
+                className={`tab-button ${activeTab === tab ? 'tab-button-active' : ''}`}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1.4 + index * 0.1, duration: 0.5 }}
               >
-                <span className="relative z-10">
+                  <span className="relative z-10 font-medium">
                   {tab === 'premise' ? '🎯 Premise' : 
                    tab === 'overview' ? '📖 Overview' :
                    tab === 'characters' ? '👥 Characters' :
                    tab === 'arcs' ? '📚 Story Arcs' :
                    tab === 'world' ? '🌍 World' :
-                   tab === 'choices' ? '⚡ Your Choices' : 
                    (tab as string).charAt(0).toUpperCase() + (tab as string).slice(1)}
                 </span>
                 
@@ -1362,30 +1707,62 @@ export default function StoryBiblePage() {
             ))}
           </motion.div>
 
-          {/* Professional Advanced Analysis */}
+            {/* Your Choices Tab - Secondary (Metadata) */}
           <motion.div 
-            className="flex items-center gap-4"
+              className="flex justify-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.9, duration: 0.5 }}
+            >
+              <button
+                onClick={() => setActiveTab('choices')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                  activeTab === 'choices'
+                    ? 'bg-gray-500/20 text-gray-300 border-gray-500/40'
+                    : 'bg-gray-700/10 text-gray-500 border-gray-600/20 hover:bg-gray-600/20 hover:text-gray-400 hover:border-gray-500/30'
+                }`}
+                title="View your initial creative choices"
+              >
+                <span className="opacity-70">⚡ Your Choices</span>
+                <span className="ml-2 text-xs opacity-50">(Metadata)</span>
+              </button>
+            </motion.div>
+          </div>
+
+          {/* Advanced Analysis (Optional) */}
+          <motion.div 
+            className="flex flex-col items-center gap-3 mt-6"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 2, duration: 0.6 }}
           >
+            <div className="flex items-center gap-2">
+              <div className="h-px w-16 bg-gradient-to-r from-transparent to-gray-600"></div>
+              <span className="text-gray-500 text-xs font-medium uppercase tracking-wider">Advanced Analysis (Optional)</span>
+              <div className="h-px w-16 bg-gradient-to-l from-transparent to-gray-600"></div>
+            </div>
+            
             <motion.button
               onClick={() => setShowTechnicalModal(true)}
-              className="bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black py-3 px-6 text-sm font-bold rounded-lg hover:shadow-lg transition-all"
+              className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 text-[#00FF99] py-2.5 px-5 text-sm font-medium rounded-lg hover:bg-[#00FF99]/20 hover:shadow-lg transition-all"
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="relative z-10 font-medium">ADVANCED SERIES ANALYSIS</span>
+              <span className="flex items-center gap-2">
+                <span>🔬</span>
+                <span>View Technical Analysis</span>
+              </span>
             </motion.button>
+            
             {showTechnicalTabs && (
               <motion.span 
-                className="text-[#00FF99] text-sm font-bold font-medium flex items-center gap-2"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
+                className="text-[#00FF99] text-xs font-medium flex items-center gap-2"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <span className="animate-pulse">🔥</span>
-                Advanced engines active
+                <span className="animate-pulse">✓</span>
+                Technical tabs active
               </motion.span>
             )}
           </motion.div>
@@ -1445,7 +1822,7 @@ export default function StoryBiblePage() {
                   Advanced Analysis
                 </h3>
                 <p className="text-[#e7e7e7]/90 mb-6 leading-relaxed">
-                  Would you like to see the technical analysis tabs? These contain detailed AI analysis including 
+                  Would you like to see the technical analysis tabs? These contain detailed production analysis including 
                   tension escalation, choice architecture, trope analysis, and narrative cohesion that power 
                   your story generation behind the scenes.
                 </p>
@@ -1788,11 +2165,12 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                             /* 3D Character Display */
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                               {/* Physiology */}
-                              <div className="bg-[#1a1a1a] rounded-lg p-4">
-                                <h5 className="text-[#00FF99] font-bold mb-3 flex items-center">
-                                  🏃 Physiology
-                                </h5>
-                                <div className="space-y-2 text-sm">
+                              <CollapsibleSection
+                                title="Physiology"
+                                icon="🏃"
+                                isEmptyDefault={isSectionEmpty(character.physiology || {}, ['physicalTraits'])}
+                              >
+                                <div className="space-y-2">
                                   {/* Editable Age */}
                                   <div className="flex items-center gap-2 group">
                                     <strong>Age:</strong>
@@ -1883,13 +2261,14 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                     <p><strong>Traits:</strong> {character.physiology.physicalTraits.join(', ')}</p>
                                   )}
                             </div>
-                          </div>
+                          </CollapsibleSection>
 
                               {/* Sociology */}
-                              <div className="bg-[#1a1a1a] rounded-lg p-4">
-                                <h5 className="text-[#00FF99] font-bold mb-3 flex items-center">
-                                  🏛️ Sociology
-                                </h5>
+                              <CollapsibleSection
+                                title="Sociology"
+                                icon="🏛️"
+                                isEmptyDefault={isSectionEmpty(character.sociology || {})}
+                              >
                                 <div className="space-y-2 text-sm">
                                   <p><strong>Class:</strong> {character.sociology.class}</p>
                                   <p><strong>Occupation:</strong> {character.sociology.occupation}</p>
@@ -1898,14 +2277,16 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                   <p><strong>Economic Status:</strong> {character.sociology.economicStatus}</p>
                                   <p><strong>Community Standing:</strong> {character.sociology.communityStanding}</p>
                                 </div>
-                            </div>
+                          </CollapsibleSection>
                             
                               {/* Psychology */}
-                              <div className="bg-[#1a1a1a] rounded-lg p-4 md:col-span-2 lg:col-span-1">
-                                <h5 className="text-[#00FF99] font-bold mb-3 flex items-center">
-                                  🧠 Psychology
-                                </h5>
-                                <div className="space-y-3 text-sm">
+                              <CollapsibleSection
+                                title="Psychology"
+                                icon="🧠"
+                                isEmptyDefault={isSectionEmpty(character.psychology || {})}
+                                className="md:col-span-2 lg:col-span-1"
+                              >
+                                <div className="space-y-3">
                                   <div className="bg-[#2a2a2a] rounded-lg p-3 border-l-4 border-green-400">
                                     <p><strong>Core Value:</strong> {character.psychology.coreValue}</p>
                                     <p><strong>Moral Standpoint:</strong> {character.psychology.moralStandpoint}</p>
@@ -1935,7 +2316,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                     <p><strong>Top Fear:</strong> {character.psychology.fears?.[0] || 'Unknown'}</p>
                                   </div>
                                 </div>
-                              </div>
+                              </CollapsibleSection>
                             </div>
                           ) : (
                             /* Legacy Character Display */
@@ -2080,7 +2461,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                         {/* Arc Suggestion Notice */}
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-6">
                           <p className="text-blue-200 text-sm">
-                            💡 <strong>Arc suggestions are starting points:</strong> These AI-generated directions guide your story, 
+                            💡 <strong>Arc suggestions are starting points:</strong> These automated suggestions guide your story, 
                             but you control the actual episodes. Use them for inspiration, then create episodes your way in the Episode Studio!
                           </p>
                         </div>
@@ -2437,7 +2818,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   ⚡ Tension Escalation Analysis
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -2471,7 +2852,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🎯 Choice Architecture Analysis
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="space-y-6">
@@ -2507,7 +2888,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🌍 Living World Dynamics
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -2541,7 +2922,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   📖 Trope Analysis
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -2575,7 +2956,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🔗 Cohesion Analysis
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="space-y-6">
@@ -2611,7 +2992,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🗣️ Dialogue Strategy
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -2641,7 +3022,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🎭 Genre Enhancement
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -2671,7 +3052,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
                   🎯 Theme Integration
                   <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    AI Generated
+                    Auto-Generated
                   </span>
                 </h2>
                 <div className="space-y-6">
@@ -2726,9 +3107,22 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.2, duration: 0.6 }}
           >
-          <div className="flex items-center gap-4">
             <motion.button
-              onClick={() => router.push('/workspace')}
+              onClick={async () => {
+                if (!storyBible) {
+                  console.error('No story bible to save')
+                  return
+                }
+                
+                // Save story bible before navigating
+                console.log('💾 Saving story bible before navigating to workspace...')
+                const savedBible = await saveStoryBibleData(storyBible)
+                
+                // Navigate to workspace with story bible ID
+                const bibleId = savedBible?.id || storyBible.id
+                console.log('✅ Navigating to workspace with ID:', bibleId)
+                router.push(`/workspace?id=${bibleId}`)
+              }}
               className="bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-10 py-4 text-xl font-bold rounded-lg hover:shadow-lg transition-all"
               whileHover={{ 
                 scale: 1.05, 
@@ -2739,35 +3133,9 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
             >
               <span className="relative z-10 font-medium">LET'S WRITE THE STORY</span>
             </motion.button>
-            
-            <motion.button
-              onClick={handleRegenerate}
-              disabled={isRegenerating || regenerationsRemaining <= 0}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
-                isRegenerating || regenerationsRemaining <= 0
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg hover:scale-105'
-              }`}
-              whileHover={!isRegenerating && regenerationsRemaining > 0 ? { scale: 1.05 } : {}}
-              whileTap={!isRegenerating && regenerationsRemaining > 0 ? { scale: 0.95 } : {}}
-              title={`Regenerate story bible (${regenerationsRemaining}/5 remaining)`}
-            >
-              {isRegenerating ? (
-                <>
-                  <span className="animate-spin">🔄</span>
-                  <span>Regenerating...</span>
-                </>
-              ) : (
-                <>
-                  <span>🔄</span>
-                  <span>Regenerate ({regenerationsRemaining}/5)</span>
-                </>
-              )}
-            </motion.button>
-          </div>
           </motion.div>
           
-          {/* AI Imperfection Notice */}
+          {/* Auto-Generation Notice */}
           <motion.div 
             className="pt-8 pb-4"
             initial={{ opacity: 0, y: 20 }}
@@ -2776,7 +3144,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
           >
             <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3 max-w-2xl mx-auto">
               <p className="text-orange-200 text-sm text-center">
-                ⚠️ <strong>AI-generated content may not be perfect!</strong> Use the ✏️ buttons to edit names, titles, or descriptions. 
+                ⚠️ <strong>Auto-generated content may not be perfect!</strong> Use the ✏️ buttons to edit names, titles, or descriptions. 
                 Not happy with the results? You have <strong>{regenerationsRemaining} regeneration{regenerationsRemaining !== 1 ? 's' : ''}</strong> remaining.
               </p>
             </div>
@@ -2851,6 +3219,23 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
           </motion.div>
         </motion.div>
       </div>
+      {/* Share Modal */}
+      {user && storyBible && (
+        <ShareStoryBibleModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          storyBible={storyBible}
+          ownerId={user.id}
+          ownerName={user.displayName || user.email || 'Unknown User'}
+        />
+      )}
+      
+      {/* Auth Status Modal - Show when not logged in and hasn't skipped */}
+      {!user && !hasSkippedLogin && (
+        <AuthStatusModal
+          onSkip={() => setHasSkippedLogin(true)}
+        />
+      )}
     </motion.div>
   )
 } 

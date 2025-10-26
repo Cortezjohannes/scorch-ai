@@ -41,7 +41,11 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
   console.log(`🚀 Making ${model} API call to: ${url} with deployment: ${deploymentId}`);
   
   try {
-    // Make a direct fetch request
+    // Create an AbortController with 120 second timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+    
+    // Make a direct fetch request with timeout
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -55,8 +59,12 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
         ],
         temperature: temperature,
         max_tokens: maxTokens
-      })
+      }),
+      signal: controller.signal
     });
+    
+    // Clear the timeout once we have a response
+    clearTimeout(timeoutId);
     
     // Parse the response
     if (!response.ok) {
@@ -68,6 +76,11 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
     const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
   } catch (error) {
+    // Check if error is due to timeout/abort
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Direct API call timed out after 120 seconds');
+      throw new Error('AI service timeout - request took too long to respond');
+    }
     console.error('Direct API call error:', error);
     return null;
   }

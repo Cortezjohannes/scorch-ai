@@ -145,36 +145,24 @@ export class FoundationEngineSystem {
       return
     }
 
-    console.log(`\n🏗️ ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 FOUNDATION ENGINE SYSTEM INITIALIZATION`);
-    console.log(`🎭 Performance Multiplication Infrastructure Starting...`);
-    console.log(`🏗️ ═══════════════════════════════════════════════════════════════════════════════════`);
 
     try {
       // Initialize core systems in dependency order
-      console.log(`🔧 Initializing core orchestration systems...`);
       await this.initializeCoreOrchestration()
 
-      console.log(`🛡️ Initializing safety and fallback systems...`);
       await this.initializeSafetySystems()
 
-      console.log(`⚡ Initializing performance optimization...`);
       await this.initializePerformanceSystems()
 
-      console.log(`🎯 Initializing quality validation systems...`);
       await this.initializeQualitySystems()
 
       console.log(`🧠 Initializing narrative consistency framework...`);
       await this.initializeNarrativeConsistency()
 
-      console.log(`📊 Starting system health monitoring...`);
       await this.startSystemMonitoring()
 
       this.isInitialized = true
       
-      console.log(`✅ FOUNDATION ENGINE SYSTEM READY`);
-      console.log(`🎭 Performance Multiplication Infrastructure: OPERATIONAL`);
-      console.log(`🏗️ ═══════════════════════════════════════════════════════════════════════════════════\n`);
 
     } catch (error) {
       console.error(`❌ Foundation system initialization failed:`, error);
@@ -194,27 +182,19 @@ export class FoundationEngineSystem {
     const startTime = Date.now()
     const { content, contentType, context, options } = request
 
-    console.log(`\n🎭 ═══════════════════════════════════════════════════════════════════════════════════`);
-    console.log(`🚀 FOUNDATION SYSTEM: CONTENT ENHANCEMENT REQUEST`);
     console.log(`📋 Content Type: ${contentType.toUpperCase()}`);
-    console.log(`🎯 Project: ${context.projectId || 'Unknown'}`);
-    console.log(`🎭 Genre: ${context.genre?.join(', ') || 'Not specified'}`);
-    console.log(`🎭 ═══════════════════════════════════════════════════════════════════════════════════`);
 
     // Record system activity
     this.systemHealth.recordActivity('content_enhancement', contentType)
 
     try {
       // STAGE 1: Safety and validation checks
-      console.log(`🛡️ Stage 1: Safety and validation checks...`);
       await this.performSafetyChecks(request)
 
       // STAGE 2: Content enhancement with full protection
-      console.log(`⚡ Stage 2: Protected content enhancement...`);
       const enhancementResult = await this.executeProtectedEnhancement(request)
 
       // STAGE 3: Quality validation (if enabled)
-      console.log(`🎯 Stage 3: Quality validation...`);
       const qualityResult = await this.performQualityValidation(enhancementResult, request)
 
       // STAGE 4: Narrative consistency validation (if enabled)
@@ -222,18 +202,12 @@ export class FoundationEngineSystem {
       const narrativeResult = await this.performNarrativeValidation(enhancementResult, request)
 
       // STAGE 5: Performance metrics collection
-      console.log(`📊 Stage 5: Performance metrics collection...`);
       const performanceMetrics = await this.collectPerformanceMetrics(startTime, enhancementResult)
 
       // STAGE 6: System health update
       this.systemHealth.recordSuccess('content_enhancement', contentType, Date.now() - startTime)
 
       const totalTime = Date.now() - startTime
-      console.log(`✅ FOUNDATION SYSTEM: ENHANCEMENT COMPLETE in ${totalTime}ms`);
-      console.log(`📊 Quality Score: ${(qualityResult.overallScore * 100).toFixed(1)}%`);
-      console.log(`🎯 Engines Used: ${enhancementResult.enginesUsed.length}`);
-      console.log(`🛡️ Safety Status: ${enhancementResult.fallbackUsed ? 'FALLBACK' : 'ENHANCED'}`);
-      console.log(`🎭 ═══════════════════════════════════════════════════════════════════════════════════\n`);
 
       return {
         success: true,
@@ -297,7 +271,6 @@ export class FoundationEngineSystem {
     const uniqueEngines = [...new Set(selectedEngines)]
     const prioritizedEngines = this.prioritizeEngines(uniqueEngines, contentType, context)
 
-    console.log(`🎯 Selected ${prioritizedEngines.length} engines for ${contentType}:`, prioritizedEngines);
 
     return prioritizedEngines
   }
@@ -319,7 +292,6 @@ export class FoundationEngineSystem {
    * 🔧 SYSTEM CONFIGURATION
    */
   updateConfiguration(updates: Partial<FoundationSystemConfig>): void {
-    console.log(`🔧 Updating foundation system configuration...`);
     
     this.config = {
       ...this.config,
@@ -329,7 +301,6 @@ export class FoundationEngineSystem {
     // Apply configuration changes to subsystems
     this.applyConfigurationToSubsystems()
     
-    console.log(`✅ Configuration updated successfully`);
   }
 
   /**
@@ -346,7 +317,6 @@ export class FoundationEngineSystem {
       logsCleanup: await this.cleanupLogs()
     }
 
-    console.log(`✅ Maintenance completed:`, maintenanceResult);
     return maintenanceResult
   }
 
@@ -356,34 +326,29 @@ export class FoundationEngineSystem {
 
   private async initializeCoreOrchestration(): Promise<void> {
     // Enhanced orchestrator is already initialized as singleton
-    console.log(`✅ Core orchestration systems ready`);
   }
 
   private async initializeSafetySystems(): Promise<void> {
     if (this.config.safetySettings.enableFallbackProtection) {
       await fallbackSystem.startHealthMonitoring()
-      console.log(`✅ Fallback protection systems active`);
     }
   }
 
   private async initializePerformanceSystems(): Promise<void> {
     if (this.config.performanceSettings.enablePerformanceMonitoring) {
       await performanceOptimizer.startPerformanceMonitoring()
-      console.log(`✅ Performance optimization systems active`);
     }
   }
 
   private async initializeQualitySystems(): Promise<void> {
     if (this.config.qualitySettings.enableQualityValidation) {
       // Quality validator is ready as singleton
-      console.log(`✅ Quality validation systems active`);
     }
   }
 
   private async initializeNarrativeConsistency(): Promise<void> {
     if (this.config.engineSettings.enableNarrativeConsistency) {
       // Narrative consistency framework is ready as singleton
-      console.log(`✅ Narrative consistency framework active`);
     }
   }
 
@@ -396,7 +361,6 @@ export class FoundationEngineSystem {
         }
       }, 60000) // Check every minute
 
-      console.log(`✅ System health monitoring started`);
     }
   }
 

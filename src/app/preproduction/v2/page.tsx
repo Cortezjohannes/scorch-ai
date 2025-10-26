@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { savePreProduction } from '@/services/preproduction-service'
 import PreProductionV2LoadingScreen from '@/components/PreProductionV2LoadingScreen'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -737,6 +738,10 @@ export default function PreProductionV2() {
   const [arcEpisodes, setArcEpisodes] = useState<any[]>([])
   const [storyBible, setStoryBible] = useState<any>(null)
   const [workspaceEpisodes, setWorkspaceEpisodes] = useState<any>({})
+  
+  // Episode-level mode (for single episode pre-production)
+  const [isSingleEpisodeMode, setIsSingleEpisodeMode] = useState<boolean>(false)
+  const [singleEpisodeNumber, setSingleEpisodeNumber] = useState<number | null>(null)
 
   // =====================================
   // EXPORT FUNCTIONALITY
@@ -952,7 +957,45 @@ export default function PreProductionV2() {
     try {
       console.log('🔍 Loading pre-production data from localStorage...')
       
-      // Load the pre-production data that workspace saved
+      // Check for episode-level data first (new single-episode mode)
+      const savedEpisodeData = localStorage.getItem('greenlit-preproduction-episode-data') || 
+                               localStorage.getItem('scorched-preproduction-episode-data') || 
+                               localStorage.getItem('reeled-preproduction-episode-data')
+      
+      if (savedEpisodeData) {
+        const data = JSON.parse(savedEpisodeData)
+        console.log('📦 Single episode pre-production data found:', data)
+        
+        setIsSingleEpisodeMode(true)
+        setSingleEpisodeNumber(data.episodeNumber)
+        setStoryBible(data.storyBible)
+        
+        // Create arc episodes array with single episode
+        setArcEpisodes([data.episode])
+        setWorkspaceEpisodes({ [data.episodeNumber]: data.episode })
+        
+        // Determine arc info for this episode
+        let runningCount = 0
+        let foundArcIndex = 0
+        if (data.storyBible && data.storyBible.narrativeArcs) {
+          for (let i = 0; i < data.storyBible.narrativeArcs.length; i++) {
+            const arc = data.storyBible.narrativeArcs[i]
+            const arcEpisodeCount = arc.episodes?.length || 10
+            if (data.episodeNumber <= runningCount + arcEpisodeCount) {
+              foundArcIndex = i
+              setArcTitle(arc.title || `Arc ${i + 1}`)
+              break
+            }
+            runningCount += arcEpisodeCount
+          }
+        }
+        setArcIndex(foundArcIndex)
+        
+        console.log(`📖 Single episode mode: Episode ${data.episodeNumber} from ${data.storyBible?.narrativeArcs?.[foundArcIndex]?.title || `Arc ${foundArcIndex + 1}`}`)
+        return
+      }
+      
+      // Fall back to arc-level data (existing functionality)
       const savedPreProdData = localStorage.getItem('greenlit-preproduction-data') || localStorage.getItem('scorched-preproduction-data') || localStorage.getItem('reeled-preproduction-data')
       console.log('🔍 Checking localStorage for preproduction data:', !!savedPreProdData)
       console.log('🔍 ALL localStorage keys:', Object.keys(localStorage))
@@ -970,6 +1013,8 @@ export default function PreProductionV2() {
           arcIndex: data.arcIndex
         })
         
+        setIsSingleEpisodeMode(false)
+        setSingleEpisodeNumber(null)
         setStoryBible(data.storyBible)
         setArcIndex(data.arcIndex || 0)
         setWorkspaceEpisodes(data.workspaceEpisodes || {})
@@ -1116,20 +1161,49 @@ export default function PreProductionV2() {
     setShowResults(false)
   }
 
-  const onV2Complete = (preProductionData: any) => {
+  const onV2Complete = async (preProductionData: any) => {
     console.log('✅ V2 Pre-Production Complete!', preProductionData)
     setV2Content(preProductionData)
     setIsGenerating(false)
     setShowResults(true)
     setHasExistingContent(true)
     
-    // Save V2 content to localStorage for future use
+    // Save V2 content with story bible ID
     if (typeof window !== 'undefined') {
       try {
+        // Get story bible ID
+        // Use existing ID or create a deterministic one (NO Date.now()!)
+        const storyBibleId = storyBible?.id || `bible_${storyBible?.seriesTitle?.replace(/\s+/g, '_').toLowerCase()}`
+        if (!storyBible?.id) {
+          console.warn('⚠️ Story bible missing ID! Using deterministic fallback:', storyBibleId)
+        }
+        
+        // Prepare pre-production data with required fields
+        const preProductionRecord = {
+          id: `preprod_${storyBibleId}_ep${singleEpisodeNumber || currentEpisodeNumber}`,
+          episodeNumber: singleEpisodeNumber || currentEpisodeNumber,
+          episodeId: `ep_${singleEpisodeNumber || currentEpisodeNumber}`,
+          storyBibleId, // REQUIRED - tie to story bible
+          script: preProductionData.script || {},
+          storyboard: preProductionData.storyboard || [],
+          castingBrief: preProductionData.castingBrief || {},
+          propsList: preProductionData.propsList || [],
+          locationsList: preProductionData.locationsList || [],
+          wardrobe: preProductionData.wardrobe || [],
+          productionNotes: preProductionData.notes,
+          status: 'complete' as const,
+          generatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        // Save to Firestore (if user logged in) and localStorage
+        await savePreProduction(preProductionRecord, storyBibleId, user?.id)
+        console.log(`💾 Pre-production for episode ${singleEpisodeNumber || currentEpisodeNumber} saved with story bible ID: ${storyBibleId}`)
+        
+        // Keep legacy localStorage format for backward compatibility
         localStorage.setItem(`scorched-preproduction-${arcIndex}`, JSON.stringify(preProductionData))
-        console.log('💾 V2 content saved to localStorage for future use')
       } catch (e) {
-        console.error('❌ Error saving V2 content to localStorage:', e)
+        console.error('❌ Error saving V2 content:', e)
       }
       localStorage.removeItem('reeled-auto-generate')
     }
@@ -3711,8 +3785,17 @@ REQUIREMENTS:
               </p>
               <div className="space-y-3 text-lg text-white/80 font-medium">
                 <div>Series: {storyBible?.seriesTitle || 'Loading...'}</div>
-                <div>Arc: {arcTitle || `Arc ${arcIndex + 1}`}</div>
-                <div>Episodes: {arcEpisodes.length}</div>
+                {isSingleEpisodeMode ? (
+                  <>
+                    <div>Episode: {singleEpisodeNumber}</div>
+                    <div>From: {arcTitle || `Arc ${arcIndex + 1}`}</div>
+                  </>
+                ) : (
+                  <>
+                    <div>Arc: {arcTitle || `Arc ${arcIndex + 1}`}</div>
+                    <div>Episodes: {arcEpisodes.length}</div>
+                  </>
+                )}
               </div>
               <motion.button
                 onClick={startV2Generation}
@@ -3757,7 +3840,10 @@ REQUIREMENTS:
               </h1>
             </motion.div>
             <p className="text-2xl text-white/90 font-medium mb-4">
-              Arc {arcIndex + 1}: {arcTitle} • Professional Pre-Production Complete
+              {isSingleEpisodeMode 
+                ? `Episode ${singleEpisodeNumber} • Professional Pre-Production Complete`
+                : `Arc ${arcIndex + 1}: {arcTitle} • Professional Pre-Production Complete`
+              }
             </p>
             <p className="text-xl text-white/80 font-medium max-w-2xl mx-auto leading-relaxed">
               Professional production materials ready for your series. Everything you need to bring your vision to life.

@@ -1,3 +1,34 @@
+/**
+ * PRE-PRODUCTION V2 API - SEQUENTIAL GENERATION WITH COMPREHENSIVE ENGINES
+ * 
+ * This API generates all pre-production materials in a SEQUENTIAL order (not parallel).
+ * Each tab builds on data from previous tabs for higher quality and coherence.
+ * 
+ * SEQUENTIAL GENERATION FLOW:
+ * 1. NARRATIVE     → Copy existing episode content (passthrough)
+ * 2. SCRIPTS       → Generate from Narrative with 8 engines (Dialogue, Strategic, Performance, Language, Canvas, Tension, Genre, Character)
+ * 3. STORYBOARDS   → Generate from Scripts with 4 engines + AI images (Storyboard, Visual, Cinematography, VisualDesign)
+ * 4. PROPS         → Generate from Storyboards with 3 engines + AI images (VisualDesign, WorldBuilding, Production)
+ * 5. LOCATIONS     → Generate from Storyboards with 3 engines + AI images (Location, WorldBuilding, Production)
+ * 6. CASTING       → Generate from Narrative with 3 engines + actor references (Casting, Character, PerformanceCoaching)
+ * 7. MARKETING     → Generate from Narrative with 3 engines (Marketing, Genre, Audience)
+ * 8. POST-PROD     → Generate from Storyboards with 2 engines (PostProduction, VisualStorytelling)
+ * 
+ * BENEFITS OF SEQUENTIAL GENERATION:
+ * - Scripts use actual narrative content for better dialogue
+ * - Storyboards use actual script dialogue for visual planning
+ * - Props lists based on actual visual requirements from storyboards
+ * - Locations based on actual prop and visual needs
+ * - Higher coherence across all tabs
+ * - Each tab can reference and improve upon previous work
+ * 
+ * NEW FEATURES:
+ * - AI Image Generation: Storyboards, Props, and Locations get AI-generated reference images
+ * - Actor References: Casting includes real-world actor inspiration (for fun/vibe)
+ * - Comprehensive Engines: 14+ engines working together for maximum quality
+ * - Creative Freedom: All suggestions are guides, not rigid requirements
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   generateV2Scripts,
@@ -95,10 +126,12 @@ export async function POST(request: NextRequest) {
     await updateProgress('Narrative', 'Narrative content ready', 100, 1);
     console.log(`✅ NARRATIVE: ${actualEpisodes.length} episodes copied`);
     
-    // STEP 2: SCRIPT - Generate per scene with GPT-4.1 (temperature 0.35)
-    console.log('📝 Step 2/8: SCRIPT - Generating scene-by-scene scripts...');
-    await updateProgress('Scripts', 'Starting script generation...', 0, 2);
-    // 🎭 ENGINE-ENHANCED SCRIPT GENERATION
+    // STEP 2: SCRIPT - Generate per scene with COMPREHENSIVE ENGINE SUITE
+    console.log('📝 Step 2/8: SCRIPT - Generating scene-by-scene scripts with 8 engines...');
+    console.log('   Engines: DialogueV2, StrategicDialogue, PerformanceCoaching, Language, FiveMinuteCanvas, TensionEscalation, GenreMastery, CharacterV2');
+    await updateProgress('Scripts', 'Starting script generation with comprehensive engines...', 0, 2);
+    
+    // 🎭 COMPREHENSIVE ENGINE-ENHANCED SCRIPT GENERATION
     const scriptEngineOptions = {
       useEngines,
       engineLevel,
@@ -112,20 +145,24 @@ export async function POST(request: NextRequest) {
       culturalContext: 'multicultural' as const,
       voiceDifferentiation: 'advanced' as const,
       useFormatEngine: true,
+      useGenreMastery: true, // Added
+      useCharacterEngine: true, // Added
       attentionStrategy: 'retention-maximized' as const,
       mode: 'beast' as const
     };
     
     const scriptResult = await generateV2Scripts(context, preProductionContent.narrative, updateProgress, scriptEngineOptions);
     preProductionContent.script = scriptResult;
-    await updateProgress('Scripts', 'Scripts generated for all scenes', 100, 2);
-    console.log(`✅ SCRIPT: Generated ${scriptResult.totalScenes} scenes across ${scriptResult.episodes.length} episodes`);
+    await updateProgress('Scripts', 'Scripts generated with 8-engine enhancement', 100, 2);
+    console.log(`✅ SCRIPT: Generated ${scriptResult.totalScenes} scenes with comprehensive engine suite`);
     
-    // STEP 3: STORYBOARD - Generate per scene based on narrative + script with ENGINE ENHANCEMENT
-    console.log('🎬 Step 3/8: STORYBOARD - Generating visual planning per scene...');
-    await updateProgress('Storyboards', 'Starting storyboard generation...', 0, 3);
+    // STEP 3: STORYBOARD - Generate per scene with ENGINES + IMAGE GENERATION
+    console.log('🎬 Step 3/8: STORYBOARD - Generating visual planning with AI images...');
+    console.log('   Engines: StoryboardV2, VisualStorytelling, Cinematography, VisualDesign');
+    console.log('   Images: Generating reference frames for each shot');
+    await updateProgress('Storyboards', 'Starting storyboard and image generation...', 0, 3);
     
-    // 🎨 ENGINE-ENHANCED STORYBOARD GENERATION
+    // 🎨 ENGINE + IMAGE-ENHANCED STORYBOARD GENERATION
     const storyboardEngineOptions = {
       useEngines,
       engineLevel,
@@ -136,7 +173,9 @@ export async function POST(request: NextRequest) {
       lightingMood: 'dramatic' as const,
       cameraMovementPreference: 'fluid' as const,
       genreConsideration: true,
-      colorPsychologyFocus: true
+      colorPsychologyFocus: true,
+      generateImages: true, // NEW: Enable image generation
+      imageQuality: 'standard' as const
     };
     
     const storyboardResult = await generateV2Storyboards(
@@ -147,14 +186,16 @@ export async function POST(request: NextRequest) {
       storyboardEngineOptions
     );
     preProductionContent.storyboard = storyboardResult;
-    await updateProgress('Storyboards', 'Storyboards generated for all scenes', 100, 3);
-    console.log(`✅ STORYBOARD: Generated ${storyboardResult.totalScenes} scene storyboards${(storyboardResult as any).engineEnhanced ? ' with ENGINE ENHANCEMENT' : ''}`);
+    await updateProgress('Storyboards', 'Storyboards with images generated', 100, 3);
+    console.log(`✅ STORYBOARD: Generated ${storyboardResult.totalScenes} storyboards with AI reference images`);
     
-    // STEP 4: PROPS - Generate per episode based on narrative + storyboard with ENGINE ENHANCEMENT
-    console.log('👗 Step 4/8: PROPS - Generating props & wardrobe per episode...');
-    await updateProgress('Props & Wardrobe', 'Starting props generation...', 0, 4);
+    // STEP 4: PROPS - Generate per episode with ENGINES + IMAGE GENERATION
+    console.log('👗 Step 4/8: PROPS - Generating props & wardrobe with AI images...');
+    console.log('   Engines: VisualDesign, WorldBuilding, Production');
+    console.log('   Images: Generating reference images for key props and costumes');
+    await updateProgress('Props & Wardrobe', 'Starting props and image generation...', 0, 4);
     
-    // 🎨 ENGINE-ENHANCED PROPS GENERATION
+    // 🎨 ENGINE + IMAGE-ENHANCED PROPS GENERATION
     const propsEngineOptions = {
       useEngines,
       engineLevel,
@@ -164,7 +205,9 @@ export async function POST(request: NextRequest) {
       budgetOptimization: true,
       narrativeIntegration: true,
       productionConstraints: ['budget_optimized', 'schedule_efficient'],
-      visualStyle: storyBible.visualStyle || 'standard'
+      visualStyle: storyBible.visualStyle || 'standard',
+      generateImages: true, // NEW: Enable image generation
+      imageQuality: 'standard' as const
     };
     
     const propsResult = await generateV2Props(
@@ -175,14 +218,16 @@ export async function POST(request: NextRequest) {
       propsEngineOptions
     );
     preProductionContent.props = propsResult;
-    await updateProgress('Props & Wardrobe', 'Props generated for all episodes', 100, 4);
-    console.log(`✅ PROPS: Generated props for ${propsResult.episodes.length} episodes${(propsResult as any).engineEnhanced ? ' with ENGINE ENHANCEMENT' : ''}`);
+    await updateProgress('Props & Wardrobe', 'Props with images generated', 100, 4);
+    console.log(`✅ PROPS: Generated props for ${propsResult.episodes.length} episodes with AI images`);
     
-    // STEP 5: LOCATIONS - Generate per episode with ENGINE ENHANCEMENT
-    console.log('🏗️ Step 5/8: LOCATIONS - Generating location guides per episode...');
-    await updateProgress('Locations', 'Starting location scouting...', 0, 5);
+    // STEP 5: LOCATIONS - Generate per episode with ENGINES + IMAGE GENERATION
+    console.log('🏗️ Step 5/8: LOCATIONS - Generating location guides with AI images...');
+    console.log('   Engines: Location, WorldBuilding, Production');
+    console.log('   Images: Generating reference images for each location');
+    await updateProgress('Locations', 'Starting location scouting and image generation...', 0, 5);
     
-    // 🏗️ ENGINE-ENHANCED LOCATIONS GENERATION
+    // 🏗️ ENGINE + IMAGE-ENHANCED LOCATIONS GENERATION
     const locationsEngineOptions = {
       useEngines,
       engineLevel,
@@ -192,7 +237,9 @@ export async function POST(request: NextRequest) {
       technicalConsiderations: true,
       logisticsOptimization: true,
       budgetConstraints: true,
-      visualRequirements: ['camera_friendly', 'lighting_optimized', 'production_efficient']
+      visualRequirements: ['camera_friendly', 'lighting_optimized', 'production_efficient'],
+      generateImages: true, // NEW: Enable image generation
+      imageQuality: 'standard' as const
     };
     
     const locationResult = await generateV2Locations(
@@ -203,14 +250,16 @@ export async function POST(request: NextRequest) {
       locationsEngineOptions
     );
     preProductionContent.location = locationResult;
-    await updateProgress('Locations', 'Location guides generated for all episodes', 100, 5);
-    console.log(`✅ LOCATIONS: Generated locations for ${locationResult.episodes.length} episodes${(locationResult as any).engineEnhanced ? ' with ENGINE ENHANCEMENT' : ''}`);
+    await updateProgress('Locations', 'Locations with images generated', 100, 5);
+    console.log(`✅ LOCATIONS: Generated locations for ${locationResult.episodes.length} episodes with AI images`);
     
-    // STEP 6: CASTING - Generate once for entire arc with ENGINE ENHANCEMENT
-    console.log('🎭 Step 6/8: CASTING - Generating casting guide for arc...');
-    await updateProgress('Casting', 'Starting casting analysis...', 0, 6);
+    // STEP 6: CASTING - Generate once for entire arc with ENGINES + ACTOR REFERENCES
+    console.log('🎭 Step 6/8: CASTING - Generating casting guide with actor inspiration...');
+    console.log('   Engines: CastingV2, CharacterV2, PerformanceCoaching');
+    console.log('   Features: Real-world actor references for vibe inspiration');
+    await updateProgress('Casting', 'Starting casting analysis with actor references...', 0, 6);
     
-    // 🎭 ENGINE-ENHANCED CASTING GENERATION
+    // 🎭 ENGINE + ACTOR REFERENCE-ENHANCED CASTING
     const castingEngineOptions = {
       useEngines,
       engineLevel,
@@ -221,7 +270,9 @@ export async function POST(request: NextRequest) {
       commercialConsideration: false,
       representationGoals: ['authentic', 'diverse', 'inclusive'],
       ensembleOptimization: true,
-      riskAssessment: false
+      riskAssessment: false,
+      includeActorReferences: true, // NEW: Add real actor references for inspiration
+      referencesPerCharacter: 2 // 2-3 actor vibes per character
     };
     
     const castingResult = await generateV2Casting(
@@ -231,8 +282,8 @@ export async function POST(request: NextRequest) {
       castingEngineOptions
     );
     preProductionContent.casting = castingResult;
-    await updateProgress('Casting', 'Casting guide generated for entire arc', 100, 6);
-    console.log(`✅ CASTING: Generated casting breakdown for arc${(castingResult as any).engineEnhanced ? ' with ENGINE ENHANCEMENT' : ''}`);
+    await updateProgress('Casting', 'Casting guide with actor references generated', 100, 6);
+    console.log(`✅ CASTING: Generated casting breakdown with fun actor inspiration`);
     
     // STEP 7: MARKETING - Generate per episode with ENGINE ENHANCEMENT
     console.log('📢 Step 7/8: MARKETING - Generating marketing per episode...');

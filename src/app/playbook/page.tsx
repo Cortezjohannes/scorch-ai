@@ -17,16 +17,16 @@ export default function PlaybookPage() {
   }, [])
   const playbookFAQ = [
     {
-      question: "What do I do if the script the AI generates feels generic or \"mid\"?",
+      question: "What do I do if the generated script feels generic or \"mid\"?",
       answer: "That means your direction in the Episode Studio wasn't specific enough. Go back and refine the Beat Sheet and, crucially, use the Director's Notes to add subtext, sensory details, and specific emotional intent."
     },
     {
       question: "How much control do I really have?",
-      answer: "100%. You can edit the Beat Sheet, direct the tone, rewrite the script manually, or use the AI Co-Pilot (Chatbot) to punch up specific scenes."
+      answer: "100%. You can edit the Beat Sheet, direct the tone, rewrite the script manually, or use the Co-Pilot (Chatbot) to punch up specific scenes."
     },
     {
-      question: "Is the AI going to replace human writers?",
-      answer: "Hell no. The AI accelerates the process, handles structure, and generates drafts. The vision, the voice, and the soul come from the human Showrunner."
+      question: "Is this platform going to replace human writers?",
+      answer: "Hell no. The platform accelerates the process, handles structure, and generates drafts. The vision, the voice, and the soul come from the human Showrunner."
     }
   ]
 
@@ -66,7 +66,7 @@ export default function PlaybookPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl md:text-2xl text-[#E7E7E7]/80 mb-8 max-w-4xl mx-auto"
           >
-            Your definitive guide to thinking like a Showrunner and mastering the AI Murphy Engine (30+ AI Agents).
+            Your definitive guide to thinking like a Showrunner and mastering the Murphy Engine (30+ Production Engines).
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -90,10 +90,10 @@ export default function PlaybookPage() {
             className="text-center"
           >
             <h2 className="text-4xl md:text-6xl font-bold text-[#00FF99] mb-8">
-              You Direct the AI
+              You Direct the System
             </h2>
             <p className="text-xl text-[#E7E7E7]/80 mb-8 max-w-3xl mx-auto">
-              The AI is your crew, not the artist. The Golden Rule: <span className="text-[#00FF99] font-bold">Specificity = Soul</span>.
+              The platform is your crew, not the artist. The Golden Rule: <span className="text-[#00FF99] font-bold">Specificity = Soul</span>.
             </p>
           </motion.div>
         </div>
@@ -258,7 +258,7 @@ export default function PlaybookPage() {
               className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
             >
               <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Editing the Beat Sheet (The Blueprint)</h3>
-              <p className="text-[#E7E7E7]/80 mb-6">The AI generates a structure, but you refine it with specific emotional beats.</p>
+              <p className="text-[#E7E7E7]/80 mb-6">The system generates a structure, but you refine it with specific emotional beats.</p>
               
               <div className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-lg p-6">
                 <h4 className="text-lg font-semibold text-[#00FF99] mb-4">Example Beat Sheet Refinement:</h4>
@@ -406,7 +406,7 @@ export default function PlaybookPage() {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">AI Implementation</h4>
+                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">System Implementation</h4>
                   <p className="text-[#E7E7E7]/80 mb-4">
                     Used specific vibe sliders for tension (high), emotional weight (heavy), and visual style (stylized). Director's notes focused on sensory details and subtext around performance anxiety.
                   </p>
@@ -441,7 +441,7 @@ export default function PlaybookPage() {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">AI Implementation</h4>
+                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">System Implementation</h4>
                   <p className="text-[#E7E7E7]/80 mb-4">
                     Balanced tension (medium) with pacing (fast) for comedic timing. Director's notes emphasized the awkwardness of corporate interactions and the underlying sexual tension.
                   </p>
@@ -476,7 +476,7 @@ export default function PlaybookPage() {
                   </ul>
                 </div>
                 <div>
-                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">AI Implementation</h4>
+                  <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">System Implementation</h4>
                   <p className="text-[#E7E7E7]/80 mb-4">
                     High tension, slow pacing for psychological build-up. Director's notes focused on the protagonist's internal monologue and the oppressive atmosphere of returning home.
                   </p>
