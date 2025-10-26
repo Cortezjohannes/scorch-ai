@@ -774,13 +774,42 @@ export default function EpisodePage() {
   // NOTE: Polling logic is now handled by EpisodeGenerationLoader component
   // which polls localStorage and calls onComplete when episode is ready
 
-  // Effect to redirect to episode studio if episode doesn't exist yet
+  // Effect to load episode from Firestore or localStorage
   useEffect(() => {
     if (!storyBible || !previousEpisodesExist || generating) return;
     
-    // Check if this episode already exists
-    const checkEpisodeExists = () => {
+    const loadEpisode = async () => {
       try {
+        // First try to load from Firestore if we have a storyBibleId
+        if (storyBibleId) {
+          console.log(`Loading Episode ${episodeId} from Firestore...`);
+          const { getEpisode } = await import('@/services/episode-service');
+          const { useAuth } = await import('@/context/AuthContext');
+          
+          // Try to get userId from auth context
+          // Since we can't use hooks here, we'll check localStorage for user
+          let userId: string | undefined;
+          try {
+            const authData = localStorage.getItem('auth-user');
+            if (authData) {
+              const parsed = JSON.parse(authData);
+              userId = parsed.uid || parsed.id;
+            }
+          } catch (e) {
+            console.warn('Could not get userId from localStorage');
+          }
+          
+          const episode = await getEpisode(storyBibleId, episodeId, userId);
+          if (episode) {
+            console.log(`✅ Loaded Episode ${episodeId} from Firestore`);
+            setEpisodeData(episode);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Fall back to localStorage
+        console.log(`Loading Episode ${episodeId} from localStorage...`);
         const savedEpisodes = typeof window !== 'undefined' 
           ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) 
           : null;
@@ -788,25 +817,27 @@ export default function EpisodePage() {
         if (savedEpisodes) {
           const episodes = JSON.parse(savedEpisodes);
           if (episodes[episodeId]) {
-            // Episode exists, display it
+            console.log(`✅ Loaded Episode ${episodeId} from localStorage`);
             setEpisodeData(episodes[episodeId]);
             setLoading(false);
-            return true;
+            return;
           }
         }
-        return false;
+        
+        // Episode doesn't exist, redirect to Episode Studio
+        console.log(`Episode ${episodeId} not found - redirecting to Episode Studio`);
+        router.push(`/episode-studio/${episodeId}?storyBibleId=${storyBibleId || ''}`);
       } catch (error) {
-        console.error('Error checking episode existence:', error);
-        return false;
+        console.error('Error loading episode:', error);
+        setError('Failed to load episode');
+        setLoading(false);
       }
     };
     
-    // If episode doesn't exist, redirect to Episode Studio (Director's Chair)
-    if (!checkEpisodeExists() && !episodeData) {
-      console.log(`Episode ${episodeId} doesn't exist yet - redirecting to Episode Studio`);
-      router.push(`/episode-studio/${episodeId}`);
+    if (!episodeData) {
+      loadEpisode();
     }
-  }, [storyBible, episodeId, previousEpisodesExist, generating, router, episodeData]);
+  }, [storyBible, episodeId, storyBibleId, previousEpisodesExist, generating, router, episodeData]);
 
   // OLD AUTO-GENERATION CODE - DEPRECATED IN FAVOR OF DIRECTOR'S CHAIR
   // Effect to generate episode content when loaded
