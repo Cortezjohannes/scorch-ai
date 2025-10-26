@@ -677,7 +677,9 @@ export default function EpisodePage() {
             parsed.storyBible.creativeMode = parsed.creativeMode || 'beast'
           }
           
-          setStoryBible(parsed.storyBible)
+          // Handle both old format (wrapped) and new format (direct)
+          const bible = parsed.storyBible || parsed
+          setStoryBible(bible)
             return true
           }
           return false
