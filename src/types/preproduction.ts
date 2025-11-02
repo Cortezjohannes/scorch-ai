@@ -86,30 +86,62 @@ export interface ScriptBreakdownData {
 // TAB 2: SHOOTING SCHEDULE
 // ============================================================================
 
+// Scene reference with episode context (for cross-episode scheduling)
+export interface SceneReference {
+  episodeNumber: number
+  sceneNumber: number
+  sceneTitle: string
+  estimatedDuration: number // minutes
+  priority: 'must-have' | 'nice-to-have' | 'optional'
+  location?: string
+}
+
+// Cast reference with availability
+export interface CastReference {
+  characterName: string
+  actorName?: string
+  availability?: AvailabilityWindow[]
+  isAvailable: boolean // For this specific shoot day
+}
+
+// Actor availability tracking
+export interface AvailabilityWindow {
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD
+  timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'all-day'
+  notes?: string
+}
+
 export interface ShootingDay {
   dayNumber: number
   date?: string // YYYY-MM-DD
   location: string
   callTime: string // HH:MM
   estimatedWrapTime: string // HH:MM
-  scenes: number[] // Scene numbers
-  castRequired: string[] // Character names
+  scenes: SceneReference[] // Changed to support cross-episode
+  castRequired: CastReference[]
   crewRequired: string[]
+  equipmentRequired: string[]
   specialNotes: string
   weatherContingency?: string
   status: 'scheduled' | 'confirmed' | 'shot' | 'postponed'
   actualWrapTime?: string // HH:MM (filled after shoot)
+  setupNotes?: string // Camera/lighting setup details
   comments: Comment[]
 }
 
 export interface ShootingScheduleData {
-  episodeNumber: number
-  episodeTitle: string
+  episodeNumber?: number // Optional for cross-episode schedules
+  episodeNumbers?: number[] // For cross-episode schedules
+  episodeTitle?: string
+  schedulingMode: 'single-episode' | 'cross-episode'
+  optimizationPriority: 'location' | 'cast' | 'balanced'
   totalShootDays: number
   startDate?: string // YYYY-MM-DD
   endDate?: string // YYYY-MM-DD
   days: ShootingDay[]
   restDays: number[] // Day numbers that are rest days
+  rehearsals: RehearsalSession[] // Unified with schedule
   lastUpdated: number
   updatedBy: string
 }
@@ -415,6 +447,10 @@ export interface CastMember {
   address?: string // Full or partial address
   travelWillingness?: 'local-only' | 'same-city' | 'regional' | 'flexible' // How far actor can travel
   availability: ActorAvailability[]
+  availabilityWindows?: AvailabilityWindow[] // New: for cross-episode scheduling
+  availabilityNotes?: string // Free-form text for AI parsing
+  preferredShootingDays?: string[] // e.g., ["Monday", "Tuesday", "Friday"]
+  blackoutDates?: string[] // YYYY-MM-DD format
   scenes: number[] // Scene numbers character appears in
   totalShootDays: number
   payment: 'paid' | 'deferred' | 'volunteer'
@@ -503,6 +539,38 @@ export interface PermitContract {
   comments: Comment[]
 }
 
+// Simplified Permit interface for Permits tab (legacy/alternative format)
+export interface Permit {
+  id: string
+  name: string
+  type: 'filming' | 'parking' | 'noise' | 'drone' | 'other'
+  location: string
+  authority: string
+  applicationDate: string
+  expiryDate: string
+  status: 'not-applied' | 'pending' | 'approved' | 'denied'
+  cost: number
+  contactPerson?: string
+  contactPhone?: string
+  documentUrl?: string // File URL
+  documentFileName?: string // File name for display
+  documentFileSize?: number // File size in bytes
+  documentUploadDate?: string // ISO date string
+  notes: string
+  comments: Comment[]
+}
+
+// Permits data structure
+export interface PermitsData {
+  permits: Permit[]
+  checklist?: Array<{
+    item: string
+    description?: string
+    completed: boolean
+  }>
+  lastUpdated: number
+}
+
 export interface PermitsContractsData {
   episodeNumber: number
   episodeTitle: string
@@ -522,13 +590,16 @@ export interface RehearsalSession {
   date: string // YYYY-MM-DD
   time: string // HH:MM
   duration: number // minutes
-  scenes: number[] // Scene numbers to rehearse
+  scenes: SceneReference[] // Changed to support cross-episode
   actors: string[] // Actor names
   location: 'in-person' | 'video-call'
   locationDetails?: string
+  rehearsalType: 'table-read' | 'blocking' | 'technical' | 'full-run'
   goals: string[]
   sessionNotes: string
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: 'suggested' | 'scheduled' | 'completed' | 'cancelled'
+  suggestedByAI: boolean // Mark AI-suggested rehearsals
+  linkedToShootDay?: number // Optional link to shoot day
   comments: Comment[]
 }
 
@@ -563,7 +634,7 @@ export interface PreProductionData {
   equipment?: EquipmentData
   casting?: CastingData
   storyboards?: StoryboardsData
-  permits?: PermitsContractsData
+  permits?: PermitsData | PermitsContractsData // Support both formats
   rehearsal?: RehearsalScheduleData
   
   // Metadata

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import type { PreProductionData, Permit } from '@/types/preproduction'
 import { EditableField } from '../shared/EditableField'
 import { StatusBadge } from '../shared/StatusBadge'
@@ -20,6 +20,9 @@ export function PermitsTab({
   currentUserName
 }: PermitsTabProps) {
   const [selectedType, setSelectedType] = useState<'all' | string>('all')
+  const [uploadingPermitId, setUploadingPermitId] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   
   const permitsData = preProductionData.permits || {
     permits: [],
@@ -101,6 +104,68 @@ export function PermitsTab({
       permits: updatedPermits,
       lastUpdated: Date.now()
     })
+  }
+
+  const handleFileSelect = async (permitId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadingPermitId(permitId)
+    setUploadProgress(prev => ({ ...prev, [permitId]: 0 }))
+
+    // Mock upload progress
+    let progress = 0
+    const progressInterval = setInterval(() => {
+      progress += 10
+      if (progress <= 100) {
+        setUploadProgress(prev => ({ ...prev, [permitId]: progress }))
+      } else {
+        clearInterval(progressInterval)
+        
+        // Simulate successful upload - create a mock URL
+        const mockFileUrl = URL.createObjectURL(file)
+        const fileName = file.name
+        
+        // Update permit with file URL
+        handlePermitUpdate(permitId, { 
+          documentUrl: mockFileUrl,
+          documentFileName: fileName,
+          documentFileSize: file.size,
+          documentUploadDate: new Date().toISOString()
+        })
+        
+        setUploadingPermitId(null)
+        setUploadProgress(prev => {
+          const updated = { ...prev }
+          delete updated[permitId]
+          return updated
+        })
+      }
+    }, 200)
+  }
+
+  const handleFileRemove = async (permitId: string) => {
+    const permit = permitsData.permits.find(p => p.id === permitId)
+    if (!permit) return
+
+    // Revoke object URL if it exists
+    if (permit.documentUrl && permit.documentUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(permit.documentUrl)
+    }
+
+    await handlePermitUpdate(permitId, {
+      documentUrl: '',
+      documentFileName: undefined,
+      documentFileSize: undefined,
+      documentUploadDate: undefined
+    })
+  }
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
   // Filter permits
@@ -231,6 +296,81 @@ export function PermitsTab({
         </select>
       ),
       sortable: true
+    },
+    {
+      key: 'documents',
+      label: 'Documents',
+      render: (permit: Permit) => {
+        const isUploading = uploadingPermitId === permit.id
+        const progress = uploadProgress[permit.id] || 0
+        const hasDocument = permit.documentUrl || (permit as any).documentFileName
+
+        return (
+          <div className="flex items-center gap-2">
+            {hasDocument ? (
+              <div className="flex items-center gap-2">
+                <a
+                  href={permit.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00FF99] hover:text-[#00CC7A] text-sm flex items-center gap-1"
+                >
+                  <span>📄</span>
+                  <span className="max-w-[100px] truncate">
+                    {(permit as any).documentFileName || 'Document'}
+                  </span>
+                </a>
+                {(permit as any).documentFileSize && (
+                  <span className="text-xs text-[#e7e7e7]/50">
+                    ({formatFileSize((permit as any).documentFileSize)})
+                  </span>
+                )}
+                <button
+                  onClick={() => handleFileRemove(permit.id)}
+                  className="text-red-400 hover:text-red-300 text-sm"
+                  title="Remove file"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {isUploading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#00FF99] transition-all duration-200"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-[#e7e7e7]/70">{progress}%</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={(el) => {
+                        fileInputRefs.current[permit.id] = el
+                      }}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                      onChange={(e) => handleFileSelect(permit.id, e)}
+                    />
+                    <button
+                      onClick={() => fileInputRefs.current[permit.id]?.click()}
+                      className="text-[#00FF99] hover:text-[#00CC7A] text-sm flex items-center gap-1"
+                      title="Upload document"
+                    >
+                      <span>📤</span>
+                      <span>Upload</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      }
     }
   ]
 

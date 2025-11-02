@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import type { PreProductionData, ShotListData, Shot, ShotListScene } from '@/types/preproduction'
 import { StatusBadge } from '../shared/StatusBadge'
 import { CollaborativeNotes } from '../shared/CollaborativeNotes'
 import { EditableField } from '../shared/EditableField'
+import { getStoryBible } from '@/services/story-bible-service'
 
 interface ShotListTabProps {
   preProductionData: PreProductionData
@@ -20,12 +22,146 @@ export function ShotListTab({
   currentUserId,
   currentUserName
 }: ShotListTabProps) {
+  const router = useRouter()
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set([0]))
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const shotListData = preProductionData.shotList
+
+  const breakdownData = preProductionData.scriptBreakdown
+  const scriptsData = (preProductionData as any).scripts
+  const storyboardsData = preProductionData.storyboards
+
+  const handleGenerateShotList = async () => {
+    setIsGenerating(true)
+    setGenerationError(null)
+
+    try {
+      console.log('🎬 Generating shot list...')
+
+      // 1. Check prerequisites
+      if (!breakdownData) {
+        setGenerationError('Please generate script breakdown first. Go to Script Breakdown tab and generate a breakdown.')
+        setIsGenerating(false)
+        return
+      }
+
+      console.log('✅ Script breakdown found')
+      console.log('  Total scenes:', breakdownData.scenes?.length || 0)
+
+      if (!breakdownData.scenes || breakdownData.scenes.length === 0) {
+        setGenerationError('Script breakdown has no scenes. Please regenerate script breakdown.')
+        setIsGenerating(false)
+        return
+      }
+
+      // Script data is required
+      if (!scriptsData?.fullScript) {
+        setGenerationError('Please generate script first. Go to Scripts tab and generate a script.')
+        setIsGenerating(false)
+        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=scripts')
+        return
+      }
+      console.log('✅ Script data found')
+
+      // Storyboards are optional but helpful
+      if (storyboardsData && storyboardsData.scenes && storyboardsData.scenes.length > 0) {
+        console.log('✅ Storyboards found - will use as reference')
+      } else {
+        console.log('⚠️ No storyboards found - will generate directly from script')
+      }
+
+      // 2. Fetch story bible
+      console.log('📖 Fetching story bible...')
+      const storyBible = await getStoryBible(preProductionData.storyBibleId, currentUserId)
+
+      if (!storyBible) {
+        throw new Error('Story bible not found')
+      }
+
+      console.log('✅ Story bible loaded:', storyBible.seriesTitle || storyBible.title)
+
+      // 3. Call generation API
+      console.log('🤖 Calling shot list generation API...')
+      const response = await fetch('/api/generate/shot-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          preProductionId: preProductionData.id,
+          storyBibleId: preProductionData.storyBibleId,
+          episodeNumber: preProductionData.episodeNumber,
+          userId: currentUserId,
+          breakdownData,
+          scriptData: scriptsData.fullScript,
+          storyBibleData: storyBible,
+          storyboardsData: storyboardsData || null
+        })
+      })
+
+      if (!response.ok) {
+        let errorMessage = 'Generation failed'
+        try {
+          const text = await response.text()
+          if (text) {
+            try {
+              const errorData = JSON.parse(text)
+              errorMessage = errorData.details || errorData.error || errorMessage
+            } catch {
+              errorMessage = text || `Server error: ${response.status} ${response.statusText}`
+            }
+          } else {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`
+          }
+        } catch (e) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+
+      const text = await response.text()
+      if (!text) {
+        throw new Error('Empty response from server')
+      }
+
+      let result
+      try {
+        result = JSON.parse(text)
+      } catch (e) {
+        console.error('Failed to parse JSON response:', text.substring(0, 500))
+        throw new Error(`Invalid response format: ${e instanceof Error ? e.message : 'Unknown error'}`)
+      }
+
+      console.log('✅ Shot list generated:', result.shotList.totalShots, 'shots')
+
+      await onUpdate('shotList', {
+        ...result.shotList,
+        lastUpdated: Date.now(),
+        updatedBy: currentUserId
+      })
+
+      console.log('✅ Shot list saved to Firestore')
+    } catch (error: any) {
+      console.error('❌ Error generating shot list:', error)
+      setGenerationError(error.message || 'Failed to generate shot list')
+      
+      if (error.message?.includes('breakdown') || error.message?.includes('Script breakdown')) {
+        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=breakdown')
+      } else if (error.message?.includes('script') || error.message?.includes('Script')) {
+        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=scripts')
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   // If no data, show initialize prompt
   if (!shotListData) {
+    const hasBreakdown = breakdownData && breakdownData.scenes && breakdownData.scenes.length > 0
+    const hasScript = scriptsData?.fullScript
+
     return (
       <div className="text-center py-16">
         <div className="mb-6">
@@ -37,9 +173,36 @@ export function ShotListTab({
         <p className="text-[#e7e7e7]/70 mb-6 max-w-md mx-auto">
           Generate a shot list to plan every camera setup and maximize on-set efficiency.
         </p>
-        <button className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors">
-          Generate Shot List
+        
+        {!hasBreakdown && (
+          <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg max-w-md mx-auto">
+            <p className="text-yellow-400 text-sm">
+              ⚠️ Please generate script breakdown first
+            </p>
+          </div>
+        )}
+        
+        {!hasScript && hasBreakdown && (
+          <div className="mb-4 p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg max-w-md mx-auto">
+            <p className="text-yellow-400 text-sm">
+              ⚠️ Please generate script first
+            </p>
+          </div>
+        )}
+
+        <button
+          onClick={handleGenerateShotList}
+          disabled={isGenerating || !hasBreakdown || !hasScript}
+          className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? '🔄 Generating...' : '✨ Generate Shot List'}
         </button>
+
+        {generationError && (
+          <div className="mt-4 p-4 bg-red-900/20 border border-red-700/50 rounded-lg max-w-md mx-auto">
+            <p className="text-red-400 text-sm">{generationError}</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -180,7 +343,12 @@ export function ShotListTab({
       {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold text-[#e7e7e7]">Shots by Scene</h2>
+          <h2 className="text-xl font-bold text-[#e7e7e7]">
+            Production Shot List
+          </h2>
+          <span className="text-sm text-[#e7e7e7]/50">
+            {shotListData.totalShots} shots across {shotListData.scenes.length} scenes
+          </span>
           
           {/* Filter */}
           <select
@@ -198,6 +366,13 @@ export function ShotListTab({
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleGenerateShotList}
+            disabled={isGenerating}
+            className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {isGenerating ? '🔄 Generating...' : '🔄 Regenerate'}
+          </button>
+          <button
             onClick={expandAll}
             className="px-4 py-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] transition-colors text-sm"
           >
@@ -211,6 +386,12 @@ export function ShotListTab({
           </button>
         </div>
       </div>
+
+      {generationError && (
+        <div className="p-4 bg-red-900/20 border border-red-700/50 rounded-lg">
+          <p className="text-red-400 text-sm">{generationError}</p>
+        </div>
+      )}
 
       {/* Shot List */}
       <div className="space-y-4">
@@ -462,6 +643,31 @@ function ShotItem({
                 <option value="crane">Crane</option>
               </select>
             </div>
+            {shot.lensRecommendation && (
+              <div className="flex items-center gap-2">
+                <span className="text-[#e7e7e7]/50">🔍</span>
+                <EditableField
+                  value={shot.lensRecommendation}
+                  onSave={(value) => onUpdate('lensRecommendation', value)}
+                  type="text"
+                  placeholder="Lens..."
+                  className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
+                />
+              </div>
+            )}
+            {shot.fpsCameraFrameRate && (
+              <div className="flex items-center gap-2">
+                <span className="text-[#e7e7e7]/50">⚡</span>
+                <EditableField
+                  value={shot.fpsCameraFrameRate.toString()}
+                  onSave={(value) => onUpdate('fpsCameraFrameRate', parseInt(value) || undefined)}
+                  type="text"
+                  placeholder="FPS..."
+                  className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
+                />
+                <span className="text-[#e7e7e7]/50 text-xs">fps</span>
+              </div>
+            )}
           </div>
         </div>
 
