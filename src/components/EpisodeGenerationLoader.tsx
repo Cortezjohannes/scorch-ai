@@ -144,6 +144,9 @@ export default function EpisodeGenerationLoader({
   
   // Poll localStorage for completed episode
   useEffect(() => {
+    console.log(`🔄 Starting to poll for episode ${episodeNumber} completion...`)
+    let completionTriggered = false
+    
     const pollInterval = setInterval(() => {
       try {
         const savedEpisodes = localStorage.getItem('greenlit-episodes') || 
@@ -154,25 +157,44 @@ export default function EpisodeGenerationLoader({
           const episodes = JSON.parse(savedEpisodes)
           const episode = episodes[episodeNumber]
           
+          // Log polling status every 5 seconds
+          if (Date.now() % 5000 < 1000) {
+            console.log(`🔍 Polling status for episode ${episodeNumber}:`, {
+              episodeExists: !!episode,
+              hasCompletionFlag: episode?._generationComplete === true,
+              episodeNumber: episode?.episodeNumber
+            })
+          }
+          
           // Check if episode is complete with proper flags
-          if (episode && episode._generationComplete === true) {
-            console.log(`✅ Episode ${episodeNumber} generation complete!`)
+          if (episode && episode._generationComplete === true && !completionTriggered) {
+            completionTriggered = true
+            console.log(`✅ Episode ${episodeNumber} generation complete! Triggering callback...`)
             setIsComplete(true)
             setProgress(100)
             setCurrentPhaseIndex(phases.length - 1)
             
+            // Clear the interval immediately
+            clearInterval(pollInterval)
+            
             // Trigger completion callback after a brief moment
             setTimeout(() => {
+              console.log(`📞 Calling onComplete callback for episode ${episodeNumber}`)
               onComplete?.()
             }, 1500)
           }
+        } else {
+          console.log(`⚠️ No episodes found in localStorage during polling`)
         }
       } catch (error) {
         console.error('Error polling for episode completion:', error)
       }
     }, 1000) // Poll every second
     
-    return () => clearInterval(pollInterval)
+    return () => {
+      console.log(`🛑 Stopped polling for episode ${episodeNumber}`)
+      clearInterval(pollInterval)
+    }
   }, [episodeNumber, onComplete, phases.length])
   
   // Format elapsed time as MM:SS

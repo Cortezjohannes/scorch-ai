@@ -39,6 +39,7 @@ import {
   generateV2Marketing,
   generateV2PostProduction
 } from '@/services/preproduction-v2-generators';
+import { savePreProductionV2 } from '@/services/preproduction-v2-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,8 +53,12 @@ export async function POST(request: NextRequest) {
       arcEpisodes = [], 
       userChoices = [], 
       arcIndex = 0,
-      useEngines = true,  // Enable engines by default
-      engineLevel = 'professional'  // Use professional level engines
+      useEngines = false,  // DISABLED: Use standard generation (no engines)
+      engineLevel = 'professional',  // Use professional level engines
+      userId,  // For Firestore save
+      storyBibleId,  // For Firestore save
+      isSingleEpisodeMode = false,
+      singleEpisodeNumber
     } = body
     
     if (!storyBible) {
@@ -78,18 +83,18 @@ export async function POST(request: NextRequest) {
     console.log(`📖 Processing ${actualEpisodes.length} episodes for V2 pre-production`);
     console.log(`📋 Episodes to process:`, actualEpisodes.map((ep: any) => `${ep.episodeNumber}: ${ep.episodeTitle || ep.title}`));
     
-    // V2 Generation Context
+    // V2 Generation Context - ENGINES DISABLED FOR TESTING
     const context = {
       storyBible,
       actualEpisodes,
       userChoices,
       arcIndex,
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       totalEpisodes: actualEpisodes.length,
       totalScenes: actualEpisodes.reduce((total: number, ep: any) => total + (ep.scenes?.length || 3), 0)
     };
 
-    console.log(`🎯 V2 Context: ${context.totalEpisodes} episodes, ${context.totalScenes} total scenes`);
+    console.log(`🎯 V2 Context: ${context.totalEpisodes} episodes, ${context.totalScenes} total scenes, ENGINES: ${context.useEngines}`);
     
     // V2 GENERATION
     const preProductionContent: any = {};
@@ -133,7 +138,7 @@ export async function POST(request: NextRequest) {
     
     // 🎭 COMPREHENSIVE ENGINE-ENHANCED SCRIPT GENERATION
     const scriptEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       masterTechnique: 'mixed' as const,
       subtextLevel: 'moderate' as const,
@@ -164,7 +169,7 @@ export async function POST(request: NextRequest) {
     
     // 🎨 ENGINE + IMAGE-ENHANCED STORYBOARD GENERATION
     const storyboardEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       cinematographerStyle: 'naturalistic' as const,
       enhancementLevel: 'STANDARD' as const,
@@ -197,7 +202,7 @@ export async function POST(request: NextRequest) {
     
     // 🎨 ENGINE + IMAGE-ENHANCED PROPS GENERATION
     const propsEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       designApproach: 'authentic_world_building' as const,
       enhancementLevel: 'STANDARD' as const,
@@ -229,7 +234,7 @@ export async function POST(request: NextRequest) {
     
     // 🏗️ ENGINE + IMAGE-ENHANCED LOCATIONS GENERATION
     const locationsEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       scoutingApproach: 'narrative_driven' as const,
       enhancementLevel: 'STANDARD' as const,
@@ -261,7 +266,7 @@ export async function POST(request: NextRequest) {
     
     // 🎭 ENGINE + ACTOR REFERENCE-ENHANCED CASTING
     const castingEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       castingApproach: 'artistic_integrity' as const,
       performanceMethodology: 'practical' as const,
@@ -291,7 +296,7 @@ export async function POST(request: NextRequest) {
     
     // 📢 ENGINE-ENHANCED MARKETING GENERATION
     const marketingEngineOptions = {
-      useEngines,
+      useEngines: false,  // FORCE DISABLE
       engineLevel,
       marketingApproach: 'neurochemical_optimization' as const,
       enhancementLevel: 'STANDARD' as const,
@@ -364,6 +369,31 @@ export async function POST(request: NextRequest) {
     console.log(`🎉 V2 PRE-PRODUCTION COMPLETE!`);
     console.log(`📊 V2 Results: ${actualEpisodes.length} episodes, ${scriptResult.totalScenes} scenes processed`);
     
+    // Save to Firestore if authenticated
+    let savedToFirestore = false
+    if (userId && storyBibleId) {
+      try {
+        const arcOrEpisodeId = isSingleEpisodeMode 
+          ? `episode_${singleEpisodeNumber}`
+          : `arc_${arcIndex}`
+        
+        await savePreProductionV2(
+          preProductionContent,
+          storyBibleId,
+          arcOrEpisodeId,
+          userId
+        )
+        
+        savedToFirestore = true
+        console.log(`✅ Pre-production saved to Firestore: ${arcOrEpisodeId}`)
+      } catch (error) {
+        console.warn('⚠️ Failed to save to Firestore (localStorage will still work):', error)
+        // Don't fail the request - localStorage backup will work
+      }
+    } else {
+      console.log(`⚠️ Guest mode - pre-production will be saved to localStorage only`)
+    }
+    
     return NextResponse.json({
       success: true,
       preProduction: preProductionContent,
@@ -372,7 +402,8 @@ export async function POST(request: NextRequest) {
       version: 'V2',
       generationType: useEngines ? 'engine-enhanced-professional' : 'engineless-gpt-4.1-azure',
       generationTime: totalTime,
-      quality: 'comprehensive-v2'
+      quality: 'comprehensive-v2',
+      savedToFirestore
     });
 
   } catch (error: any) {

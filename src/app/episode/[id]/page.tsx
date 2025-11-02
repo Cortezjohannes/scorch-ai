@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import EpisodeEngineLoader from '@/components/EpisodeEngineLoader'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import { useAuth } from '@/context/AuthContext'
 
 interface BranchingOption {
   id: number
@@ -590,9 +591,11 @@ export default function EpisodePage() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
+  const { user, isLoading: authLoading } = useAuth()
   const episodeId = parseInt(params.id as string)
   
   const [storyBible, setStoryBible] = useState<any>(null)
+  const [storyBibleId, setStoryBibleId] = useState<string | null>(null)
   const [episodeData, setEpisodeData] = useState<EpisodeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -601,6 +604,7 @@ export default function EpisodePage() {
   const [selectedOption, setSelectedOption] = useState<BranchingOption | null>(null)
   const [showOptionDetails, setShowOptionDetails] = useState(false)
   const [previousEpisodesExist, setPreviousEpisodesExist] = useState(true)
+  const isLoadingRef = React.useRef(false) // Prevent duplicate loads
   const [activeTab, setActiveTab] = useState<'script' | 'treatment'>('treatment')
   const [narrativeContent, setNarrativeContent] = useState<{ synopsis: string, narrativeContent: string } | null>(null)
   const [generationTimeout, setGenerationTimeout] = useState<NodeJS.Timeout | null>(null)
@@ -653,15 +657,38 @@ export default function EpisodePage() {
     setExpandedScenes(newExpanded)
   }
 
-  // Effect to load story bible and previous choices from localStorage or Firestore
+  // UNIFIED PAGE LOADING - Single effect for all data loading
   useEffect(() => {
     // Only run on client side to prevent hydration errors
     if (typeof window === 'undefined') return
     
-    const loadData = async () => {
+    // Skip if already loaded and data is complete
+    if (storyBible && episodeData && !loading) {
+      console.log('✅ Page already loaded, skipping')
+      return
+    }
+    
+    // Prevent duplicate loads
+    if (isLoadingRef.current) {
+      console.log('🔒 Load already in progress, skipping')
+      return
+    }
+    
+    const loadPageData = async () => {
+      console.log('🔄 Starting unified page load:', {
+        episodeId,
+        hasUser: !!user,
+        authLoading,
+        hasStoryBible: !!storyBible,
+        hasEpisodeData: !!episodeData
+      })
+      
+      isLoadingRef.current = true
+      setLoading(true)
       try {
         // Check for story bible ID in URL params (coming from EpisodeStudio)
-        const storyBibleId = searchParams.get('storyBibleId')
+        const urlStoryBibleId = searchParams.get('storyBibleId')
+        setStoryBibleId(urlStoryBibleId)
         
         // Helper function to load from localStorage
         const loadFromLocalStorage = () => {
@@ -685,19 +712,24 @@ export default function EpisodePage() {
           return false
         }
         
-        // Try to load from Firestore if storyBibleId is provided
-        if (storyBibleId) {
+        // Try to load from Firestore if storyBibleId is provided and user is authenticated
+        if (urlStoryBibleId && user) {
           try {
+            console.log('Loading story bible from Firestore with ID:', urlStoryBibleId)
             const { getStoryBible } = await import('@/services/story-bible-service')
-            const { useAuth } = await import('@/context/AuthContext')
             
-            // Note: We can't use hooks here, so we'll fall back to localStorage
-            // The story bible should already be saved to localStorage from EpisodeStudio
-            const loaded = loadFromLocalStorage()
-            if (!loaded) {
-              console.warn('⚠️ Story bible not found in localStorage, redirecting to home')
-              router.push('/')
-              return
+            const bible = await getStoryBible(urlStoryBibleId, user.id)
+            if (bible) {
+              console.log('✅ Story bible loaded from Firestore')
+              setStoryBible(bible)
+            } else {
+              console.warn('⚠️ Story bible not found in Firestore, falling back to localStorage')
+              const loaded = loadFromLocalStorage()
+              if (!loaded) {
+                console.warn('⚠️ Story bible not found in localStorage either, redirecting to home')
+                router.push('/')
+                return
+              }
             }
           } catch (error) {
             console.error('Error loading from Firestore:', error)
@@ -707,8 +739,16 @@ export default function EpisodePage() {
               return
             }
           }
+        } else if (urlStoryBibleId && !user) {
+          console.log('⚠️ GUEST MODE: storyBibleId provided but no user, loading from localStorage')
+          const loaded = loadFromLocalStorage()
+          if (!loaded) {
+            console.warn('⚠️ Story bible not found in localStorage, redirecting to home')
+            router.push('/')
+            return
+          }
         } else {
-          // Try localStorage first
+          // No storyBibleId - try localStorage
           const loaded = loadFromLocalStorage()
           if (!loaded) {
             // If no story bible found, redirect to home
@@ -717,127 +757,126 @@ export default function EpisodePage() {
           }
         }
           
-          // Check if this episode should be accessible
-          if (episodeId > 1) {
-            // Check if previous episodes exist
-            try {
-            const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null
-            if (savedEpisodes) {
-              const episodes = JSON.parse(savedEpisodes)
-                
-                // Previous episode must exist for this one to be accessible
-                if (!episodes[episodeId - 1]) {
-                  console.log(`Episode ${episodeId-1} not found, must generate in order`)
-                  setPreviousEpisodesExist(false)
-                setTimeout(() => {
-                    setError(`Episodes must be generated in order. Please start with Episode ${episodeId-1}.`)
-                  setLoading(false)
-                }, 500)
-                  return
+        // Check if this episode should be accessible
+        if (episodeId > 1) {
+          // Wait for auth to load before checking
+          if (authLoading) {
+            console.log('⏳ Auth still loading, waiting...')
+            return // Exit early, will re-run when auth finishes
+          }
+          
+          // Check if previous episodes exist
+          try {
+            let previousEpisodeExists = false
+            
+            // For authenticated users, check Firestore
+            if (user && urlStoryBibleId) {
+              const { getEpisode } = await import('@/services/episode-service')
+              const prevEpisode = await getEpisode(urlStoryBibleId, episodeId - 1, user.id)
+              previousEpisodeExists = !!prevEpisode
+              console.log(`Firestore check: Episode ${episodeId - 1} exists:`, previousEpisodeExists)
+              
+              // Clear any previous errors if episode found
+              if (previousEpisodeExists) {
+                setError(null)
+                setPreviousEpisodesExist(true)
               }
             } else {
-              // No episodes saved at all
-              setPreviousEpisodesExist(false)
-              setTimeout(() => {
-                setError(`Episodes must be generated in order. Please start with Episode 1.`)
-                setLoading(false)
-              }, 500)
-                return
+              // For guests, check localStorage
+              const savedEpisodes = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) : null
+              if (savedEpisodes) {
+                const episodes = JSON.parse(savedEpisodes)
+                previousEpisodeExists = !!episodes[episodeId - 1]
+                console.log(`LocalStorage check: Episode ${episodeId - 1} exists:`, previousEpisodeExists)
               }
-            } catch (error) {
-              console.error('Error checking episode access:', error)
-              setError('Failed to validate episode sequence')
+            }
+            
+            // Block access if previous episode doesn't exist
+            if (!previousEpisodeExists) {
+              console.log(`❌ Episode ${episodeId-1} not found, must generate in order`)
               setPreviousEpisodesExist(false)
+              setError(`Episodes must be generated in order. Please start with Episode ${episodeId-1}.`)
               setLoading(false)
+              isLoadingRef.current = false
               return
             }
+            
+            console.log(`✅ Previous episode validation passed`)
+            setPreviousEpisodesExist(true)
+          } catch (error) {
+            console.error('❌ Error checking episode access:', error)
+            setError('Failed to validate episode sequence')
+            setPreviousEpisodesExist(false)
+            setLoading(false)
+            isLoadingRef.current = false
+            return
           }
-          
-          // Load user choices
-          const savedChoices = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-user-choices') || localStorage.getItem('scorched-user-choices') || localStorage.getItem('reeled-user-choices')) : null
-          if (savedChoices) {
-            setUserChoices(JSON.parse(savedChoices))
         }
-      } catch (error) {
-        console.error('Error loading data:', error)
-        setError('Failed to load your story data')
-      } finally {
-        if (episodeId === 1) {
-          setLoading(false)
+        
+        // STEP 3: Load user choices
+        const savedChoices = typeof window !== 'undefined' ? (localStorage.getItem('greenlit-user-choices') || localStorage.getItem('scorched-user-choices') || localStorage.getItem('reeled-user-choices')) : null
+        if (savedChoices) {
+          setUserChoices(JSON.parse(savedChoices))
         }
-      }
-    }
-
-    loadData()
-  }, [router, episodeId, searchParams])
-
-  // NOTE: Polling logic is now handled by EpisodeGenerationLoader component
-  // which polls localStorage and calls onComplete when episode is ready
-
-  // Effect to load episode from Firestore or localStorage
-  useEffect(() => {
-    if (!storyBible || !previousEpisodesExist || generating) return;
-    
-    const loadEpisode = async () => {
-      try {
-        // First try to load from Firestore if we have a storyBibleId
-        if (storyBibleId) {
-          console.log(`Loading Episode ${episodeId} from Firestore...`);
-          const { getEpisode } = await import('@/services/episode-service');
-          const { useAuth } = await import('@/context/AuthContext');
+        
+        // STEP 4: Load the actual episode
+        console.log(`📖 Loading Episode ${episodeId}...`)
+        
+        // Try Firestore first if authenticated
+        if (urlStoryBibleId && user) {
+          console.log(`Loading Episode ${episodeId} from Firestore...`)
+          const { getEpisode } = await import('@/services/episode-service')
           
-          // Try to get userId from auth context
-          // Since we can't use hooks here, we'll check localStorage for user
-          let userId: string | undefined;
-          try {
-            const authData = localStorage.getItem('auth-user');
-            if (authData) {
-              const parsed = JSON.parse(authData);
-              userId = parsed.uid || parsed.id;
-            }
-          } catch (e) {
-            console.warn('Could not get userId from localStorage');
-          }
-          
-          const episode = await getEpisode(storyBibleId, episodeId, userId);
+          const episode = await getEpisode(urlStoryBibleId, episodeId, user.id)
           if (episode) {
-            console.log(`✅ Loaded Episode ${episodeId} from Firestore`);
-            setEpisodeData(episode);
-            setLoading(false);
-            return;
+            console.log(`✅ Loaded Episode ${episodeId} from Firestore`)
+            setEpisodeData(episode as any)
+            setLoading(false)
+            isLoadingRef.current = false
+            return
+          } else {
+            console.warn(`⚠️ Episode ${episodeId} not found in Firestore, checking localStorage`)
           }
         }
         
         // Fall back to localStorage
-        console.log(`Loading Episode ${episodeId} from localStorage...`);
+        console.log(`Loading Episode ${episodeId} from localStorage...`)
         const savedEpisodes = typeof window !== 'undefined' 
           ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) 
-          : null;
+          : null
         
         if (savedEpisodes) {
-          const episodes = JSON.parse(savedEpisodes);
+          const episodes = JSON.parse(savedEpisodes)
           if (episodes[episodeId]) {
-            console.log(`✅ Loaded Episode ${episodeId} from localStorage`);
-            setEpisodeData(episodes[episodeId]);
-            setLoading(false);
-            return;
+            console.log(`✅ Loaded Episode ${episodeId} from localStorage`)
+            setEpisodeData(episodes[episodeId])
+            setLoading(false)
+            isLoadingRef.current = false
+            return
           }
         }
         
-        // Episode doesn't exist, redirect to Episode Studio
-        console.log(`Episode ${episodeId} not found - redirecting to Episode Studio`);
-        router.push(`/episode-studio/${episodeId}?storyBibleId=${storyBibleId || ''}`);
+        // Episode doesn't exist - redirect to Episode Studio
+        console.log(`⚠️ Episode ${episodeId} not found - redirecting to Episode Studio`)
+        const studioUrl = urlStoryBibleId 
+          ? `/episode-studio/${episodeId}?storyBibleId=${urlStoryBibleId}`
+          : `/episode-studio/${episodeId}`
+        router.push(studioUrl)
+        
       } catch (error) {
-        console.error('Error loading episode:', error);
-        setError('Failed to load episode');
-        setLoading(false);
+        console.error('❌ Error loading page data:', error)
+        setError('Failed to load your story data')
+        setLoading(false)
+      } finally {
+        isLoadingRef.current = false
       }
-    };
-    
-    if (!episodeData) {
-      loadEpisode();
     }
-  }, [storyBible, episodeId, storyBibleId, previousEpisodesExist, generating, router, episodeData]);
+
+    loadPageData()
+  }, [router, episodeId, searchParams, user, authLoading])
+
+  // NOTE: Polling logic is now handled by EpisodeGenerationLoader component
+  // which polls localStorage and calls onComplete when episode is ready
 
   // OLD AUTO-GENERATION CODE - DEPRECATED IN FAVOR OF DIRECTOR'S CHAIR
   // Effect to generate episode content when loaded
@@ -983,9 +1022,10 @@ export default function EpisodePage() {
         }
         
         console.log(`💾 Enhanced episode ${episodeId} saved to localStorage with completion flags`);
-      } catch (error) {
-        console.error('Error generating episode:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      } catch (err: any) {
+        console.error('Error generating episode:', err);
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setError(errorMessage);
         
         // Clear any existing timeout
         if (generationTimeout) {
@@ -1605,28 +1645,24 @@ export default function EpisodePage() {
                 <div className={`flex-1 border-t ${themeColors.divider}`}></div>
               </div>
                 
-                {/* Continue to Next Episode */}
+                {/* Back to Workspace */}
               <section className={`${themeColors.cardBg} ${themeColors.border} border ${themeColors.shadow} rounded-xl p-8 text-center space-y-6`}>
                 <h2 className={`font-serif text-3xl font-bold ${themeColors.text}`}>
                     Ready for the next episode?
                       </h2>
                       
                 <p className={`font-sans text-lg ${themeColors.textMuted} leading-relaxed`}>
-                      Use the Director's Chair to craft your next episode with precision and creative control.
+                      Return to your workspace to manage your episodes and continue writing.
                     </p>
                     
                         <motion.button
-                      onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
+                      onClick={() => router.push(`/workspace${storyBibleId ? `?id=${storyBibleId}` : ''}`)}
                   className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 ${themeColors.shadow}`}
                           whileHover={{ y: -2 }}
                           whileTap={{ y: 0 }}
                         >
-                      📽️ Go to Director's Chair
+                      ← Back to Workspace
                         </motion.button>
-                        
-                <p className={`text-sm ${themeColors.textMuted}`}>
-                      Craft Episode {episodeId + 1} with the Episode Studio
-                    </p>
               </section>
             </article>
           ) : (
@@ -1643,25 +1679,6 @@ export default function EpisodePage() {
           
           {/* Navigation */}
           <nav className="flex flex-wrap justify-center gap-4 mt-12">
-            {episodeId > 1 && (
-              <button
-                onClick={() => router.push(`/episode/${episodeId - 1}`)}
-                className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 flex items-center gap-2`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Previous
-              </button>
-            )}
-            
-            <button
-              onClick={() => router.push('/workspace')}
-              className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105`}
-            >
-              Workspace
-            </button>
-            
             {userChoices.some(choice => choice.episodeNumber === episodeId) && episodeId < 60 && (
               <button
                 onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}

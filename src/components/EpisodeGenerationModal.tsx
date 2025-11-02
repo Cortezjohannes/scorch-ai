@@ -8,7 +8,7 @@ interface EpisodeGenerationModalProps {
   seriesTitle: string
   isPremiumMode: boolean
   episodeData?: any | null  // Episode data from API response
-  onComplete: () => void
+  onComplete?: () => void // Optional - may handle redirect elsewhere
 }
 
 export default function EpisodeGenerationModal({

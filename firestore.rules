@@ -23,12 +23,12 @@ service cloud.firestore {
       // Episodes nested under story bibles
       match /episodes/{episodeId} {
         // Only owner can access their story bible's episodes
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-        
         // Ensure storyBibleId in document matches path on create/update
+        allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null && 
                                 request.auth.uid == userId &&
                                 request.resource.data.storyBibleId == storyBibleId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
       
       // Pre-production nested under story bibles
@@ -41,6 +41,23 @@ service cloud.firestore {
                                 request.auth.uid == userId &&
                                 request.resource.data.storyBibleId == storyBibleId;
       }
+      
+      // Version history subcollection
+      match /versions/{versionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Episode reflections subcollection
+      match /reflections/{episodeId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // User templates collection
+    match /users/{userId}/templates/{templateId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
     // ========== STORY BIBLE SHARING FEATURE ==========

@@ -6,10 +6,9 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { useAuth } from '@/context/AuthContext'
 import Link from 'next/link'
-import { getStoryBibles, deleteStoryBible, hasLocalStorageBibles, getLocalStorageBibles, migrateAllLocalBibles, StoryBible } from '@/services/story-bible-service'
+import { getStoryBibles, deleteStoryBible, StoryBible } from '@/services/story-bible-service'
 import { getUserShareLinks, revokeShareLink, ShareLink } from '@/services/share-link-service'
 import DeleteConfirmModal from '@/components/modals/DeleteConfirmModal'
-import MigrationPromptModal from '@/components/modals/MigrationPromptModal'
 import ShareLinkCard from '@/components/dashboard/ShareLinkCard'
 
 export default function ProfilePage() {
@@ -22,9 +21,6 @@ export default function ProfilePage() {
     isOpen: false,
     storyBible: null,
   })
-  const [showMigrationModal, setShowMigrationModal] = useState(false)
-  const [localBibles, setLocalBibles] = useState<StoryBible[]>([])
-  const [isMigrating, setIsMigrating] = useState(false)
   
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -101,46 +97,6 @@ export default function ProfilePage() {
       loadSharedLinks()
     }
   }, [user, isLoading])
-
-  // Check for localStorage story bibles and prompt migration (simplified - primary migration is on login)
-  useEffect(() => {
-    // Only check if user has been on the dashboard for a while without migrating
-    if (user && !loadingProjects && storyBibles.length === 0) {
-      if (hasLocalStorageBibles()) {
-        const bibles = getLocalStorageBibles()
-        if (bibles.length > 0) {
-          setLocalBibles(bibles)
-          setShowMigrationModal(true)
-        }
-      }
-    }
-  }, [user, loadingProjects, storyBibles])
-
-  const handleMigrate = async (options: { skipDuplicates: boolean; clearLocal: boolean }) => {
-    if (!user) return
-    
-    try {
-      setIsMigrating(true)
-      const result = await migrateAllLocalBibles(user.id, {
-        skipDuplicates: options.skipDuplicates,
-        clearAfterMigration: options.clearLocal
-      })
-      
-      console.log(`✅ Migration complete: ${result.migrated} migrated, ${result.skipped} skipped, ${result.errors} errors`)
-      
-      // Reload story bibles
-      const bibles = await getStoryBibles(user.id)
-      setStoryBibles(bibles)
-      
-      setShowMigrationModal(false)
-      setLocalBibles([])
-    } catch (error) {
-      console.error('❌ Migration error:', error)
-      alert('Failed to migrate story bibles. Please try again.')
-    } finally {
-      setIsMigrating(false)
-    }
-  }
 
   // Handle revoking a shared link
   const handleRevokeLink = async (shareId: string) => {
@@ -612,15 +568,6 @@ export default function ProfilePage() {
         message={`Are you sure you want to delete "${deleteModal.storyBible?.seriesTitle || 'this story bible'}"?`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteModal({ isOpen: false, storyBible: null })}
-      />
-
-      {/* Migration Prompt Modal */}
-      <MigrationPromptModal
-        isOpen={showMigrationModal}
-        localBibles={localBibles}
-        onMigrate={handleMigrate}
-        onClose={() => setShowMigrationModal(false)}
-        isLoading={isMigrating}
       />
     </motion.div>
   )

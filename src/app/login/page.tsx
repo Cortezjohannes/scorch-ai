@@ -7,8 +7,6 @@ import Image from 'next/image'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { useAuth } from '@/context/AuthContext'
 import Link from 'next/link'
-import { hasLocalStorageBibles, getLocalStorageBibles, migrateAllLocalBibles, StoryBible } from '@/services/story-bible-service'
-import MigrationPromptModal from '@/components/modals/MigrationPromptModal'
 
 function LoginContent() {
   const router = useRouter()
@@ -16,9 +14,6 @@ function LoginContent() {
   const { user, isAuthenticated, isLoading, signOut } = useAuth()
   const redirectPath = searchParams.get('redirect') || '/'
   const [showAlreadyLoggedIn, setShowAlreadyLoggedIn] = useState(false)
-  const [showMigrationPrompt, setShowMigrationPrompt] = useState(false)
-  const [localBibles, setLocalBibles] = useState<StoryBible[]>([])
-  const [isMigrating, setIsMigrating] = useState(false)
   
   // Debug logging
   useEffect(() => {
@@ -29,24 +24,11 @@ function LoginContent() {
     console.log('  - redirectPath:', redirectPath);
   }, [isLoading, isAuthenticated, user, redirectPath])
   
-  // Check if already authenticated and handle migration
+  // Check if already authenticated
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
       console.log('✅ Already authenticated!');
       
-      // Check if there are localStorage bibles to migrate
-      if (hasLocalStorageBibles()) {
-        const bibles = getLocalStorageBibles()
-        console.log('📚 Found local story bibles:', bibles.length);
-        
-        if (bibles.length > 0) {
-          setLocalBibles(bibles)
-          setShowMigrationPrompt(true)
-          return // Don't redirect yet, show migration prompt
-        }
-      }
-      
-      // No migration needed - proceed with normal redirect logic
       // If there's a redirect parameter and it's not /login, auto-redirect
       if (redirectPath && redirectPath !== '/' && redirectPath !== '/login') {
         console.log('  → Auto-redirecting to:', redirectPath);
@@ -58,30 +40,6 @@ function LoginContent() {
       }
     }
   }, [isAuthenticated, isLoading, user, redirectPath, router])
-  
-  // Handle migration
-  const handleMigrate = async (options: { skipDuplicates: boolean; clearLocal: boolean }) => {
-    if (!user) return
-    
-    try {
-      setIsMigrating(true)
-      const result = await migrateAllLocalBibles(user.id, {
-        skipDuplicates: options.skipDuplicates,
-        clearAfterMigration: options.clearLocal
-      })
-      
-      console.log(`✅ Migration complete: ${result.migrated} migrated, ${result.skipped} skipped, ${result.errors} errors`)
-      
-      // Close modal and redirect
-      setShowMigrationPrompt(false)
-      router.push(redirectPath || '/profile')
-    } catch (error) {
-      console.error('❌ Migration error:', error)
-      alert('Failed to migrate story bibles. Please try again.')
-    } finally {
-      setIsMigrating(false)
-    }
-  }
   
   // Show "Already Logged In" message
   if (showAlreadyLoggedIn && user) {
@@ -234,24 +192,6 @@ function LoginContent() {
               </motion.p>
             </div>
             
-            {/* Debug Status */}
-            <motion.div
-              className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <div className="text-yellow-200 text-sm space-y-1">
-                <div className="font-bold mb-2">🔍 Debug Status:</div>
-                <div>• Loading: {isLoading ? 'Yes' : 'No'}</div>
-                <div>• Authenticated: {isAuthenticated ? 'Yes' : 'No'}</div>
-                <div>• User: {user ? user.email : 'None'}</div>
-                <div className="text-xs text-yellow-200/70 mt-2">
-                  Check browser console (F12) for detailed logs
-                </div>
-              </div>
-            </motion.div>
-
             {/* Greenlit Login Form Container */}
             <motion.div
               className="bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl p-8 relative overflow-hidden shadow-2xl"
@@ -288,18 +228,6 @@ function LoginContent() {
           </motion.div>
         </div>
       </div>
-      
-      {/* Migration Prompt Modal */}
-      <MigrationPromptModal
-        isOpen={showMigrationPrompt}
-        localBibles={localBibles}
-        onMigrate={handleMigrate}
-        onClose={() => {
-          setShowMigrationPrompt(false)
-          router.push(redirectPath || '/profile')
-        }}
-        isLoading={isMigrating}
-      />
     </motion.div>
   )
 }

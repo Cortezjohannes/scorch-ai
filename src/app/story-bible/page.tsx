@@ -11,8 +11,13 @@ import ShareStoryBibleModal from '@/components/share/ShareStoryBibleModal'
 import AuthStatusModal from '@/components/auth/AuthStatusModal'
 import { useAuth } from '@/context/AuthContext'
 import { saveStoryBible as saveStoryBibleToFirestore, getStoryBible as getStoryBibleFromFirestore, StoryBibleStatus } from '@/services/story-bible-service'
+import { updateStoryBibleFields, updateLockStatus } from '@/services/story-bible-firestore'
+import { versionControl } from '@/services/version-control'
+import { storyBibleLock } from '@/services/story-bible-lock'
 import { exportAsJSON, copyAsText, downloadMarkdown } from '@/utils/export-story-bible'
 import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
+import CharacterCreationWizard from '@/components/modals/CharacterCreationWizard'
+import AIEditModal from '@/components/modals/AIEditModal'
 
 export default function StoryBiblePage() {
   const router = useRouter()
@@ -40,6 +45,14 @@ export default function StoryBiblePage() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [editingField, setEditingField] = useState<{type: string, index?: number | string, field?: string, subfield?: string} | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [showCharacterWizard, setShowCharacterWizard] = useState(false)
+  const [showAIEditModal, setShowAIEditModal] = useState(false)
+  const [aiEditConfig, setAIEditConfig] = useState<{
+    title: string
+    editType: 'worldBuilding' | 'storyArc' | 'dialogue' | 'rules'
+    currentContent?: any
+    onSave: (content: any) => void
+  } | null>(null)
   const [showAddCharacterModal, setShowAddCharacterModal] = useState(false)
   const [showAddWorldModal, setShowAddWorldModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -54,19 +67,68 @@ export default function StoryBiblePage() {
 
   // Helper function to save story bible to both localStorage and Firestore
   const saveStoryBibleData = async (updatedBible: any) => {
-    // Use the service function to save (it ensures ID is generated and consistent)
-    const savedBible = await saveStoryBibleToFirestore({
-      ...updatedBible,
-      status: storyBibleStatus,
-      seriesTitle: updatedBible.seriesTitle || 'Untitled Story Bible'
-    }, user?.id) // Service handles both Firestore and localStorage
-    
-    // Update local state with the saved bible (which now has an ID)
-    setStoryBible(savedBible)
-    
-    console.log('✅ Story bible saved with ID:', savedBible.id)
-    
-    return savedBible // Return the saved bible so callers can access the ID
+    try {
+      // Use the service function to save (it ensures ID is generated and consistent)
+      const savedBible = await saveStoryBibleToFirestore({
+        ...updatedBible,
+        status: storyBibleStatus,
+        seriesTitle: updatedBible.seriesTitle || 'Untitled Story Bible'
+      }, user?.id) // Service handles both Firestore and localStorage
+      
+      // If user is authenticated, also save with version control
+      if (user && savedBible.id) {
+        const storyBibleId = savedBible.id
+        
+        // Create version
+        await versionControl.createVersion(
+          storyBibleId,
+          savedBible,
+          [], // changes - could be tracked in future
+          'Auto-save',
+          true,
+          user.id
+        )
+        
+        // Update lock status based on episodes
+        const episodeKeys = ['greenlit-episodes', 'scorched-episodes', 'reeled-episodes']
+        let episodeCount = 0
+        
+        for (const key of episodeKeys) {
+          const episodes = localStorage.getItem(key)
+          if (episodes) {
+            try {
+              const parsedEpisodes = JSON.parse(episodes)
+              episodeCount = Object.keys(parsedEpisodes || {}).length
+              break
+            } catch (error) {
+              console.error('Error parsing episodes:', error)
+            }
+          }
+        }
+        
+        const lockStatus = storyBibleLock.checkLockStatus(episodeCount)
+        await updateLockStatus(user.id, storyBibleId, lockStatus.isLocked, episodeCount)
+        
+        console.log('✅ Story bible saved to Firestore with version control')
+      }
+      
+      // Update local state with the saved bible (which now has an ID)
+      setStoryBible(savedBible)
+      
+      console.log('✅ Story bible saved with ID:', savedBible.id)
+      
+      return savedBible // Return the saved bible so callers can access the ID
+    } catch (error) {
+      console.error('❌ Error saving story bible:', error)
+      // Fall back to basic save
+      const savedBible = await saveStoryBibleToFirestore({
+        ...updatedBible,
+        status: storyBibleStatus,
+        seriesTitle: updatedBible.seriesTitle || 'Untitled Story Bible'
+      }, user?.id)
+      setStoryBible(savedBible)
+      return savedBible
+    }
   }
   
   // Effect to set client-side flag and load regeneration count
@@ -804,9 +866,29 @@ export default function StoryBiblePage() {
   // CHARACTER CRUD FUNCTIONS
   // ========================================
   
+  // Handler for completing character creation wizard
+  const handleWizardComplete = async (character: any) => {
+    if (!storyBible) return
+    
+    const updatedCharacters = [...(storyBible.mainCharacters || [])]
+    updatedCharacters.push(character)
+    
+    const updatedBible = { ...storyBible, mainCharacters: updatedCharacters }
+    setStoryBible(updatedBible)
+    await saveStoryBibleData(updatedBible)
+    
+    setCurrentCharacterIndex(updatedCharacters.length - 1)
+    setShowCharacterWizard(false)
+  }
+
   const addNewCharacter = async () => {
     if (!storyBible) return
     
+    // Open AI Character Creation Wizard instead of creating blank character
+    setShowCharacterWizard(true)
+    return
+    
+    // OLD CODE: Manual blank character creation
     const newCharacter = {
       name: 'New Character',
       archetype: 'Supporting Character',
@@ -2399,12 +2481,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
             {/* Arcs Tab */}
             {activeTab === 'arcs' && (
               <div>
-                <h2 className="text-2xl font-bold text-[#00FF99] mb-6">Narrative Arcs</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-[#00FF99]">Narrative Arcs</h2>
+                  <button
+                    onClick={() => {
+                      setAIEditConfig({
+                        title: 'AI-Assisted Arc Generation',
+                        editType: 'storyArc',
+                        currentContent: storyBible.narrativeArcs,
+                        onSave: async (content) => {
+                          const updatedBible = { ...storyBible, narrativeArcs: content }
+                          setStoryBible(updatedBible)
+                          await saveStoryBibleData(updatedBible)
+                        }
+                      })
+                      setShowAIEditModal(true)
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    title="Get AI assistance for arc ideas"
+                  >
+                    <span className="text-lg">✨</span>
+                    AI Assist
+                  </button>
+                </div>
                 
                 {/* Editing Hint */}
                 <div className="mb-6 bg-[#2a2a2a]/50 border-l-4 border-[#00FF99] p-4 rounded-lg">
                   <p className="text-[#e7e7e7]/90 text-sm">
-                    💡 <strong>Tip:</strong> You can add or remove arcs to match your story's structure. Each arc can have any number of episodes!
+                    💡 <strong>Tip:</strong> You can add or remove arcs to match your story's structure. Each arc can have any number of episodes! Use <strong>AI Assist</strong> for suggestions.
                   </p>
                 </div>
                 
@@ -2581,12 +2685,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
             {/* World Building Tab */}
             {activeTab === 'world' && (
               <div>
-                <h2 className="text-2xl font-bold text-[#00FF99] mb-6">World Building</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-[#00FF99]">World Building</h2>
+                  <button
+                    onClick={() => {
+                      setAIEditConfig({
+                        title: 'AI-Assisted World Building',
+                        editType: 'worldBuilding',
+                        currentContent: storyBible.worldBuilding,
+                        onSave: async (content) => {
+                          const updatedBible = { ...storyBible, worldBuilding: content }
+                          setStoryBible(updatedBible)
+                          await saveStoryBibleData(updatedBible)
+                        }
+                      })
+                      setShowAIEditModal(true)
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    title="Get AI assistance for world building"
+                  >
+                    <span className="text-lg">✨</span>
+                    AI Assist
+                  </button>
+                </div>
                 
                 {/* Editing Hint */}
                 <div className="mb-6 bg-[#2a2a2a]/50 border-l-4 border-[#00FF99] p-4 rounded-lg">
                   <p className="text-[#e7e7e7]/90 text-sm">
-                    💡 <strong>Tip:</strong> You can add or remove world elements like locations, factions, and rules. Click the buttons below each section to customize your world!
+                    💡 <strong>Tip:</strong> You can add or remove world elements like locations, factions, and rules. Use <strong>AI Assist</strong> for creative suggestions!
                   </p>
                 </div>
                 
@@ -3227,6 +3353,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
           storyBible={storyBible}
           ownerId={user.id}
           ownerName={user.displayName || user.email || 'Unknown User'}
+        />
+      )}
+
+      {/* Character Creation Wizard */}
+      <CharacterCreationWizard
+        isOpen={showCharacterWizard}
+        onClose={() => setShowCharacterWizard(false)}
+        onComplete={handleWizardComplete}
+        storyBible={storyBible}
+      />
+
+      {/* AI Edit Modal */}
+      {aiEditConfig && (
+        <AIEditModal
+          isOpen={showAIEditModal}
+          onClose={() => {
+            setShowAIEditModal(false)
+            setAIEditConfig(null)
+          }}
+          title={aiEditConfig.title}
+          editType={aiEditConfig.editType}
+          currentContent={aiEditConfig.currentContent}
+          context={storyBible}
+          onSave={(content) => {
+            aiEditConfig.onSave(content)
+            setShowAIEditModal(false)
+            setAIEditConfig(null)
+          }}
         />
       )}
       

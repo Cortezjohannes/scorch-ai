@@ -245,7 +245,7 @@ export async function generateV2Scripts(
           }
 
           // 📝 ENHANCED SCREENPLAY GENERATION with proper dialogue structure
-          const prompt = `Create a professional screenplay scene with rich, engaging dialogue based on the narrative content. Use STRICT screenplay format:
+          const prompt = `Transform this narrative prose into a professional screenplay scene with rich, engaging dialogue. Use STRICT screenplay format. This is Scene ${j + 1} from a 5-minute episode.
 
 NARRATIVE SCENE:
 ${scene.content}
@@ -257,9 +257,12 @@ Genre: ${storyBible.genre}
 CRITICAL REQUIREMENTS:
 - Generate ACTUAL DIALOGUE between characters, not narrative prose
 - Use proper screenplay formatting with scene headings, character names, and dialogue
-- Create 2-3 characters who have a conversation
+- Expand the dialogue naturally from the narrative content
+- Include 2-3 characters who have a conversation (based on the narrative)
 - Each character should speak multiple times
 - Include conflict, tension, and character development through dialogue
+- DO NOT add scenes or characters not implied by the narrative
+- This is one scene from a 5-minute episode - keep it focused and concise
 
 MANDATORY SCREENPLAY FORMAT:
 1. Scene Heading: INT./EXT. LOCATION - TIME OF DAY
@@ -450,7 +453,7 @@ async function generateV2StoryboardsOriginal(context: any, narrative: any, scrip
         Math.round((processedScenes / context.totalScenes) * 100), 3);
 
       const storyboard = await retryWithFallback(async () => {
-        const prompt = `Create a detailed visual storyboard for this scene.
+        const prompt = `Create a visual storyboard for this scene from a 5-minute episode. Break it into 3-5 shots for proper coverage.
 
 NARRATIVE SCENE:
 ${scene.content}
@@ -463,13 +466,14 @@ Series: ${storyBible.seriesTitle}
 Genre: ${storyBible.genre}
 
 REQUIREMENTS:
-- Break down into 4-8 visual shots
-- Include camera angles and movements
+- Break down into 3-5 visual shots (this is one scene from a 5-minute episode)
+- For each shot, specify: shot type (wide/medium/close), camera angle, camera movement
 - Describe lighting, mood, and atmosphere
-- Note any special effects or props needed
+- Note any special effects or key props visible in frame
 - Keep professional film production format
+- DO NOT add scenes or shots not implied by the narrative
 
-Format as a detailed shot list.`;
+Format as a detailed shot list starting with "SHOT 1:", "SHOT 2:", etc.`;
 
         const result = await generateContent(prompt, { 
           temperature: 0.4, 
@@ -577,7 +581,7 @@ export async function generateV2StoryboardsWithEngines(
             }
             
             // Create a detailed prompt for model-based generation
-            const prompt = `Create a detailed visual storyboard for this scene using a ${options.cinematographerStyle || 'naturalistic'} cinematography style.
+            const prompt = `Create a visual storyboard for this scene from a 5-minute episode. Break it into 3-5 shots for proper coverage. Use a ${options.cinematographerStyle || 'naturalistic'} cinematography style.
 
 SCENE CONTENT:
 ${scene.content}
@@ -593,11 +597,13 @@ Series: ${storyBible.seriesTitle}
 Genre: ${storyBible.genre}
 
 REQUIREMENTS:
-- Break down into 6-8 visual shots
+- Break down into 3-5 visual shots (this is one scene from a 5-minute episode)
 - Use ${options.cinematographerStyle || 'naturalistic'} cinematography style
-- Include specific camera angles and movements for each shot
+- For each shot, specify: shot type (wide/medium/close), camera angle, camera movement
 - Describe lighting, mood, and atmosphere
-- Format as a professional shot list with shot numbers
+- Note any special effects or key props visible in frame
+- DO NOT add scenes or shots not implied by the narrative
+- Format as a professional shot list starting with "SHOT 1:", "SHOT 2:", etc.
 - Include shot size (close-up, medium, wide, etc.)
 - Include camera movement (static, pan, dolly, etc.)
 - Include a brief description of what happens in each shot
@@ -830,9 +836,10 @@ async function generateV2PropsOriginal(context: any, narrative: any, storyboard:
       Math.round(((i + 1) / actualEpisodes.length) * 100), 4);
 
     const props = await retryWithFallback(async () => {
-      const prompt = `Create a comprehensive props and wardrobe list for this episode.
+      const sceneCount = narrativeEpisode?.scenes?.length || 0
+      const prompt = `Extract ONLY the props and wardrobe explicitly mentioned or clearly implied in these ${sceneCount} scenes. This is a 5-minute episode - be realistic.
 
-EPISODE NARRATIVE:
+EPISODE NARRATIVE (${sceneCount} scenes):
 ${narrativeEpisode?.scenes?.map((s: any, idx: number) => `Scene ${idx + 1}: ${s.content}`).join('\n\n') || 'No narrative available'}
 
 STORYBOARD INFO:
@@ -843,14 +850,15 @@ Series: ${storyBible.seriesTitle}
 Genre: ${storyBible.genre}
 Episode: ${episode.episodeNumber} - ${episode.episodeTitle || episode.title}
 
-REQUIREMENTS:
-- List ALL props needed for each scene
-- Include wardrobe for each character
-- Categorize by: Props, Costumes, Set Decoration, Special Items
+STRICT REQUIREMENTS:
+- Extract ONLY props that characters interact with or are visible in scenes (expect 10-15 items for ${sceneCount} scenes)
+- Include ONLY wardrobe for characters who actually appear in these scenes
+- DO NOT invent props or characters not mentioned in the scenes
+- Focus on: hand props, essential set pieces, character wardrobe
 - Include sourcing suggestions (buy/rent/make)
-- Note any budget considerations
+- This is ${sceneCount} scenes in a 5-minute episode - be concise
 
-Format as organized production list.`;
+Format as organized production list with bullet points.`;
 
       const result = await generateContent(prompt, { 
         temperature: 0.3, 
@@ -995,11 +1003,12 @@ async function generateEnhancedPropsDesign(episode: any, narrativeEpisode: any, 
   // Extract scenes for analysis
   const scenes = narrativeEpisode?.scenes || [];
   const storyboardScenes = storyboardEpisode?.scenes || [];
+  const sceneCount = scenes.length
   
   // Create enhanced prompt for props design
-  const enhancedPrompt = `Generate a professional production design breakdown for props and wardrobe.
+  const enhancedPrompt = `Extract ONLY the props and wardrobe explicitly mentioned or clearly implied in these ${sceneCount} scenes. This is a 5-minute episode - be realistic.
 
-EPISODE NARRATIVE:
+EPISODE NARRATIVE (${sceneCount} scenes):
 ${scenes.map((s: any, idx: number) => `Scene ${idx + 1}: ${s.content}`).join('\n\n')}
 
 VISUAL STORYBOARD:
@@ -1012,16 +1021,16 @@ Episode: ${context.episodeNumber} - ${context.episodeTitle}
 Design Approach: ${context.designApproach}
 Visual Style: ${context.visualStyle}
 
-DESIGN REQUIREMENTS:
-1. SCENE-BY-SCENE BREAKDOWN:
-   - List all props needed for each scene with descriptions
-   - Include character-specific props and personal items
-   - Detail set decoration and environmental elements
+STRICT DESIGN REQUIREMENTS:
+1. SCENE-BY-SCENE BREAKDOWN (${sceneCount} scenes):
+   - Extract ONLY props that characters interact with or are visible (expect 10-15 items total for ${sceneCount} scenes)
+   - Include character-specific props and personal items ONLY if mentioned
+   - DO NOT invent set decoration not mentioned in scenes
    - Highlight special/hero props that are plot-critical
 
 2. CHARACTER WARDROBE:
-   - Detailed costume breakdown for each character
-   - Include accessories, makeup, and styling notes
+   - Costume breakdown ONLY for characters who appear in these scenes
+   - Include accessories, makeup, styling notes ONLY if relevant to scenes
    - Note any costume changes or continuity requirements
    - Provide character-appropriate design elements
 
@@ -1032,12 +1041,12 @@ DESIGN REQUIREMENTS:
    - Backup options for complex items
 
 4. WORLD-BUILDING ELEMENTS:
-   - Period-appropriate items (if applicable)
+   - Period-appropriate items (if applicable) based on what's in scenes
    - Cultural authenticity considerations
    - World consistency with established universe
    - Visual storytelling through design elements
 
-Format as a professional production design breakdown organized by scene, with clear categories for Props, Costumes, Set Decoration, and Special Items.`;
+This is ${sceneCount} scenes in a 5-minute episode. Format as a professional production design breakdown organized by scene, with clear categories for Props, Costumes, Set Decoration, and Special Items. Keep it focused and concise.`;
 
   // Generate enhanced content
   const result = await generateContent(enhancedPrompt, {
@@ -1101,9 +1110,10 @@ async function generateV2LocationsOriginal(context: any, narrative: any, storybo
       Math.round(((i + 1) / actualEpisodes.length) * 100), 5);
 
     const locations = await retryWithFallback(async () => {
-      const prompt = `Create a comprehensive location guide for filming this episode.
+      const sceneCount = narrativeEpisode?.scenes?.length || 0
+      const prompt = `Identify ONLY the filming locations explicitly stated in these ${sceneCount} scenes. This is a 5-minute episode.
 
-EPISODE NARRATIVE:
+EPISODE NARRATIVE (${sceneCount} scenes):
 ${narrativeEpisode?.scenes?.map((s: any, idx: number) => `Scene ${idx + 1}: ${s.content}`).join('\n\n') || 'No narrative available'}
 
 STORYBOARD INFO:
@@ -1114,14 +1124,15 @@ Series: ${storyBible.seriesTitle}
 Genre: ${storyBible.genre}
 Episode: ${episode.episodeNumber} - ${episode.episodeTitle || episode.title}
 
-REQUIREMENTS:
-- Identify ALL filming locations needed
-- Suggest specific location types and characteristics
-- Include backup location options
+STRICT REQUIREMENTS:
+- Extract ONLY locations explicitly mentioned in the ${sceneCount} scenes (expect 1-3 locations max)
+- DO NOT invent locations not in the scene descriptions
+- For each location: type, characteristics, lighting needs, sound considerations
+- Include backup location options for the actual locations mentioned
 - Note permits and permissions needed
-- Consider lighting, sound, and practical concerns
 - Suggest optimal filming times/conditions
 - Include estimated time needed per location
+- This is ${sceneCount} scenes in a 5-minute episode - keep concise
 
 Format as professional location scouting guide.`;
 
@@ -1237,11 +1248,12 @@ async function generateEnhancedLocationScouting(episode: any, narrativeEpisode: 
   // Extract scenes for analysis
   const scenes = narrativeEpisode?.scenes || [];
   const storyboardScenes = storyboardEpisode?.scenes || [];
+  const sceneCount = scenes.length
   
   // Create enhanced prompt for location scouting
-  const enhancedPrompt = `Generate a professional location scouting guide for this episode.
+  const enhancedPrompt = `Identify ONLY the filming locations explicitly stated in these ${sceneCount} scenes. This is a 5-minute episode.
 
-EPISODE NARRATIVE:
+EPISODE NARRATIVE (${sceneCount} scenes):
 ${scenes.map((s: any, idx: number) => `Scene ${idx + 1}: ${s.content}`).join('\n\n')}
 
 VISUAL STORYBOARD:
@@ -1253,8 +1265,10 @@ Genre: ${context.storyBible?.genre}
 Episode: ${context.episodeNumber} - ${context.episodeTitle}
 Scouting Approach: ${context.scoutingApproach}
 
-LOCATION REQUIREMENTS:
-1. SCENE-BY-SCENE BREAKDOWN:
+STRICT LOCATION REQUIREMENTS:
+1. SCENE-BY-SCENE BREAKDOWN (${sceneCount} scenes):
+   - Extract ONLY locations explicitly mentioned in the scenes (expect 1-3 locations max)
+   - DO NOT invent locations not in the scene descriptions
    - Specific location type needed for each scene
    - Atmosphere and mood requirements
    - Physical space needs for action and blocking
@@ -1283,6 +1297,8 @@ LOCATION REQUIREMENTS:
    - Visual storytelling through environment
    - Symbolic or thematic location elements
    - World consistency considerations
+
+This is ${sceneCount} scenes in a 5-minute episode - keep concise
 
 Format as a professional location scouting guide organized by scene, with detailed specifications and practical recommendations for production.`;
 
@@ -1342,9 +1358,9 @@ async function generateV2CastingOriginal(context: any, narrative: any, updatePro
       ep.scenes?.map((scene: any, idx: number) => `Episode ${ep.episodeNumber}, Scene ${idx + 1}: ${scene.content}`) || []
     ).join('\n\n');
 
-    const prompt = `Create a comprehensive casting guide for all characters appearing in this story arc.
+    const prompt = `Create a casting guide for ONLY the characters who appear in these ${actualEpisodes.length} episode(s). This is a 5-minute episode format.
 
-ARC NARRATIVE (All Episodes):
+ARC NARRATIVE (${actualEpisodes.length} Episode(s)):
 ${allScenes}
 
 STORY CONTEXT:
@@ -1353,8 +1369,9 @@ Genre: ${storyBible.genre}
 Story Bible: ${JSON.stringify(storyBible, null, 2)}
 Episodes in Arc: ${actualEpisodes.length}
 
-REQUIREMENTS:
-- Identify ALL speaking characters across the arc
+STRICT REQUIREMENTS:
+- Identify ONLY characters who speak or are clearly visible in these specific episodes (expect 2-4 characters for a 5-minute episode)
+- DO NOT include characters from the story bible who don't appear in these episodes
 - Create detailed character profiles for casting
 - Include physical descriptions, age ranges, personality traits
 - Suggest actor types or references (no specific names)

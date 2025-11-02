@@ -5,15 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useAuth } from '@/context/AuthContext'
-import { getEpisodesForStoryBible, hasLocalEpisodes, Episode } from '@/services/episode-service'
-import { hasPreProduction } from '@/services/preproduction-service'
+import { getEpisodesForStoryBible, hasLocalEpisodes, Episode, findRecoverableEpisodes } from '@/services/episode-service'
+import { hasPreProductionV2 } from '@/services/preproduction-v2-service'
 import { getStoryBible } from '@/services/story-bible-service'
 import GuestModeWarning from '@/components/GuestModeWarning'
+import EpisodeRecoveryPrompt from '@/components/EpisodeRecoveryPrompt'
 
 export default function WorkspacePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const [storyBible, setStoryBible] = useState<any>(null)
   const [currentStoryBibleId, setCurrentStoryBibleId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,6 +22,10 @@ export default function WorkspacePage() {
   const [currentEpisodeNumber, setCurrentEpisodeNumber] = useState<number>(1)
   const [preProductionStatus, setPreProductionStatus] = useState<Record<number, boolean>>({})
   const [isClient, setIsClient] = useState(false)
+  
+  // Episode recovery state
+  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false)
+  const [recoverableEpisodes, setRecoverableEpisodes] = useState<number[]>([])
   
   // Effect to set client-side flag
   useEffect(() => {
@@ -89,12 +94,19 @@ export default function WorkspacePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Wait for auth to finish loading before determining storage mode
+        if (authLoading) {
+          console.log('⏳ Waiting for auth to load before loading story bible...')
+          return
+        }
+        
         // Check for story bible ID in URL params
         const storyBibleId = searchParams.get('id')
         
         if (storyBibleId && user) {
           // Load specific story bible from Firestore
           console.log('🔍 Loading story bible from Firestore with ID:', storyBibleId)
+          console.log(`👤 Authenticated as: ${user.email}`)
           try {
             const firestoreBible = await getStoryBible(storyBibleId, user.id)
             if (firestoreBible) {
@@ -109,8 +121,12 @@ export default function WorkspacePage() {
             loadFromLocalStorage()
           }
         } else {
-          // No ID specified, load from localStorage (legacy behavior)
-          console.log('📂 No ID specified, loading from localStorage')
+          // No ID specified or not authenticated, load from localStorage (legacy/guest behavior)
+          if (!user && storyBibleId) {
+            console.log('📂 Guest mode: Loading from localStorage')
+          } else if (!storyBibleId) {
+            console.log('📂 No ID specified, loading from localStorage')
+          }
           loadFromLocalStorage()
         }
         
@@ -135,26 +151,33 @@ export default function WorkspacePage() {
     }
     
     loadData()
-  }, [searchParams, user])
+  }, [searchParams, user, authLoading])
   
   // Load episodes when story bible ID is available
   useEffect(() => {
     const loadEpisodes = async () => {
       if (!currentStoryBibleId) return
       
+      // Wait for auth to finish loading before determining storage mode
+      if (authLoading) {
+        console.log('⏳ Waiting for auth to load before loading episodes...')
+        return
+      }
+      
       try {
         console.log(`📺 Loading episodes for story bible: ${currentStoryBibleId}`)
+        console.log(`👤 Auth state: ${user ? `authenticated (${user.email})` : 'guest mode'}`)
         
         // Load episodes using service (handles Firestore and localStorage)
         const episodes = await getEpisodesForStoryBible(currentStoryBibleId, user?.id)
         setGeneratedEpisodes(episodes)
         
-        // Check pre-production status for all episodes
+        // Check pre-production V2 status for all episodes
         const preProductionFlags: Record<number, boolean> = {}
         for (const epNum of Object.keys(episodes)) {
-          const hasPreProd = await hasPreProduction(
+          const hasPreProd = await hasPreProductionV2(
             currentStoryBibleId, 
-            Number(epNum), 
+            `episode_${epNum}`,  // V2 uses ID format: episode_{number}
             user?.id
           )
           preProductionFlags[Number(epNum)] = hasPreProd
@@ -162,6 +185,15 @@ export default function WorkspacePage() {
         setPreProductionStatus(preProductionFlags)
         
         console.log(`✅ Loaded ${Object.keys(episodes).length} episodes with pre-production status`)
+        
+        // Check for recoverable episodes (only for authenticated users)
+        if (user) {
+          const recoverable = await findRecoverableEpisodes(currentStoryBibleId, user.id)
+          if (recoverable.length > 0) {
+            setRecoverableEpisodes(recoverable)
+            setShowRecoveryPrompt(true)
+          }
+        }
       } catch (error) {
         console.error('Error loading episodes:', error)
       }
@@ -170,7 +202,7 @@ export default function WorkspacePage() {
     if (currentStoryBibleId) {
       loadEpisodes()
     }
-  }, [currentStoryBibleId, user])
+  }, [currentStoryBibleId, user, authLoading])
   
   // Update current episode when episodes change
   useEffect(() => {
@@ -201,43 +233,25 @@ export default function WorkspacePage() {
   // Handle starting pre-production for an episode
   const handleStartPreProduction = (episodeNumber: number) => {
     try {
-      // Get episode data from localStorage
-      const savedEpisodes = localStorage.getItem('greenlit-episodes') ||
-                           localStorage.getItem('scorched-episodes') ||
-                           localStorage.getItem('reeled-episodes')
-      if (!savedEpisodes) return
+      console.log(`🎬 Starting pre-production for episode ${episodeNumber}`)
       
-      const episodes = JSON.parse(savedEpisodes)
-      const episode = episodes[episodeNumber]
+      // Get episode data from state (works for both Firestore and localStorage)
+      const episode = generatedEpisodes[episodeNumber]
       
       if (!episode) {
-        console.error(`Episode ${episodeNumber} not found`)
+        console.error(`Episode ${episodeNumber} not found in generated episodes`)
+        alert(`Episode ${episodeNumber} not found. Please generate it first.`)
         return
       }
       
-      // Get story bible
-      const savedBible = localStorage.getItem('greenlit-story-bible') ||
-                        localStorage.getItem('scorched-story-bible') ||
-                        localStorage.getItem('reeled-story-bible')
-      const storyBible = savedBible ? JSON.parse(savedBible).storyBible : null
+      console.log('✅ Episode data found:', episode)
       
-      // Get creative mode
-      let userMode = 'beast'
-      if (savedBible) {
-        try {
-          const parsed = JSON.parse(savedBible)
-          userMode = parsed.creativeMode || 'beast'
-        } catch (e) {
-          console.warn('Could not parse saved bible for mode, using beast mode')
-        }
-      }
-
       // Store data for pre-production page
       const preProductionData = {
         episodeNumber,
         episode,
         storyBible,
-        mode: userMode
+        mode: 'beast' // Default mode
       }
       
       localStorage.setItem('greenlit-preproduction-episode-data', JSON.stringify(preProductionData))
@@ -245,11 +259,18 @@ export default function WorkspacePage() {
       // Navigate to pre-production V2 with episode parameter and story bible ID
       if (!currentStoryBibleId) {
         console.error('No story bible ID available')
+        alert('Story bible ID not found. Please reload the page.')
         return
       }
-      router.push(`/preproduction/v2?episode=${episodeNumber}&storyBibleId=${currentStoryBibleId}`)
+      
+      // Get episode title
+      const episodeTitle = episode.title || `Episode ${episodeNumber}`
+      
+      console.log(`🚀 Navigating to pre-production for episode ${episodeNumber}: "${episodeTitle}", story bible: ${currentStoryBibleId}`)
+      router.push(`/preproduction?storyBibleId=${currentStoryBibleId}&episodeNumber=${episodeNumber}&episodeTitle=${encodeURIComponent(episodeTitle)}&autoGenerate=true`)
     } catch (error) {
       console.error('Error preparing pre-production:', error)
+      alert(`Error starting pre-production: ${error}`)
     }
   }
   
@@ -268,25 +289,43 @@ export default function WorkspacePage() {
       console.error('No story bible ID available')
       return
     }
-    router.push(`/preproduction/v2?episode=${episodeNumber}&storyBibleId=${currentStoryBibleId}`)
+    
+    // Get episode title from generatedEpisodes object
+    const episode = generatedEpisodes[episodeNumber]
+    const episodeTitle = episode?.title || `Episode ${episodeNumber}`
+    
+    router.push(`/preproduction?storyBibleId=${currentStoryBibleId}&episodeNumber=${episodeNumber}&episodeTitle=${encodeURIComponent(episodeTitle)}`)
   }
   
   // Handle clear episodes
-  const handleClearEpisodes = () => {
+  const handleClearEpisodes = async () => {
     if (confirm('Are you sure you want to clear all episodes? This cannot be undone.')) {
-      const keysToRemove = [
-        'greenlit-episodes', 
-        'greenlit-completed-arcs',
-        'scorched-episodes',
-        'scorched-completed-arcs',
-        'reeled-episodes',
-        'reeled-completed-arcs'
-      ]
-      
-      keysToRemove.forEach(key => localStorage.removeItem(key))
-      setGeneratedEpisodes({})
-      setCurrentEpisodeNumber(1)
-      setPreProductionStatus({})
+      try {
+        // Import the delete function
+        const { deleteAllEpisodesForStoryBible } = await import('@/services/episode-service')
+        
+        // Delete from Firestore (if authenticated) or localStorage (if guest)
+        const deletedCount = await deleteAllEpisodesForStoryBible(
+          currentStoryBibleId || 'default',
+          user?.id
+        )
+        
+        console.log(`✅ Cleared ${deletedCount} episodes`)
+        
+        // Clear local state
+        setGeneratedEpisodes({})
+        setCurrentEpisodeNumber(1)
+        setPreProductionStatus({})
+        
+        // Show success message
+        alert(`Successfully cleared ${deletedCount} episode(s)`)
+        
+        // Reload the page to refresh the episode list
+        window.location.reload()
+      } catch (error) {
+        console.error('Failed to clear episodes:', error)
+        alert('Failed to clear episodes. Please try again.')
+      }
     }
   }
   
@@ -981,6 +1020,22 @@ export default function WorkspacePage() {
           </div>
         </motion.div>
       </div>
+      
+      {/* Episode Recovery Modal */}
+      {user && currentStoryBibleId && (
+        <EpisodeRecoveryPrompt
+          isOpen={showRecoveryPrompt}
+          recoverableEpisodes={recoverableEpisodes}
+          storyBibleId={currentStoryBibleId}
+          userId={user.id}
+          onClose={() => setShowRecoveryPrompt(false)}
+          onRecoveryComplete={() => {
+            setShowRecoveryPrompt(false)
+            // Reload episodes after recovery
+            window.location.reload()
+          }}
+        />
+      )}
     </motion.div>
   )
 } 

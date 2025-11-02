@@ -105,32 +105,34 @@ class EngineProgressTracker {
       this.currentEngine = engineId
       console.log(`🚀 Starting ${engine.name}`)
       
-      // Notify API that engine started
-      try {
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'update_engine',
-            engineId: engineId,
-            progress: 0,
-            status: 'active',
-            message: engine.message,
-            name: engine.name
+      // Notify API that engine started (skip in production)
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          await fetch('http://localhost:3000/api/engine-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'update_engine',
+              engineId: engineId,
+              progress: 0,
+              status: 'active',
+              message: engine.message,
+              name: engine.name
+            })
           })
-        })
-        
-        // Update current engine
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'set_current_engine',
-            engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
+          
+          // Update current engine
+          await fetch('http://localhost:3000/api/engine-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'set_current_engine',
+              engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
+            })
           })
-        })
-      } catch (error) {
-        console.log('Failed to notify engine start:', error)
+        } catch (error) {
+          console.log('Failed to notify engine start:', error)
+        }
       }
     }
   }
@@ -143,34 +145,36 @@ class EngineProgressTracker {
       this.updateOverallProgress()
       console.log(`📊 ${engine.name}: ${progress}% - ${message || engine.message}`)
       
-      // Send progress update to API
-      try {
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'update_engine',
-            engineId: engineId,
-            progress: progress,
-            status: engine.status,
-            message: message ?? engine.message,
-            name: engine.name
-          })
-        })
-        
-        // Also update current engine
-        if (this.currentEngine === engineId) {
+      // Send progress update to API (skip in production)
+      if (process.env.NODE_ENV === 'development') {
+        try {
           await fetch('http://localhost:3000/api/engine-status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'set_current_engine',
-              engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
+              type: 'update_engine',
+              engineId: engineId,
+              progress: progress,
+              status: engine.status,
+              message: message ?? engine.message,
+              name: engine.name
             })
           })
+          
+          // Also update current engine
+          if (this.currentEngine === engineId) {
+            await fetch('http://localhost:3000/api/engine-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'set_current_engine',
+                engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
+              })
+            })
+          }
+        } catch (error) {
+          console.log('Failed to send progress update:', error)
         }
-      } catch (error) {
-        console.log('Failed to send progress update:', error)
       }
     }
   }
@@ -185,22 +189,24 @@ class EngineProgressTracker {
       console.log(`✅ Completed ${engine.name}`)
       this.updateOverallProgress()
       
-      // Notify API that engine completed
-      try {
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'update_engine',
-            engineId: engineId,
-            progress: 100,
-            status: 'completed',
-            message: 'Completed',
-            name: engine.name
+      // Notify API that engine completed (skip in production)
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          await fetch('http://localhost:3000/api/engine-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'update_engine',
+              engineId: engineId,
+              progress: 100,
+              status: 'completed',
+              message: 'Completed',
+              name: engine.name
+            })
           })
-        })
-      } catch (error) {
-        console.log('Failed to notify engine completion:', error)
+        } catch (error) {
+          console.log('Failed to notify engine completion:', error)
+        }
       }
     }
   }
@@ -1531,43 +1537,45 @@ export async function POST(request: Request) {
     // Initialize progress tracker
     const progressTracker = new EngineProgressTracker()
     
-    // Start session tracking
-    try {
-      // First, set the session as active
-      await fetch('http://localhost:3000/api/engine-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'update_session',
-          session: {
-            id: Date.now().toString(),
-            isActive: true,
-            currentPhase: 'Story Bible Generation',
-            startTime: new Date().toISOString()
-          }
+    // Start session tracking (skip in production)
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        // First, set the session as active
+        await fetch('http://localhost:3000/api/engine-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_session',
+            session: {
+              id: Date.now().toString(),
+              isActive: true,
+              currentPhase: 'Story Bible Generation',
+              startTime: new Date().toISOString()
+            }
+          })
         })
-      })
 
-      // Then seed the engine list to prevent premature completion
-      const initialStatus = progressTracker.getStatus()
-      
-      await fetch('http://localhost:3000/api/engine-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'update_progress',
-          progress: initialStatus
+        // Then seed the engine list to prevent premature completion
+        const initialStatus = progressTracker.getStatus()
+        
+        await fetch('http://localhost:3000/api/engine-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_progress',
+            progress: initialStatus
+          })
         })
-      })
-      
-      // Start the first engine immediately to show progress
-      await progressTracker.startEngine('premise')
-      
-      // Show initial progress
-      progressTracker.updateProgress('premise', 10, 'Analyzing story foundation and thematic structure...')
-      
-    } catch (error) {
-      console.error('❌ Failed to start session tracking:', error)
+        
+        // Start the first engine immediately to show progress
+        await progressTracker.startEngine('premise')
+        
+        // Show initial progress
+        progressTracker.updateProgress('premise', 10, 'Analyzing story foundation and thematic structure...')
+        
+      } catch (error) {
+        console.error('❌ Failed to start session tracking:', error)
+      }
     }
     
     logger.startPhase({
@@ -1622,23 +1630,25 @@ export async function POST(request: Request) {
       }
       console.log('✅ Story bible generation complete')
 
-      // Mark session as complete
-      const sessionId = Date.now().toString()
-      await fetch('http://localhost:3000/api/engine-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'update_session',
-          session: {
-            id: sessionId,
-            isActive: false,
-            isComplete: true,
-            currentPhase: 'Story Bible Generation',
-            startTime: new Date().toISOString(),
-            endTime: new Date().toISOString()
-          }
+      // Mark session as complete (skip in production)
+      if (process.env.NODE_ENV === 'development') {
+        const sessionId = Date.now().toString()
+        await fetch('http://localhost:3000/api/engine-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_session',
+            session: {
+              id: sessionId,
+              isActive: false,
+              isComplete: true,
+              currentPhase: 'Story Bible Generation',
+              startTime: new Date().toISOString(),
+              endTime: new Date().toISOString()
+            }
+          })
         })
-      })
+      }
     } else {
       console.log('⚠️ No story bible generated')
     }

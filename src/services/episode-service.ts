@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { 
   collection, 
   doc, 
@@ -35,7 +35,7 @@ const LOCALSTORAGE_KEY = 'greenlit-episodes'
  * Generate a unique ID for an episode
  */
 function generateEpisodeId(storyBibleId: string, episodeNumber: number): string {
-  return `ep_${storyBibleId}_${episodeNumber}_${Date.now()}`
+  return `ep_${episodeNumber}`
 }
 
 /**
@@ -101,25 +101,75 @@ export async function saveEpisode(
   } as Episode
 
   if (userId) {
-    // AUTHENTICATED: Firestore is primary, localStorage is backup
+    // AUTHENTICATED: Firestore ONLY - no localStorage backup
     try {
+      // Check if user is actually authenticated
+      const currentUser = auth.currentUser
+      console.log('🔐 Firestore save attempt:', {
+        userId,
+        currentAuthUser: currentUser?.uid,
+        isAuthenticated: !!currentUser,
+        storyBibleId,
+        episodeId: updatedEpisode.id,
+        episodeNumber: updatedEpisode.episodeNumber,
+        documentStoryBibleId: updatedEpisode.storyBibleId,
+        path: `users/${userId}/storyBibles/${storyBibleId}/episodes/${updatedEpisode.id}`
+      })
+      
+      if (!currentUser) {
+        // Auth session expired - force user to re-authenticate
+        console.error('🔐 Firebase Auth session expired')
+        throw new Error('AUTH_EXPIRED:Your session has expired. Please sign in again to continue.')
+      }
+      
+      if (currentUser.uid !== userId) {
+        throw new Error(`Auth mismatch: currentUser.uid (${currentUser.uid}) !== userId (${userId})`)
+      }
+      
       const docRef = doc(db, 'users', userId, 'storyBibles', storyBibleId, 'episodes', updatedEpisode.id)
-      await setDoc(docRef, {
+      
+      // Sanitize data to remove undefined values and convert timestamps
+      const sanitizeData = (obj: any): any => {
+        const cleaned: any = {}
+        for (const key in obj) {
+          if (obj[key] !== undefined) {
+            if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key]) && !(obj[key] instanceof Timestamp)) {
+              cleaned[key] = sanitizeData(obj[key])
+            } else {
+              cleaned[key] = obj[key]
+            }
+          }
+        }
+        return cleaned
+      }
+      
+      const dataToSave = sanitizeData({
         ...updatedEpisode,
         generatedAt: Timestamp.fromDate(new Date(updatedEpisode.generatedAt)),
         lastModified: Timestamp.fromDate(new Date(updatedEpisode.lastModified))
       })
-      console.log(`✅ Episode ${updatedEpisode.episodeNumber} saved to Firestore (primary)`)
       
-      // Also backup to localStorage for offline access
-      const stored = localStorage.getItem(LOCALSTORAGE_KEY)
-      const episodes = stored ? JSON.parse(stored) : {}
-      episodes[updatedEpisode.episodeNumber] = updatedEpisode
-      localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(episodes))
-      console.log(`✅ Episode ${updatedEpisode.episodeNumber} backed up to localStorage`)
+      console.log('📄 Document data being saved:', {
+        hasStoryBibleId: !!dataToSave.storyBibleId,
+        storyBibleIdValue: dataToSave.storyBibleId,
+        pathStoryBibleId: storyBibleId,
+        idsMatch: dataToSave.storyBibleId === storyBibleId,
+        storyBibleIdType: typeof dataToSave.storyBibleId,
+        pathStoryBibleIdType: typeof storyBibleId,
+        allKeys: Object.keys(dataToSave)
+      })
+      
+      await setDoc(docRef, dataToSave)
+      console.log(`✅ Episode ${updatedEpisode.episodeNumber} saved to Firestore`)
     } catch (error: any) {
-      console.error('❌ FAILED to save episode to Firestore:', error)
-      throw new Error(`Failed to save episode: ${error.message}`)
+      console.error('❌ FAILED to save episode to Firestore:', {
+        error: error.message,
+        code: error.code,
+        userId,
+        storyBibleId,
+        episodeNumber: updatedEpisode.episodeNumber
+      })
+      throw new Error(`Failed to save episode to Firestore: ${error.message}`)
     }
   } else {
     // GUEST: localStorage only
@@ -226,6 +276,97 @@ export async function getEpisode(
 }
 
 /**
+ * Recover an episode from localStorage and migrate to Firestore
+ * Returns true if recovered, false if not found
+ */
+export async function recoverLocalStorageEpisode(
+  episodeNumber: number,
+  storyBibleId: string,
+  userId: string
+): Promise<boolean> {
+  try {
+    console.log(`🔍 Checking localStorage for episode ${episodeNumber}...`)
+    
+    // Check localStorage for the episode
+    const savedEpisodes = typeof window !== 'undefined' 
+      ? (localStorage.getItem('greenlit-episodes') || 
+         localStorage.getItem('scorched-episodes') || 
+         localStorage.getItem('reeled-episodes')) 
+      : null
+    
+    if (!savedEpisodes) {
+      console.log('No episodes found in localStorage')
+      return false
+    }
+    
+    const episodes = JSON.parse(savedEpisodes)
+    const episode = episodes[episodeNumber]
+    
+    if (!episode) {
+      console.log(`Episode ${episodeNumber} not found in localStorage`)
+      return false
+    }
+    
+    console.log(`✅ Found episode ${episodeNumber} in localStorage, migrating to Firestore...`)
+    
+    // Migrate to Firestore with correct ID and storyBibleId
+    const episodeToSave = {
+      ...episode,
+      storyBibleId, // Ensure correct storyBibleId
+      episodeNumber,
+      status: episode.status || 'completed'
+    }
+    
+    await saveEpisode(episodeToSave, storyBibleId, userId)
+    
+    console.log(`✅ Successfully recovered episode ${episodeNumber} to Firestore`)
+    return true
+  } catch (error) {
+    console.error(`❌ Failed to recover episode ${episodeNumber}:`, error)
+    return false
+  }
+}
+
+/**
+ * Check which episodes exist in localStorage but not in Firestore
+ */
+export async function findRecoverableEpisodes(
+  storyBibleId: string,
+  userId: string
+): Promise<number[]> {
+  try {
+    // Get episodes from Firestore
+    const firestoreEpisodes = await getEpisodesForStoryBible(storyBibleId, userId)
+    const firestoreEpisodeNumbers = Object.keys(firestoreEpisodes).map(Number)
+    
+    // Check localStorage for episodes
+    const savedEpisodes = typeof window !== 'undefined' 
+      ? (localStorage.getItem('greenlit-episodes') || 
+         localStorage.getItem('scorched-episodes') || 
+         localStorage.getItem('reeled-episodes')) 
+      : null
+    
+    if (!savedEpisodes) {
+      return []
+    }
+    
+    const localEpisodes = JSON.parse(savedEpisodes)
+    const localEpisodeNumbers = Object.keys(localEpisodes).map(Number)
+    
+    // Find episodes in localStorage but not in Firestore
+    const recoverable = localEpisodeNumbers.filter(
+      num => !firestoreEpisodeNumbers.includes(num)
+    )
+    
+    console.log(`🔍 Found ${recoverable.length} recoverable episodes:`, recoverable)
+    return recoverable
+  } catch (error) {
+    console.error('Error finding recoverable episodes:', error)
+    return []
+  }
+}
+
+/**
  * Delete an episode
  */
 export async function deleteEpisode(
@@ -291,49 +432,137 @@ export async function deleteAllEpisodesForStoryBible(
   let deletedCount = 0
 
   if (userId) {
-    // Delete from Firestore
+    // AUTHENTICATED USERS: Delete from BOTH Firestore AND localStorage
+    
+    // 1. Delete from Firestore (check multiple storyBibleId variations)
+    const storyBibleIdsToCheck = [storyBibleId]
+    
+    // Also check for deterministic fallback ID if it looks like we have a real ID
+    // (real IDs start with 'sb_', fallback IDs start with 'bible_')
+    if (storyBibleId.startsWith('sb_')) {
+      // Try to find fallback ID by checking localStorage episodes
+      const LEGACY_KEYS = ['greenlit-episodes', 'scorched-episodes', 'reeled-episodes']
+      for (const key of LEGACY_KEYS) {
+        const stored = localStorage.getItem(key)
+        if (stored) {
+          try {
+            const episodes = JSON.parse(stored)
+            // Find any episodes that might be for this story bible but with different ID
+            Object.values(episodes).forEach((ep: any) => {
+              if (ep.storyBibleId && 
+                  ep.storyBibleId !== storyBibleId && 
+                  ep.storyBibleId.startsWith('bible_') &&
+                  !storyBibleIdsToCheck.includes(ep.storyBibleId)) {
+                storyBibleIdsToCheck.push(ep.storyBibleId)
+              }
+            })
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+    }
+    
+    // Delete from Firestore for all found storyBibleIds
     try {
-      const episodesRef = collection(db, 'users', userId, 'storyBibles', storyBibleId, 'episodes')
-      const snapshot = await getDocs(episodesRef)
-      
-      for (const docSnap of snapshot.docs) {
-        await deleteDoc(docSnap.ref)
-        deletedCount++
+      for (const sbId of storyBibleIdsToCheck) {
+        const episodesRef = collection(db, 'users', userId, 'storyBibles', sbId, 'episodes')
+        const snapshot = await getDocs(episodesRef)
+        
+        for (const docSnap of snapshot.docs) {
+          await deleteDoc(docSnap.ref)
+          deletedCount++
+        }
+        
+        if (snapshot.docs.length > 0) {
+          console.log(`✅ Deleted ${snapshot.docs.length} episodes from Firestore under storyBibleId: ${sbId}`)
+        }
       }
       
-      console.log(`✅ Deleted ${deletedCount} episodes from Firestore for story bible ${storyBibleId}`)
+      console.log(`✅ Total: Deleted ${deletedCount} episodes from Firestore`)
     } catch (error) {
       console.error('Error deleting episodes from Firestore:', error)
       throw error
     }
-  } else {
-    // Delete from localStorage
-    const stored = localStorage.getItem(LOCALSTORAGE_KEY)
-    if (stored) {
-      try {
-        const episodes = JSON.parse(stored)
-        const filtered: Record<number, Episode> = {}
-        
-        Object.keys(episodes).forEach(key => {
-          const episode = episodes[key]
-          // Keep episodes from other story bibles
-          if (episode.storyBibleId && episode.storyBibleId !== storyBibleId) {
-            filtered[Number(key)] = episode
-          } else if (!episode.storyBibleId) {
-            // If no storyBibleId, assume it belongs to current story bible and delete
-            deletedCount++
+    
+    // 2. Delete from localStorage (ALL legacy keys)
+    const LEGACY_KEYS = ['greenlit-episodes', 'scorched-episodes', 'reeled-episodes']
+    let totalLocalDeleteCount = 0
+
+    for (const key of LEGACY_KEYS) {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        try {
+          const episodes = JSON.parse(stored)
+          const filtered: Record<number, Episode> = {}
+          let localDeleteCount = 0
+          
+          Object.keys(episodes).forEach(epKey => {
+            const episode = episodes[epKey]
+            // Keep episodes from other story bibles
+            // Delete if storyBibleId matches any of our IDs or if no storyBibleId
+            const shouldDelete = !episode.storyBibleId || storyBibleIdsToCheck.includes(episode.storyBibleId)
+            
+            if (!shouldDelete) {
+              filtered[Number(epKey)] = episode
+            } else {
+              localDeleteCount++
+            }
+          })
+          
+          if (Object.keys(filtered).length > 0) {
+            localStorage.setItem(key, JSON.stringify(filtered))
           } else {
-            deletedCount++
+            localStorage.removeItem(key) // Remove empty key entirely
           }
-        })
-        
-        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(filtered))
-        console.log(`✅ Deleted ${deletedCount} episodes from localStorage for story bible ${storyBibleId}`)
-      } catch (e) {
-        console.error('Error deleting localStorage episodes:', e)
-        throw e
+          totalLocalDeleteCount += localDeleteCount
+          
+          if (localDeleteCount > 0) {
+            console.log(`✅ Deleted ${localDeleteCount} episodes from localStorage key: ${key}`)
+          }
+        } catch (e) {
+          console.error(`Error deleting localStorage episodes from ${key}:`, e)
+        }
       }
     }
+
+    console.log(`✅ Total: Deleted ${totalLocalDeleteCount} episodes from localStorage`)
+  } else {
+    // GUEST USERS: Delete from localStorage only (ALL legacy keys)
+    const LEGACY_KEYS = ['greenlit-episodes', 'scorched-episodes', 'reeled-episodes']
+
+    for (const key of LEGACY_KEYS) {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        try {
+          const episodes = JSON.parse(stored)
+          const filtered: Record<number, Episode> = {}
+          
+          Object.keys(episodes).forEach(epKey => {
+            const episode = episodes[epKey]
+            // Keep episodes from other story bibles
+            const shouldDelete = !episode.storyBibleId || episode.storyBibleId === storyBibleId
+            
+            if (!shouldDelete) {
+              filtered[Number(epKey)] = episode
+            } else {
+              deletedCount++
+            }
+          })
+          
+          if (Object.keys(filtered).length > 0) {
+            localStorage.setItem(key, JSON.stringify(filtered))
+          } else {
+            localStorage.removeItem(key) // Remove empty key entirely
+          }
+        } catch (e) {
+          console.error(`Error deleting localStorage episodes from ${key}:`, e)
+          throw e
+        }
+      }
+    }
+
+    console.log(`✅ Deleted ${deletedCount} episodes from localStorage for story bible ${storyBibleId}`)
   }
 
   return deletedCount

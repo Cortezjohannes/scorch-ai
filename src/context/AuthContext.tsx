@@ -168,7 +168,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
 
   // Always use real Firebase on client (when configured), mocks only on server or before mount
-  const useMockAuth = !isMounted || isServer || !isFirebaseConfigured();
+  const useMockAuth = !isMounted || isServer || !isFirebaseConfigured()
+
+  // Proactive token refresh every 50 minutes (tokens expire after 1 hour)
+  useEffect(() => {
+    if (!isMounted || useMockAuth) return
+
+    const refreshToken = async () => {
+      try {
+        const currentUser = auth.currentUser
+        if (currentUser) {
+          // Force token refresh
+          await currentUser.getIdToken(true)
+          console.log('🔄 Firebase Auth token refreshed')
+        }
+      } catch (error) {
+        console.error('Failed to refresh token:', error)
+      }
+    }
+
+    // Refresh immediately on mount if user exists
+    if (auth.currentUser) {
+      refreshToken()
+    }
+
+    // Then refresh every 50 minutes
+    const interval = setInterval(refreshToken, 50 * 60 * 1000)
+    
+    return () => clearInterval(interval)
+  }, [isMounted, useMockAuth])
   
   useEffect(() => {
     // Wait for component to mount before initializing
