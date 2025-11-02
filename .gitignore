@@ -32,6 +32,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# NEVER commit these - they contain secrets
+.env.local
+.env.production
+.env.development
+
+# Deployment files with secrets (use .template versions instead)
+service.yaml
+deploy-production.sh
 
 # vercel
 .vercel

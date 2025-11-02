@@ -41,10 +41,19 @@ interface CastingImageRequest {
  */
 export class DallE3ImageGenerator {
   
-  private readonly endpoint = 'https://johan-m9b2v62z-eastus.cognitiveservices.azure.com/openai/deployments/dall-e-3/images/generations';
-  private readonly apiKey = 'CouXKPtZYfr6N8w5eGCBhtWVCYetGEhnpL3Cr7TjFUPSu1jM9fpYJQQJ99BDACYeBjFXJ3w3AAAAACOGxmRg';
+  // SECURITY: Use environment variables for API keys - NEVER hardcode secrets
+  private readonly endpoint = process.env.AZURE_DALLE_ENDPOINT 
+    ? `${process.env.AZURE_DALLE_ENDPOINT}/openai/deployments/dall-e-3/images/generations`
+    : 'https://johan-m9b2v62z-eastus.cognitiveservices.azure.com/openai/deployments/dall-e-3/images/generations';
+  private readonly apiKey = process.env.AZURE_DALLE_API_KEY || '';
   private readonly apiVersion = '2024-02-01';
   private readonly model = 'dall-e-3';
+  
+  constructor() {
+    if (!this.apiKey) {
+      console.warn('AZURE_DALLE_API_KEY not set - image generation will fail');
+    }
+  }
   
   /**
    * Generate character headshot for casting

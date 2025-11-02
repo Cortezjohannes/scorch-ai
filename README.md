@@ -25,13 +25,15 @@ A prototype for AI-powered video pre-production and post-production workflows.
    ```
 
 3. Set up environment variables:
-   - Copy `.env.local.example` to `.env.local`
-   - Add your API keys:
+   - Copy `.env.example` to `.env.local` (NEVER commit `.env.local`!)
+   - Add your API keys to `.env.local`:
      ```
      GEMINI_API_KEY=your_gemini_api_key
-     UNSPLASH_ACCESS_KEY=your_unsplash_access_key
-     UNSPLASH_SECRET_KEY=your_unsplash_secret_key
+     AZURE_OPENAI_API_KEY=your_azure_openai_key
+     AZURE_DALLE_API_KEY=your_azure_dalle_key
      ```
+   - ⚠️ **SECURITY**: Never commit API keys or secrets to git!
+   - See [SECURITY_GUIDE.md](./SECURITY_GUIDE.md) for details
 
 ### Getting a Gemini API Key
 
@@ -47,6 +49,33 @@ npm run dev
 ```
 
 The app will be available at http://localhost:3000 (or the next available port).
+
+## 🔒 Security
+
+**IMPORTANT**: This repository uses **GitHub Secret Scanning** to prevent accidental exposure of API keys.
+
+### ⚠️ Never Commit Secrets
+
+- **Never commit** `.env.local` or any file containing API keys
+- **Never hardcode** API keys in source code or deployment files
+- **Always use** environment variables (`process.env.VARIABLE_NAME`)
+- **For production**, use Google Cloud Secret Manager or GitHub Secrets
+
+### 📚 Security Documentation
+
+- **[SECURITY_GUIDE.md](./SECURITY_GUIDE.md)** - Complete security guide
+- **[SECURITY_CHECKLIST.md](./SECURITY_CHECKLIST.md)** - Pre-deployment checklist
+- **[scripts/setup-secrets.sh](./scripts/setup-secrets.sh)** - Script to set up secrets in Google Cloud
+
+### 🛡️ Quick Security Setup
+
+```bash
+# Set up secrets in Google Cloud Secret Manager (for production)
+./scripts/setup-secrets.sh
+
+# Verify no secrets in tracked files (before committing)
+git grep -i "api.*key.*=" -- ':!*.template' ':!SECURITY*' ':!*.example'
+```
 
 ## Deployment to Google Cloud
 
