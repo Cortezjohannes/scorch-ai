@@ -1,0 +1,43 @@
+{
+  "episodeNumber": 1,
+  "title": "The Fog Never Lifts",
+  "synopsis": "Detective Sarah Martinez arrives in the fog-shrouded town of Veridian Falls, instantly unwelcome, and is confronted with her first case—a murder at the old Whispering Pines Logging Mill. Battling mistrust from locals and internal ghosts, Sarah discovers a chilling signature at the crime scene, clashing with Chief Miller and meeting the victim's volatile brother. As the storm intensifies, the episode closes with Sarah alone, rattled by a taunting message and memories she can't outrun.",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "title": "Arrival in the Mist",
+      "content": "Sarah Martinez’s first impression of Veridian Falls is the way the fog presses tight to the windshield, erasing edges and stealing color from the world. She drives slowly through the sleepy main street, catching wary glances from bundled townsfolk and the fading gold letters on the Welcome sign, half-swallowed by moss. \n\nSarah parks outside the police station, straightens her collar, and enters with deliberate calm. Chief Frank Miller stands behind a battered desk, posture rigid, eyes measuring. He gives Sarah a curt nod. \"You’re early. That’s rare here.\"\n\nShe meets his gaze, replying with a thin smile. “First day on the job. Let’s not make it memorable for the wrong reasons.”\n\nBut it already was: a radio call slices through the tension. There’s been a body found at the old Whispering Pines Logging Mill.\n\nChief Miller sighs heavily. “Welcome to Veridian Falls, Detective.”"
+    },
+    {
+      "sceneNumber": 2,
+      "title": "Whispers and Orchids",
+      "content": "The Whispering Pines Logging Mill is a relic from a forgotten era—boards warped, windows yawning open, the machinery rusted and silent. The fog seeps indoors, blurring edges. The body lies near a derelict conveyor, a young woman with pale skin inked by bruises. At her throat: a black, petrified orchid, pinched delicately between her fingers.\n\nSarah crouches beside the victim, her face unreadable. \"Anyone touch the scene?\" she asks, voice clipped.\n\nChief Miller stands at the threshold, arms folded. \"Locals know to keep their distance.\"\n\nSarah’s eyes dart to footprints—one set, skirting the perimeter, careful. She senses Miller watching her, skepticism coiled.\n\nA voice breaks through: Liam O’Connell, the victim’s brother, barrel-chested and shaking, pushes past the tape. \"You let this happen!\" He glares at Miller, then Sarah. His grief is fresh, ferocious; his accusation lingers like gunpowder.\n\nIgnoring the confrontation, Sarah fingers the orchid, noting its unnatural sheen. “This isn’t for us. It’s for me,” she mutters, only half aware Miller is listening.\n\nOutside, the first drops of rain tap the tin roof. The storm is coming."
+    },
+    {
+      "sceneNumber": 3,
+      "title": "Fragments in the Storm",
+      "content": "Night falls heavy. Sarah sits alone in her one-room cabin, reports scattered at her feet. The wind rattles the windowpane as a local radio crackles—journalist Javier Rojas is already stoking the flames with leaked details. The town’s secrets, it seems, aren’t safe even in the fog.\n\nA text pings on Sarah’s phone. No caller ID. The message: \"Did you learn nothing last time, Detective? Count the orchids.\"\n\nSarah’s hands tremble. A memory flashes—sirens, an old case, her partner’s voice drowned by guilt. She closes her eyes, the rain masking the sound of her breath hitching in her throat. For the first time, her composure cracks; grief and fear claw at her practiced calm.\n\nThunder rolls. She stares at the black orchid on her desk, piecing together threads, feeling the weight—the town against her, a killer who knows her, and a storm with no sign of lifting."
+    }
+  ],
+  "episodeRundown": "This episode establishes Sarah Martinez’s fraught arrival and instant immersion in Veridian Falls’ insular world. Her introduction to the murder case, the signature black orchid, and the hostility of both Chief Miller and grief-stricken Liam O’Connell quickly raise stakes and tension. Sarah’s relationship with Miller is antagonistic but professional, and the brutal murder of a local family’s daughter brings old town conflicts to the surface. The anonymous message makes the case personal, exposing Sarah’s vulnerability and hinting at unresolved traumas. The storm and deepening fog serve as metaphors for the encroaching mystery and Sarah’s isolation. The episode primes the central mystery, sets up antagonist dynamics, and plants seeds for Sarah’s quest for redemption and belonging, visually characterized by oppressive atmosphere and emotional fracture.",
+  "branchingOptions": [
+    {
+      "id": 1,
+      "text": "Liam O’Connell decides to take justice into his own hands after being stonewalled by Sarah and Chief Miller, secretly vowing to find his sister’s killer himself.",
+      "description": "Liam’s vigilante actions escalate tension in the community, threaten evidence, and force Sarah to race not just a killer but an unpredictable mourner on the edge.",
+      "isCanonical": false
+    },
+    {
+      "id": 2,
+      "text": "Sarah chooses to confide in Maya Kapoor, the deputy, about the anonymous message and her haunted past, risking vulnerability in hopes of building trust.",
+      "description": "Maya becomes Sarah’s uneasy ally, shifting the local power dynamics. Their alliance challenges Chief Miller’s authority but offers Sarah a lifeline out of isolation, deepening her arc toward redemption and complicating loyalties within the department.",
+      "isCanonical": true
+    },
+    {
+      "id": 3,
+      "text": "Chief Miller, determined to control the narrative, confronts Javier Rojas and threatens him into burying sensitive details about the black orchid, prioritizing town secrecy over transparency.",
+      "description": "Javier rebels, digging deeper into the case and inflaming public fear, making the investigation and Sarah’s position in town more precarious. The press becomes a new adversary, multiplying the chaos.",
+      "isCanonical": false
+    }
+  ]
+}

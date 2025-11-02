@@ -1,0 +1,15 @@
+{
+  "logs": [],
+  "isActive": false,
+  "startTime": null,
+  "progress": {
+    "currentStep": 0,
+    "currentStepName": "Initializing",
+    "currentStepProgress": 0,
+    "overallProgress": 0,
+    "currentDetail": "Starting pre-production...",
+    "isComplete": false,
+    "startTime": null,
+    "logs": []
+  }
+}

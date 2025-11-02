@@ -1,0 +1,210 @@
+'use client'
+
+import React from 'react'
+
+interface ScriptElement {
+  type: 'slug' | 'action' | 'character' | 'dialogue' | 'parenthetical' | 'transition' | 'page-break'
+  content: string
+  metadata?: {
+    sceneNumber?: number
+    characterName?: string
+  }
+}
+
+interface ScriptPage {
+  pageNumber: number
+  elements: ScriptElement[]
+}
+
+interface GeneratedScript {
+  title: string
+  episodeNumber: number
+  pages: ScriptPage[]
+  metadata: {
+    pageCount: number
+    sceneCount: number
+    characterCount: number
+    estimatedRuntime: string
+    generatedAt: number
+  }
+}
+
+interface ScriptRendererProps {
+  script: GeneratedScript
+  showPageNumbers?: boolean
+}
+
+export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendererProps) {
+  return (
+    <div className="screenplay-container bg-white text-black p-12 rounded-lg shadow-xl max-w-4xl mx-auto font-mono text-sm">
+      {/* Title Page */}
+      <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-gray-300">
+        <h1 className="text-4xl font-bold mb-4 uppercase">{script.title}</h1>
+        <div className="text-xl mb-8">Episode {script.episodeNumber}</div>
+        <div className="text-sm text-gray-600 space-y-2">
+          <div>{script.metadata.sceneCount} Scenes</div>
+          <div>{script.metadata.characterCount} Characters</div>
+          <div>Runtime: ~{script.metadata.estimatedRuntime}</div>
+        </div>
+      </div>
+
+      {/* Script Pages */}
+      {script.pages.map((page) => (
+        <div key={page.pageNumber} className="screenplay-page mb-12 relative">
+          {showPageNumbers && (
+            <div className="absolute -top-6 right-0 text-gray-400 text-xs">
+              Page {page.pageNumber}
+            </div>
+          )}
+          
+          <div className="space-y-4">
+            {page.elements.map((element, idx) => (
+              <ScriptElementRenderer key={idx} element={element} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Metadata Footer */}
+      <div className="text-center text-xs text-gray-500 mt-12 pt-8 border-t border-gray-300">
+        Generated on {new Date(script.metadata.generatedAt).toLocaleDateString()}
+      </div>
+    </div>
+  )
+}
+
+function ScriptElementRenderer({ element }: { element: ScriptElement }) {
+  switch (element.type) {
+    case 'slug':
+      return (
+        <div className="screenplay-slug font-bold uppercase tracking-wide text-base py-2">
+          {element.content}
+        </div>
+      )
+
+    case 'action':
+      if (!element.content.trim()) return <div className="h-4" />
+      return (
+        <div className="screenplay-action leading-relaxed">
+          {element.content}
+        </div>
+      )
+
+    case 'character':
+      return (
+        <div className="screenplay-character text-center font-bold uppercase mt-4">
+          {element.content}
+        </div>
+      )
+
+    case 'dialogue':
+      return (
+        <div className="screenplay-dialogue text-center max-w-md mx-auto">
+          {element.content}
+        </div>
+      )
+
+    case 'parenthetical':
+      return (
+        <div className="screenplay-parenthetical text-center max-w-xs mx-auto italic text-sm">
+          {element.content}
+        </div>
+      )
+
+    case 'transition':
+      return (
+        <div className="screenplay-transition text-right font-bold uppercase my-4">
+          {element.content}
+        </div>
+      )
+
+    case 'page-break':
+      return (
+        <div className="screenplay-page-break border-t-2 border-dashed border-gray-300 my-8" />
+      )
+
+    default:
+      return null
+  }
+}
+
+// Compact view for breakdown mode
+export function ScriptBreakdownView({ script }: { script: GeneratedScript }) {
+  // Extract all scenes (slug lines)
+  const scenes = script.pages.flatMap(page => 
+    page.elements
+      .filter(el => el.type === 'slug')
+      .map(el => ({
+        sceneNumber: el.metadata?.sceneNumber || 0,
+        heading: el.content
+      }))
+  )
+
+  // Extract all characters
+  const characters = new Set<string>()
+  script.pages.forEach(page => {
+    page.elements.forEach(el => {
+      if (el.type === 'character' && el.metadata?.characterName) {
+        characters.add(el.metadata.characterName)
+      }
+    })
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+          <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Pages</div>
+          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.pageCount}</div>
+        </div>
+        
+        <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+          <div className="text-sm text-[#e7e7e7]/70 mb-1">Scenes</div>
+          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.sceneCount}</div>
+        </div>
+        
+        <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+          <div className="text-sm text-[#e7e7e7]/70 mb-1">Characters</div>
+          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.characterCount}</div>
+        </div>
+        
+        <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+          <div className="text-sm text-[#e7e7e7]/70 mb-1">Runtime</div>
+          <div className="text-2xl font-bold text-[#00FF99]">~{script.metadata.estimatedRuntime}</div>
+        </div>
+      </div>
+
+      {/* Scenes List */}
+      <div className="bg-[#1a1a1a] rounded-lg border border-[#36393f] p-6">
+        <h3 className="text-lg font-bold text-[#e7e7e7] mb-4">Scenes</h3>
+        <div className="space-y-2">
+          {scenes.map((scene, idx) => (
+            <div key={idx} className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded border border-[#36393f]">
+              <div className="w-8 h-8 flex items-center justify-center bg-[#00FF99] text-black font-bold rounded">
+                {scene.sceneNumber}
+              </div>
+              <div className="flex-1 text-[#e7e7e7] font-mono text-sm">
+                {scene.heading}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Characters List */}
+      <div className="bg-[#1a1a1a] rounded-lg border border-[#36393f] p-6">
+        <h3 className="text-lg font-bold text-[#e7e7e7] mb-4">Characters</h3>
+        <div className="flex flex-wrap gap-2">
+          {Array.from(characters).map((char, idx) => (
+            <div key={idx} className="px-4 py-2 bg-[#2a2a2a] rounded border border-[#36393f] text-[#e7e7e7] text-sm">
+              {char}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+

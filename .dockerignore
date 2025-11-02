@@ -1,0 +1,46 @@
+# Versioning and metadata
+.git
+.gitignore
+.github
+.husky
+.vscode
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+.yarn
+
+# Testing
+coverage
+.nyc_output
+
+# Build
+.next
+out
+
+# Environment (careful not to ignore the .env you want to include)
+# .env.local is needed for our build
+.env.development
+.env.test
+
+# Misc
+.DS_Store
+*.pem
+backups
+yes
+recovered-*
+full_restore
+*.tar
+*.tar.gz
+*.zip
+*.tgz
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Typescript
+*.tsbuildinfo 

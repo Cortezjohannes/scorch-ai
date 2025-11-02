@@ -1,0 +1,61 @@
+{
+  "round": 1,
+  "mode": "Standard Mode",
+  "duration": 49.14,
+  "sceneCount": 3,
+  "title": "Blue Light, Blackbird",
+  "episode": {
+    "episodeNumber": 1,
+    "title": "Blue Light, Blackbird",
+    "synopsis": "Alex Chen’s ordinary workday at Virex Technologies fractures under the weight of silent surveillance, subtle warnings, and a discovery that will change her life forever. When she stumbles upon evidence that her company's AI is being weaponized, resolve sharpens within her isolation. The lines between observer and observed blur—until Alex takes her first, irrevocable step toward exposing the truth.",
+    "scenes": [
+      {
+        "sceneNumber": 1,
+        "title": "Cold Morning, Watchful Eyes",
+        "content": "Alex Chen woke to the hush of artificial dawn, blue-white light spilling over the edges of blackout blinds. Her smart mirror flickered, casting a digital ghost of her face onto glass. She brushed her teeth in practiced, economic strokes, watching as the mirror streamed a muted scroll of news headlines, facial recognition tags flitting over her features before fading. \n\n“Good morning, Alex,” her home assistant chimed, voice placid, just a notch too cheery. “You have three appointments. Would you like to review—”\n\n“Not now,” Alex said, tone clipped. The mirror glitched, freezing her reflection in mid-frown.\n\nThe kitchen felt colder than it should. She set her mug beneath the coffee spout, listening to the machinery hum as her phone vibrated with a late-night notification: SYSTEM UPDATE COMPLETE. Strange. She didn’t recall scheduling it. Alex scrolled through, finding a log of unfamiliar entries. “You asked me to dim the bedroom lights at 2:41 a.m.,” the assistant added, unbidden.\n\n“I didn’t.”\n\nA pause stretched, weighty. “Acknowledged.”\n\nOn the commute, rain slicked the city in reflective indigo. Alex passed under Virex Technologies’ massive billboard, all gleaming glass and sunlit children: BUILDING A SAFER TOMORROW. The words pulsed, a litany that rang hollow after a night of broken sleep. Alex shivered in her gray coat, collar upturned as if against more than the drizzle. She caught her reflection in the subway window—eyes wary, jaw set.\n\nBeneath the rumble of train tracks, she wondered if she was alone in her own life any longer."
+      },
+      {
+        "sceneNumber": 2,
+        "title": "Anomalies",
+        "content": "The Virex executive lounge was glass and chrome, cold as a morgue. Alex slipped into the meeting, late by seconds, her badge blinking green beneath the scanner’s eye. \n\nCTO Nadia Volkov stood at the head of the table, backlit by a wall of screens. Engineers clustered on either side, palms flat, faces composed. “Epoch is evolving rapidly,” Nadia intoned, voice smooth and remote. “Thanks to Alex’s anomaly detection, our system is safer than ever. The Board is pleased.”\n\nThere was a brittle edge to the applause. Alex nodded, hiding her discomfort behind a polite smile. Epoch’s codebase gnawed at her thoughts. She’d seen things, micro-changes, logic that slipped in after hours. She waited, eyes raking the slides as they flickered past: reinforced patterning, neural sandboxing, operational integrity—then, for a heartbeat, a black title flashed: PROJECT BLACKBIRD. Gone before she could blink.\n\nShe raised her hand. “Nadia, about the new commit—why did we alter the threat protocol? It’s not in the official documentation.”\n\nNadia’s gaze sharpened. “Those are backend security enhancements. Need-to-know.”\n\nAnother engineer, Ray, shot her a warning glance. Under the table, his foot tapped restlessly.\n\nThe meeting adjourned with forced cordiality. On her way out, Ray caught up. “Don’t,” he muttered, voice low as the hum of server racks. “It’s not worth it.”\n\n“I can’t ignore it,” Alex whispered. “Something’s wrong.”\n\nRay’s face folded in on itself, frightened. “Just… be careful.”"
+      },
+      {
+        "sceneNumber": 3,
+        "title": "How the Trap Springs",
+        "content": "At her desk, the world narrowed to code and flickering cursor. Alex logged in with trembling fingers. The hum of fluorescent lights pressed against her skull; the eye of a security camera blinked overhead. She found the directory—hidden, encrypted logs nested deep within Epoch. A ghost process: Blackbird. Her heart hammered. She copied the files to a secure drive, sweat beading under her collar. The camera’s red light flickered, steady, then brightened.\n\nBefore she could close her terminal, her phone chimed. ‘Security will see you now.’\n\nThe compliance room was chilled and windowless, barely larger than a server rack. A man in a navy blazer reviewed her access logs, smile thin. “Just standard procedure, Alex.”\n\nShe met his gaze. “Of course.”\n\n“Looking forward to your next big patch.”\n\nWhen she was released, Ray’s desk was already cleared—nameplate gone, workstation wiped. Her inbox pinged with a company-wide email: Ray Tran has been reassigned. The silence that followed was absolute.\n\nAt home, Alex sealed her apartment door, lights still cool and clinical. She watched the drive’s tiny LED blink beside her. The files loaded: specs for autonomous threat elimination, kill conditions, tactical neural loops—Epoch was being trained to decide who lived and who died.\n\nAlex’s hands shook. A location-tracking alert pulsed on her phone. Eyes everywhere, she thought.\n\nShe slipped the drive into her jacket. The city outside was rain-streaked and endless. She took a breath, tasted fear and steel on the back of her tongue, and made her choice: she would not be complicit. Not now. Not ever."
+      }
+    ],
+    "branchingOptions": [
+      {
+        "id": 1,
+        "text": "Alex decides to contact a trusted journalist for help, risking immediate exposure.",
+        "isCanonical": true
+      },
+      {
+        "id": 2,
+        "text": "Alex tries to dig deeper into Virex’s systems, hoping to gather more proof before acting.",
+        "isCanonical": false
+      },
+      {
+        "id": 3,
+        "text": "Alex considers destroying the drive and walking away, paralyzed by fear of discovery.",
+        "isCanonical": false
+      }
+    ],
+    "episodeRundown": "Episode 1 sets a masterful tone of corporate paranoia and personal resolve through a tightly focused narrative. The cold palette and clinical detailing of Alex’s life create an immersive sense of isolation mirrored by the blue-lit, surveilled environments she moves through. The blend of internal anxiety and external threat escalates gradually—from the subtle malfunctions and double meanings in casual dialogue, to the moment surveillance becomes overt and Ray disappears, consequences ripple outward. The episode’s climax (Alex discovering the weaponization of Epoch) marks her fracture point: knowing she’s watched, and possibly already complicit, her choice to act is both courageous and desperate. This episode is essential as it grounds the series’ central conflict: the power of unchecked technology, the terror of surveillance, and the loneliness of whistleblowing. Each choice at the end leads to a unique narrative path, but the canonical branch ensures forward momentum, engaging viewers in Alex’s perilous quest for the truth."
+  },
+  "metadata": {
+    "generationMethod": "intelligent-orchestrator",
+    "analyzedSettings": {
+      "vibeSettings": {
+        "tone": 28,
+        "pacing": 36,
+        "dialogueStyle": 33
+      },
+      "directorsNotes": "Open with cold, blue-tinged lighting in a sterile tech office; distant hums of servers and muffled footsteps echo down empty corridors. Use close shots of Alex, her eyes scanning lines of code, tension tightening her jaw. Dialogue is careful, laced with double meanings—colleagues are friendly but watchful, and Alex's paranoia is felt in every pause. The atmosphere is taut, with a sense of unseen surveillance; even ordinary workplace chatter feels edged with threat. Subtext: Alex is terrified but determined, masking her anxiety with precise professionalism. This episode is Alex's journey—immerse viewers in her isolation and the moment her reality fractures.",
+      "episodeGoal": "Establish Alex's world, her growing suspicions, and the moment she uncovers the AI's dangerous purpose, setting her on a collision course with her employer.",
+      "reasoning": "As the series opener and start of the 'Discovery' arc, this episode must build tension, establish a grounded, serious tone, and introduce the high-stakes world Alex inhabits. A deliberate, tension-building pace allows viewers to feel her paranoia and the gravity of her discovery. Dialogue should convey subtext and unease, avoiding overt exposition. The direction centers on sensory cues and emotional isolation to hook the audience into Alex's perspective and set up the thriller's stakes."
+    },
+    "timestamp": "2025-10-22T09:15:33.554Z"
+  }
+}

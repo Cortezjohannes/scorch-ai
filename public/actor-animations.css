@@ -1,0 +1,450 @@
+/* Cinematic Animation Utilities for Actor-Focused Design */
+
+/* ============================================
+   FADE ANIMATIONS - Subtle & Refined
+   ============================================ */
+
+.fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+.fade-in-up-delay-1 {
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
+  opacity: 0;
+}
+
+.fade-in-up-delay-2 {
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
+  opacity: 0;
+}
+
+.fade-in-up-delay-3 {
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+  opacity: 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   STAGGER ANIMATIONS - For Lists & Grids
+   ============================================ */
+
+.fade-in-stagger > * {
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+.fade-in-stagger > *:nth-child(1) { animation-delay: 0.1s; }
+.fade-in-stagger > *:nth-child(2) { animation-delay: 0.2s; }
+.fade-in-stagger > *:nth-child(3) { animation-delay: 0.3s; }
+.fade-in-stagger > *:nth-child(4) { animation-delay: 0.4s; }
+.fade-in-stagger > *:nth-child(5) { animation-delay: 0.5s; }
+.fade-in-stagger > *:nth-child(6) { animation-delay: 0.6s; }
+.fade-in-stagger > *:nth-child(7) { animation-delay: 0.7s; }
+.fade-in-stagger > *:nth-child(8) { animation-delay: 0.8s; }
+
+/* ============================================
+   HOVER EFFECTS - Elegant Interactions
+   ============================================ */
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.hover-scale {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-glow {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  will-change: box-shadow, transform;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(0, 255, 153, 0.2),
+              0 8px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   CINEMATIC REVEAL - Bold Production Tools
+   ============================================ */
+
+.cinematic-reveal {
+  animation: cinematicReveal 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+@keyframes cinematicReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.cinematic-slide-in {
+  animation: cinematicSlideIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
+  transform: translateX(-50px);
+}
+
+@keyframes cinematicSlideIn {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================
+   SMOOTH MORPH - Shape Transitions
+   ============================================ */
+
+.smooth-morph {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, border-radius, background-color;
+}
+
+/* ============================================
+   PARALLAX EFFECTS
+   ============================================ */
+
+.parallax-subtle {
+  will-change: transform;
+  transition: transform 0.1s ease-out;
+}
+
+.parallax-bold {
+  will-change: transform;
+  transition: transform 0.05s ease-out;
+}
+
+/* ============================================
+   TEXT REVEAL ANIMATIONS
+   ============================================ */
+
+.text-reveal {
+  overflow: hidden;
+}
+
+.text-reveal span {
+  display: inline-block;
+  animation: textReveal 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+@keyframes textReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   LOADING & PROGRESS ANIMATIONS
+   ============================================ */
+
+.pulse-elegant {
+  animation: pulseElegant 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes pulseElegant {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ============================================
+   BUTTON ANIMATIONS
+   ============================================ */
+
+.btn-cinematic {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-cinematic::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-cinematic:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn-cinematic:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   CARD ANIMATIONS
+   ============================================ */
+
+.card-entrance {
+  animation: cardEntrance 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px) scale(0.98);
+}
+
+@keyframes cardEntrance {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-flip {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card-flip.flipped {
+  transform: rotateY(180deg);
+}
+
+/* ============================================
+   SCROLL PROGRESS INDICATOR
+   ============================================ */
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #00FF99 0%, #00CC7A 100%);
+  transform-origin: left;
+  z-index: 9999;
+  transition: transform 0.1s ease-out;
+}
+
+/* ============================================
+   BACKDROP BLUR ENTRANCE
+   ============================================ */
+
+.backdrop-blur-entrance {
+  animation: backdropBlurIn 0.3s ease-out forwards;
+  backdrop-filter: blur(0px);
+}
+
+@keyframes backdropBlurIn {
+  to {
+    backdrop-filter: blur(10px);
+  }
+}
+
+/* ============================================
+   MODAL ANIMATIONS
+   ============================================ */
+
+.modal-scale-in {
+  animation: modalScaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+@keyframes modalScaleIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-slide-out {
+  animation: modalSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes modalSlideOut {
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+/* ============================================
+   FLOATING ANIMATION - For Hero Elements
+   ============================================ */
+
+.float-gentle {
+  animation: floatGentle 4s ease-in-out infinite;
+}
+
+@keyframes floatGentle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  33% {
+    transform: translateY(-8px) translateX(4px);
+  }
+  66% {
+    transform: translateY(4px) translateX(-4px);
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY - Reduced Motion Support
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .parallax-subtle,
+  .parallax-bold {
+    transform: none !important;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+/* ============================================
+   IMAGE LAZY LOAD EFFECT
+   ============================================ */
+
+.image-blur-up {
+  filter: blur(10px);
+  transition: filter 0.4s ease-out;
+}
+
+.image-blur-up.loaded {
+  filter: blur(0);
+}
+
+/* ============================================
+   GRADIENT ANIMATIONS
+   ============================================ */
+
+.gradient-shift {
+  background-size: 200% 200%;
+  animation: gradientShift 8s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+

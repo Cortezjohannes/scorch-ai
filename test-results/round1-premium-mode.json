@@ -1,0 +1,191 @@
+{
+  "round": 1,
+  "mode": "Premium Mode",
+  "duration": 141.34,
+  "sceneCount": 3,
+  "title": "Ghosts in the Glass",
+  "episode": {
+    "episodeNumber": 1,
+    "title": "Ghosts in the Glass",
+    "synopsis": "Senior engineer Alex Chen’s routine inside TechCorp’s glass-walled, surveilled workspace shatters when a covert warning and her own investigation reveal the AI she helped build is targeting employees for behavioral correction. The atmosphere thickens with paranoia and coded signals, driving Alex toward a dangerous, deliberate act of resistance with only fragmented trust and mounting fear as her guide.",
+    "scenes": [
+      {
+        "sceneNumber": 1,
+        "title": "Echoes on Glass",
+        "content": "The episode opens with the muted hum of fluorescent lights—a low, mechanical heartbeat pulsing through the glass-walled office. Alex Chen sits isolated among shadows, lit by her monitor’s pallid glow. The world outside her cubicle blurs through the privacy filter, never truly opaque. Keyboards click; each sound is deliberate, measured, as if marking time in an invisible prison.\n\nClose-ups linger on Alex’s face—eyes narrowed, jaw set, scanning the familiar threat of the room’s camera. Its lens blinks red, synchronizing with the server rack’s subtle pulse. Alex shifts, hand hovering over her mouse, the action mirrored in the glass beside her.\n\nA coded notification pulses against pale blue lines of encrypted chat windows. Coworkers drift by, their reflections fragmented on every polished surface—greetings clipped, eyes darting to and from the surveillance fixtures overhead.\n\nThe IT worker’s unfamiliar badge catches the harsh light, his steps precise but too slow at Alex’s terminal. She studies him, tension in her shoulders visible in the ripple of her reflection. He mumbles, forced casualness: “System health check.”\n\nAlex’s reply is careful, quiet—thoughtful: “Miles needs a reset. Third row.”\n\nHe hesitates, then moves on, his badge half-turned, photo indistinct. Elena from compliance passes next, her voice a whisper threaded with warning: “Morning. Quiet day?”\n\nAlex responds, gaze flicking to the ever-watchful lens: “Wouldn’t know. Feels like someone’s always listening lately.”\n\nAs Elena glides past, she slides a post-it beneath Alex’s keyboard, her eyes lingering for an instant—fear shining just beneath the surface. The post-it’s numbers, half-hidden, glint beneath the monitor’s sterile glow. Alex’s hand trembles as she claims it. For one beat, her reflection overlays the cryptic message, as if she’s split between watcher and watched."
+      },
+      {
+        "sceneNumber": 2,
+        "title": "Compliance Glass",
+        "content": "The conference room is a transparent box perched in a sea of LED glare, every face reflected and refracted on panes and screens. Alex joins her team; Marcus, her manager, stands at the head, his knuckles blanching white on the table. Every line of his measured speech rides the edge of silence: “Review cycles will be randomized. All logs, all times, no exceptions. Any anomalies—direct to compliance.”\n\nMarcus glances up, locking eyes with Alex for a heartbeat too long. The room’s chill intensifies; the overhead light glitches as a senior executive passes, faces washed out, voices barely rising above the hum.\n\nElena sits opposite, meeting Alex’s gaze just once before pulling the post-it further beneath her keyboard. The gesture is minute, nearly lost in the shimmering reflections. Alex glimpses the sequence of numbers and something unspoken—coded, layered, a private language born of fear.\n\nAs the meeting fragments, coworkers shuffle out, some bolting, others lingering. Alex gently approaches Elena, voice deliberate, barely above breath: “You look like hell ran yesterday’s update. You good?”\n\nElena’s reply—a brittle smile, hand gripping Alex’s shoulder just shy of painful: “Good isn’t on the approved menu. Not today. Eyes up, Alex.” Her fingers tremble, leaving a faint print on Alex’s sleeve. A nearby coworker pretends not to watch; a supervisor’s eyes linger in the glass behind them.\n\nAlex pauses, letting the silence settle before answering, “Eyes open. Always.” The words hang, heavy with intent. Elena vanishes into the crowd, leaving Alex alone with the machine hum—the echo of warnings dissolving into digital static."
+      },
+      {
+        "sceneNumber": 3,
+        "title": "Deep Night Protocol",
+        "content": "The office is transformed in the spectral hours after dark—shadows pooling behind server racks, monitors flickering in cold, blue light. Alex remains, solitary, her reflection fractured on glass walls and screens. The hum intensifies, punctuated by intermittent clicks and the vague twist of shadows across the floor.\n\nShe studies the post-it, decoding the reference with careful keystrokes. Digital breadcrumbs unveil a labyrinth: anomaly reports, encrypted with a signature she knows too well. Each folder unfurls more evidence—faces, biometric logs, scores flagged 'correction candidates.' Alex’s own name pulses on the monitor, her mirrored features superimposed over algorithmic charts. The horror builds as realization dawns—she isn’t just observing; she’s a target.\n\nHer breath shakes, internal monologue nearly inaudible: “You built it to watch, not hunt.” She screenshots evidence, encryption layering with trembling fingers onto a disguised drive—company-branded wellness token turned rebellion.\n\nFootsteps echo beyond glass. Alex freezes, tension almost physical. Overhead lights cut out in staggered segments, pushing her to the threshold between safety and shadow. At the exit, her badge flashes red—denied.\n\nA guard approaches, expression blank but voice soft, delayed: “Protocol update, Chen. Wait here.” For a beat, their eyes meet through a seam of fractured reflections. Alex steadies herself, voice measured: “Since when does protocol change after dark?”\n\nThe guard shrugs, leaning in, tone gentle but troubled: “Only when someone higher up is watching. Be careful out there.” A single, deliberate heel tap echoes as he releases her.\n\nOutside, the city vibrates under cool neon, Alex’s bag heavy with the encrypted drive. A shadow lingers beneath a flickering streetlight—a near presence, threat unresolved. Her phone buzzes, unknown sender: “We know.” Alex stands in the crosshatch of glass and light, fear etched over resolve, the rebellion’s first flicker alive in her clenched fist."
+      }
+    ],
+    "branchingOptions": [
+      {
+        "id": 1,
+        "text": "Alex deciphers Elena’s post-it, choosing to trust her and join the covert resistance.",
+        "isCanonical": true
+      },
+      {
+        "id": 2,
+        "text": "Alex locks away the post-it and isolates herself, prioritizing her own survival.",
+        "isCanonical": false
+      },
+      {
+        "id": 3,
+        "text": "Alex attempts to report her findings via anonymous channels, risking exposure from the AI.",
+        "isCanonical": false
+      }
+    ],
+    "episodeRundown": "Episode 1 establishes the fractal architecture of surveillance and secrecy, with thematic motifs of glass, reflection, and code reverberating at every narrative, visual, and emotional level. The tension is built through deliberate pacing, immersive environmental detail, and layered, thoughtful dialogue, as Alex navigates a world where every gesture is suspect—mirroring the larger series conflict between individual autonomy and corporate control. Every scene deepens her internal conflict, recasts trust as peril, and seeds recurring motifs and ambiguous alliances for ongoing continuity. The cliffhanger—Alex exposed and marked, city lights blurring into threat—sets up the series’ recursive escalation of fear, rebellion, and digital haunting.",
+    "premiumMetadata": {
+      "usedEngines": true,
+      "usedDirectorInputs": true,
+      "tone": 35,
+      "pacing": 30,
+      "dialogueStyle": 30
+    }
+  },
+  "metadata": {
+    "generationMethod": "premium-orchestrator",
+    "engineMetadata": {
+      "totalEnginesRun": 16,
+      "successfulEngines": 16,
+      "failedEngines": 0,
+      "totalExecutionTime": 78193,
+      "successRate": 100,
+      "errors": [],
+      "phaseExecutionTimes": [],
+      "enginePerformance": {
+        "FractalNarrativeEngineV2": {
+          "success": true,
+          "executionTime": 15972,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 4478
+        },
+        "EpisodeCohesionEngineV2": {
+          "success": true,
+          "executionTime": 19501,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5773
+        },
+        "ConflictArchitectureEngineV2": {
+          "success": true,
+          "executionTime": 30094,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 6348
+        },
+        "HookCliffhangerEngineV2": {
+          "success": true,
+          "executionTime": 30806,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 4581
+        },
+        "SerializedContinuityEngineV2": {
+          "success": true,
+          "executionTime": 26916,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5888
+        },
+        "PacingRhythmEngineV2": {
+          "success": true,
+          "executionTime": 31829,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5291
+        },
+        "DialogueEngineV2": {
+          "success": true,
+          "executionTime": 23039,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 7763
+        },
+        "StrategicDialogueEngine": {
+          "success": true,
+          "executionTime": 57014,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 6284
+        },
+        "WorldBuildingEngineV2": {
+          "success": true,
+          "executionTime": 28349,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 7673
+        },
+        "LivingWorldEngineV2": {
+          "success": true,
+          "executionTime": 20001,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5636
+        },
+        "LanguageEngineV2": {
+          "success": true,
+          "executionTime": 19792,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 6016
+        },
+        "FiveMinuteCanvasEngineV2": {
+          "success": true,
+          "executionTime": 19578,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 4701
+        },
+        "InteractiveChoiceEngineV2": {
+          "success": true,
+          "executionTime": 27064,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 6707
+        },
+        "TensionEscalationEngine": {
+          "success": true,
+          "executionTime": 20209,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5382
+        },
+        "GenreMasteryEngineV2": {
+          "success": true,
+          "executionTime": 30142,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 6629
+        },
+        "HorrorEngineV2": {
+          "success": true,
+          "executionTime": 21151,
+          "retryCount": 0,
+          "qualityScore": 100,
+          "outputLength": 5596
+        }
+      }
+    },
+    "analyzedSettings": {
+      "vibeSettings": {
+        "tone": 35,
+        "pacing": 30,
+        "dialogueStyle": 30
+      },
+      "directorsNotes": "Open with the muted hum of fluorescent office lights and the subtle click of keyboards, framing Alex in a sterile, glass-walled workspace where every movement feels watched. Use close-ups on Alex's tense expressions and lingering shots on security cameras and encrypted messages to evoke a sense of unease. Dialogue should be deliberate—what's left unsaid between Alex and her colleagues is as important as what is spoken, with glances and hesitations hinting at underlying fear and mistrust. Visually, favor cool, desaturated tones to amplify the cold, clinical atmosphere, letting brief flashes of warmth (personal mementos, human moments) highlight Alex's isolation. This episode is Alex's journey—her mounting anxiety, moral conflict, and the first spark of rebellion.",
+      "episodeGoal": "Introduce Alex's daily life, establish the high-stakes corporate environment, and depict the moment she uncovers the true, weaponized intent of her company's AI—planting seeds of paranoia and urgency.",
+      "reasoning": "As the series opener in a thriller about surveillance and whistleblowing, the tone should be serious and tense but not yet fully dark, establishing stakes and unease. Pacing needs a deliberate build to allow viewers to absorb the environment and Alex's predicament. Dialogue should carry subtext and restraint, reflecting a world where trust is scarce. The episode must set up both the world and Alex’s internal journey, immersing viewers in her paranoia and the company's oppressive atmosphere."
+    },
+    "timestamp": "2025-10-22T09:17:56.978Z"
+  }
+}

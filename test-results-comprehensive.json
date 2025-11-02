@@ -1,0 +1,223 @@
+{
+  "summary": {
+    "total": 10,
+    "passed": 5,
+    "failed": 1,
+    "warned": 0,
+    "skipped": 4,
+    "totalTime": 11402349,
+    "passRate": 50
+  },
+  "results": [
+    {
+      "name": "API Keys Configuration",
+      "category": "Environment",
+      "status": "PASS",
+      "duration": 0,
+      "message": "Both Gemini and Azure OpenAI keys configured",
+      "details": {
+        "gemini": true,
+        "azure": true
+      }
+    },
+    {
+      "name": "Model Deployments",
+      "category": "Environment",
+      "status": "PASS",
+      "duration": 0,
+      "message": "GPT-4.1: true, Gemini: true",
+      "details": {
+        "gpt41": "gpt-4.1",
+        "gemini": "gemini-2.5-pro"
+      }
+    },
+    {
+      "name": "Story Bible Generation",
+      "category": "Story Bible",
+      "status": "FAIL",
+      "duration": 11402254,
+      "message": "API returned unsuccessful response",
+      "error": "No story bible in response"
+    },
+    {
+      "name": "Episode Generation Baseline",
+      "category": "Episode Generation",
+      "status": "SKIP",
+      "duration": 0,
+      "message": "Skipped due to missing story bible"
+    },
+    {
+      "name": "Episode Generation Comprehensive",
+      "category": "Episode Generation",
+      "status": "SKIP",
+      "duration": 0,
+      "message": "Skipped due to missing story bible"
+    },
+    {
+      "name": "Episode Generation Gemini",
+      "category": "Episode Generation",
+      "status": "SKIP",
+      "duration": 0,
+      "message": "Skipped due to missing story bible"
+    },
+    {
+      "name": "Pre-Production Generators",
+      "category": "Pre-Production",
+      "status": "SKIP",
+      "duration": 0,
+      "message": "Skipped due to missing story bible or episodes"
+    },
+    {
+      "name": "Engine Status API",
+      "category": "API Endpoints",
+      "status": "PASS",
+      "duration": 24,
+      "message": "Engine status endpoint responding",
+      "details": {
+        "session": {
+          "id": "1760424279163",
+          "isActive": false,
+          "isComplete": true,
+          "currentPhase": "Story Bible Generation",
+          "startTime": "2025-10-14T06:44:39.163Z",
+          "endTime": "2025-10-14T06:44:39.163Z"
+        },
+        "progress": {
+          "engines": [
+            {
+              "engineId": "premise",
+              "name": "Premise Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "character",
+              "name": "Character Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "narrative",
+              "name": "Narrative Engine",
+              "message": "Narrative architecture complete",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "world",
+              "name": "World Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "dialogue",
+              "name": "Dialogue Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "tension",
+              "name": "Tension Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "genre",
+              "name": "Genre Engine",
+              "message": "Genre mastery complete",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "choice",
+              "name": "Choice Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "theme",
+              "name": "Theme Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "living",
+              "name": "Living World Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "trope",
+              "name": "Trope Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            },
+            {
+              "engineId": "cohesion",
+              "name": "Cohesion Engine",
+              "message": "Completed",
+              "status": "completed",
+              "progress": 100,
+              "startTime": 0
+            }
+          ],
+          "currentEngine": 11,
+          "overallProgress": 100
+        }
+      }
+    },
+    {
+      "name": "Invalid Input Handling",
+      "category": "Error Handling",
+      "status": "PASS",
+      "duration": 30,
+      "message": "API correctly rejected invalid input",
+      "details": {
+        "expectedBehavior": true
+      }
+    },
+    {
+      "name": "Missing Parameter Handling",
+      "category": "Error Handling",
+      "status": "PASS",
+      "duration": 23,
+      "message": "API correctly rejected missing parameter",
+      "details": {
+        "expectedBehavior": true
+      }
+    }
+  ],
+  "timestamp": "2025-10-14T06:44:39.328Z",
+  "config": {
+    "baseUrl": "http://localhost:3000",
+    "timeout": 180000,
+    "minQualityScore": 7,
+    "minEngineSuccessRate": 0.9,
+    "testLogline": "A former hacker discovers a hidden AI conspiracy threatening to merge human consciousness with technology",
+    "testProtagonist": "Cipher, a brilliant hacker trying to escape their past while fighting against forces that want to digitize humanity",
+    "testStakes": "If the conspiracy succeeds, humanity will lose its autonomy and be controlled by a singular AI consciousness",
+    "testVibe": "Dark, atmospheric cyberpunk with philosophical undertones and high-stakes action",
+    "testTheme": "Identity, free will, and the nature of consciousness in a world where technology and humanity blur",
+    "testEpisodeCount": 2
+  }
+}
