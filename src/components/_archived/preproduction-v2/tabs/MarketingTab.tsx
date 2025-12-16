@@ -29,7 +29,7 @@ export const MarketingTab: React.FC<MarketingTabProps> = ({ data }) => {
           <div className="p-6 md:p-8 space-y-6">
             {currentEpisode.strategy.taglines && currentEpisode.strategy.taglines.length > 0 && (
               <div>
-                <h4 className="font-semibold text-[#00FF99] mb-3">Taglines</h4>
+                <h4 className="font-semibold text-[#10B981] mb-3">Taglines</h4>
                 <div className="space-y-2">
                   {currentEpisode.strategy.taglines.map((tagline, idx) => (
                     <div key={idx} className="p-3 rounded-lg border" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)' }}>
@@ -42,16 +42,16 @@ export const MarketingTab: React.FC<MarketingTabProps> = ({ data }) => {
             
             {currentEpisode.strategy.platforms && currentEpisode.strategy.platforms.length > 0 && (
               <div>
-                <h4 className="font-semibold text-[#00FF99] mb-3">Social Media Posts</h4>
+                <h4 className="font-semibold text-[#10B981] mb-3">Social Media Posts</h4>
                 <div className="grid md:grid-cols-2 gap-4">
                   {currentEpisode.strategy.platforms.map((platform, idx) => (
                     <div key={idx} className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)' }}>
-                      <div className="font-medium text-[#00FF99] mb-2 capitalize">{platform.platform}</div>
+                      <div className="font-medium text-[#10B981] mb-2 capitalize">{platform.platform}</div>
                       <p className="text-sm opacity-80 mb-2">{platform.content}</p>
                       {platform.hashtags && platform.hashtags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {platform.hashtags.map((tag, tagIdx) => (
-                            <span key={tagIdx} className="text-xs px-2 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99]">#{tag}</span>
+                            <span key={tagIdx} className="text-xs px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981]">#{tag}</span>
                           ))}
                         </div>
                       )}

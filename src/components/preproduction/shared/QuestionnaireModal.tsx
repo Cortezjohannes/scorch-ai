@@ -119,7 +119,7 @@ export function QuestionnaireModal({
                 </div>
                 <div className="w-full bg-[#2a2a2a] rounded-full h-2">
                   <motion.div
-                    className="bg-[#00FF99] h-2 rounded-full"
+                    className="bg-[#10B981] h-2 rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.3 }}
@@ -135,7 +135,7 @@ export function QuestionnaireModal({
                     onClick={() => setCurrentCategoryIndex(idx)}
                     className={`px-3 py-1 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                       idx === currentCategoryIndex
-                        ? 'bg-[#00FF99] text-black'
+                        ? 'bg-[#10B981] text-black'
                         : 'bg-[#2a2a2a] text-[#e7e7e7]/70 hover:bg-[#36393f]'
                     }`}
                   >
@@ -185,14 +185,14 @@ export function QuestionnaireModal({
                 {!isLastCategory ? (
                   <button
                     onClick={handleNext}
-                    className="px-4 py-2 bg-[#00FF99] text-black rounded-lg hover:bg-[#00CC7A] transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-[#10B981] text-black rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium"
                   >
                     Next →
                   </button>
                 ) : (
                   <button
                     onClick={handleComplete}
-                    className="px-4 py-2 bg-[#00FF99] text-black rounded-lg hover:bg-[#00CC7A] transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-[#10B981] text-black rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium"
                   >
                     Complete ({answeredQuestions}/{totalQuestions})
                   </button>
@@ -226,7 +226,7 @@ function QuestionInput({
                 name={question.id}
                 checked={value === true}
                 onChange={() => onChange(true)}
-                className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#00FF99] focus:ring-[#00FF99]"
+                className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#10B981] focus:ring-[#10B981]"
               />
               <span className="text-[#e7e7e7]">Yes</span>
             </label>
@@ -236,7 +236,7 @@ function QuestionInput({
                 name={question.id}
                 checked={value === false}
                 onChange={() => onChange(false)}
-                className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#00FF99] focus:ring-[#00FF99]"
+                className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#10B981] focus:ring-[#10B981]"
               />
               <span className="text-[#e7e7e7]">No</span>
             </label>
@@ -253,7 +253,7 @@ function QuestionInput({
                   name={question.id}
                   checked={value === option}
                   onChange={() => onChange(option)}
-                  className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#00FF99] focus:ring-[#00FF99]"
+                  className="w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#10B981] focus:ring-[#10B981]"
                 />
                 <span className="text-[#e7e7e7]">{option}</span>
               </label>
@@ -267,7 +267,7 @@ function QuestionInput({
             type="number"
             value={value || ''}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-            className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] focus:outline-none focus:ring-2 focus:ring-[#00FF99] focus:border-transparent"
+            className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent"
             placeholder="Enter number"
           />
         )
@@ -279,7 +279,7 @@ function QuestionInput({
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             rows={3}
-            className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] focus:outline-none focus:ring-2 focus:ring-[#00FF99] focus:border-transparent resize-none"
+            className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] focus:outline-none focus:ring-2 focus:ring-[#10B981] focus:border-transparent resize-none"
             placeholder="Enter your answer..."
           />
         )

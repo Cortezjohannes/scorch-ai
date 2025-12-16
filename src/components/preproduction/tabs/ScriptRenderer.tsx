@@ -36,12 +36,15 @@ interface ScriptRendererProps {
 
 export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendererProps) {
   return (
-    <div className="screenplay-container bg-white text-black p-12 rounded-lg shadow-xl max-w-4xl mx-auto font-mono text-sm">
+    <div 
+      className="screenplay-container bg-[#1a1a1a] text-[#e7e7e7] p-12 rounded-lg border border-[#36393f] max-w-4xl mx-auto"
+      style={{ fontFamily: 'Courier, monospace', fontSize: '12pt', lineHeight: '1.6' }}
+    >
       {/* Title Page */}
-      <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-gray-300">
-        <h1 className="text-4xl font-bold mb-4 uppercase">{script.title}</h1>
-        <div className="text-xl mb-8">Episode {script.episodeNumber}</div>
-        <div className="text-sm text-gray-600 space-y-2">
+      <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-[#36393f]">
+        <h1 className="text-4xl font-bold mb-4 uppercase text-[#e7e7e7]">{script.title}</h1>
+        <div className="text-xl mb-8 text-[#e7e7e7]">Episode {script.episodeNumber}</div>
+        <div className="text-sm text-[#e7e7e7]/70 space-y-2">
           <div>{script.metadata.sceneCount} Scenes</div>
           <div>{script.metadata.characterCount} Characters</div>
           <div>Runtime: ~{script.metadata.estimatedRuntime}</div>
@@ -52,7 +55,7 @@ export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendere
       {script.pages.map((page) => (
         <div key={page.pageNumber} className="screenplay-page mb-12 relative">
           {showPageNumbers && (
-            <div className="absolute -top-6 right-0 text-gray-400 text-xs">
+            <div className="absolute -top-6 right-0 text-[#e7e7e7]/50 text-xs">
               Page {page.pageNumber}
             </div>
           )}
@@ -66,7 +69,7 @@ export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendere
       ))}
 
       {/* Metadata Footer */}
-      <div className="text-center text-xs text-gray-500 mt-12 pt-8 border-t border-gray-300">
+      <div className="text-center text-xs text-[#e7e7e7]/50 mt-12 pt-8 border-t border-[#36393f]">
         Generated on {new Date(script.metadata.generatedAt).toLocaleDateString()}
       </div>
     </div>
@@ -92,14 +95,14 @@ function ScriptElementRenderer({ element }: { element: ScriptElement }) {
 
     case 'character':
       return (
-        <div className="screenplay-character text-center font-bold uppercase mt-4">
+        <div className="screenplay-character font-bold uppercase mb-1" style={{ marginLeft: '3.7in', width: '2.5in' }}>
           {element.content}
         </div>
       )
 
     case 'dialogue':
       return (
-        <div className="screenplay-dialogue text-center max-w-md mx-auto">
+        <div className="screenplay-dialogue" style={{ marginLeft: '2.5in', width: '3.5in', textAlign: 'justify' }}>
           {element.content}
         </div>
       )
@@ -120,7 +123,7 @@ function ScriptElementRenderer({ element }: { element: ScriptElement }) {
 
     case 'page-break':
       return (
-        <div className="screenplay-page-break border-t-2 border-dashed border-gray-300 my-8" />
+        <div className="screenplay-page-break border-t-2 border-dashed border-[#36393f] my-8" />
       )
 
     default:
@@ -156,22 +159,22 @@ export function ScriptBreakdownView({ script }: { script: GeneratedScript }) {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Pages</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.pageCount}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{script.metadata.pageCount}</div>
         </div>
         
         <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Scenes</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.sceneCount}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{script.metadata.sceneCount}</div>
         </div>
         
         <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Characters</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{script.metadata.characterCount}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{script.metadata.characterCount}</div>
         </div>
         
         <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Runtime</div>
-          <div className="text-2xl font-bold text-[#00FF99]">~{script.metadata.estimatedRuntime}</div>
+          <div className="text-2xl font-bold text-[#10B981]">~{script.metadata.estimatedRuntime}</div>
         </div>
       </div>
 
@@ -181,7 +184,7 @@ export function ScriptBreakdownView({ script }: { script: GeneratedScript }) {
         <div className="space-y-2">
           {scenes.map((scene, idx) => (
             <div key={idx} className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded border border-[#36393f]">
-              <div className="w-8 h-8 flex items-center justify-center bg-[#00FF99] text-black font-bold rounded">
+              <div className="w-8 h-8 flex items-center justify-center bg-[#10B981] text-black font-bold rounded">
                 {scene.sceneNumber}
               </div>
               <div className="flex-1 text-[#e7e7e7] font-mono text-sm">

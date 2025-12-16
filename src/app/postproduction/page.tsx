@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect } from 'react'
 
 // Import stage components
@@ -68,7 +68,7 @@ export default function PostProductionPage() {
         <div className="container mx-auto px-4 py-8">
           <motion.button
             onClick={handleBack}
-            className="mb-6 px-6 py-3 rounded-lg bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 text-[#00FF99] hover:bg-gradient-to-r hover:from-[#00FF99]/30 hover:to-[#00CC7A]/30 transition-all duration-300 flex items-center gap-2"
+            className="mb-6 px-6 py-3 rounded-lg bg-gradient-to-r from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30 text-[#10B981] hover:bg-gradient-to-r hover:from-[#10B981]/30 hover:to-[#059669]/30 transition-all duration-300 flex items-center gap-2"
             whileHover={{ scale: 1.05, y: -2 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -86,7 +86,7 @@ export default function PostProductionPage() {
           >
             <div className="text-center">
               <motion.h1
-                className="text-4xl sm:text-5xl font-black mb-4 bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99] bg-clip-text text-transparent"
+                className="text-4xl sm:text-5xl font-black mb-4 bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981] bg-clip-text text-transparent"
                 animate={{
                   backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
                 }}
@@ -103,7 +103,7 @@ export default function PostProductionPage() {
               </motion.h1>
               
               <motion.div
-                className="w-24 h-1 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] mx-auto rounded-full"
+                className="w-24 h-1 bg-gradient-to-r from-[#10B981] to-[#059669] mx-auto rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: 96 }}
                 transition={{ duration: 1, delay: 0.5 }}
@@ -111,9 +111,9 @@ export default function PostProductionPage() {
               
               {synopsis && (
                 <div className="mt-6 max-w-4xl mx-auto">
-                  <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-6">
+                  <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#10B981]/20 rounded-2xl p-6">
                     <p className="text-white/90 text-lg italic mb-2">"{synopsis}"</p>
-                    {theme && <p className="text-[#00FF99] font-semibold">Theme: {theme}</p>}
+                    {theme && <p className="text-[#10B981] font-semibold">Theme: {theme}</p>}
                   </div>
                 </div>
               )}
@@ -131,7 +131,7 @@ export default function PostProductionPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-6 shadow-2xl"
+              className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#10B981]/20 rounded-2xl p-6 shadow-2xl"
             >
               {renderCurrentStage()}
             </motion.div>

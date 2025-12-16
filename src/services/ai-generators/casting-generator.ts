@@ -2,7 +2,7 @@
  * Casting Generator - AI Service
  * Generates casting profiles for all characters with archetypes, actor templates, and requirements
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical + creative casting analysis
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical + creative casting analysis
  * 
  * Standards:
  * - Extract characters from script breakdown
@@ -52,38 +52,149 @@ export async function generateCasting(params: CastingGenerationParams): Promise<
   console.log('🎭 Generating casting profiles for Episode', episodeNumber)
   console.log('📋 Analyzing', breakdownData.scenes.length, 'scenes')
 
-  // Extract unique characters from breakdown
-  const characterInfo = extractCharacters(breakdownData, scriptData)
-  console.log('✅ Extracted', characterInfo.length, 'characters')
+  // Extract from script/breakdown then anchor to story bible as canon
+  const extractedCharacters = extractCharacters(breakdownData, scriptData)
+  const canonicalCharacters = buildCanonicalCharactersFromStoryBible(storyBible, extractedCharacters, breakdownData)
+  console.log('✅ Canonical characters (story bible first):', canonicalCharacters.length)
 
-  if (characterInfo.length === 0) {
-    throw new Error('No characters found in script breakdown. Please generate script breakdown first.')
+  if (canonicalCharacters.length === 0) {
+    throw new Error('No characters found (story bible + breakdown). Please add characters to the story bible or generate a breakdown.')
   }
 
-  // Build AI prompts
+  // Build system prompt (same for all batches)
   const systemPrompt = buildSystemPrompt()
-  const userPrompt = buildUserPrompt(characterInfo, breakdownData, storyBible, episodeTitle)
 
+  // Split characters into batches (5-8 characters per batch for optimal token usage)
+  const BATCH_SIZE = 6
+  const batches: CharacterInfo[][] = []
+  for (let i = 0; i < canonicalCharacters.length; i += BATCH_SIZE) {
+    batches.push(canonicalCharacters.slice(i, i + BATCH_SIZE))
+  }
+
+  console.log(`📦 Splitting ${canonicalCharacters.length} characters into ${batches.length} batch(es)`)
+  
   try {
-    // Use EngineAIRouter with Gemini 2.5 Pro (analytical + creative)
-    console.log('🤖 Calling AI for casting profiles...')
-    const response = await EngineAIRouter.generateContent({
-      prompt: userPrompt,
-      systemPrompt: systemPrompt,
-      temperature: 0.7, // Creative but grounded
-      maxTokens: 8000, // Enough for all characters with full profiles
-      engineId: 'casting-generator',
-      forceProvider: 'gemini' // Gemini excels at analytical + creative tasks
-    })
+    // Generate casting profiles for each batch
+    const allCastMembers: CastMember[] = []
+    const batchErrors: string[] = []
 
-    console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex]
+      console.log(`\n🔄 Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} characters)...`)
+      
+      try {
+        // Build prompt for this batch only
+        const userPrompt = buildUserPrompt(batch, breakdownData, storyBible, episodeTitle)
+        
+        // Calculate token limit for this batch (2000 per character, min 15000, max 30000)
+        const batchTokens = Math.max(15000, Math.min(30000, batch.length * 2000))
+        
+        console.log(`   Token limit: ${batchTokens}`)
+        
+        // Generate for this batch
+        let response = await EngineAIRouter.generateContent({
+          prompt: userPrompt,
+          systemPrompt: systemPrompt,
+          temperature: 0.7,
+          maxTokens: batchTokens,
+          engineId: 'casting-generator',
+          forceProvider: 'azure'
+        })
+
+        console.log(`   ✅ Response received: ${response.metadata.contentLength} characters`)
+        
+        // Check if response might be truncated
+        let responseContent = response.content
+        const isLikelyTruncated = responseContent.trim().endsWith(',') || 
+                                  (!responseContent.trim().endsWith('}') && !responseContent.trim().endsWith(']')) ||
+                                  (responseContent.match(/{/g) || []).length !== (responseContent.match(/}/g) || []).length
+        
+        // If truncated, retry with higher limit
+        if (isLikelyTruncated && batchTokens < 30000) {
+          console.warn(`   ⚠️ Response appears truncated, retrying batch ${batchIndex + 1}...`)
+          const retryTokens = Math.min(30000, batchTokens * 2)
+          response = await EngineAIRouter.generateContent({
+            prompt: userPrompt,
+            systemPrompt: systemPrompt,
+            temperature: 0.7,
+            maxTokens: retryTokens,
+            engineId: 'casting-generator',
+            forceProvider: 'azure'
+          })
+          console.log(`   ✅ Retry response received: ${response.metadata.contentLength} characters`)
+          responseContent = response.content
+        }
+        
+        // Parse batch response
+        const batchCastingData = parseCastingProfiles(responseContent, batch, episodeNumber, episodeTitle)
+        
+        // Add to combined results
+        allCastMembers.push(...batchCastingData.cast)
+        console.log(`   ✅ Batch ${batchIndex + 1} complete: ${batchCastingData.cast.length} characters`)
+        
+      } catch (batchError) {
+        const errorMsg = `Batch ${batchIndex + 1} failed: ${batchError instanceof Error ? batchError.message : 'Unknown error'}`
+        console.error(`   ❌ ${errorMsg}`)
+        batchErrors.push(errorMsg)
+        
+        // Continue with other batches even if one fails
+        // Create minimal fallback entries for failed batch
+        for (const char of batch) {
+          allCastMembers.push({
+            id: `cast_${Date.now()}_${char.name}`,
+            characterName: char.name,
+            role: char.importance,
+            scenes: char.scenes,
+            totalShootDays: new Set(char.scenes).size,
+            payment: 'deferred',
+            paymentAmount: 0,
+            payRate: 0,
+            availability: [],
+            specialNeeds: [],
+            rehersalNotes: '',
+            actorNotes: '',
+            status: 'casting',
+            confirmed: false,
+            comments: [],
+            characterProfile: {
+              characterName: char.name,
+              archetype: 'The Character',
+              ageRange: { min: 25, max: 35 },
+              physicalRequirements: {},
+              performanceRequirements: {
+                actingStyle: 'naturalistic',
+                emotionalRange: 'standard dramatic range',
+                specialSkills: []
+              },
+              actorTemplates: [],
+              castingNotes: 'Profile generation failed - please regenerate',
+              priority: char.importance,
+              scenes: char.scenes
+            }
+          })
+        }
+      }
+    }
+
+    // Combine all results
+    const castingData: CastingData = {
+      episodeNumber,
+      episodeTitle,
+      totalCharacters: allCastMembers.length,
+      confirmedCast: allCastMembers.filter(m => m.confirmed).length,
+      cast: allCastMembers,
+      lastUpdated: Date.now(),
+      updatedBy: 'ai-generator'
+    }
     
-    // Parse AI response into structured casting data
-    const castingData = parseCastingProfiles(response.content, characterInfo, episodeNumber, episodeTitle)
+    console.log(`\n✅ All batches complete!`)
+    console.log(`   Total characters: ${castingData.cast.length}`)
+    console.log(`   Leads: ${castingData.cast.filter(c => c.characterProfile?.priority === 'lead').length}`)
+    console.log(`   Supporting: ${castingData.cast.filter(c => c.characterProfile?.priority === 'supporting').length}`)
     
-    console.log('✅ Casting profiles generated:', castingData.cast.length, 'characters')
-    console.log('  Leads:', castingData.cast.filter(c => c.characterProfile?.priority === 'lead').length)
-    console.log('  Supporting:', castingData.cast.filter(c => c.characterProfile?.priority === 'supporting').length)
+    if (batchErrors.length > 0) {
+      console.warn(`   ⚠️ ${batchErrors.length} batch(es) had errors (fallback profiles created)`)
+    }
     
     return castingData
   } catch (error) {
@@ -330,6 +441,160 @@ function extractCharacters(
 }
 
 /**
+ * Build canonical character list using story bible as the source of truth.
+ * Falls back to extracted characters if the bible is empty.
+ */
+function buildCanonicalCharactersFromStoryBible(
+  storyBible: any,
+  extracted: CharacterInfo[],
+  breakdown: ScriptBreakdownData
+): CharacterInfo[] {
+  const canonChars = Array.isArray(storyBible?.characters) ? storyBible.characters : []
+  if (!canonChars.length && extracted.length) {
+    return dedupeCharacterInfo(extracted)
+  }
+
+  const extractedByNorm = new Map<string, CharacterInfo>()
+  extracted.forEach(c => extractedByNorm.set(normalizeCharacterName(c.name).toLowerCase(), c))
+
+  const merged: CharacterInfo[] = []
+
+  for (const char of canonChars) {
+    const name = char.name || char.characterName
+    if (!name) continue
+    const norm = normalizeCharacterName(name).toLowerCase()
+    const extractedMatch = extractedByNorm.get(norm)
+
+    // Pull scenes/line counts from breakdown by name
+    const breakdownScenes = breakdown?.scenes || []
+    const sceneNumbers: number[] = []
+    let lineCount = extractedMatch?.lineCount || 0
+    breakdownScenes.forEach(scene => {
+      scene.characters?.forEach(ch => {
+        const chNorm = normalizeCharacterName(ch.name || '').toLowerCase()
+        if (chNorm === norm) {
+          sceneNumbers.push(scene.sceneNumber)
+          lineCount += ch.lineCount || 0
+        }
+      })
+    })
+
+    merged.push({
+      name: toTitleCase(name),
+      importance: (char.importance || char.role || extractedMatch?.importance || 'supporting') as CharacterInfo['importance'],
+      lineCount: lineCount || extractedMatch?.lineCount || 0,
+      scenes: sceneNumbers.length ? sceneNumbers : extractedMatch?.scenes || [],
+      sceneDescriptions: extractedMatch?.sceneDescriptions || []
+    })
+  }
+
+  return dedupeCharacterInfo(merged.length ? merged : extracted)
+}
+
+function dedupeCharacterInfo(list: CharacterInfo[]): CharacterInfo[] {
+  const byNorm = new Map<string, CharacterInfo>()
+  for (const c of list) {
+    const norm = normalizeCharacterName(c.name).toLowerCase()
+    if (!byNorm.has(norm)) {
+      byNorm.set(norm, c)
+    }
+  }
+  return Array.from(byNorm.values())
+}
+
+/**
+ * Extract audition-ready key scenes with dialogue for a character.
+ * Uses breakdown to find scenes and script pages to pull actual dialogue text.
+ */
+export function extractKeyScenesWithDialogue(
+  characterName: string,
+  script: GeneratedScript,
+  breakdown: ScriptBreakdownData,
+  maxScenes: number = 3
+): Array<{
+  sceneNumber: number
+  episodeNumber: number
+  dialogue: string
+  context: string
+}> {
+  const norm = normalizeCharacterName(characterName).toLowerCase()
+  const scenes: Array<{
+    sceneNumber: number
+    episodeNumber: number
+    dialogue: string
+    context: string
+    lineCount: number
+  }> = []
+
+  if (!script || !breakdown?.scenes) return []
+
+  const pages = script.pages || []
+
+  // Build index of script dialogue by sceneNumber
+  const sceneDialogueMap = new Map<number, { dialogue: string[]; contextParts: string[] }>()
+  for (const page of pages) {
+    for (const element of page.elements || []) {
+      const sceneNum = element.metadata?.sceneNumber
+      if (!sceneNum) continue
+      if (!sceneDialogueMap.has(sceneNum)) {
+        sceneDialogueMap.set(sceneNum, { dialogue: [], contextParts: [] })
+      }
+      const bucket = sceneDialogueMap.get(sceneNum)!
+      if (element.type === 'character') {
+        const charName = (element.content || '').trim().toLowerCase()
+        if (charName && normalizeCharacterName(charName).toLowerCase() === norm) {
+          // dialogue will be captured on dialogue element; keep marker
+          bucket.contextParts.push(`CHARACTER: ${element.content}`)
+        }
+      } else if (element.type === 'dialogue') {
+        const lastContext = bucket.contextParts[bucket.contextParts.length - 1] || ''
+        const lastChar = lastContext.replace('CHARACTER:', '').trim()
+        if (lastChar && normalizeCharacterName(lastChar).toLowerCase() === norm) {
+          const dialogLine = (element.content || '').trim()
+          if (dialogLine) {
+            bucket.dialogue.push(dialogLine)
+          }
+        }
+      } else if (element.type === 'slug' || element.type === 'action') {
+        const val = (element.content || '').trim()
+        if (val) {
+          bucket.contextParts.push(val)
+        }
+      }
+    }
+  }
+
+  // Walk breakdown scenes to identify appearances and assemble context
+  for (const scene of breakdown.scenes) {
+    const hasChar = scene.characters?.some((c: any) =>
+      normalizeCharacterName(c.name || c.characterName || '').toLowerCase() === norm
+    )
+    if (!hasChar) continue
+    const dialogueEntry = sceneDialogueMap.get(scene.sceneNumber)
+    const dialogLines = dialogueEntry?.dialogue || []
+    const contextParts = dialogueEntry?.contextParts || []
+    const context =
+      scene.sceneTitle ||
+      scene.location ||
+      contextParts.filter(Boolean).slice(0, 3).join(' • ') ||
+      'Scene context'
+
+    scenes.push({
+      sceneNumber: scene.sceneNumber,
+      episodeNumber: breakdown.episodeNumber,
+      dialogue: dialogLines.join('\n'),
+      context,
+      lineCount: dialogLines.length
+    })
+  }
+
+  // Sort by line count (desc) then scene number
+  scenes.sort((a, b) => b.lineCount - a.lineCount || a.sceneNumber - b.sceneNumber)
+
+  return scenes.slice(0, maxScenes).map(({ lineCount: _omit, ...rest }) => rest)
+}
+
+/**
  * Build system prompt for AI
  */
 function buildSystemPrompt(): string {
@@ -405,14 +670,40 @@ function buildUserPrompt(
 ): string {
   let prompt = `Generate comprehensive casting profiles for all characters in this ${episodeTitle} episode.\n\n`
 
-  // Story context
+  // Story context (CORE DATA)
   prompt += `**STORY CONTEXT:**\n`
   prompt += `Series: ${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}\n`
+  if (storyBible?.seriesOverview) {
+    prompt += `\nSeries Overview (Big Picture): ${storyBible.seriesOverview}\n\n`
+  }
   prompt += `Genre: ${storyBible?.genre || 'Drama'}\n`
   if (storyBible?.tone) prompt += `Tone: ${storyBible.tone}\n`
   if (storyBible?.setting) prompt += `Setting: ${storyBible.setting}\n`
+  if (storyBible?.worldBuilding?.setting) prompt += `World Setting: ${storyBible.worldBuilding.setting}\n`
   if (storyBible?.logline) prompt += `Series Logline: ${storyBible.logline}\n`
   prompt += `\n`
+  
+  // Add technical tabs for better casting context
+  if (storyBible?.dialogueStrategy) {
+    prompt += `**DIALOGUE STYLE (for character voices):**\n`
+    const dialogue = storyBible.dialogueStrategy
+    if (dialogue.rawContent) {
+      prompt += `${dialogue.rawContent.substring(0, 300)}\n\n`
+    } else {
+      if (dialogue.characterVoice) prompt += `Character Voice: ${dialogue.characterVoice}\n`
+      if (dialogue.speechPatterns) prompt += `Speech Patterns: ${dialogue.speechPatterns}\n\n`
+    }
+  }
+  
+  if (storyBible?.genreEnhancement) {
+    prompt += `**GENRE STYLE (for casting aesthetic):**\n`
+    const genre = storyBible.genreEnhancement
+    if (genre.rawContent) {
+      prompt += `${genre.rawContent.substring(0, 250)}\n\n`
+    } else if (genre.visualStyle) {
+      prompt += `Visual Style: ${genre.visualStyle}\n\n`
+    }
+  }
 
   // Episode context
   prompt += `**EPISODE:** ${episodeTitle}\n`
@@ -461,6 +752,15 @@ function buildUserPrompt(
           if (charDesc.gender) {
             prompt += `  Gender: ${charDesc.gender}\n`
           }
+          if (charDesc.background) {
+            prompt += `  Backstory: ${charDesc.background}\n`
+          }
+          if (Array.isArray(charDesc.relationships) && charDesc.relationships.length > 0) {
+            prompt += `  Relationships: ${JSON.stringify(charDesc.relationships)}\n`
+          }
+          if (charDesc.arc || charDesc.emotionalJourney) {
+            prompt += `  CharacterArc: ${charDesc.arc || charDesc.emotionalJourney}\n`
+          }
         }
       }
     }
@@ -469,7 +769,7 @@ function buildUserPrompt(
 
   // Output format
   prompt += `**TASK:**\n`
-  prompt += `For EACH character above, generate a comprehensive casting profile.\n\n`
+  prompt += `For EACH character above, generate a comprehensive casting profile with audition-ready materials.\n\n`
 
   prompt += `For each character, provide:\n`
   prompt += `- characterName: Exact character name\n`
@@ -490,6 +790,14 @@ function buildUserPrompt(
   prompt += `    - name: Real actor name as reference\n`
   prompt += `    - whyMatch: Explanation of why this actor matches (e.g., "Similar youthful energy and vulnerability, proven in action-heavy roles")\n`
   prompt += `- castingNotes: Professional casting notes and recommendations\n`
+  prompt += `- characterArc: { keyBeats: string[], emotionalJourney: string }\n`
+  prompt += `- keyScenes: Array (2-3) of { sceneNumber, episodeNumber, dialogue, context } // dialogue as multi-line string for auditions\n`
+  prompt += `- relationships: Array of { characterName, relationshipType, chemistryRequired }\n`
+  prompt += `- backstory: Concise backstory from story bible\n`
+  prompt += `- screenTimeMetrics: { totalScenes, totalLines, estimatedMinutes }\n`
+  prompt += `- objectives: { superObjective, sceneObjectives: string[] }\n`
+  prompt += `- voiceRequirements: { style, accent, vocalQuality }\n`
+  prompt += `- castingPriority: { level: "critical" | "high" | "medium", deadline?: string }\n`
   prompt += `- priority: "lead" | "supporting" | "extra" (based on character importance)\n`
   prompt += `- scenes: Array of scene numbers where character appears\n\n`
 
@@ -521,6 +829,26 @@ function buildUserPrompt(
   prompt += `          "whyMatch": "Naturalistic performance style, strong in character-driven drama with physical elements"\n`
   prompt += `        }\n`
   prompt += `      ],\n`
+  prompt += `      "characterArc": {\n`
+  prompt += `        "keyBeats": ["Inciting guilt in Ep1", "Moral pivot in Ep3"],\n`
+  prompt += `        "emotionalJourney": "From ambition to accountability"\n`
+  prompt += `      },\n`
+  prompt += `      "keyScenes": [\n`
+  prompt += `        {\n`
+  prompt += `          "sceneNumber": 12,\n`
+  prompt += `          "episodeNumber": 1,\n`
+  prompt += `          "dialogue": "ALEX: I can't keep lying to them...\\nALEX: This ends tonight.",\n`
+  prompt += `          "context": "Confession on the office rooftop at night"\n`
+  prompt += `        }\n`
+  prompt += `      ],\n`
+  prompt += `      "relationships": [\n`
+  prompt += `        { "characterName": "Jordan", "relationshipType": "mentor/mentee", "chemistryRequired": true }\n`
+  prompt += `      ],\n`
+  prompt += `      "backstory": "Former prodigy who burned out after a failed startup...",\n`
+  prompt += `      "screenTimeMetrics": { "totalScenes": 8, "totalLines": 42, "estimatedMinutes": 11 },\n`
+  prompt += `      "objectives": { "superObjective": "Redeem the company", "sceneObjectives": ["Win investor trust", "Protect team"] },\n`
+  prompt += `      "voiceRequirements": { "style": "grounded, dry wit", "accent": "neutral US", "vocalQuality": "warm baritone" },\n`
+  prompt += `      "castingPriority": { "level": "critical", "deadline": "2025-02-01" },\n`
   prompt += `      "castingNotes": "Looking for an actor who can balance vulnerability with physicality. Should read early-to-mid 20s but play slightly older. Prefer actors with indie film experience who can work on micro-budget timeline.",\n`
   prompt += `      "priority": "lead",\n`
   prompt += `      "scenes": [1, 2, 3, 5]\n`
@@ -552,13 +880,191 @@ function parseCastingProfiles(
   try {
     // Clean AI output (remove markdown code blocks if present)
     let cleaned = aiResponse.trim()
-    if (cleaned.startsWith('```json')) {
+    
+    // Extract JSON from markdown code blocks
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch && jsonMatch[1]) {
+      cleaned = jsonMatch[1].trim()
+    } else if (cleaned.startsWith('```json')) {
       cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '')
     } else if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '')
     }
+    
+    // Find JSON boundaries (first { to last })
+    const firstBrace = cleaned.indexOf('{')
+    const lastBrace = cleaned.lastIndexOf('}')
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1)
+    }
+    
+    // Clean up common JSON issues
+    cleaned = cleaned
+      .replace(/,\s*}/g, '}') // Remove trailing commas before }
+      .replace(/,\s*]/g, ']') // Remove trailing commas before ]
+      .replace(/\/\/.*$/gm, '') // Remove comments
+      .trim()
 
-    const parsed = JSON.parse(cleaned)
+    // Try to parse JSON
+    let parsed: any
+    try {
+      parsed = JSON.parse(cleaned)
+    } catch (parseError) {
+      // If parsing fails, try to recover from truncated JSON
+      console.warn('⚠️ Initial JSON parse failed, attempting recovery...', parseError)
+      
+      // Try to fix incomplete JSON by closing open structures
+      let fixed = cleaned
+      
+      // Count open/close braces and brackets to see if we need to close them
+      const openBraces = (fixed.match(/{/g) || []).length
+      const closeBraces = (fixed.match(/}/g) || []).length
+      const openBrackets = (fixed.match(/\[/g) || []).length
+      const closeBrackets = (fixed.match(/\]/g) || []).length
+      
+      // If we have unclosed structures, try to close them
+      if (openBraces > closeBraces) {
+        // Remove incomplete last property if it exists
+        const lastComma = fixed.lastIndexOf(',')
+        if (lastComma > fixed.lastIndexOf('}')) {
+          // Remove incomplete property after last comma
+          fixed = fixed.substring(0, lastComma) + '\n'
+        }
+        // Close remaining braces
+        fixed += '\n' + '}'.repeat(openBraces - closeBraces)
+      }
+      
+      if (openBrackets > closeBrackets) {
+        fixed += ']'.repeat(openBrackets - closeBrackets)
+      }
+      
+      // Try parsing the fixed version
+      try {
+        parsed = JSON.parse(fixed)
+        console.log('✅ Successfully recovered from truncated JSON')
+      } catch (recoveryError) {
+        // If recovery fails, try to extract just the cast array with partial parsing
+        const castMatch = cleaned.match(/"cast"\s*:\s*\[([\s\S]*)/)
+        if (castMatch) {
+          try {
+            // Try to extract character objects from the cast array (including incomplete ones)
+            const castContent = castMatch[1]
+            
+            // Find all character objects (including those that might be incomplete)
+            // Look for opening braces followed by "characterName"
+            const validCharacters: any[] = []
+            let depth = 0
+            let currentObj = ''
+            let inString = false
+            let escapeNext = false
+            
+            for (let i = 0; i < castContent.length; i++) {
+              const char = castContent[i]
+              
+              if (escapeNext) {
+                currentObj += char
+                escapeNext = false
+                continue
+              }
+              
+              if (char === '\\') {
+                escapeNext = true
+                currentObj += char
+                continue
+              }
+              
+              if (char === '"' && !escapeNext) {
+                inString = !inString
+                currentObj += char
+                continue
+              }
+              
+              if (inString) {
+                currentObj += char
+                continue
+              }
+              
+              if (char === '{') {
+                if (depth === 0) {
+                  currentObj = '{'
+                } else {
+                  currentObj += char
+                }
+                depth++
+              } else if (char === '}') {
+                currentObj += char
+                depth--
+                if (depth === 0) {
+                  // Try to parse this complete object
+                  try {
+                    const charObj = JSON.parse(currentObj)
+                    if (charObj.characterName) {
+                      validCharacters.push(charObj)
+                    }
+                  } catch {
+                    // Try to fix common issues and parse again
+                    try {
+                      let fixedObj = currentObj
+                        .replace(/,\s*}/g, '}')
+                        .replace(/,\s*]/g, ']')
+                        .replace(/,\s*$/gm, '')
+                      
+                      // If it doesn't end with }, try to close it
+                      if (!fixedObj.trim().endsWith('}')) {
+                        fixedObj += '}'
+                      }
+                      
+                      const charObj = JSON.parse(fixedObj)
+                      if (charObj.characterName) {
+                        validCharacters.push(charObj)
+                      }
+                    } catch {
+                      // Skip this character object
+                    }
+                  }
+                  currentObj = ''
+                }
+              } else {
+                currentObj += char
+              }
+            }
+            
+            // Try to parse the last incomplete object if it has characterName
+            if (currentObj.trim() && currentObj.includes('"characterName"')) {
+              try {
+                let fixedObj = currentObj
+                  .replace(/,\s*$/gm, '')
+                  .replace(/,\s*}/g, '}')
+                
+                // Close any open structures
+                const openCount = (fixedObj.match(/{/g) || []).length
+                const closeCount = (fixedObj.match(/}/g) || []).length
+                fixedObj += '}'.repeat(Math.max(0, openCount - closeCount))
+                
+                const charObj = JSON.parse(fixedObj)
+                if (charObj.characterName) {
+                  validCharacters.push(charObj)
+                }
+              } catch {
+                // Skip incomplete object
+              }
+            }
+            
+            if (validCharacters.length > 0) {
+              parsed = { cast: validCharacters }
+              console.log(`⚠️ Recovered ${validCharacters.length} characters from truncated response`)
+            } else {
+              throw new Error(`Failed to parse JSON: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response may be truncated.`)
+            }
+          } catch (extractError) {
+            throw new Error(`Failed to parse JSON: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response may be truncated.`)
+          }
+        } else {
+          throw new Error(`Failed to parse JSON: ${parseError instanceof Error ? parseError.message : 'Unknown error'}. Response may be truncated.`)
+        }
+      }
+    }
 
     if (!parsed.cast || !Array.isArray(parsed.cast)) {
       throw new Error('Invalid AI response structure: missing cast array')
@@ -598,7 +1104,15 @@ function parseCastingProfiles(
           : [],
         castingNotes: char.castingNotes && char.castingNotes.trim() ? char.castingNotes : '',
         priority: char.priority || charInfo.importance,
-        scenes: Array.isArray(char.scenes) ? char.scenes : charInfo.scenes
+        scenes: Array.isArray(char.scenes) ? char.scenes : charInfo.scenes,
+        characterArc: char.characterArc || undefined,
+        keyScenes: Array.isArray(char.keyScenes) ? char.keyScenes : undefined,
+        relationships: Array.isArray(char.relationships) ? char.relationships : undefined,
+        backstory: char.backstory || undefined,
+        screenTimeMetrics: char.screenTimeMetrics || undefined,
+        objectives: char.objectives || undefined,
+        voiceRequirements: char.voiceRequirements || undefined,
+        castingPriority: char.castingPriority || undefined
       }
 
       return {
@@ -620,18 +1134,28 @@ function parseCastingProfiles(
         comments: [],
         characterProfile: profile
       }
+    }).filter(Boolean)
+
+    // De-dupe by normalized name (story bible = canon)
+    const dedupedCastMap = new Map<string, CastMember>()
+    cast.forEach(member => {
+      const norm = normalizeCharacterName(member.characterName).toLowerCase()
+      if (!dedupedCastMap.has(norm)) {
+        dedupedCastMap.set(norm, member)
+      }
     })
+    const dedupedCast = Array.from(dedupedCastMap.values())
 
     // Calculate totals
-    const totalCharacters = cast.length
-    const confirmedCast = cast.filter(m => m.confirmed).length
+    const totalCharacters = dedupedCast.length
+    const confirmedCast = dedupedCast.filter(m => m.confirmed).length
 
     return {
       episodeNumber,
       episodeTitle,
       totalCharacters,
       confirmedCast,
-      cast,
+      cast: dedupedCast,
       lastUpdated: Date.now(),
       updatedBy: 'ai-generator'
     }

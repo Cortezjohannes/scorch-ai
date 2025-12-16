@@ -51,8 +51,8 @@ export const EpisodeNavigator: React.FC<EpisodeNavigatorProps> = ({
                 flex-shrink-0 px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-medium 
                 transition-all border-b-2 touch-manipulation relative
                 ${isActive 
-                  ? 'text-[#00FF99] border-[#00FF99]' 
-                  : 'border-transparent hover:text-[#00FF99]/70 opacity-70 hover:opacity-100'
+                  ? 'text-[#10B981] border-[#10B981]' 
+                  : 'border-transparent hover:text-[#10B981]/70 opacity-70 hover:opacity-100'
                 }
               `}
               style={{
@@ -74,7 +74,7 @@ export const EpisodeNavigator: React.FC<EpisodeNavigatorProps> = ({
               {isActive && (
                 <motion.div
                   layoutId="activeEpisode"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00FF99]"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#10B981]"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}

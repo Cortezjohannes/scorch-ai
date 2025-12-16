@@ -91,15 +91,15 @@ export default function ShareStoryBibleModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-2xl bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl shadow-2xl overflow-hidden my-8"
+            className="relative w-full max-w-2xl bg-[#1A1A1A] border border-[#10B981]/30 rounded-2xl shadow-2xl overflow-hidden my-8"
           >
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/10 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/10 to-transparent pointer-events-none" />
           
           <div className="relative p-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00FF99] to-[#00CC7A]">
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] to-[#059669]">
                 Share Story Bible
               </h2>
               <button
@@ -113,9 +113,9 @@ export default function ShareStoryBibleModal({
             {/* Content */}
             <div className="space-y-6">
               {/* Story Bible Info */}
-              <div className="bg-[#121212] rounded-xl p-4 border border-[#00FF99]/10">
+              <div className="bg-[#121212] rounded-xl p-4 border border-[#10B981]/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#00FF99]/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-[#10B981]/10 flex items-center justify-center">
                     <span className="text-2xl">📖</span>
                   </div>
                   <div className="flex-1">
@@ -138,7 +138,7 @@ export default function ShareStoryBibleModal({
                   <button
                     onClick={handleCreateShare}
                     disabled={isGenerating}
-                    className="px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isGenerating ? (
                       <span className="flex items-center gap-2">
@@ -162,14 +162,14 @@ export default function ShareStoryBibleModal({
                         type="text"
                         value={shareUrl}
                         readOnly
-                        className="flex-1 px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-[#00FF99]/50"
+                        className="flex-1 px-4 py-3 bg-[#121212] border border-[#10B981]/20 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-[#10B981]/50"
                       />
                       <button
                         onClick={handleCopyLink}
                         className={`px-4 py-3 rounded-lg font-medium transition-all ${
                           copied
-                            ? 'bg-[#00FF99] text-black'
-                            : 'bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] hover:bg-[#00FF99]/20'
+                            ? 'bg-[#10B981] text-black'
+                            : 'bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981] hover:bg-[#10B981]/20'
                         }`}
                       >
                         {copied ? '✓ Copied!' : '📋 Copy'}
@@ -178,7 +178,7 @@ export default function ShareStoryBibleModal({
                   </div>
 
                   {/* Share Info */}
-                  <div className="bg-[#121212] rounded-xl p-4 border border-[#00FF99]/10">
+                  <div className="bg-[#121212] rounded-xl p-4 border border-[#10B981]/10">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">ℹ️</span>
                       <div className="flex-1">
@@ -209,7 +209,7 @@ export default function ShareStoryBibleModal({
                     )}
                     <button
                       onClick={onClose}
-                      className="flex-1 px-4 py-3 bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] rounded-lg hover:bg-[#00FF99]/20 transition-colors font-medium"
+                      className="flex-1 px-4 py-3 bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981] rounded-lg hover:bg-[#10B981]/20 transition-colors font-medium"
                     >
                       Done
                     </button>

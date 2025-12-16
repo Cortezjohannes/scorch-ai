@@ -110,6 +110,8 @@ export default function ProductionLoadingScreen({
   const [generatedContent, setGeneratedContent] = useState<any>({})
   const [currentStatus, setCurrentStatus] = useState('Initializing production pipeline...')
   const [isComplete, setIsComplete] = useState(false)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
 
   const totalSteps = CONTENT_TYPES.length
   // Get actual episode count from story bible for this arc
@@ -123,8 +125,29 @@ export default function ProductionLoadingScreen({
   }
 
   useEffect(() => {
+    setStartTime(Date.now())
+    setElapsedTime(0)
     generateAllContent()
   }, [])
+
+  // Update elapsed time every second
+  useEffect(() => {
+    if (!startTime) return
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000) // seconds
+      setElapsedTime(elapsed)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [startTime])
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   const generateAllContent = async () => {
     const allContent: any = {}
@@ -304,13 +327,13 @@ export default function ProductionLoadingScreen({
 
       {/* Background Animation */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/5 via-transparent to-[#00FF99]/5 animate-pulse" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#10B981]/5 via-transparent to-[#10B981]/5 animate-pulse" />
         
         {/* Floating Particles */}
         {[...Array(20)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-[#00FF99]/30 rounded-full"
+            className="absolute w-1 h-1 bg-[#10B981]/30 rounded-full"
             initial={{
               x: Math.random() * window.innerWidth,
               y: Math.random() * window.innerHeight,
@@ -373,7 +396,7 @@ export default function ProductionLoadingScreen({
             >
               {currentContentType?.icon}
             </motion.div>
-            <h2 className="text-3xl font-black text-[#00FF99] mb-3 elegant-fire">
+            <h2 className="text-3xl font-black text-[#10B981] mb-3 elegant-fire">
               {currentContentType?.label}
             </h2>
             <p className="text-lg text-white/90 elegant-fire">
@@ -388,11 +411,14 @@ export default function ProductionLoadingScreen({
           <div>
             <div className="flex justify-between text-lg text-white/80 mb-3 elegant-fire">
               <span>EMPIRE PROGRESS</span>
-              <span className="font-black text-[#00FF99]">{Math.round(overallProgress)}%</span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-[#10B981]/70 font-mono">{formatTime(elapsedTime)}</span>
+                <span className="font-black text-[#10B981]">{Math.round(overallProgress)}%</span>
+              </div>
             </div>
-            <div className="h-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#00FF99]/20">
+            <div className="h-6 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#10B981]/20">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#00CC7A] via-[#00FF99] to-[#33FFAD]"
+                className="h-full bg-gradient-to-r from-[#059669] via-[#10B981] to-[#33FFAD]"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallProgress}%` }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
@@ -404,11 +430,11 @@ export default function ProductionLoadingScreen({
           <div>
             <div className="flex justify-between text-lg text-white/80 mb-3 elegant-fire">
               <span>{currentContentType?.label} PROGRESS</span>
-              <span className="font-black text-[#00FF99]">{Math.round(stepProgress)}%</span>
+              <span className="font-black text-[#10B981]">{Math.round(stepProgress)}%</span>
             </div>
-            <div className="h-4 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#00FF99]/20">
+            <div className="h-4 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-xl overflow-hidden border border-[#10B981]/20">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#00CC7A]/70 via-[#00FF99]/70 to-[#33FFAD]/70"
+                className="h-full bg-gradient-to-r from-[#059669]/70 via-[#10B981]/70 to-[#33FFAD]/70"
                 style={{ width: `${stepProgress}%` }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               />
@@ -423,10 +449,10 @@ export default function ProductionLoadingScreen({
               key={type.id}
               className={`p-6 rebellious-card transition-all ${
                 index < currentStep 
-                  ? 'border-[#00FF99]/60 shadow-[#00FF99]/20' 
+                  ? 'border-[#10B981]/60 shadow-[#10B981]/20' 
                   : index === currentStep
-                    ? 'border-[#00CC7A]/40 shadow-[#00CC7A]/20'
-                    : 'border-[#00FF99]/20'
+                    ? 'border-[#059669]/40 shadow-[#059669]/20'
+                    : 'border-[#10B981]/20'
               }`}
               animate={index === currentStep ? { 
                 scale: [1, 1.05, 1],
@@ -439,7 +465,7 @@ export default function ProductionLoadingScreen({
               <div className="text-sm text-center font-black elegant-fire">{type.label}</div>
               {index < currentStep && (
                 <motion.div
-                  className="text-[#00FF99] text-center mt-3 text-xl"
+                  className="text-[#10B981] text-center mt-3 text-xl"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.3 }}
@@ -449,7 +475,7 @@ export default function ProductionLoadingScreen({
               )}
               {index === currentStep && (
                 <motion.div
-                  className="text-[#00CC7A] text-center mt-3 text-xl"
+                  className="text-[#059669] text-center mt-3 text-xl"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                 >
@@ -468,7 +494,7 @@ export default function ProductionLoadingScreen({
           transition={{ duration: 0.8, delay: 0.5 }}
         >
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-black text-[#00FF99] mb-3 elegant-fire">🎬 PRODUCTION ENGINES</h3>
+            <h3 className="text-2xl font-black text-[#10B981] mb-3 elegant-fire">🎬 PRODUCTION ENGINES</h3>
             <p className="text-lg text-white/90 elegant-fire">AI-powered production intelligence systems</p>
           </div>
           
@@ -487,8 +513,8 @@ export default function ProductionLoadingScreen({
                 key={engine.name}
                 className={`p-4 rebellious-card text-center transition-all ${
                   engine.active 
-                    ? 'border-[#00CC7A]/40 shadow-[#00CC7A]/20' 
-                    : 'border-[#00FF99]/20'
+                    ? 'border-[#059669]/40 shadow-[#059669]/20' 
+                    : 'border-[#10B981]/20'
                 }`}
                 animate={engine.active ? {
                   boxShadow: ["0 0 0 0 rgba(214, 40, 40, 0)", "0 0 0 8px rgba(214, 40, 40, 0.1)", "0 0 0 0 rgba(214, 40, 40, 0)"]
@@ -500,7 +526,7 @@ export default function ProductionLoadingScreen({
                 <div className="text-sm font-black elegant-fire">{engine.name}</div>
                 {engine.active && (
                   <motion.div
-                    className="text-[#00CC7A] text-center mt-2 text-xl"
+                    className="text-[#059669] text-center mt-2 text-xl"
                     animate={{ opacity: [0.5, 1, 0.5] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
                   >

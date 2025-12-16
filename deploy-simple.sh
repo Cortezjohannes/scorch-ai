@@ -4,7 +4,7 @@
 echo "🚀 Deploying Reeled AI to Google Cloud Run..."
 
 # Set environment variables
-export GEMINI_API_KEY="AIzaSyB4Zv84FGbknZZ8_h_Pjc6fDdqiRa3txWQ"
+export GEMINI_API_KEY="AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo"
 export NODE_ENV="production"
 
 # Deploy using gcloud run deploy with source

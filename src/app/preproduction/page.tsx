@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { PreProductionShell } from '@/components/preproduction/PreProductionShell'
 import { 
@@ -12,6 +13,8 @@ import type { PreProductionData } from '@/types/preproduction'
 
 export default function PreProductionPage() {
   const { user, isLoading: authLoading } = useAuth()
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
   const searchParams = useSearchParams()
   const router = useRouter()
   
@@ -124,7 +127,7 @@ export default function PreProductionPage() {
 
   const handleBack = () => {
     if (storyBibleId) {
-      router.push(`/workspace?storyBibleId=${storyBibleId}`)
+      router.push(`/workspace?id=${storyBibleId}`)
     } else {
       router.push('/workspace')
     }
@@ -132,10 +135,10 @@ export default function PreProductionPage() {
 
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center`}>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#00FF99] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#e7e7e7] text-lg">Initializing pre-production...</p>
+          <div className={`w-16 h-16 border-4 ${prefix}-border border-t-transparent rounded-full animate-spin mx-auto mb-4`} style={{ borderColor: '#10B981' }} />
+          <p className={`${prefix}-text-primary text-lg`}>Initializing pre-production...</p>
         </div>
       </div>
     )
@@ -143,14 +146,14 @@ export default function PreProductionPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center`}>
         <div className="text-center max-w-md">
           <div className="text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-[#e7e7e7] mb-4">Error</h1>
-          <p className="text-[#e7e7e7]/70 mb-6">{error}</p>
+          <h1 className={`text-2xl font-bold ${prefix}-text-primary mb-4`}>Error</h1>
+          <p className={`${prefix}-text-secondary mb-6`}>{error}</p>
           <button
             onClick={handleBack}
-            className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+            className={`px-6 py-3 ${prefix}-btn-primary font-medium rounded-lg transition-colors`}
           >
             Go Back to Workspace
           </button>
@@ -161,9 +164,9 @@ export default function PreProductionPage() {
 
   if (!preProductionId) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center`}>
         <div className="text-center">
-          <p className="text-[#e7e7e7]">Loading...</p>
+          <p className={`${prefix}-text-primary`}>Loading...</p>
         </div>
       </div>
     )

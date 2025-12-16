@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect } from 'react'
 import FAQ from '@/components/FAQ'
 import Navigation from '@/components/Navigation'
@@ -41,13 +41,13 @@ export default function ProgramPage() {
         initial={{ y: 0 }}
         animate={{ y: isScrolled ? -100 : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#00FF99]/20"
+        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#10B981]/20"
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/greenlitailogo.png" alt="Greenlit" className="h-10 w-auto" />
-              <span className="text-[#00FF99] font-bold text-2xl">Greenlit</span>
+              <span className="text-[#10B981] font-bold text-2xl">Greenlit</span>
             </div>
             <Navigation />
           </div>
@@ -77,7 +77,7 @@ export default function ProgramPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <button className="bg-[#00FF99] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#00CC7A] transition-colors">
+            <button className="bg-[#10B981] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#059669] transition-colors">
               Apply Now →
             </button>
           </motion.div>
@@ -96,9 +96,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Velocity (100x Faster)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Velocity (100x Faster)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed">
                 The Murphy Engine (30+ Production Engines) collapses months of work into days. Our platform handles the grind.
               </p>
@@ -108,9 +108,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Ownership (Your IP. Period)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Ownership (Your IP. Period)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed">
                 The era of giving away your leverage is over. You own the content you create.
               </p>
@@ -120,9 +120,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Monetization (The 70/30 Split)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Monetization (The 70/30 Split)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed">
                 We radically align incentives. You keep 70% of the revenue via subscriptions, PPV, and interactive fan voting.
               </p>
@@ -146,9 +146,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-xl p-6"
+              className="bg-[#1a1a1a] border border-[#10B981]/30 rounded-xl p-6"
             >
-              <h3 className="text-xl font-bold text-[#00FF99] mb-3">The Studio Partners (Score 18-20)</h3>
+              <h3 className="text-xl font-bold text-[#10B981] mb-3">The Studio Partners (Score 18-20)</h3>
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Vanguard</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">Aced the pitch across all pillars. Ready NOW.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
@@ -163,9 +163,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-6"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-6"
             >
-              <h3 className="text-xl font-bold text-[#00FF99] mb-3">The Accelerator Producers (Score 15-17)</h3>
+              <h3 className="text-xl font-bold text-[#10B981] mb-3">The Accelerator Producers (Score 15-17)</h3>
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Hustlers</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">High potential, strong vision, ready to build.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
@@ -180,9 +180,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-6"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-6"
             >
-              <h3 className="text-xl font-bold text-[#00FF99] mb-3">The Talent Roster (Score 11-14)</h3>
+              <h3 className="text-xl font-bold text-[#10B981] mb-3">The Talent Roster (Score 11-14)</h3>
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Vetted Talent Pool</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">Strong Chops, but perhaps lacking Clout or the immediate desire to produce.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
@@ -196,9 +196,9 @@ export default function ProgramPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-6"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-6"
             >
-              <h3 className="text-xl font-bold text-[#00FF99] mb-3">The Development Slate (Score &lt;11)</h3>
+              <h3 className="text-xl font-bold text-[#10B981] mb-3">The Development Slate (Score &lt;11)</h3>
               <p className="text-sm text-[#E7E7E7]/60 mb-4">The Incubator</p>
               <p className="text-[#E7E7E7]/80 text-sm mb-4">Does not meet the benchmarks yet.</p>
               <ul className="text-sm text-[#E7E7E7]/70 space-y-2">
@@ -244,7 +244,7 @@ export default function ProgramPage() {
               transition={{ duration: 0.6 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 1
               </div>
               <h3 className="text-xl font-bold mb-2">Application</h3>
@@ -257,7 +257,7 @@ export default function ProgramPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 2
               </div>
               <h3 className="text-xl font-bold mb-2">Vetting</h3>
@@ -270,7 +270,7 @@ export default function ProgramPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 3
               </div>
               <h3 className="text-xl font-bold mb-2">Pitch Session</h3>
@@ -283,7 +283,7 @@ export default function ProgramPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 4
               </div>
               <h3 className="text-xl font-bold mb-2">Onboarding Bootcamp</h3>

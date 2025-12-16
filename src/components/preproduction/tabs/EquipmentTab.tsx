@@ -7,33 +7,128 @@ import { TableView } from '../shared/TableView'
 import { QuestionnaireModal } from '../shared/QuestionnaireModal'
 import type { Questionnaire } from '@/services/ai-generators/questionnaire-generator'
 import { getStoryBible } from '@/services/story-bible-service'
+import { aggregateEquipmentFromEpisodes } from '@/services/arc-preproduction-aggregator'
 
 interface EquipmentTabProps {
   preProductionData: PreProductionData
   onUpdate: (tabName: string, tabData: any) => Promise<void>
   currentUserId: string
   currentUserName: string
+  // Arc-wide props (optional)
+  arcPreProdData?: any
+  episodePreProdData?: Record<number, any>
+  storyBible?: any
+  arcIndex?: number
 }
 
 export function EquipmentTab({
   preProductionData,
   onUpdate,
   currentUserId,
-  currentUserName
+  currentUserName,
+  arcPreProdData,
+  episodePreProdData,
+  storyBible,
+  arcIndex
 }: EquipmentTabProps) {
+  // Detect arc context
+  const isArcContext = preProductionData.type === 'arc' || !!arcPreProdData
+  
+  // Equipment is only managed at arc level
+  if (!isArcContext) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8">
+        <div className="text-6xl mb-4">🎥</div>
+        <h3 className="text-xl font-bold text-[#e7e7e7] mb-2">Equipment Managed at Arc Level</h3>
+        <p className="text-[#e7e7e7]/70 mb-6 max-w-md">
+          Equipment is shared across all episodes in an arc, so it's managed at the production assistant level.
+          <br /><br />
+          Please navigate to the production assistant page to manage equipment for this arc.
+        </p>
+      </div>
+    )
+  }
   const [selectedCategory, setSelectedCategory] = useState<'all' | string>('all')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null)
+  const [questionnaireAnswers, setQuestionnaireAnswers] = useState<Record<string, any>>({})
+  const hasShownQuestionnaireOnMount = useRef(false)
 
-  const equipmentData = (preProductionData as any).equipment || {
-    items: [],
-    lastUpdated: Date.now()
+  // Hybrid data source: Use arc document first, fall back to aggregation
+  const arcEquipmentData = (preProductionData as any).equipment
+  const aggregatedEquipmentData = useMemo(() => {
+    if (isArcContext && episodePreProdData && Object.keys(episodePreProdData).length > 0) {
+      return aggregateEquipmentFromEpisodes(episodePreProdData)
+    }
+    return null
+  }, [isArcContext, episodePreProdData])
+  
+  // Priority: Arc document > Aggregated from episodes > Empty
+  const equipmentData = arcEquipmentData && (
+    (Array.isArray(arcEquipmentData.items) && arcEquipmentData.items.length > 0) ||
+    (arcEquipmentData.camera && arcEquipmentData.camera.length > 0) ||
+    (arcEquipmentData.lighting && arcEquipmentData.lighting.length > 0)
+  )
+    ? arcEquipmentData
+    : aggregatedEquipmentData || {
+        items: [],
+        camera: [],
+        lens: [],
+        lighting: [],
+        audio: [],
+        grip: [],
+        other: [],
+        lastUpdated: Date.now()
+      }
+
+  // Helper function to get all items from EquipmentData (handles both structures)
+  const getAllItems = (data: any): EquipmentItem[] => {
+    if (!data) return []
+    
+    // If items array exists, use it
+    if (Array.isArray(data.items)) {
+      return data.items
+    }
+    
+    // Otherwise, collect from category arrays
+    const categories: Array<'camera' | 'lens' | 'lighting' | 'audio' | 'grip' | 'other'> = 
+      ['camera', 'lens', 'lighting', 'audio', 'grip', 'other']
+    
+    const allItems: EquipmentItem[] = []
+    categories.forEach(category => {
+      if (Array.isArray(data[category])) {
+        allItems.push(...data[category])
+      }
+    })
+    
+    return allItems
   }
 
-  const breakdownData = preProductionData.scriptBreakdown
-  const scriptsData = (preProductionData as any).scripts
+  // Get all items as a flat array for easy access
+  const allItems = useMemo(() => getAllItems(equipmentData), [equipmentData])
+
+  // Get breakdown and script data based on context
+  const breakdownData = preProductionData.type === 'episode' 
+    ? preProductionData.scriptBreakdown 
+    : undefined // For arc context, we'll check episodePreProdData
+  
+  const scriptsData = preProductionData.type === 'episode' 
+    ? (preProductionData as any).scripts 
+    : undefined // For arc context, we'll check episodePreProdData
+  
+  // For arc context, check if any episode has breakdown and script data
+  const hasArcPrerequisites = useMemo(() => {
+    if (!isArcContext || !episodePreProdData) return false
+    
+    // Check if at least one episode has both breakdown and script
+    return Object.values(episodePreProdData).some((epPreProd: any) => {
+      const hasBreakdown = epPreProd?.scriptBreakdown?.scenes && epPreProd.scriptBreakdown.scenes.length > 0
+      const hasScript = epPreProd?.scripts?.fullScript
+      return hasBreakdown && hasScript
+    })
+  }, [isArcContext, episodePreProdData])
 
   // Cross-episode equipment inventory (localStorage per story bible)
   const inventoryKey = `equipmentInventory:${preProductionData.storyBibleId}`
@@ -68,21 +163,35 @@ export function EquipmentTab({
   }
 
   const handleMarkOwnedGlobally = async (itemId: string) => {
-    const item = (equipmentData.items as EquipmentItem[]).find((i: any) => i.id === itemId)
+    const item = allItems.find((i: any) => i.id === itemId)
     if (!item) return
     const inv = loadInventory()
     const exists = inv.some(i => i.name.toLowerCase() === String(item.name).toLowerCase() && i.category === (item as any).category)
     const next = exists ? inv : [...inv, { name: String(item.name), category: (item as any).category }]
     saveInventory(next)
 
-    // Also reflect locally as owned
-    const updatedItems = (equipmentData.items as EquipmentItem[]).map((i: any) => i.id === itemId ? { ...i, ownership: 'owned' as any } : i)
-    await onUpdate('equipment', { ...equipmentData, items: updatedItems, lastUpdated: Date.now() })
+    // Also reflect locally as owned - update the item in its category array
+    const category = item.category || 'other'
+    const updatedCategory = (equipmentData[category] || []).map((i: any) => i.id === itemId ? { ...i, ownership: 'owned' as any } : i)
+    await onUpdate('equipment', { 
+      ...equipmentData, 
+      [category]: updatedCategory,
+      lastUpdated: Date.now() 
+    })
   }
 
   const handleApplyInventoryToList = async () => {
-    const updatedItems = applyInventoryToItems(equipmentData.items as EquipmentItem[])
-    await onUpdate('equipment', { ...equipmentData, items: updatedItems, lastUpdated: Date.now() })
+    const updated = applyInventoryToItems(allItems)
+    // Update each category array
+    const categories: Array<'camera' | 'lens' | 'lighting' | 'audio' | 'grip' | 'other'> = 
+      ['camera', 'lens', 'lighting', 'audio', 'grip', 'other']
+    
+    const updatedData: any = { ...equipmentData }
+    categories.forEach(category => {
+      updatedData[category] = updated.filter((item: EquipmentItem) => item.category === category)
+    })
+    
+    await onUpdate('equipment', { ...updatedData, lastUpdated: Date.now() })
   }
 
   // Auto-apply inventory on load (once)
@@ -94,11 +203,20 @@ export function EquipmentTab({
       autoAppliedRef.current = true
       return
     }
-    const updated = applyInventoryToItems(equipmentData.items as EquipmentItem[])
-    const changed = JSON.stringify(updated) !== JSON.stringify(equipmentData.items)
+    const updated = applyInventoryToItems(allItems)
+    const changed = JSON.stringify(updated) !== JSON.stringify(allItems)
     if (changed) {
       autoAppliedRef.current = true
-      onUpdate('equipment', { ...equipmentData, items: updated, lastUpdated: Date.now() })
+      // Update each category array
+      const categories: Array<'camera' | 'lens' | 'lighting' | 'audio' | 'grip' | 'other'> = 
+        ['camera', 'lens', 'lighting', 'audio', 'grip', 'other']
+      
+      const updatedData: any = { ...equipmentData }
+      categories.forEach(category => {
+        updatedData[category] = updated.filter((item: EquipmentItem) => item.category === category)
+      })
+      
+      onUpdate('equipment', { ...updatedData, lastUpdated: Date.now() })
     } else {
       autoAppliedRef.current = true
     }
@@ -108,20 +226,23 @@ export function EquipmentTab({
   // Derive count of matches available in inventory
   const inventoryOwnedCount = useMemo(() => {
     const inv = loadInventory()
-    if (!inv.length || !Array.isArray(equipmentData.items)) return 0
+    if (!inv.length || allItems.length === 0) return 0
     const normalized = inv.map(i => ({ name: i.name.trim().toLowerCase(), category: i.category }))
-    return (equipmentData.items as EquipmentItem[]).filter((it: any) => normalized.find(n => n.name === String(it.name||'').trim().toLowerCase() && n.category === it.category)).length
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [equipmentData.items?.length])
+    return allItems.filter((it: any) => normalized.find(n => n.name === String(it.name||'').trim().toLowerCase() && n.category === it.category)).length
+  }, [allItems.length])
 
   const handleItemUpdate = async (itemId: string, updates: Partial<EquipmentItem>) => {
-    const updatedItems = equipmentData.items.map((item: EquipmentItem) =>
-      item.id === itemId ? { ...item, ...updates } : item
+    const item = allItems.find((i: EquipmentItem) => i.id === itemId)
+    if (!item) return
+    
+    const category = item.category || 'other'
+    const updatedCategory = (equipmentData[category] || []).map((i: EquipmentItem) =>
+      i.id === itemId ? { ...i, ...updates } : i
     )
     
     await onUpdate('equipment', {
       ...equipmentData,
-      items: updatedItems,
+      [category]: updatedCategory,
       lastUpdated: Date.now()
     })
   }
@@ -139,15 +260,18 @@ export function EquipmentTab({
       comments: []
     } as any
     
+    const category = newItem.category || 'other'
+    const currentCategory = equipmentData[category] || []
+    
     await onUpdate('equipment', {
       ...equipmentData,
-      items: [...equipmentData.items, newItem],
+      [category]: [...currentCategory, newItem],
       lastUpdated: Date.now()
     })
   }
 
   const handleAddComment = async (itemId: string, content: string) => {
-    const item = equipmentData.items.find((i: EquipmentItem) => i.id === itemId)
+    const item = allItems.find((i: EquipmentItem) => i.id === itemId)
     if (!item) return
 
     const newComment = {
@@ -158,7 +282,8 @@ export function EquipmentTab({
       timestamp: Date.now()
     }
 
-    const updatedItems = equipmentData.items.map((i: EquipmentItem) =>
+    const category = item.category || 'other'
+    const updatedCategory = (equipmentData[category] || []).map((i: EquipmentItem) =>
       i.id === itemId
         ? { ...i, comments: [...(i.comments || []), newComment] }
         : i
@@ -166,7 +291,7 @@ export function EquipmentTab({
 
     await onUpdate('equipment', {
       ...equipmentData,
-      items: updatedItems,
+      [category]: updatedCategory,
       lastUpdated: Date.now()
     })
   }
@@ -177,34 +302,86 @@ export function EquipmentTab({
     setGenerationError(null)
 
     try {
-      if (!breakdownData) {
-        setGenerationError('Please generate script breakdown first')
-        setIsGenerating(false)
-        return
-      }
-      if (!scriptsData?.fullScript) {
-        setGenerationError('Please generate a script first')
-        setIsGenerating(false)
-        return
+      // Check prerequisites based on context
+      if (isArcContext) {
+        if (!hasArcPrerequisites) {
+          setGenerationError('Please generate Script and Script Breakdown for at least one episode first')
+          setIsGenerating(false)
+          return
+        }
+      } else {
+        if (!breakdownData) {
+          setGenerationError('Please generate script breakdown first')
+          setIsGenerating(false)
+          return
+        }
+        if (!scriptsData?.fullScript) {
+          setGenerationError('Please generate a script first')
+          setIsGenerating(false)
+          return
+        }
       }
 
       const storyBible = await getStoryBible(preProductionData.storyBibleId, currentUserId)
       if (!storyBible) throw new Error('Story bible not found')
 
+      const requestBody: any = {
+        preProductionId: (preProductionData as any).id,
+        storyBibleId: preProductionData.storyBibleId,
+        userId: currentUserId,
+        storyBibleData: storyBible,
+        castingData: preProductionData.casting,
+        questionnaireType: 'both'
+      }
+
+      if (isArcContext && arcPreProdData && episodePreProdData) {
+        // For arc context, aggregate breakdown and scripts from episodes
+        const aggregatedBreakdown: any = {
+          scenes: [],
+          totalScenes: 0
+        }
+        const aggregatedScripts: any[] = []
+        
+        console.log('📊 Aggregating breakdown and script data from episodes for equipment questionnaire...')
+        Object.entries(episodePreProdData).forEach(([epNumStr, epPreProd]: [string, any]) => {
+          const epNum = parseInt(epNumStr)
+          
+          // Check for script breakdown
+          const breakdown = epPreProd.scriptBreakdown
+          if (breakdown?.scenes && Array.isArray(breakdown.scenes) && breakdown.scenes.length > 0) {
+            console.log(`  ✅ Episode ${epNum}: Found ${breakdown.scenes.length} scenes in breakdown`)
+            aggregatedBreakdown.scenes.push(...breakdown.scenes)
+            aggregatedBreakdown.totalScenes += breakdown.scenes.length
+          }
+          
+          // Check for scripts
+          const scripts = epPreProd.scripts
+          if (scripts?.fullScript) {
+            console.log(`  ✅ Episode ${epNum}: Found script`)
+            aggregatedScripts.push(scripts.fullScript)
+          }
+        })
+        
+        console.log(`📊 Aggregation results:`, {
+          totalScenes: aggregatedBreakdown.scenes.length,
+          totalScripts: aggregatedScripts.length
+        })
+        
+        requestBody.arcPreProductionId = preProductionData.id
+        requestBody.episodeNumbers = arcPreProdData.episodeNumbers || []
+        requestBody.breakdownData = aggregatedBreakdown.scenes.length > 0 ? aggregatedBreakdown : null
+        requestBody.scriptData = aggregatedScripts.length > 0 ? aggregatedScripts[0] : null
+        requestBody.episodePreProdData = episodePreProdData // Pass full episode data for server-side fallback
+      } else if (preProductionData.type === 'episode') {
+        requestBody.episodeNumber = preProductionData.episodeNumber
+        requestBody.scriptData = scriptsData?.fullScript
+        requestBody.breakdownData = breakdownData
+      }
+
       const response = await fetch('/api/generate/questionnaire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preProductionId: (preProductionData as any).id,
-          storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
-          userId: currentUserId,
-          scriptData: scriptsData.fullScript,
-          breakdownData: breakdownData,
-          storyBibleData: storyBible,
-          castingData: preProductionData.casting,
-          questionnaireType: 'equipment'
-        })
+        body: JSON.stringify(requestBody)
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -226,32 +403,86 @@ export function EquipmentTab({
     setGenerationError(null)
 
     try {
-      if (!breakdownData) {
-        setGenerationError('Please generate script breakdown first')
-        setIsGenerating(false)
-        return
-      }
-      if (!scriptsData?.fullScript) {
-        setGenerationError('Please generate a script first')
-        setIsGenerating(false)
-        return
+      // Check prerequisites based on context
+      if (isArcContext) {
+        if (!hasArcPrerequisites) {
+          setGenerationError('Please generate Script and Script Breakdown for at least one episode first')
+          setIsGenerating(false)
+          return
+        }
+      } else {
+        if (!breakdownData) {
+          setGenerationError('Please generate script breakdown first')
+          setIsGenerating(false)
+          return
+        }
+        if (!scriptsData?.fullScript) {
+          setGenerationError('Please generate a script first')
+          setIsGenerating(false)
+          return
+        }
       }
       const storyBible = await getStoryBible(preProductionData.storyBibleId, currentUserId)
       if (!storyBible) throw new Error('Story bible not found')
 
+      const combinedAnswers = answers || questionnaireAnswers || (arcPreProdData as any)?.propsWardrobe?.questionnaireAnswers || {}
+
+      const requestBody: any = {
+        preProductionId: (preProductionData as any).id,
+        storyBibleId: preProductionData.storyBibleId,
+        userId: currentUserId,
+        storyBibleData: storyBible,
+        questionnaireAnswers: combinedAnswers
+      }
+
+      if (isArcContext && arcPreProdData && episodePreProdData) {
+        // For arc context, aggregate breakdown and scripts from episodes
+        const aggregatedBreakdown: any = {
+          scenes: [],
+          totalScenes: 0
+        }
+        const aggregatedScripts: any[] = []
+        
+        console.log('📊 Aggregating breakdown and script data from episodes for equipment generation...')
+        Object.entries(episodePreProdData).forEach(([epNumStr, epPreProd]: [string, any]) => {
+          const epNum = parseInt(epNumStr)
+          
+          // Check for script breakdown
+          const breakdown = epPreProd.scriptBreakdown
+          if (breakdown?.scenes && Array.isArray(breakdown.scenes) && breakdown.scenes.length > 0) {
+            console.log(`  ✅ Episode ${epNum}: Found ${breakdown.scenes.length} scenes in breakdown`)
+            aggregatedBreakdown.scenes.push(...breakdown.scenes)
+            aggregatedBreakdown.totalScenes += breakdown.scenes.length
+          }
+          
+          // Check for scripts
+          const scripts = epPreProd.scripts
+          if (scripts?.fullScript) {
+            console.log(`  ✅ Episode ${epNum}: Found script`)
+            aggregatedScripts.push(scripts.fullScript)
+          }
+        })
+        
+        console.log(`📊 Aggregation results:`, {
+          totalScenes: aggregatedBreakdown.scenes.length,
+          totalScripts: aggregatedScripts.length
+        })
+        
+        requestBody.arcPreProductionId = preProductionData.id
+        requestBody.episodeNumbers = arcPreProdData.episodeNumbers || []
+        requestBody.breakdownData = aggregatedBreakdown.scenes.length > 0 ? aggregatedBreakdown : null
+        requestBody.scriptData = aggregatedScripts.length > 0 ? aggregatedScripts[0] : null
+        requestBody.episodePreProdData = episodePreProdData // Pass full episode data for server-side fallback
+      } else if (preProductionData.type === 'episode') {
+        requestBody.episodeNumber = preProductionData.episodeNumber
+        requestBody.scriptData = scriptsData?.fullScript
+        requestBody.breakdownData = breakdownData
+      }
+
       const response = await fetch('/api/generate/equipment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preProductionId: (preProductionData as any).id,
-          storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
-          userId: currentUserId,
-          scriptData: scriptsData.fullScript,
-          breakdownData: breakdownData,
-          storyBibleData: storyBible,
-          questionnaireAnswers: answers || {}
-        })
+        body: JSON.stringify(requestBody)
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -285,9 +516,17 @@ export function EquipmentTab({
         ...mapCategory(eq.other, 'other'),
       ]
 
+      // Update category arrays from generated items
+      const categories: Array<'camera' | 'lens' | 'lighting' | 'audio' | 'grip' | 'other'> = 
+        ['camera', 'lens', 'lighting', 'audio', 'grip', 'other']
+      
+      const updatedData: any = { ...equipmentData }
+      categories.forEach(category => {
+        updatedData[category] = items.filter((item: EquipmentItem) => item.category === category)
+      })
+      
       await onUpdate('equipment', {
-        ...equipmentData,
-        items,
+        ...updatedData,
         lastUpdated: Date.now()
       })
     } catch (e: any) {
@@ -299,21 +538,64 @@ export function EquipmentTab({
   }
 
   const handleQuestionnaireComplete = (answers: Record<string, any>) => {
+    setQuestionnaireAnswers(answers)
+    setShowQuestionnaire(false)
+    setQuestionnaire(null)
     handleGenerateEquipment(answers)
   }
 
+  // Auto-show questionnaire on first access if no data exists
+  useEffect(() => {
+    // Skip if already shown or if data exists
+    if (hasShownQuestionnaireOnMount.current) return
+    if (allItems.length > 0) {
+      hasShownQuestionnaireOnMount.current = true
+      return
+    }
+    
+    // Check prerequisites based on context
+    if (isArcContext) {
+      if (!hasArcPrerequisites) return
+    } else {
+      if (!breakdownData || !scriptsData?.fullScript) return
+    }
+
+    const sharedAnswers = (arcPreProdData as any)?.propsWardrobe?.questionnaireAnswers
+
+    const showOnFirstAccess = async () => {
+      if (!questionnaire && !showQuestionnaire && !isGenerating) {
+        if (sharedAnswers && Object.keys(sharedAnswers).length > 0) {
+          setQuestionnaireAnswers(sharedAnswers)
+          await handleGenerateEquipment(sharedAnswers)
+          hasShownQuestionnaireOnMount.current = true
+        } else {
+          await handleGenerateQuestionnaire()
+          hasShownQuestionnaireOnMount.current = true
+        }
+      }
+    }
+    
+    const timeout = setTimeout(() => {
+      showOnFirstAccess()
+      hasShownQuestionnaireOnMount.current = true
+    }, 300)
+    
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allItems.length, breakdownData, scriptsData?.fullScript, isArcContext, hasArcPrerequisites])
+
   // Filter items
   const filteredItems = selectedCategory === 'all'
-    ? equipmentData.items
-    : equipmentData.items.filter((item: EquipmentItem) => item.category === selectedCategory)
+    ? allItems
+    : allItems.filter((item: EquipmentItem) => item.category === selectedCategory)
 
   // Stats
-  const totalItems = (equipmentData.items || []).length
-  const cameraCount = (equipmentData.items || []).filter((i: EquipmentItem) => i.category === 'camera').length
-  const lightingCount = (equipmentData.items || []).filter((i: EquipmentItem) => i.category === 'lighting').length
-  const soundCount = (equipmentData.items || []).filter((i: EquipmentItem) => (i as any).category === 'sound' || (i as any).category === 'audio').length
-  const totalCost = (equipmentData.items || []).reduce((sum: number, item: any) => sum + (item.cost || 0) * (item.quantity || 1), 0)
-  const ownedCount = (equipmentData.items || []).filter((i: any) => i.ownership === 'own' || i.ownership === 'owned').length
+  const totalItems = allItems.length
+  const cameraCount = allItems.filter((i: EquipmentItem) => i.category === 'camera').length
+  const lightingCount = allItems.filter((i: EquipmentItem) => i.category === 'lighting').length
+  const soundCount = allItems.filter((i: EquipmentItem) => (i as any).category === 'sound' || (i as any).category === 'audio').length
+  const totalCost = allItems.reduce((sum: number, item: any) => sum + (item.totalCost || item.costPerDay || 0) * (item.quantity || 1), 0)
+  const ownedCount = allItems.filter((i: any) => i.ownership === 'own' || i.ownership === 'owned').length
 
   // Table columns
   const columns = [
@@ -396,7 +678,7 @@ export function EquipmentTab({
             value={(item as any).cost?.toString() || '0'}
             onSave={(value) => handleItemUpdate(item.id, { totalCost: parseFloat(String(value)) || 0 } as any)}
             type="number"
-            className="text-[#00FF99] font-medium"
+            className="text-[#10B981] font-medium"
           />
         </div>
       ),
@@ -427,7 +709,7 @@ export function EquipmentTab({
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Items</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{totalItems}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{totalItems}</div>
         </div>
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
@@ -452,7 +734,7 @@ export function EquipmentTab({
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Cost</div>
-          <div className="text-2xl font-bold text-[#00FF99]">${totalCost.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-[#10B981]">${totalCost.toLocaleString()}</div>
         </div>
       </div>
 
@@ -496,11 +778,11 @@ export function EquipmentTab({
         </select>
 
         <div className="flex items-center gap-3">
-          {breakdownData && scriptsData?.fullScript && (
+          {((isArcContext && hasArcPrerequisites) || (!isArcContext && breakdownData && scriptsData?.fullScript)) && (
             <button
               onClick={handleGenerateQuestionnaire}
               disabled={isGenerating}
-              className="px-4 py-2 bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30 rounded-lg hover:bg-[#00FF99]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 rounded-lg hover:bg-[#10B981]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? '🔄 Generating...' : '✨ Generate Equipment'}
             </button>
@@ -529,7 +811,7 @@ export function EquipmentTab({
       )}
 
       {/* Equipment Table */}
-      {(equipmentData.items || []).length === 0 ? (
+      {allItems.length === 0 ? (
         <div className="text-center py-16 bg-[#2a2a2a] rounded-lg border border-[#36393f]">
           <div className="text-6xl mb-4">🎥</div>
           <h3 className="text-xl font-bold text-[#e7e7e7] mb-2">No Equipment Added</h3>
@@ -537,16 +819,21 @@ export function EquipmentTab({
             Generate an equipment package based on your script, or add items manually
           </p>
           <div className="flex items-center justify-center gap-4">
-            {!breakdownData || !scriptsData?.fullScript ? (
+            {((isArcContext && !hasArcPrerequisites) || (!isArcContext && (!breakdownData || !scriptsData?.fullScript))) ? (
               <div className="text-center">
-                <p className="text-sm text-[#e7e7e7]/50 mb-4">Please generate Script and Script Breakdown first</p>
+                <p className="text-sm text-[#e7e7e7]/50 mb-4">
+                  {isArcContext 
+                    ? 'Please generate Script and Script Breakdown for at least one episode first'
+                    : 'Please generate Script and Script Breakdown first'
+                  }
+                </p>
               </div>
             ) : (
               <>
                 <button
                   onClick={handleGenerateQuestionnaire}
                   disabled={isGenerating}
-                  className="px-6 py-3 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isGenerating ? '🔄 Generating...' : '✨ Generate Equipment'}
                 </button>
@@ -592,7 +879,7 @@ export function EquipmentTab({
           setQuestionnaire(null)
         }}
         onComplete={handleQuestionnaireComplete}
-        existingAnswers={{}}
+        existingAnswers={questionnaireAnswers}
       />
     </div>
   )

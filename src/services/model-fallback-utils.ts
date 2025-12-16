@@ -3,6 +3,9 @@
  * 
  * This file provides utilities for handling model fallbacks when primary models fail.
  * It implements a cascading fallback strategy to try different models in sequence.
+ * 
+ * 🔄 FALLBACK MECHANISM for 429 rate limit errors:
+ * - Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
  */
 
 import { generateContent } from '@/services/azure-openai';
@@ -17,7 +20,7 @@ export type ModelType = 'gemini' | 'gpt-4.1' | 'gpt-4' | 'gpt-3.5-turbo' | 'clau
  * Configuration for different model fallback options
  */
 export interface ModelFallbackOptions {
-  // Primary model is now Gemini 2.5 Pro
+  // Primary model is now Gemini 3 Pro Preview
   primaryModel?: ModelType;  // Override primary model (default: 'gemini')
   
   // Fallback options when the primary model fails
@@ -125,29 +128,12 @@ export async function generateContentWithFallback(
   } catch (primaryError) {
     console.warn(`⚠️ Primary model (${primaryModel}) generation failed:`, primaryError);
     
-  // Check if we should only use Gemini
-  if (fallbackOptions.useGeminiOnly) {
-    // Try gemini-2.0-flash as a fallback if primary Gemini model fails
-    if (primaryModel === 'gemini' || primaryModel === 'gemini-2.5-pro') {
-      try {
-        console.log('🔄 Primary Gemini model failed, trying gemini-2.0-flash...');
-        const result = await generateWithModel('gemini-2.0-flash', prompt, { 
-          temperature, 
-          maxTokens,
-          systemPrompt
-        });
-        console.log('✅ Fallback to gemini-2.0-flash successful');
-        return result;
-      } catch (geminiFlashError) {
-        console.warn('⚠️ Fallback to gemini-2.0-flash failed:', geminiFlashError);
-        console.error('❌ All Gemini models failed and useGeminiOnly is set to true');
-        throw primaryError;
-      }
-    } else {
-      console.error('❌ Primary Gemini model failed and useGeminiOnly is set to true');
+    // Check if we should only use Gemini
+    if (fallbackOptions.useGeminiOnly) {
+      // If primary Gemini model fails, just throw the error (no fallback)
+      console.error('❌ Gemini model failed and useGeminiOnly is true, no fallback available');
       throw primaryError;
     }
-  }
     
     // Try each fallback model in sequence
     for (const model of fallbackModels) {
@@ -214,24 +200,11 @@ export async function retryWithModelFallback<T>(
     }
   }
   
-  // Check if we should only use Gemini
+  // Check if we should only use Gemini - try gemini-2.5-pro as fallback for 429 errors
   if (fallbackOptions.useGeminiOnly) {
-    // Try gemini-2.0-flash as a fallback if primary Gemini model fails
-    if (primaryModel === 'gemini' || primaryModel === 'gemini-2.5-pro') {
-      try {
-        console.log(`🔄 ${operationName} - Primary Gemini model failed, trying gemini-2.0-flash...`);
-        const result = await operation(true, 'gemini-2.0-flash');
-        console.log(`✅ ${operationName} - Fallback to gemini-2.0-flash successful`);
-        return result;
-      } catch (geminiFlashError) {
-        console.warn(`⚠️ ${operationName} - Fallback to gemini-2.0-flash failed:`, geminiFlashError);
-        console.error(`❌ ${operationName} - All Gemini models failed and useGeminiOnly is set to true`);
-        return null;
-      }
-    } else {
-      console.error(`❌ ${operationName} - Primary Gemini model failed and useGeminiOnly is set to true`);
-      return null;
-    }
+    // If primary Gemini model fails and useGeminiOnly is true, no fallback available
+    console.error(`❌ ${operationName} - Primary Gemini model failed and useGeminiOnly is set to true, no fallback available`);
+    return null;
   }
 
   // If all primary model attempts failed, try fallback models

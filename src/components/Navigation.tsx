@@ -5,11 +5,16 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
+import ThemeToggle from '@/components/ThemeToggle'
+import GlobalThemeToggle from '@/components/navigation/GlobalThemeToggle'
 
 export default function Navigation() {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, isAuthenticated, signOut } = useAuth()
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
 
   const links = [
     { href: '/', label: 'Home' },
@@ -36,8 +41,8 @@ export default function Navigation() {
             href={link.href}
             className={`px-3 py-2 rounded-lg text-sm relative ${
               isActive(link.href)
-                ? 'text-[#00FF99] font-medium'
-                : 'text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A]'
+                ? `${prefix}-text-accent font-medium`
+                : `${prefix}-text-secondary hover:${prefix}-text-primary hover:${prefix}-bg-accent`
             } transition-colors ${
               link.special ? 'relative overflow-hidden' : ''
             }`}
@@ -47,7 +52,9 @@ export default function Navigation() {
                 <motion.div
                   className="absolute inset-0 rounded-lg border-2"
                   style={{
-                    background: 'conic-gradient(from 0deg, #00FF99, #00CC7A, #00FF99, #00CC7A, #00FF99)',
+                    background: theme === 'light' 
+                      ? 'conic-gradient(from 0deg, #C9A961, #B8944F, #C9A961, #B8944F, #C9A961)'
+                      : 'conic-gradient(from 0deg, #10B981, #059669, #10B981, #059669, #10B981)',
                     borderRadius: '8px',
                     zIndex: -1
                   }}
@@ -56,14 +63,15 @@ export default function Navigation() {
                   }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 />
-                <div className="absolute inset-0.5 bg-[#121212] rounded-lg z-0" />
+                <div className={`absolute inset-0.5 ${prefix}-bg-primary rounded-lg z-0`} />
               </>
             )}
             <span className="relative z-10">{link.label}</span>
             {isActive(link.href) && (
               <motion.div
                 layoutId="navIndicator"
-                className="absolute bottom-1 left-3 right-3 h-0.5 bg-[#00FF99]"
+                className={`absolute bottom-1 left-3 right-3 h-0.5`}
+                style={{ backgroundColor: theme === 'light' ? '#C9A961' : '#10B981' }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               />
             )}
@@ -72,18 +80,20 @@ export default function Navigation() {
         
         {/* Auth Links */}
         <div className="ml-4 flex items-center space-x-2">
+          <GlobalThemeToggle />
           {isAuthenticated && user ? (
             <>
               <Link
                 href="/profile"
-                className="px-4 py-2 rounded-lg text-sm text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A] transition-colors flex items-center gap-2 max-w-[200px]"
+                className={`px-4 py-2 rounded-lg text-sm ${prefix}-text-secondary hover:${prefix}-text-primary hover:${prefix}-bg-accent transition-colors flex items-center gap-2 max-w-[200px]`}
               >
                 <span className="text-lg flex-shrink-0">👤</span>
                 <span className="truncate">{user.displayName || user.email}</span>
               </Link>
               <button
                 onClick={() => signOut()}
-                className="px-4 py-2 rounded-lg text-sm bg-[#00FF991A] text-[#00FF99] hover:bg-[#00FF9930] transition-colors"
+                className={`px-4 py-2 rounded-lg text-sm ${prefix}-bg-accent hover:${prefix}-bg-accent/50 transition-colors`}
+                style={{ color: theme === 'light' ? '#C9A961' : '#10B981' }}
               >
                 Logout
               </button>
@@ -92,13 +102,13 @@ export default function Navigation() {
             <>
               <Link
                 href="/login"
-                className="px-4 py-2 rounded-lg text-sm text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A] transition-colors"
+                className={`px-4 py-2 rounded-lg text-sm ${prefix}-text-secondary hover:${prefix}-text-primary hover:${prefix}-bg-accent transition-colors`}
               >
                 Login
               </Link>
               <Link
                 href="/signup"
-                className="px-4 py-2 rounded-lg text-sm bg-[#00FF99] text-black font-medium hover:bg-[#00CC7A] transition-colors"
+                className={`px-4 py-2 rounded-lg text-sm ${prefix}-btn-primary font-medium transition-colors`}
               >
                 Sign Up
               </Link>
@@ -111,7 +121,7 @@ export default function Navigation() {
       <div className="md:hidden">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-lg text-[#E7E7E7]/70 hover:text-[#FFFFFF] hover:bg-[#00FF991A] transition-colors"
+          className={`p-2 rounded-lg ${prefix}-text-secondary hover:${prefix}-text-primary hover:${prefix}-bg-accent transition-colors`}
           aria-label="Toggle menu"
         >
           <motion.svg
@@ -161,7 +171,7 @@ export default function Navigation() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
-              className="absolute top-16 left-4 right-4 max-h-[calc(100vh-5rem)] overflow-y-auto bg-[#121212]/95 backdrop-blur-md border border-[#00FF99]/20 rounded-xl shadow-2xl md:hidden z-50"
+              className={`absolute top-16 left-4 right-4 max-h-[calc(100vh-5rem)] overflow-y-auto ${prefix}-bg-primary/95 backdrop-blur-md border ${prefix}-border rounded-xl shadow-2xl md:hidden z-50`}
             >
               <div className="p-4 space-y-2 safe-area-padding">
                 {links.map((link, index) => (
@@ -175,8 +185,8 @@ export default function Navigation() {
                       href={link.href}
                       className={`block px-4 py-3 rounded-lg relative transition-all ${
                         isActive(link.href)
-                          ? 'bg-[#00FF991A] text-[#00FF99] font-medium'
-                          : 'text-[#E7E7E7]/80 hover:bg-[#1E1E1E] hover:text-white'
+                          ? `${prefix}-bg-accent ${prefix}-text-green font-medium`
+                          : `${prefix}-text-secondary hover:${prefix}-bg-secondary hover:${prefix}-text-primary`
                       } ${
                         link.special ? 'overflow-hidden' : ''
                       }`}
@@ -187,7 +197,9 @@ export default function Navigation() {
                           <motion.div
                             className="absolute inset-0 rounded-lg border-2"
                             style={{
-                              background: 'conic-gradient(from 0deg, #00FF99, #00CC7A, #00FF99, #00CC7A, #00FF99)',
+                              background: theme === 'light' 
+                                ? 'conic-gradient(from 0deg, #C9A961, #B8944F, #C9A961, #B8944F, #C9A961)'
+                                : 'conic-gradient(from 0deg, #10B981, #059669, #10B981, #059669, #10B981)',
                               borderRadius: '8px',
                               zIndex: -1
                             }}
@@ -196,7 +208,7 @@ export default function Navigation() {
                             }}
                             transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                           />
-                          <div className="absolute inset-0.5 bg-[#121212] rounded-lg z-0" />
+                          <div className={`absolute inset-0.5 ${prefix}-bg-primary rounded-lg z-0`} />
                         </>
                       )}
                       <span className="relative z-10">{link.label}</span>
@@ -205,17 +217,21 @@ export default function Navigation() {
                 ))}
                 
                 {/* Mobile Auth Links */}
-                <div className="border-t border-[#00FF99]/20 pt-2 mt-2 space-y-2">
+                <div className={`border-t ${prefix}-border pt-2 mt-2 space-y-2`}>
+                  <div className="px-4 py-2 flex items-center justify-between">
+                    <span className={`${prefix}-text-secondary text-sm`}>Theme</span>
+                    <GlobalThemeToggle />
+                  </div>
                   {isAuthenticated && user ? (
                     <>
-                      <div className="px-4 py-2 text-[#E7E7E7]/70 text-sm flex items-center gap-2">
+                      <div className={`px-4 py-2 ${prefix}-text-secondary text-sm flex items-center gap-2`}>
                         <span className="text-lg flex-shrink-0">👤</span>
                         <span className="truncate">{user.displayName || user.email}</span>
                       </div>
                       <Link
                         href="/profile"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="block px-4 py-3 rounded-lg text-[#E7E7E7]/80 hover:bg-[#1E1E1E] hover:text-white transition-all"
+                        className={`block px-4 py-3 rounded-lg ${prefix}-text-secondary hover:${prefix}-bg-secondary hover:${prefix}-text-primary transition-all`}
                       >
                         View Profile
                       </Link>
@@ -224,7 +240,7 @@ export default function Navigation() {
                           signOut();
                           setMobileMenuOpen(false);
                         }}
-                        className="w-full px-4 py-3 rounded-lg bg-[#00FF991A] text-[#00FF99] hover:bg-[#00FF9930] transition-colors text-left"
+                        className={`w-full px-4 py-3 rounded-lg ${prefix}-bg-accent ${prefix}-text-green hover:${prefix}-bg-accent/50 transition-colors text-left`}
                       >
                         Logout
                       </button>
@@ -234,14 +250,14 @@ export default function Navigation() {
                       <Link
                         href="/login"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="block px-4 py-3 rounded-lg text-[#E7E7E7]/80 hover:bg-[#1E1E1E] hover:text-white transition-all"
+                        className={`block px-4 py-3 rounded-lg ${prefix}-text-secondary hover:${prefix}-bg-secondary hover:${prefix}-text-primary transition-all`}
                       >
                         Login
                       </Link>
                       <Link
                         href="/signup"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="block px-4 py-3 rounded-lg bg-[#00FF99] text-black font-medium hover:bg-[#00CC7A] transition-colors text-center"
+                        className={`block px-4 py-3 rounded-lg ${prefix}-btn-primary font-medium transition-colors text-center`}
                       >
                         Sign Up
                       </Link>

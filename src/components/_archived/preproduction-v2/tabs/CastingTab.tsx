@@ -33,11 +33,11 @@ export const CastingTab: React.FC<CastingTabProps> = ({ data }) => {
             style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}
           >
             <div className="flex items-start gap-4 mb-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30 flex items-center justify-center">
                 <span className="text-2xl">🎭</span>
               </div>
               <div className="flex-1">
-                <h4 className="text-xl font-bold text-[#00FF99] mb-1">{character.name}</h4>
+                <h4 className="text-xl font-bold text-[#10B981] mb-1">{character.name}</h4>
                 <p className="text-sm opacity-70">{character.ageRange} • {character.gender}{character.ethnicity ? ` • ${character.ethnicity}` : ''}</p>
               </div>
             </div>
@@ -54,7 +54,7 @@ export const CastingTab: React.FC<CastingTabProps> = ({ data }) => {
                 <h5 className="text-sm font-medium opacity-60 mb-2">Key Scenes</h5>
                 <div className="flex flex-wrap gap-2">
                   {character.keyScenes.map((scene, idx) => (
-                    <span key={idx} className="text-xs px-2 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99]">Scene {scene}</span>
+                    <span key={idx} className="text-xs px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981]">Scene {scene}</span>
                   ))}
                 </div>
               </div>
@@ -66,7 +66,7 @@ export const CastingTab: React.FC<CastingTabProps> = ({ data }) => {
                 <div className="space-y-2">
                   {character.actorReferences.map((ref, idx) => (
                     <div key={idx} className="text-sm p-2 rounded-lg" style={{ backgroundColor: 'var(--background-secondary)' }}>
-                      <div className="font-medium text-[#00FF99]">{ref.name}</div>
+                      <div className="font-medium text-[#10B981]">{ref.name}</div>
                       <div className="text-xs opacity-70 mt-1">{ref.quality} • {ref.reason}</div>
                     </div>
                   ))}

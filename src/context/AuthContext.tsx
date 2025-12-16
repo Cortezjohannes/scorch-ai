@@ -93,12 +93,13 @@ const isFirebaseConfigured = () => {
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    // Instead of throwing, provide a minimal mock context when not in provider
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('useAuth() was called outside of AuthProvider - using mock implementation');
+    // In production, return mock instead of throwing to avoid SSR errors
+    // This happens during static generation when AuthProvider isn't available yet
+    if (typeof window === 'undefined' || process.env.NODE_ENV === 'production') {
       return createMockAuthImplementation();
     }
-    throw new Error('useAuth must be used within an AuthProvider')
+    console.warn('useAuth() was called outside of AuthProvider - using mock implementation');
+    return createMockAuthImplementation();
   }
   return context
 }

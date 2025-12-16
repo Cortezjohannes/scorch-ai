@@ -2,10 +2,18 @@
  * AI Image Generator Service
  * 
  * Generates reference images for storyboards, props, locations, and costumes
- * using DALL-E 3 or Stable Diffusion APIs
+ * 
+ * 🎯 MODEL SELECTION:
+ * - NANO BANANA (gemini-2.5-flash-image): Fast - for props, locations, costumes
+ * - NANO BANANA PRO (gemini-3-pro-image-preview): High quality - for storyboards
+ * 
+ * NOTE: For persistent images that need to be saved to Firebase Storage,
+ * use generateImageWithStorage() from image-generation-with-storage.ts instead.
+ * This service returns raw image URLs (base64) without automatic Storage upload.
  */
 
-import { generateContent } from './azure-openai';
+import { generateGeminiImage, GeminiImageOptions, type ImageModel } from './gemini-image-generator';
+import { generateImageWithStorage, type ImageGenerationWithStorageOptions } from './image-generation-with-storage';
 
 export interface ImageGenerationOptions {
   width?: number;
@@ -18,6 +26,7 @@ export class AIImageGenerator {
   
   /**
    * Generate a cinematic storyboard frame
+   * 🎯 Uses NANO BANANA PRO for high quality storyboard images
    */
   static async generateStoryboardFrame(
     sceneDescription: string,
@@ -27,17 +36,18 @@ export class AIImageGenerator {
   ): Promise<string> {
     const prompt = `Cinematic storyboard frame, ${shotType}, ${sceneDescription}, ${aspectRatio} aspect ratio, professional film still, detailed composition, high quality, black and white sketch style`;
     
-    console.log(`🎨 Generating storyboard image: ${shotType}`);
+    console.log(`🎨 Generating storyboard image with NANO BANANA PRO: ${shotType}`);
     
     try {
-      // Use DALL-E 3 via Azure OpenAI
-      const imageUrl = await this.callDallE3(prompt, {
-        width: aspectRatio === '16:9' ? 1792 : 1024,
-        height: aspectRatio === '16:9' ? 1024 : 1792,
+      // Use Gemini for image generation - NANO BANANA PRO for high quality storyboards
+      const geminiOptions: GeminiImageOptions = {
+        aspectRatio: aspectRatio === '16:9' ? '16:9' : '9:16',
         quality: options.quality || 'standard',
-        style: 'natural' // Storyboards should be natural/realistic
-      });
+        style: 'natural', // Storyboards should be natural/realistic
+        model: 'nano-banana-pro' // High quality for storyboards
+      };
       
+      const imageUrl = await generateGeminiImage(prompt, geminiOptions);
       return imageUrl;
     } catch (error) {
       console.error('Failed to generate storyboard image:', error);
@@ -48,6 +58,7 @@ export class AIImageGenerator {
   
   /**
    * Generate a prop reference image
+   * 🎯 Uses NANO BANANA (fast) for props
    */
   static async generatePropReference(
     propDescription: string,
@@ -55,16 +66,17 @@ export class AIImageGenerator {
   ): Promise<string> {
     const prompt = `Professional product photography, ${propDescription}, white background, clean composition, detailed, catalog quality, studio lighting`;
     
-    console.log(`🎨 Generating prop image: ${propDescription}`);
+    console.log(`🎨 Generating prop image with NANO BANANA: ${propDescription}`);
     
     try {
-      const imageUrl = await this.callDallE3(prompt, {
-        width: 1024,
-        height: 1024,
+      const geminiOptions: GeminiImageOptions = {
+        aspectRatio: '1:1',
         quality: options.quality || 'standard',
-        style: 'natural'
-      });
+        style: 'natural',
+        model: 'nano-banana' // Fast model for props
+      };
       
+      const imageUrl = await generateGeminiImage(prompt, geminiOptions);
       return imageUrl;
     } catch (error) {
       console.error('Failed to generate prop image:', error);
@@ -74,6 +86,7 @@ export class AIImageGenerator {
   
   /**
    * Generate a location reference image
+   * 🎯 Uses NANO BANANA (fast) for locations
    */
   static async generateLocationReference(
     locationDescription: string,
@@ -81,16 +94,17 @@ export class AIImageGenerator {
   ): Promise<string> {
     const prompt = `Cinematic location photography, ${locationDescription}, empty space, natural lighting, 16:9 composition, establishing shot quality, architectural photography style`;
     
-    console.log(`🎨 Generating location image: ${locationDescription}`);
+    console.log(`🎨 Generating location image with NANO BANANA: ${locationDescription}`);
     
     try {
-      const imageUrl = await this.callDallE3(prompt, {
-        width: 1792,
-        height: 1024,
+      const geminiOptions: GeminiImageOptions = {
+        aspectRatio: '16:9',
         quality: options.quality || 'standard',
-        style: 'natural'
-      });
+        style: 'natural',
+        model: 'nano-banana' // Fast model for locations
+      };
       
+      const imageUrl = await generateGeminiImage(prompt, geminiOptions);
       return imageUrl;
     } catch (error) {
       console.error('Failed to generate location image:', error);
@@ -100,6 +114,7 @@ export class AIImageGenerator {
   
   /**
    * Generate a costume/wardrobe reference image
+   * 🎯 Uses NANO BANANA (fast) for costumes
    */
   static async generateCostumeReference(
     costumeDescription: string,
@@ -107,16 +122,17 @@ export class AIImageGenerator {
   ): Promise<string> {
     const prompt = `Fashion catalog photography, ${costumeDescription}, full body, neutral gray background, professional lighting, fashion editorial style`;
     
-    console.log(`🎨 Generating costume image: ${costumeDescription}`);
+    console.log(`🎨 Generating costume image with NANO BANANA: ${costumeDescription}`);
     
     try {
-      const imageUrl = await this.callDallE3(prompt, {
-        width: 1024,
-        height: 1792,
+      const geminiOptions: GeminiImageOptions = {
+        aspectRatio: '9:16',
         quality: options.quality || 'standard',
-        style: 'natural'
-      });
+        style: 'natural',
+        model: 'nano-banana' // Fast model for costumes
+      };
       
+      const imageUrl = await generateGeminiImage(prompt, geminiOptions);
       return imageUrl;
     } catch (error) {
       console.error('Failed to generate costume image:', error);
@@ -125,40 +141,41 @@ export class AIImageGenerator {
   }
   
   /**
-   * Call DALL-E 3 API via Azure OpenAI
+   * Generate a general image (exported for use by components like CharacterGallery)
    */
-  private static async callDallE3(
+  static async generateImage(
     prompt: string,
-    options: {
-      width: number;
-      height: number;
-      quality: 'standard' | 'hd';
-      style: 'natural' | 'vivid';
-    }
+    options: ImageGenerationOptions & { model?: string } = {}
   ): Promise<string> {
     try {
-      // Check if DALL-E API key is available
-      const apiKey = process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_API_KEY;
-      
-      if (!apiKey) {
-        console.warn('⚠️ No OpenAI API key found, returning placeholder image');
-        return this.getPlaceholderImage('generated');
+      // Determine aspect ratio from width/height if provided
+      let aspectRatio: '1:1' | '16:9' | '9:16' = '1:1';
+      if (options.width && options.height) {
+        const ratio = options.width / options.height;
+        if (ratio > 1.5) {
+          aspectRatio = '16:9';
+        } else if (ratio < 0.7) {
+          aspectRatio = '9:16';
+        } else {
+          aspectRatio = '1:1';
+        }
       }
       
-      // For now, we'll use a simplified approach
-      // In production, you'd call the actual DALL-E 3 API
-      // This would require additional setup with Azure OpenAI or OpenAI directly
+      const geminiOptions: GeminiImageOptions = {
+        aspectRatio,
+        quality: options.quality || 'standard',
+        style: options.style || 'natural'
+      };
       
-      console.log(`🎨 DALL-E 3 prompt: ${prompt.substring(0, 100)}...`);
-      console.log(`   Size: ${options.width}x${options.height}, Quality: ${options.quality}`);
-      
-      // TODO: Implement actual DALL-E 3 API call
-      // For now, return a placeholder
-      return this.getPlaceholderImage('generated', options.width > options.height ? '16:9' : '9:16');
-      
+      const imageUrl = await generateGeminiImage(prompt, geminiOptions);
+      return imageUrl;
     } catch (error) {
-      console.error('DALL-E 3 API call failed:', error);
-      throw error;
+      console.error('Failed to generate image:', error);
+      // Return placeholder as fallback
+      const aspectRatio = options.width && options.height 
+        ? (options.width > options.height ? '16:9' : options.width < options.height ? '9:16' : '1:1')
+        : '1:1';
+      return this.getPlaceholderImage('generated', aspectRatio);
     }
   }
   
@@ -289,6 +306,65 @@ export function extractVisualElements(sceneContent: string): {
   }
   
   return { location, timeOfDay, characters, props, mood };
+}
+
+/**
+ * Export generateImage function for use by components
+ * This is a convenience wrapper around AIImageGenerator.generateImage
+ * 
+ * @deprecated Use generateImageAndSave() instead for persistent images
+ */
+export async function generateImage(
+  prompt: string,
+  options: ImageGenerationOptions & { model?: string } = {}
+): Promise<string> {
+  return AIImageGenerator.generateImage(prompt, options);
+}
+
+/**
+ * Generate an image and save to Firebase Storage
+ * 
+ * This is the RECOMMENDED function for generating images that need to persist.
+ * It generates the image using Gemini and automatically uploads to Firebase Storage.
+ * 
+ * @param prompt - Image generation prompt
+ * @param userId - User ID (required for Firebase Storage)
+ * @param options - Generation options
+ * @returns Firebase Storage URL (or base64 if upload fails)
+ */
+export async function generateImageAndSave(
+  prompt: string,
+  userId: string,
+  options: ImageGenerationOptions & { 
+    context?: 'storyboard' | 'character' | 'prop' | 'location' | 'costume' | 'marketing'
+  } = {}
+): Promise<{ imageUrl: string; uploadedToStorage: boolean; error?: string }> {
+  // Determine aspect ratio from width/height if provided
+  let aspectRatio: '1:1' | '16:9' | '9:16' = '1:1';
+  if (options.width && options.height) {
+    const ratio = options.width / options.height;
+    if (ratio > 1.5) {
+      aspectRatio = '16:9';
+    } else if (ratio < 0.7) {
+      aspectRatio = '9:16';
+    } else {
+      aspectRatio = '1:1';
+    }
+  }
+  
+  const result = await generateImageWithStorage(prompt, {
+    userId,
+    context: options.context || 'storyboard',
+    aspectRatio,
+    quality: options.quality || 'standard',
+    style: options.style || 'natural'
+  });
+  
+  return {
+    imageUrl: result.imageUrl,
+    uploadedToStorage: result.uploadedToStorage,
+    error: result.error
+  };
 }
 
 

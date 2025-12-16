@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { PreProductionData, PropItem, PropsWardrobeData } from '@/types/preproduction'
 import { EditableField } from '../shared/EditableField'
@@ -23,20 +23,25 @@ export function PropsWardrobeTab({
   currentUserId,
   currentUserName
 }: PropsWardrobeTabProps) {
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'props' | 'wardrobe' | 'makeup'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<'props' | 'wardrobe'>('props')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [showQuestionnaire, setShowQuestionnaire] = useState(false)
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null)
+  const hasShownQuestionnaireOnMount = useRef(false)
+  
+  // Detect context
+  const isArcContext = preProductionData.type === 'arc'
+  const isEpisodeContext = preProductionData.type === 'episode'
   
   // Get breakdown and script data for prerequisites
-  const breakdownData = preProductionData.scriptBreakdown
+  const breakdownData = isEpisodeContext ? preProductionData.scriptBreakdown : undefined
   const scriptsData = (preProductionData as any).scripts
   
-  const propsData: PropsWardrobeData = preProductionData.propsWardrobe || {
-    episodeNumber: preProductionData.episodeNumber,
-    episodeTitle: preProductionData.episodeTitle || '',
+  const propsData: PropsWardrobeData = (isEpisodeContext && preProductionData.propsWardrobe) || {
+    episodeNumber: isEpisodeContext ? preProductionData.episodeNumber : 0,
+    episodeTitle: isEpisodeContext ? preProductionData.episodeTitle || '' : '',
     totalItems: 0,
     obtainedItems: 0,
     totalCost: 0,
@@ -77,7 +82,7 @@ export function PropsWardrobeTab({
         body: JSON.stringify({
           preProductionId: (preProductionData as any).id,
           storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
+          episodeNumber: isEpisodeContext ? preProductionData.episodeNumber : undefined,
           userId: currentUserId,
           scriptData: scriptsData.fullScript,
           breakdownData: breakdownData,
@@ -143,7 +148,7 @@ export function PropsWardrobeTab({
         body: JSON.stringify({
           preProductionId: (preProductionData as any).id,
           storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
+          episodeNumber: isEpisodeContext ? preProductionData.episodeNumber : undefined,
           userId: currentUserId,
           scriptData: scriptsData.fullScript,
           breakdownData: breakdownData,
@@ -183,6 +188,36 @@ export function PropsWardrobeTab({
     console.log('✅ Questionnaire completed with', Object.keys(answers).length, 'answers')
     handleGeneratePropsWardrobe(answers)
   }
+
+  // Auto-show questionnaire on first access if no data exists
+  useEffect(() => {
+    // Skip if already shown or if data exists
+    if (hasShownQuestionnaireOnMount.current) return
+    if (propsData.props.length > 0 || propsData.wardrobe.length > 0) {
+      hasShownQuestionnaireOnMount.current = true
+      return
+    }
+    
+    // Check prerequisites
+    if (!breakdownData || !scriptsData?.fullScript) return
+
+    // Show questionnaire automatically on first access
+    const showOnFirstAccess = async () => {
+      // Only show if not already generating/shown
+      if (!questionnaire && !showQuestionnaire && !isGenerating) {
+        await handleGenerateQuestionnaire()
+      }
+    }
+    
+    // Small delay to ensure component is fully mounted
+    const timeout = setTimeout(() => {
+      showOnFirstAccess()
+      hasShownQuestionnaireOnMount.current = true
+    }, 300)
+    
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propsData.props.length, propsData.wardrobe.length, breakdownData, scriptsData?.fullScript])
 
   const handleItemUpdate = async (itemId: string, updates: Partial<PropItem>) => {
     // Find which array the item is in (props or wardrobe)
@@ -309,19 +344,17 @@ export function PropsWardrobeTab({
     }
   }
 
-  // Combine props and wardrobe for filtering
-  const allItems = [...propsData.props, ...propsData.wardrobe]
+  // Get items for selected category
+  const categoryItems = selectedCategory === 'props' ? propsData.props : propsData.wardrobe
   
-  // Filter items
-  const filteredItems = allItems.filter(item => {
-    const categoryMatch = selectedCategory === 'all' || 
-      (selectedCategory === 'props' && item.type === 'prop') ||
-      (selectedCategory === 'wardrobe' && item.type === 'wardrobe')
+  // Filter items by status
+  const filteredItems = categoryItems.filter(item => {
     const statusMatch = selectedStatus === 'all' || item.procurementStatus === selectedStatus
-    return categoryMatch && statusMatch
+    return statusMatch
   })
 
   // Stats
+  const allItems = [...propsData.props, ...propsData.wardrobe]
   const totalItems = propsData.totalItems || allItems.length
   const propsCount = propsData.props.length
   const wardrobeCount = propsData.wardrobe.length
@@ -398,7 +431,7 @@ export function PropsWardrobeTab({
             value={item.estimatedCost?.toString() || '0'}
             onSave={(value) => handleItemUpdate(item.id, { estimatedCost: parseFloat(String(value)) || 0 })}
             type="number"
-            className="text-[#00FF99] font-medium"
+            className="text-[#10B981] font-medium"
           />
         </div>
       ),
@@ -474,7 +507,7 @@ export function PropsWardrobeTab({
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Items</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{totalItems}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{totalItems}</div>
         </div>
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
@@ -494,24 +527,37 @@ export function PropsWardrobeTab({
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Cost</div>
-          <div className="text-2xl font-bold text-[#00FF99]">${totalCost.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-[#10B981]">${totalCost.toLocaleString()}</div>
         </div>
       </div>
 
-      {/* Filters & Actions */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {/* Category Filter */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value as any)}
-            className="px-3 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] text-sm"
-          >
-            <option value="all">All Categories</option>
-            <option value="props">Props Only</option>
-            <option value="wardrobe">Wardrobe Only</option>
-          </select>
+      {/* Categorized Tabs - Concept 1 (matching design preview) */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setSelectedCategory('props')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            selectedCategory === 'props'
+              ? 'bg-[#10B981] text-black'
+              : 'bg-[#2a2a2a] text-[#e7e7e7] hover:bg-[#36393f]'
+          }`}
+        >
+          Props
+        </button>
+        <button
+          onClick={() => setSelectedCategory('wardrobe')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            selectedCategory === 'wardrobe'
+              ? 'bg-[#10B981] text-black'
+              : 'bg-[#2a2a2a] text-[#e7e7e7] hover:bg-[#36393f]'
+          }`}
+        >
+          Wardrobe
+        </button>
+      </div>
 
+      {/* Filters & Actions */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
           {/* Status Filter */}
           <select
             value={selectedStatus}
@@ -531,7 +577,7 @@ export function PropsWardrobeTab({
             <button
               onClick={handleGenerateQuestionnaire}
               disabled={isGenerating}
-              className="px-4 py-2 bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30 rounded-lg hover:bg-[#00FF99]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 rounded-lg hover:bg-[#10B981]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? '🔄 Generating...' : '✨ Generate Props/Wardrobe'}
             </button>
@@ -559,13 +605,13 @@ export function PropsWardrobeTab({
         </div>
       )}
 
-      {/* Items Table */}
-      {allItems.length === 0 ? (
+      {/* Items Grid - Concept 1: Categorized Tabs (matching design preview) */}
+      {filteredItems.length === 0 ? (
         <div className="text-center py-16 bg-[#2a2a2a] rounded-lg border border-[#36393f]">
-          <div className="text-6xl mb-4">👗</div>
-          <h3 className="text-xl font-bold text-[#e7e7e7] mb-2">No Items Added</h3>
+          <div className="text-6xl mb-4">{selectedCategory === 'props' ? '🎬' : '👗'}</div>
+          <h3 className="text-xl font-bold text-[#e7e7e7] mb-2">No {selectedCategory === 'props' ? 'Props' : 'Wardrobe'} Added</h3>
           <p className="text-[#e7e7e7]/70 mb-6">
-            Generate props and wardrobe breakdown based on your script, or add items manually
+            Generate {selectedCategory} breakdown based on your script, or add items manually
           </p>
           <div className="flex items-center justify-center gap-4">
             {!breakdownData || !scriptsData?.fullScript ? (
@@ -579,37 +625,38 @@ export function PropsWardrobeTab({
                 <button
                   onClick={handleGenerateQuestionnaire}
                   disabled={isGenerating}
-                  className="px-6 py-3 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isGenerating ? '🔄 Generating...' : '✨ Generate Props/Wardrobe'}
                 </button>
                 <span className="text-[#e7e7e7]/50">or</span>
                 <button
-                  onClick={handleAddItem}
+                  onClick={selectedCategory === 'props' ? handleAddItem : handleAddWardrobeItem}
                   className="px-6 py-3 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg border border-[#36393f] font-medium hover:bg-[#36393f] transition-colors"
                 >
-                  + Add Item Manually
+                  + Add {selectedCategory === 'props' ? 'Prop' : 'Wardrobe'} Manually
                 </button>
               </>
             )}
           </div>
         </div>
       ) : (
-        <TableView
-          columns={columns}
-          data={filteredItems}
-          keyField="id"
-          showSearch={true}
-          showPagination={true}
-          pageSize={20}
-          striped={true}
-          hoverable={true}
-          enableComments={true}
-          onAddComment={handleAddComment}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          emptyMessage={`No items match the selected filters`}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredItems.map((item) => (
+            <div key={item.id} className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4">
+              <h4 className="font-bold mb-2 text-[#e7e7e7]">{item.name}</h4>
+              <p className="text-sm mb-3 text-[#e7e7e7]/70">{item.description || 'No description'}</p>
+              <div className="text-xs text-[#e7e7e7]/50 space-y-1">
+                <div>Character: {item.characterAssociated || item.characterName || 'N/A'}</div>
+                <div>Scenes: {item.scenes && item.scenes.length > 0 ? item.scenes.join(', ') : 'None'}</div>
+                <div>Quantity: {item.quantity || 1}</div>
+                {item.estimatedCost !== undefined && item.estimatedCost > 0 && (
+                  <div>Cost: ${item.estimatedCost}</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Questionnaire Modal */}

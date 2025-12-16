@@ -84,7 +84,7 @@ export const PropsTab: React.FC<PropsTabProps> = ({ data }) => {
           {/* Episode Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
                 <span className="text-2xl">🎪</span>
               </div>
               <div>
@@ -103,8 +103,8 @@ export const PropsTab: React.FC<PropsTabProps> = ({ data }) => {
                   onClick={() => setFilter(f as typeof filter)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     filter === f
-                      ? 'bg-[#00FF99] text-black'
-                      : 'border hover:border-[#00FF99]'
+                      ? 'bg-[#10B981] text-black'
+                      : 'border hover:border-[#10B981]'
                   }`}
                   style={filter !== f ? { borderColor: 'var(--border-color)' } : {}}
                 >
@@ -178,7 +178,7 @@ const PropCard: React.FC<{ prop: Prop }> = ({ prop }) => {
       }}
     >
       {/* Image Placeholder */}
-      <div className="aspect-square bg-gradient-to-br from-[#00FF99]/5 to-[#00CC7A]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer"
+      <div className="aspect-square bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer"
         style={{ borderColor: 'var(--border-color)' }}
       >
         {prop.imageUrl ? (
@@ -186,9 +186,9 @@ const PropCard: React.FC<{ prop: Prop }> = ({ prop }) => {
         ) : (
           <>
             <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎬</div>
-            <p className="text-sm font-medium text-[#00FF99] text-center px-2">{prop.name}</p>
+            <p className="text-sm font-medium text-[#10B981] text-center px-2">{prop.name}</p>
             <p className="text-xs opacity-60">Visual Reference</p>
-            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] transition-colors">
+            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] transition-colors">
               Generate
             </button>
           </>
@@ -198,7 +198,7 @@ const PropCard: React.FC<{ prop: Prop }> = ({ prop }) => {
       {/* Prop Details */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <h5 className="font-semibold text-[#00FF99] truncate">{prop.name}</h5>
+          <h5 className="font-semibold text-[#10B981] truncate">{prop.name}</h5>
           {prop.importance && (
             <span className={`text-xs px-2 py-1 rounded-full border ${importanceColors[prop.importance]}`}>
               {prop.importance}
@@ -241,7 +241,7 @@ const PropCard: React.FC<{ prop: Prop }> = ({ prop }) => {
         {/* Production Status */}
         <div className="mt-4 pt-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-color)' }}>
           <span className="text-xs opacity-60">Status</span>
-          <span className="text-xs px-2 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99]">
+          <span className="text-xs px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981]">
             Needed
           </span>
         </div>
@@ -266,7 +266,7 @@ const WardrobeCard: React.FC<{ item: WardrobeItem }> = ({ item }) => {
       }}
     >
       {/* Image Placeholder */}
-      <div className="aspect-square bg-gradient-to-br from-[#00FF99]/5 to-[#00CC7A]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer"
+      <div className="aspect-square bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer"
         style={{ borderColor: 'var(--border-color)' }}
       >
         {item.imageUrl ? (
@@ -274,9 +274,9 @@ const WardrobeCard: React.FC<{ item: WardrobeItem }> = ({ item }) => {
         ) : (
           <>
             <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">👗</div>
-            <p className="text-sm font-medium text-[#00FF99] text-center px-2">{item.outfit}</p>
+            <p className="text-sm font-medium text-[#10B981] text-center px-2">{item.outfit}</p>
             <p className="text-xs opacity-60">Fashion Reference</p>
-            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] transition-colors">
+            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] transition-colors">
               Generate
             </button>
           </>
@@ -286,7 +286,7 @@ const WardrobeCard: React.FC<{ item: WardrobeItem }> = ({ item }) => {
       {/* Wardrobe Details */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <h5 className="font-semibold text-[#00FF99] truncate">{item.outfit}</h5>
+          <h5 className="font-semibold text-[#10B981] truncate">{item.outfit}</h5>
           <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-600 border border-purple-500/30">
             👤 {item.character}
           </span>
@@ -330,7 +330,7 @@ const WardrobeCard: React.FC<{ item: WardrobeItem }> = ({ item }) => {
         {/* Production Status */}
         <div className="mt-4 pt-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-color)' }}>
           <span className="text-xs opacity-60">Status</span>
-          <span className="text-xs px-2 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99]">
+          <span className="text-xs px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981]">
             Needed
           </span>
         </div>

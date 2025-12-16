@@ -88,7 +88,7 @@ export function CollaborativeNotes({
           {unresolvedCount > 0 ? `${unresolvedCount} Notes` : 'Add Note'}
         </span>
         {unresolvedCount > 0 && (
-          <span className="px-2 py-0.5 bg-[#00FF99] text-black text-xs font-bold rounded-full">
+          <span className="px-2 py-0.5 bg-[#10B981] text-black text-xs font-bold rounded-full">
             {unresolvedCount}
           </span>
         )}
@@ -108,7 +108,7 @@ export function CollaborativeNotes({
               <div className="flex items-center gap-2">
                 <span className="text-[#e7e7e7] font-medium">Notes & Comments</span>
                 {unresolvedCount > 0 && (
-                  <span className="px-2 py-0.5 bg-[#00FF99] text-black text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-[#10B981] text-black text-xs font-bold rounded-full">
                     {unresolvedCount}
                   </span>
                 )}
@@ -141,7 +141,7 @@ export function CollaborativeNotes({
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-[#00FF99]">
+                        <div className="text-sm font-medium text-[#10B981]">
                           {comment.userName}
                         </div>
                         <div className="text-xs text-[#e7e7e7]/50">
@@ -151,7 +151,7 @@ export function CollaborativeNotes({
                       {!comment.resolved && onResolve && (
                         <button
                           onClick={() => handleResolve(comment.id)}
-                          className="text-xs text-[#e7e7e7]/50 hover:text-[#00FF99] transition-colors"
+                          className="text-xs text-[#e7e7e7]/50 hover:text-[#10B981] transition-colors"
                           title="Mark as resolved"
                         >
                           ✓
@@ -178,7 +178,7 @@ export function CollaborativeNotes({
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Add a note or comment... (use @name to mention)"
                 rows={2}
-                className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#36393f] rounded text-[#e7e7e7] text-sm placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#00FF99] resize-none"
+                className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#36393f] rounded text-[#e7e7e7] text-sm placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#10B981] resize-none"
                 disabled={isSubmitting}
               />
               <div className="flex items-center justify-between mt-2">
@@ -188,7 +188,7 @@ export function CollaborativeNotes({
                 <button
                   type="submit"
                   disabled={!newComment.trim() || isSubmitting}
-                  className="px-4 py-1.5 bg-[#00FF99] text-black text-sm font-medium rounded hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 bg-[#10B981] text-black text-sm font-medium rounded hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Adding...' : 'Add Note'}
                 </button>

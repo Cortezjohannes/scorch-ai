@@ -78,7 +78,7 @@ export function WorkflowStages({ currentStage, onStageChange }: WorkflowStagesPr
   }
 
   return (
-    <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-6 mb-6 shadow-2xl">
+    <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#10B981]/20 rounded-2xl p-6 mb-6 shadow-2xl">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {stages.map(stage => {
           const isActive = currentStage === stage.id;
@@ -89,10 +89,10 @@ export function WorkflowStages({ currentStage, onStageChange }: WorkflowStagesPr
               key={stage.id}
               className={`group relative flex flex-col items-center p-4 rounded-xl transition-all duration-300 overflow-hidden ${
                 isActive 
-                  ? 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black shadow-lg shadow-[#00FF99]/25'
+                  ? 'bg-gradient-to-r from-[#10B981] to-[#059669] text-black shadow-lg shadow-[#10B981]/25'
                   : isCompleted
-                  ? 'bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/40 text-[#00FF99] hover:bg-gradient-to-r hover:from-[#00FF99]/30 hover:to-[#00CC7A]/30'
-                  : 'bg-gradient-to-r from-black/40 to-black/60 border border-[#00FF99]/20 text-white/70 hover:bg-gradient-to-r hover:from-[#00FF99]/10 hover:to-[#00CC7A]/10 hover:border-[#00FF99]/40 hover:text-white'
+                  ? 'bg-gradient-to-r from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/40 text-[#10B981] hover:bg-gradient-to-r hover:from-[#10B981]/30 hover:to-[#059669]/30'
+                  : 'bg-gradient-to-r from-black/40 to-black/60 border border-[#10B981]/20 text-white/70 hover:bg-gradient-to-r hover:from-[#10B981]/10 hover:to-[#059669]/10 hover:border-[#10B981]/40 hover:text-white'
               }`}
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -109,7 +109,7 @@ export function WorkflowStages({ currentStage, onStageChange }: WorkflowStagesPr
               <div className="relative z-10 text-xs text-center font-semibold">{stage.title}</div>
               {isActive && (
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 rounded-xl blur-xl"
+                  className="absolute inset-0 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 rounded-xl blur-xl"
                   animate={{
                     opacity: [0.3, 0.6, 0.3],
                     scale: [1, 1.05, 1],

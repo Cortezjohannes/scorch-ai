@@ -1,10 +1,49 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion } from '@/components/ui/ClientMotion';
 import { useProject, Scene } from '@/context/ProjectContext';
 import Link from 'next/link';
 import Image from 'next/image';
+import { dataUrlToBlobUrl, revokeBlobUrl, isDataUrl } from '@/utils/image-utils';
+
+// Component to handle scene image display with blob URL conversion
+function SceneImage({ src, alt }: { src: string; alt: string }) {
+  const [displayUrl, setDisplayUrl] = useState<string>(src);
+
+  useEffect(() => {
+    // Convert base64 data URL to blob URL for better performance
+    if (isDataUrl(src)) {
+      try {
+        const blobUrl = dataUrlToBlobUrl(src);
+        setDisplayUrl(blobUrl);
+        
+        // Cleanup blob URL on unmount
+        return () => {
+          revokeBlobUrl(blobUrl);
+        };
+      } catch (error) {
+        console.error('Failed to convert data URL to blob URL:', error);
+        setDisplayUrl(src); // Fallback to data URL
+      }
+    } else {
+      setDisplayUrl(src);
+    }
+  }, [src]);
+
+  return (
+    <div className="relative w-full h-full">
+      <Image 
+        src={displayUrl} 
+        alt={alt}
+        fill
+        sizes="(max-width: 768px) 100vw, 50vw"
+        className="object-cover"
+        unoptimized={displayUrl.startsWith('blob:') || displayUrl.startsWith('data:')}
+      />
+    </div>
+  );
+}
 
 export default function StoryboardPage() {
   const { projectTitle, episodes, loading, error, parseScenes, generateSceneImage } = useProject();
@@ -203,15 +242,7 @@ export default function StoryboardPage() {
                 {/* Image Area */}
                 <div className="aspect-video bg-[#0a0a0a] rounded-lg overflow-hidden mb-4 flex items-center justify-center">
                   {scene.imageUrl ? (
-                    <div className="relative w-full h-full">
-                      <Image 
-                        src={scene.imageUrl} 
-                        alt={`Scene ${index + 1}`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        className="object-cover"
-                      />
-                    </div>
+                    <SceneImage src={scene.imageUrl} alt={`Scene ${index + 1}`} />
                   ) : scene.imageGenerating || (generatingImage?.episodeNumber === selectedEpisode && generatingImage?.sceneIndex === index) ? (
                     <div className="flex flex-col items-center justify-center">
                       <motion.div 

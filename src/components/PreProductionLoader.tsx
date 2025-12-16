@@ -293,7 +293,7 @@ export default function PreProductionLoader({
     <>
       <div className="flex flex-col items-center justify-center bg-[#2a2a2a] p-8 rounded-xl mt-4">
         <div className="text-center mb-6">
-          <h3 className="text-xl font-semibold text-[#00FF99]">
+          <h3 className="text-xl font-semibold text-[#10B981]">
             {`No ${contentType.charAt(0).toUpperCase() + contentType.slice(1)} Content Yet`}
           </h3>
           <p className="text-[#e7e7e7]/70 mt-2">
@@ -311,7 +311,7 @@ export default function PreProductionLoader({
             onClick={handleGenerate}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+            className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
           >
             {`Generate ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`}
           </motion.button>
@@ -321,7 +321,7 @@ export default function PreProductionLoader({
               onClick={onGenerateAll}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-6 py-3 bg-[#1e1f22] border border-[#00FF99]/40 text-[#00FF99] font-medium rounded-lg hover:bg-[#2a2a2a] transition-colors"
+              className="px-6 py-3 bg-[#1e1f22] border border-[#10B981]/40 text-[#10B981] font-medium rounded-lg hover:bg-[#2a2a2a] transition-colors"
             >
               Generate All Content
             </motion.button>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { Narrative } from './Narrative'
 import { Storyboard } from './Storyboard'
 import { Script } from './Script'
@@ -58,7 +58,7 @@ export function Phase1Form({ synopsis = '', theme = '' }: Phase1FormProps) {
         className="card"
       >
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-transparent bg-clip-text">
+          <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-transparent bg-clip-text">
             Phase 1
           </h2>
           <p className="text-[#e7e7e7]/70">
@@ -108,7 +108,7 @@ export function Phase1Form({ synopsis = '', theme = '' }: Phase1FormProps) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-[#00FF9910] border border-[#00FF9940] rounded-xl p-4 text-[#00FF99] mt-4"
+            className="bg-[#10B98110] border border-[#10B98140] rounded-xl p-4 text-[#10B981] mt-4"
           >
             {error}
           </motion.div>

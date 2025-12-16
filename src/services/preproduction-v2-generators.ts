@@ -406,8 +406,11 @@ export interface StoryboardEnhancementOptions {
   cameraMovementPreference?: 'static' | 'fluid' | 'dynamic' | 'minimal' | 'extensive'
   genreConsideration?: boolean
   colorPsychologyFocus?: boolean
-  generateImages?: boolean // NEW: Enable AI image generation for shots
+  generateImages?: boolean // Enable AI image generation for shots
   imageQuality?: 'standard' | 'hd'
+  generateVideos?: boolean // Enable AI video generation for key shots
+  videoQuality?: 'standard' | 'high'
+  maxVideosPerScene?: number // Maximum videos to generate per scene (default: 1-2)
 }
 
 // STEP 3: Generate Storyboards Per Scene (Based on Script)
@@ -755,13 +758,84 @@ Purpose: [Emotional/narrative purpose]`;
         }
       }
 
+      // 🎬 GENERATE AI REFERENCE VIDEOS if enabled
+      let shotVideos: string[] = [];
+      if (options.generateVideos && storyboard?.storyboard) {
+        try {
+          console.log(`🎬 Generating AI reference videos for scene ${episode.episodeNumber}-${j + 1}...`);
+          const { veo3VideoGenerator } = await import('./veo3-video-generator');
+          
+          // Extract shots from storyboard text
+          const shotMatches = storyboard.storyboard.match(/SHOT \d+:([^\n]+)/gi) || [];
+          const maxVideos = options.maxVideosPerScene || 2; // Default: 2 videos per scene
+          const selectedShots = shotMatches.slice(0, maxVideos); // Select first N shots for video
+          
+          // Check remaining credits for this episode
+          const episodeId = `episode-${episode.episodeNumber}`;
+          const remainingCredits = veo3VideoGenerator.getRemainingCredits(episodeId);
+          
+          if (remainingCredits > 0) {
+            const videosToGenerate = Math.min(selectedShots.length, remainingCredits);
+            
+            for (let k = 0; k < videosToGenerate; k++) {
+              const shotMatch = selectedShots[k];
+              if (!shotMatch) break;
+              
+              const shotDesc = shotMatch.replace(/SHOT \d+:/i, '').trim();
+              const shotType = shotDesc.split(/\n/)[0].trim();
+              
+              // Generate video for this shot
+              const videoResult = await veo3VideoGenerator.generateStoryboardVideo(
+                shotType,
+                scene.content,
+                episodeId,
+                {
+                  duration: 8, // 8 seconds for storyboard videos
+                  aspectRatio: '16:9',
+                  style: options.cinematographerStyle === 'stylized' ? 'cinematic' : 
+                         options.cinematographerStyle === 'naturalistic' ? 'realistic' : 'cinematic',
+                  quality: options.videoQuality || 'high'
+                }
+              );
+              
+              if (videoResult.success && videoResult.videoUrl) {
+                shotVideos.push(videoResult.videoUrl);
+                console.log(`   ✓ Generated video ${k + 1}/${videosToGenerate} for shot: ${shotType.substring(0, 40)}...`);
+              } else {
+                console.warn(`   ⚠️ Video generation failed for shot ${k + 1}: ${videoResult.error || 'Unknown error'}`);
+              }
+              
+              // Check if we've run out of credits
+              if (veo3VideoGenerator.getRemainingCredits(episodeId) === 0) {
+                console.warn(`⚠️ Video credits exhausted for episode ${episode.episodeNumber}. Stopping video generation.`);
+                break;
+              }
+              
+              // Delay between video generations to avoid rate limiting
+              if (k < videosToGenerate - 1) {
+                await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+              }
+            }
+            
+            console.log(`✅ Generated ${shotVideos.length} AI reference videos for scene ${episode.episodeNumber}-${j + 1}`);
+          } else {
+            console.warn(`⚠️ No video credits remaining for episode ${episode.episodeNumber}. Skipping video generation.`);
+          }
+        } catch (error) {
+          console.warn(`Failed to generate videos for scene ${episode.episodeNumber}-${j + 1}:`, error);
+          // Continue without videos - not a fatal error
+        }
+      }
+
       storyboardScenes.push({
         sceneNumber: j + 1,
         storyboard: storyboard?.storyboard || storyboard?.enhancedContent || "Storyboard generation failed",
         // Store visual metadata for consistency tracking if available
         visualMetadata: storyboard?.metadata || null,
-        // NEW: AI-generated reference images
-        referenceImages: shotImages.length > 0 ? shotImages : undefined
+        // AI-generated reference images
+        referenceImages: shotImages.length > 0 ? shotImages : undefined,
+        // AI-generated reference videos
+        referenceVideos: shotVideos.length > 0 ? shotVideos : undefined
       });
     }
 
@@ -1958,6 +2032,9 @@ function parseEnhancedCastingData(castingContent: string, metadata?: any): any[]
 // Import marketing engine integration
 import { MarketingEnhancementOptions, generateV2MarketingWithEngines } from './marketing-engine-integration';
 
+// Import viral potential scanner
+import { scanViralPotential } from './viral-potential-scanner'
+
 // STEP 7: Generate Marketing Per Episode (Based on Narrative)
 export async function generateV2Marketing(context: any, narrative: any, updateProgress: (stepName: string, detail: string, stepProgress: number, stepIndex: number) => Promise<void>, options: MarketingEnhancementOptions = {}) {
   const { storyBible, actualEpisodes, useEnhancedDistribution = false } = context;
@@ -1988,7 +2065,8 @@ export async function generateV2Marketing(context: any, narrative: any, updatePr
       Math.round(((i + 1) / actualEpisodes.length) * 100), 7);
 
     const marketing = await retryWithFallback(async () => {
-      const prompt = `Create a targeted marketing strategy for this episode.
+      const storyBibleMarketing = storyBible.marketing || {}
+      const prompt = `Create a comprehensive episode-specific marketing strategy for this episode, integrating with the story bible marketing strategy.
 
 EPISODE NARRATIVE:
 ${narrativeEpisode?.scenes?.map((s: any, idx: number) => `Scene ${idx + 1}: ${s.content}`).join('\n\n') || 'No narrative available'}
@@ -1997,50 +2075,119 @@ STORY CONTEXT:
 Series: ${storyBible.seriesTitle}
 Genre: ${storyBible.genre}
 Episode: ${episode.episodeNumber} - ${episode.episodeTitle || episode.title}
-Target Audience: ${storyBible.targetAudience || 'General audience'}
+Target Audience: ${storyBibleMarketing.marketingStrategy?.targetAudience?.primary?.join(', ') || storyBible.targetAudience || 'General audience'}
+
+STORY BIBLE MARKETING CONTEXT:
+Primary Approach: ${storyBibleMarketing.marketingStrategy?.primaryApproach || 'UGC actor-driven marketing'}
+Key Selling Points: ${storyBibleMarketing.marketingStrategy?.keySellingPoints?.join(', ') || 'Not specified'}
+
+GREENLIT AI CONTEXT:
+- Platform: Greenlit AI (actor-driven UGC content)
+- Content Type: Short-form episodic series (5-minute episodes)
+- Marketing Model: Actors market themselves as UGC creators
+- Marketing Budget: $0 (Sweat Equity Marketing)
 
 REQUIREMENTS:
-- Identify key marketing hooks and selling points
-- Create compelling episode descriptions (short, medium, long)
-- Suggest social media content and hashtags
-- Identify target audience segments
-- Create trailer/teaser concepts
-- Suggest promotional partnerships or tie-ins
-- Include content warnings if needed
-- Consider platform-specific strategies
+1. Identify 3-5 episode-specific marketing hooks (different from general series hooks)
+2. Identify viral potential scenes with timestamps (scenes with high viral potential like slaps, kisses, shocking reveals)
+3. Generate platform-specific content (TikTok, Instagram, YouTube) with ready-to-use captions and hashtags
+4. Create ready-to-use posts (complete posts with caption + hashtags for each platform)
+5. Integrate with story bible marketing strategy but make it episode-specific
 
-Format as comprehensive marketing brief.`;
+Return ONLY valid JSON with this exact structure (no markdown, no code blocks):
+{
+  "marketingHooks": ["Hook 1 specific to this episode", "Hook 2", "Hook 3", "Hook 4", "Hook 5"],
+  "viralPotentialScenes": [
+    {
+      "sceneNumber": 1,
+      "timestamp": "00:15-00:30",
+      "hook": "Description of why this scene is viral-worthy",
+      "platform": "tiktok",
+      "suggestedCaption": "Ready-to-use caption for this clip",
+      "suggestedHashtags": ["hashtag1", "hashtag2", "hashtag3"]
+    }
+  ],
+  "platformContent": {
+    "tiktok": {
+      "captions": ["TikTok caption 1 (short, hook-focused)", "TikTok caption 2", "TikTok caption 3"],
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"]
+    },
+    "instagram": {
+      "captions": ["Instagram caption 1 (professional, engaging)", "Instagram caption 2", "Instagram caption 3"],
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5", "hashtag6", "hashtag7", "hashtag8", "hashtag9", "hashtag10"]
+    },
+    "youtube": {
+      "captions": ["YouTube caption 1 (SEO-optimized, descriptive)", "YouTube caption 2", "YouTube caption 3"],
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"]
+    }
+  },
+  "readyToUsePosts": [
+    {
+      "platform": "tiktok",
+      "caption": "Complete ready-to-use TikTok post caption",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+    },
+    {
+      "platform": "instagram",
+      "caption": "Complete ready-to-use Instagram post caption",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5"]
+    },
+    {
+      "platform": "youtube",
+      "caption": "Complete ready-to-use YouTube post caption",
+      "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+    }
+  ]
+}`;
 
       const result = await generateContent(prompt, { 
-        temperature: 0.4, 
-        maxTokens: 2000,
-        systemPrompt: "You are a professional entertainment marketing strategist."
+        temperature: 0.7, 
+        maxTokens: 3000,
+        systemPrompt: "You are a professional entertainment marketing strategist specializing in UGC actor-driven content for short-form episodic series. Generate episode-specific marketing content that integrates with overall series strategy."
       });
       
       return { marketingStrategy: result };
     }, `Marketing Episode ${episode.episodeNumber}`);
 
-    // Parse marketing strategy into structured data for UI
+    // Parse marketing strategy into structured EpisodeMarketingData
     const marketingText = marketing?.marketingStrategy || "Marketing generation failed";
-    const marketingHooks = [];
-    const hashtags = [];
+    let episodeMarketingData: any = null;
     
     try {
-      // Extract marketing hooks and hashtags from the generated text
+      // Try to parse as JSON first
+      const cleanedText = marketingText.trim().replace(/^```json\s*|\s*```$/g, '').replace(/^```\s*|\s*```$/g, '');
+      episodeMarketingData = JSON.parse(cleanedText);
+      
+      // Validate structure
+      if (!episodeMarketingData.marketingHooks || !Array.isArray(episodeMarketingData.marketingHooks)) {
+        episodeMarketingData.marketingHooks = [];
+      }
+      if (!episodeMarketingData.viralPotentialScenes || !Array.isArray(episodeMarketingData.viralPotentialScenes)) {
+        episodeMarketingData.viralPotentialScenes = [];
+      }
+      if (!episodeMarketingData.platformContent) {
+        episodeMarketingData.platformContent = {};
+      }
+      if (!episodeMarketingData.readyToUsePosts || !Array.isArray(episodeMarketingData.readyToUsePosts)) {
+        episodeMarketingData.readyToUsePosts = [];
+      }
+      
+    } catch (e) {
+      console.warn('Failed to parse marketing JSON, using fallback structure:', e);
+      // Fallback: Extract basic hooks from text
       const lines = marketingText.split('\n').filter((line: string) => line.trim());
+      const marketingHooks: string[] = [];
+      const hashtags: string[] = [];
       
       for (const line of lines) {
-        // Look for hashtags (lines containing #)
         const hashtagMatches = line.match(/#[\w]+/g);
         if (hashtagMatches) {
           hashtags.push(...hashtagMatches.map((tag: string) => tag.replace('#', '')));
         }
         
-        // Look for marketing hooks (bullet points, numbered lists, or hook indicators)
         if (line.match(/^[\-\*•]\s*/) || line.match(/^\d+\.\s*/) || 
             line.toLowerCase().includes('hook') || 
-            line.toLowerCase().includes('selling point') ||
-            line.toLowerCase().includes('appeal')) {
+            line.toLowerCase().includes('selling point')) {
           const hook = line.replace(/^[\-\*•\d\.\s]+/, '').trim();
           if (hook && hook.length > 10) {
             marketingHooks.push(hook);
@@ -2048,29 +2195,64 @@ Format as comprehensive marketing brief.`;
         }
       }
       
-      // If no hooks found, create some from the text
       if (marketingHooks.length === 0) {
         const sentences = marketingText.split(/[.!?]+/).filter((s: string) => s.trim().length > 20);
-        marketingHooks.push(...sentences.slice(0, 3).map((s: string) => s.trim()));
+        marketingHooks.push(...sentences.slice(0, 5).map((s: string) => s.trim()));
       }
       
-      // If no hashtags found, generate some basic ones
       if (hashtags.length === 0) {
         const seriesName = storyBible.seriesTitle?.replace(/\s+/g, '') || 'Series';
         hashtags.push(seriesName, `${seriesName}Episode${episode.episodeNumber}`, storyBible.genre || 'Drama');
       }
       
-    } catch (e) {
-      console.error('Error parsing marketing strategy:', e);
-      marketingHooks.push(marketingText);
-      hashtags.push('NewEpisode', 'ComingSoon');
+      episodeMarketingData = {
+        episodeNumber: episode.episodeNumber,
+        marketingHooks: marketingHooks.slice(0, 5),
+        viralPotentialScenes: [],
+        platformContent: {
+          tiktok: { captions: [], hashtags: hashtags.slice(0, 5) },
+          instagram: { captions: [], hashtags: hashtags.slice(0, 10) },
+          youtube: { captions: [], hashtags: hashtags.slice(0, 5) }
+        },
+        readyToUsePosts: []
+      };
+    }
+
+    // Ensure episodeNumber is set
+    episodeMarketingData.episodeNumber = episode.episodeNumber;
+
+    // Automatically scan for viral potential if script is available
+    try {
+      const episodeScript = episode.script || episode.formattedScript || ''
+      if (episodeScript && episodeScript.length > 100) {
+        console.log(`🔍 Scanning Episode ${episode.episodeNumber} for viral potential...`)
+        const viralResult = await scanViralPotential(episodeScript, episode.episodeNumber, storyBible)
+        
+        if (viralResult.viralMoments.length > 0) {
+          // Merge viral moments into marketing data
+          episodeMarketingData.viralPotentialScenes = [
+            ...(episodeMarketingData.viralPotentialScenes || []),
+            ...viralResult.viralMoments.map(moment => ({
+              sceneNumber: moment.sceneNumber,
+              timestamp: moment.timestamp,
+              hook: moment.description,
+              platform: moment.recommendedPlatform,
+              suggestedCaption: moment.suggestedCaption,
+              suggestedHashtags: moment.suggestedHashtags
+            }))
+          ]
+          console.log(`✅ Found ${viralResult.viralMoments.length} viral moments for Episode ${episode.episodeNumber}`)
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to scan viral potential for Episode ${episode.episodeNumber}:`, error)
+      // Continue without viral scanning - not critical
     }
 
     episodes.push({
       episodeNumber: episode.episodeNumber,
       episodeTitle: episode.episodeTitle || episode.title,
-      marketingHooks: marketingHooks.slice(0, 5), // Limit to 5 hooks
-      hashtags: [...new Set(hashtags)].slice(0, 8) // Remove duplicates and limit to 8
+      marketing: episodeMarketingData
     });
   }
   

@@ -14,14 +14,6 @@ interface V2LoadingStep {
 
 const V2_STEPS: V2LoadingStep[] = [
   { 
-    id: 'narrative', 
-    name: 'Narrative', 
-    icon: '📖', 
-    description: 'Copying existing episode content...', 
-    type: 'simple',
-    estimatedTime: 5
-  },
-  { 
     id: 'script', 
     name: 'Scripts', 
     icon: '', 
@@ -36,14 +28,6 @@ const V2_STEPS: V2LoadingStep[] = [
     description: 'Creating visual planning per scene...', 
     type: 'per-scene',
     estimatedTime: 150
-  },
-  { 
-    id: 'props', 
-    name: 'Props & Wardrobe', 
-    icon: '👗', 
-    description: 'Generating props per episode...', 
-    type: 'per-episode',
-    estimatedTime: 80
   },
   { 
     id: 'locations', 
@@ -345,7 +329,7 @@ export default function PreProductionV2LoadingScreen({
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   return (
@@ -397,17 +381,17 @@ export default function PreProductionV2LoadingScreen({
         {/* Revolutionary Overall Progress */}
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <span className="text-xl md:text-2xl font-bold text-[#00FF99] font-medium">PROFESSIONAL PROGRESS</span>
+            <span className="text-xl md:text-2xl font-bold text-[#10B981] font-medium">PROFESSIONAL PROGRESS</span>
             <div className="flex items-center gap-6">
-              <span className="text-3xl md:text-4xl font-bold text-[#00FF99] font-medium">{progress.overallProgress}%</span>
+              <span className="text-3xl md:text-4xl font-bold text-[#10B981] font-medium">{progress.overallProgress}%</span>
               <span className="text-lg font-mono text-white/80 font-medium">
                 ⏱️ {formatTime(elapsedTime)}
               </span>
             </div>
           </div>
-          <div className="h-6 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#00FF99]/20">
+          <div className="h-6 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#10B981]/20">
             <motion.div
-              className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
+              className="h-full bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981]"
               initial={{ width: 0 }}
               animate={{ width: `${progress.overallProgress}%` }}
               transition={{ duration: 0.5 }}
@@ -490,7 +474,7 @@ export default function PreProductionV2LoadingScreen({
                 <div className="mt-3">
                   <div className="h-2 rounded-xl bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] overflow-hidden border border-[#e2c376]/20">
                     <motion.div
-                      className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
+                      className="h-full bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981]"
                       initial={{ width: 0 }}
                       animate={{ width: `${progress.currentStepProgress}%` }}
                       transition={{ duration: 0.3 }}

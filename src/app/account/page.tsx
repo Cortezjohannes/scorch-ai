@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useAuth } from '@/context/AuthContext'
 import { useFirebase } from '@/context/FirebaseContext'
 import { useRouter } from 'next/navigation'
@@ -64,7 +64,7 @@ export default function AccountPage() {
             <span className="text-4xl">🔥</span>
           </motion.div>
           <motion.div 
-            className="w-12 h-12 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full mx-auto mb-4"
+            className="w-12 h-12 border-4 border-t-[#10B981] border-r-[#10B98150] border-b-[#10B98130] border-l-[#10B98120] rounded-full mx-auto mb-4"
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           />
@@ -104,7 +104,7 @@ export default function AccountPage() {
             EMPIRE COMMAND CENTER
           </h1>
           <p className="text-white/80 text-lg elegant-fire">
-            Manage your <span className="text-[#00FF99] font-bold">production workspace</span>
+            Manage your <span className="text-[#10B981] font-bold">production workspace</span>
           </p>
         </div>
         
@@ -112,7 +112,7 @@ export default function AccountPage() {
         <motion.button
           onClick={handleLogout}
           disabled={isLoading}
-          className="px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-xl flex items-center space-x-2 transition-all disabled:opacity-50 hover:shadow-lg"
+          className="px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-xl flex items-center space-x-2 transition-all disabled:opacity-50 hover:shadow-lg"
           whileHover={{ scale: 1.05, y: -2 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -139,42 +139,42 @@ export default function AccountPage() {
           transition={{ delay: 0.2, duration: 0.8 }}
         >
           {/* Background glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/10 via-transparent to-[#00CC7A]/10 opacity-50"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/10 via-transparent to-[#059669]/10 opacity-50"></div>
           
           <div className="relative z-10">
-            <h2 className="text-2xl font-black text-[#00FF99] mb-6 flex items-center elegant-fire">
-              <UserCircle className="h-8 w-8 mr-3 text-[#00FF99]" />
+            <h2 className="text-2xl font-black text-[#10B981] mb-6 flex items-center elegant-fire">
+              <UserCircle className="h-8 w-8 mr-3 text-[#10B981]" />
               Account
             </h2>
             
             <div className="space-y-6">
               <motion.div 
-                className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 rounded-xl"
+                className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/30 rounded-xl"
                 whileHover={{ scale: 1.02 }}
               >
-                <span className="text-[#00FF99] font-bold w-32 elegant-fire">Email</span>
+                <span className="text-[#10B981] font-bold w-32 elegant-fire">Email</span>
                 <div className="flex items-center mt-2 md:mt-0">
-                  <Mail className="h-5 w-5 text-[#00FF99] mr-3" />
+                  <Mail className="h-5 w-5 text-[#10B981] mr-3" />
                   <span className="text-white/90 elegant-fire">{user.email}</span>
                 </div>
               </motion.div>
               
               <motion.div 
-                className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 rounded-xl"
+                className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/30 rounded-xl"
                 whileHover={{ scale: 1.02 }}
               >
-                <span className="text-[#00FF99] font-bold w-32 elegant-fire">User ID</span>
-                <span className="font-mono text-sm text-white bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 px-3 py-2 rounded-lg mt-2 md:mt-0 border border-[#00FF99]/40">
+                <span className="text-[#10B981] font-bold w-32 elegant-fire">User ID</span>
+                <span className="font-mono text-sm text-white bg-gradient-to-r from-[#10B981]/20 to-[#059669]/20 px-3 py-2 rounded-lg mt-2 md:mt-0 border border-[#10B981]/40">
                 {user.id}
               </span>
               </motion.div>
             
             {user.displayName && (
                 <motion.div 
-                  className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 rounded-xl"
+                  className="flex flex-col md:flex-row md:items-center p-4 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/30 rounded-xl"
                   whileHover={{ scale: 1.02 }}
                 >
-                  <span className="text-[#00FF99] font-bold w-32 elegant-fire">Display Name</span>
+                  <span className="text-[#10B981] font-bold w-32 elegant-fire">Display Name</span>
                   <span className="text-white/90 mt-2 md:mt-0 elegant-fire">{user.displayName}</span>
                 </motion.div>
             )}
@@ -191,11 +191,11 @@ export default function AccountPage() {
           transition={{ delay: 0.6, duration: 0.8 }}
         >
           {/* Background glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/10 via-transparent to-[#00CC7A]/10 opacity-50"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/10 via-transparent to-[#059669]/10 opacity-50"></div>
           
           <div className="relative z-10">
-            <h2 className="text-2xl font-black text-[#00FF99] mb-6 flex items-center elegant-fire">
-              <Cloud className="h-8 w-8 mr-3 text-[#00FF99]" />
+            <h2 className="text-2xl font-black text-[#10B981] mb-6 flex items-center elegant-fire">
+              <Cloud className="h-8 w-8 mr-3 text-[#10B981]" />
               Cloud Status
             </h2>
             
@@ -208,30 +208,30 @@ export default function AccountPage() {
             </motion.div>
             
             <p className="text-white/90 mb-8 text-lg elegant-fire">
-              Your <span className="text-[#00FF99] font-bold">project data</span> is securely stored in Google Cloud and synchronized across devices.
+              Your <span className="text-[#10B981] font-bold">project data</span> is securely stored in Google Cloud and synchronized across devices.
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <motion.div 
-                className="bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/40 rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden"
+                className="bg-gradient-to-br from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/40 rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden"
                 whileHover={{ scale: 1.05, y: -5 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8, duration: 0.6 }}
               >
-                <Database className="h-12 w-12 text-[#00FF99] mb-4" />
+                <Database className="h-12 w-12 text-[#10B981] mb-4" />
                 <h3 className="font-black text-white mb-2 elegant-fire">🏛️ PROJECTS</h3>
                 <p className="text-white/70 text-sm elegant-fire">Empire Archives</p>
               </motion.div>
               
               <motion.div 
-                className="bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/40 rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden"
+                className="bg-gradient-to-br from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/40 rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden"
                 whileHover={{ scale: 1.05, y: -5 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1, duration: 0.6 }}
               >
-                <Shield className="h-12 w-12 text-[#00FF99] mb-4" />
+                <Shield className="h-12 w-12 text-[#10B981] mb-4" />
                 <h3 className="font-black text-white mb-2 elegant-fire">🛡️ SECURITY</h3>
                 <p className="text-white/70 text-sm elegant-fire">Imperial Guard</p>
               </motion.div>

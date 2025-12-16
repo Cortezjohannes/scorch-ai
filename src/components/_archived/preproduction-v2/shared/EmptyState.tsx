@@ -30,7 +30,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       transition={{ duration: 0.4 }}
       className="flex flex-col items-center justify-center py-16 px-4"
     >
-      <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
+      <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
         <span className="text-4xl">{icon}</span>
       </div>
       
@@ -45,7 +45,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {action && (
         <button
           onClick={action.onClick}
-          className="px-6 py-2 rounded-lg bg-[#00FF99] text-black font-medium hover:bg-[#00CC7A] transition-colors"
+          className="px-6 py-2 rounded-lg bg-[#10B981] text-black font-medium hover:bg-[#059669] transition-colors"
         >
           {action.label}
         </button>

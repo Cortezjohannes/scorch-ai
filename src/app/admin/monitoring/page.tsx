@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from '@/components/ui/ClientMotion';
 import { monitoring } from '@/services/monitoring';
 import { Line } from 'react-chartjs-2';
 import {

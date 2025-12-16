@@ -1,43 +1,15 @@
 /**
- * Location Generator - AI Service
- * Generates 2-3 alternative location options per scene based on script breakdown and screenplay
- * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical + creative alternatives
- * 
- * Standards:
- * - Generate 2-3 realistic alternatives per scene requirement
- * - Focus on micro-budget options ($0-$500 per location)
- * - Provide honest pros/cons for decision-making
- * - Consider logistics (parking, power, permits, proximity)
- * - Prioritize free/low-cost options for UGC web series
+ * AI-powered Location Generator
+ * Generates 2-3 alternative location options per scene for micro-budget web series
  */
 
 import { EngineAIRouter } from '@/services/engine-ai-router'
-import type { ScriptBreakdownData, CastingData } from '@/types/preproduction'
-import type { LocationOptionsData, LocationOption } from '@/types/preproduction'
+import type { LocationOption, LocationOptionsData, Location, LocationSceneReference, CastingData } from '@/types/preproduction'
 
-interface GeneratedScript {
-  title: string
-  episodeNumber: number
-  pages: any[]
-  metadata: {
-    pageCount: number
-    sceneCount: number
-    characterCount: number
-    estimatedRuntime: string
-  }
-}
-
-interface LocationGenerationParams {
-  breakdownData: ScriptBreakdownData
-  scriptData: GeneratedScript
-  storyBible: any
-  castingData?: CastingData // Optional: includes cast location info
-  episodeNumber: number
-  episodeTitle: string
-}
-
-interface SceneLocationRequirement {
+/**
+ * Scene location requirement interface
+ */
+export interface SceneLocationRequirement {
   sceneNumber: number
   sceneTitle: string
   locationType: 'INT' | 'EXT'
@@ -48,485 +20,581 @@ interface SceneLocationRequirement {
 }
 
 /**
- * Generate location options for all scenes
+ * Cast location information for proximity-based recommendations
  */
-export async function generateLocations(params: LocationGenerationParams): Promise<LocationOptionsData> {
-  const { breakdownData, scriptData, storyBible, castingData, episodeNumber, episodeTitle } = params
+export interface CastLocationInfo {
+  primaryCity?: string
+  primaryState?: string
+  primaryCountry?: string
+  metroAreas: string[]
+  castLocations: Array<{
+    city?: string
+    state?: string
+    country?: string
+  }>
+}
 
-  console.log('📍 Generating location options for Episode', episodeNumber)
-  console.log('📋 Analyzing', breakdownData.scenes.length, 'scenes')
-  if (castingData?.cast) {
-    const confirmedCast = castingData.cast.filter(c => c.status === 'confirmed')
-    console.log('👥 Cast location data:', confirmedCast.length, 'confirmed actors')
+/**
+ * Parameters for generating locations for a single scene
+ */
+interface GenerateLocationsForSceneParams {
+  sceneRequirement: SceneLocationRequirement
+  storyBible: any
+  episodeTitle: string
+  castLocationInfo?: CastLocationInfo
+  episodeNumber?: number
+  scriptData?: any
+  locationPreference?: 'story-based' | 'user-based'
+  previousEpisodeLocations?: Location[]
+  storyBibleLocations?: any[]
+}
+
+/**
+ * Result of generating locations for a scene
+ */
+interface GenerateLocationsForSceneResult {
+  locationOptions: LocationOption[]
+  reusedFromEpisode?: number
+  reusedFromLocationId?: string
+}
+
+/**
+ * Parameters for generating locations (episode or arc level)
+ */
+interface GenerateLocationsParams {
+  breakdownData: any
+  scriptData: any
+  storyBible: any
+  castingData?: CastingData | any
+  episodeNumber?: number
+  episodeTitle?: string
+  arcIndex?: number
+  episodeNumbers?: number[]
+  onProgress?: (progress: {
+    currentScene: number
+    totalScenes: number
+    currentSceneTitle: string
+    completedScenes: number
+  }) => void
+}
+
+/**
+ * Extract cast location information from casting data
+ */
+export function extractCastLocationInfo(castingData?: CastingData | any): CastLocationInfo {
+  if (!castingData?.cast || !Array.isArray(castingData.cast)) {
+    return { metroAreas: [], castLocations: [] }
   }
 
-  // Extract location requirements per scene
-  const locationRequirements = extractLocationRequirements(breakdownData, scriptData)
-  console.log('✅ Extracted', locationRequirements.length, 'location requirements')
+  const confirmedCast = castingData.cast.filter((c: any) => c.status === 'confirmed')
+  const castWithLocation = confirmedCast.filter((c: any) => c.city || c.state || c.country)
 
-  // Extract cast location info
-  const castLocationInfo = extractCastLocationInfo(castingData)
+  if (castWithLocation.length === 0) {
+    return { metroAreas: [], castLocations: [] }
+  }
+
+  // Extract unique locations
+  const locations = castWithLocation.map((c: any) => ({
+    city: c.city,
+    state: c.state,
+    country: c.country
+  }))
+
+  // Find most common city/state/country
+  const cityCounts = new Map<string, number>()
+  const stateCounts = new Map<string, number>()
+  const countryCounts = new Map<string, number>()
+
+  locations.forEach((loc: { city?: string; state?: string; country?: string }) => {
+    if (loc.city) cityCounts.set(loc.city, (cityCounts.get(loc.city) || 0) + 1)
+    if (loc.state) stateCounts.set(loc.state, (stateCounts.get(loc.state) || 0) + 1)
+    if (loc.country) countryCounts.set(loc.country, (countryCounts.get(loc.country) || 0) + 1)
+  })
+
+  const primaryCity = Array.from(cityCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
+  const primaryState = Array.from(stateCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
+  const primaryCountry = Array.from(countryCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
+
+  // Build metro areas list
+  const metroAreas: string[] = []
+  locations.forEach((loc: { city?: string; state?: string; country?: string }) => {
+    if (loc.city && loc.state) {
+      const metro = `${loc.city}, ${loc.state}`
+      if (!metroAreas.includes(metro)) metroAreas.push(metro)
+    } else if (loc.city) {
+      if (!metroAreas.includes(loc.city)) metroAreas.push(loc.city)
+    }
+  })
+
+  return {
+    primaryCity,
+    primaryState,
+    primaryCountry,
+    metroAreas,
+    castLocations: locations
+  }
+}
+
+/**
+ * Generate location options for a single scene
+ */
+export async function generateLocationsForScene(
+  params: GenerateLocationsForSceneParams
+): Promise<GenerateLocationsForSceneResult> {
+  const {
+    sceneRequirement,
+    storyBible,
+    episodeTitle,
+    castLocationInfo,
+    episodeNumber,
+    scriptData,
+    locationPreference = 'story-based',
+    previousEpisodeLocations = [],
+    storyBibleLocations = []
+  } = params
+
+  console.log(`🎬 Generating locations for Scene ${sceneRequirement.sceneNumber}: ${sceneRequirement.sceneTitle}`)
+
+  // Check for location reuse opportunities
+  let reusedFromEpisode: number | undefined
+  let reusedFromLocationId: string | undefined
+
+  if (previousEpisodeLocations.length > 0 && episodeNumber && episodeNumber > 1) {
+    // Try to find a matching location from previous episodes
+    const sceneLocationKey = sceneRequirement.sceneTitle.toLowerCase().trim()
+    const matchingLocation = previousEpisodeLocations.find((loc: Location) => {
+      const locKey = loc.recurringLocationKey || loc.name?.toLowerCase().trim()
+      return locKey && sceneLocationKey.includes(locKey) || locKey?.includes(sceneLocationKey)
+    })
+
+    if (matchingLocation) {
+      reusedFromEpisode = matchingLocation.originalEpisode || episodeNumber - 1
+      reusedFromLocationId = matchingLocation.id
+      console.log(`  ♻️  Found reusable location from Episode ${reusedFromEpisode}`)
+    }
+  }
 
   // Build AI prompts
   const systemPrompt = buildSystemPrompt()
-  const userPrompt = buildUserPrompt(locationRequirements, storyBible, episodeTitle, castLocationInfo)
+  const userPrompt = buildUserPrompt(
+    sceneRequirement,
+    storyBible,
+    episodeTitle,
+    castLocationInfo,
+    locationPreference,
+    previousEpisodeLocations,
+    storyBibleLocations,
+    reusedFromEpisode
+  )
 
   try {
-    // Use EngineAIRouter with Gemini 2.5 Pro (analytical + creative)
-    console.log('🤖 Calling AI for location options...')
+    console.log('🤖 Calling AI for location generation...')
     const response = await EngineAIRouter.generateContent({
       prompt: userPrompt,
-      systemPrompt: systemPrompt,
-      temperature: 0.7, // Creative alternatives, but practical
-      maxTokens: 8000, // Enough for multiple alternatives per scene
+      systemPrompt,
+      temperature: 0.7, // Balanced creativity and practicality
+      maxTokens: 3000, // Enough for 2-3 location options with details
       engineId: 'location-generator',
-      forceProvider: 'gemini' // Gemini excels at analytical + creative tasks
+      forceProvider: 'gemini'
     })
 
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
-    
-    // Parse AI response into structured location options
-    const locationOptions = parseLocationOptions(response.content, locationRequirements, episodeNumber, episodeTitle)
-    
-    console.log('✅ Location options generated:', locationOptions.sceneRequirements.length, 'scene requirements')
-    console.log('  Total options:', locationOptions.sceneRequirements.reduce((sum, req) => sum + req.options.length, 0))
-    
-    return locationOptions
+
+    // Parse AI response into location options
+    const locationOptions = parseLocationOptions(response.content, sceneRequirement, reusedFromEpisode, reusedFromLocationId)
+
+    console.log(`✅ Generated ${locationOptions.length} location options for Scene ${sceneRequirement.sceneNumber}`)
+
+    return {
+      locationOptions,
+      reusedFromEpisode,
+      reusedFromLocationId
+    }
   } catch (error) {
-    console.error('❌ Error generating location options:', error)
+    console.error('❌ Error generating locations:', error)
     throw new Error(`Location generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
 /**
- * Extract location requirements from breakdown and script
+ * Generate location options for all scenes (episode or arc level)
  */
-function extractLocationRequirements(
-  breakdown: ScriptBreakdownData,
-  script: GeneratedScript
-): SceneLocationRequirement[] {
-  const requirements: SceneLocationRequirement[] = []
+export async function generateLocations(params: GenerateLocationsParams): Promise<LocationOptionsData> {
+  const {
+    breakdownData,
+    scriptData,
+    storyBible,
+    castingData,
+    episodeNumber,
+    episodeTitle,
+    arcIndex,
+    episodeNumbers,
+    onProgress
+  } = params
 
-  for (const scene of breakdown.scenes) {
-    // Get scene description from script if available
-    let sceneDescription = scene.sceneTitle || `Scene ${scene.sceneNumber}`
-    
-    // Try to find scene content in script
-    const scriptScene = findSceneInScript(script, scene.sceneNumber)
-    if (scriptScene) {
-      sceneDescription = scriptScene.description || sceneDescription
+  console.log('📍 Generating location options for', arcIndex !== undefined ? 'arc' : 'episode')
+
+  // Extract cast location info
+  const castLocationInfo = extractCastLocationInfo(castingData)
+
+  // Get scenes from breakdown
+  const scenes = breakdownData.scenes || []
+  const totalScenes = scenes.length
+
+  if (totalScenes === 0) {
+    throw new Error('No scenes found in breakdown data')
+  }
+
+  console.log(`📋 Processing ${totalScenes} scenes...`)
+
+  // Generate locations for each scene
+  const sceneRequirements: LocationOptionsData['sceneRequirements'] = []
+
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i]
+    const sceneEpisodeNumber = scene.episodeNumber || scene.linkedEpisode || episodeNumber || 1
+
+    // Update progress
+    if (onProgress) {
+      onProgress({
+        currentScene: i + 1,
+        totalScenes,
+        currentSceneTitle: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
+        completedScenes: i
+      })
     }
 
-    // Determine location type from breakdown location field
-    const locationType = scene.location?.toUpperCase().includes('INT') ? 'INT' : 'EXT'
-
-    requirements.push({
+    // Build scene requirement
+    const sceneRequirement: SceneLocationRequirement = {
       sceneNumber: scene.sceneNumber,
       sceneTitle: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
-      locationType,
+      locationType: (scene.location?.toUpperCase().includes('INT') ? 'INT' : 'EXT') as 'INT' | 'EXT',
       timeOfDay: scene.timeOfDay || 'DAY',
-      sceneDescription,
+      sceneDescription: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
       characterCount: scene.characters?.length || 0,
       specialRequirements: scene.specialRequirements || []
-    })
-  }
+    }
 
-  return requirements
-}
+    // Generate locations for this scene
+    try {
+      const result = await generateLocationsForScene({
+        sceneRequirement,
+        storyBible,
+        episodeTitle: episodeTitle || `Episode ${sceneEpisodeNumber}`,
+        castLocationInfo,
+        episodeNumber: sceneEpisodeNumber,
+        scriptData,
+        locationPreference: 'story-based' // Default for now
+      })
 
-/**
- * Find scene in script by scene number
- */
-function findSceneInScript(script: GeneratedScript, sceneNumber: number): { description: string } | null {
-  // Try to find scene in script pages
-  for (const page of script.pages || []) {
-    for (const element of page.elements || []) {
-      if (element.metadata?.sceneNumber === sceneNumber && element.type === 'action') {
-        return { description: element.content }
-      }
+      // Add to scene requirements
+      sceneRequirements.push({
+        episodeNumber: sceneEpisodeNumber,
+        sceneNumber: scene.sceneNumber,
+        sceneTitle: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
+        locationType: sceneRequirement.locationType,
+        timeOfDay: sceneRequirement.timeOfDay,
+        options: result.locationOptions
+      })
+
+      console.log(`  ✅ Scene ${scene.sceneNumber}: ${result.locationOptions.length} options`)
+    } catch (error) {
+      console.error(`  ❌ Error generating locations for Scene ${scene.sceneNumber}:`, error)
+      // Continue with other scenes even if one fails
+      sceneRequirements.push({
+        episodeNumber: sceneEpisodeNumber,
+        sceneNumber: scene.sceneNumber,
+        sceneTitle: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
+        locationType: sceneRequirement.locationType,
+        timeOfDay: sceneRequirement.timeOfDay,
+        options: [] // Empty options on error
+      })
     }
   }
-  return null
+
+  // Build result
+  const result: LocationOptionsData = {
+    sceneRequirements,
+    lastUpdated: Date.now(),
+    generated: true,
+    locationPreference: 'story-based'
+  }
+
+  // Add episode or arc metadata
+  if (arcIndex !== undefined && episodeNumbers) {
+    result.arcIndex = arcIndex
+    result.episodeNumbers = episodeNumbers
+  } else if (episodeNumber) {
+    result.episodeNumber = episodeNumber
+    result.episodeTitle = episodeTitle || `Episode ${episodeNumber}`
+  }
+
+  console.log(`✅ Location generation complete: ${sceneRequirements.length} scene requirements, ${sceneRequirements.reduce((sum, req) => sum + req.options.length, 0)} total options`)
+
+  return result
 }
 
 /**
- * Build system prompt for AI
+ * Build system prompt for location generation
  */
 function buildSystemPrompt(): string {
-  return `You are a professional location scout for micro-budget web series production.
-
-Your job is to generate 2-3 realistic alternative location options per scene requirement.
+  return `You are an experienced location scout specializing in micro-budget web series production.
 
 **CRITICAL RULES:**
 
-1. **ALWAYS GENERATE 2-3 OPTIONS PER SCENE**
-   - Option 1: Recommended (best match, may have cost)
-   - Option 2: Budget-friendly (free/low-cost, may require compromise)
-   - Option 3: Alternative style/vibe (different aesthetic, similar function)
-   - Each option must be viable - no impossible locations
+1. **BUDGET IS PARAMOUNT**: Generate 2-3 location options per scene, prioritizing:
+   - FREE locations (public spaces, actor-owned properties) - $0
+   - LOW-COST locations (Airbnb, Peerspace, Giggster) - $0-$150/day
+   - MODERATE locations (rentals) - $150-$500/day
+   - Avoid expensive locations ($500+/day) unless absolutely necessary
 
-2. **MICRO-BUDGET FOCUS (UGC WEB SERIES)**
-   - Total series budget: $1k-$20k for ALL episodes
-   - Per location budget: $0-$500 (most should be $0-$150)
-   - Prioritize: Free > Public spaces > Low-cost rental > Paid rental
-   - Focus on UGC-friendly options: homes, cafes, public spaces, actor-owned spaces
+2. **LOCATION TYPES**:
+   - **Interior (INT)**: Indoor spaces (apartments, offices, cafes, stores)
+   - **Exterior (EXT)**: Outdoor spaces (parks, streets, parking lots, rooftops)
+   - **Both**: Spaces that can serve as both interior and exterior
 
-3. **COST REALISM**
-   - Free: Actor's home, friend's space, public space (may need permit)
-   - Low-cost ($0-$50): Basic permit fees, minimal rental
-   - Moderate ($50-$150): Short-term rental, Airbnb-style booking
-   - Higher ($150-$500): Professional studio, event venue (rare for micro-budget)
-   - Always provide cost estimate in dollars
+3. **SOURCING PLATFORMS**:
+   - **Airbnb**: Short-term rentals, often affordable ($50-$200/day)
+   - **Peerspace**: Professional filming spaces ($100-$300/day)
+   - **Giggster**: Location marketplace ($50-$500/day)
+   - **Public Space**: Free parks, streets, libraries (FREE)
+   - **Actor-Owned**: Cast member's property (FREE or minimal cost)
+   - **Rental**: Traditional location rental ($200-$500/day)
 
-4. **GEOGRAPHIC PROXIMITY & CAST LOCATION**
-   - PRIMARY PRIORITY: Locations must match STORY SETTING (if story is set in Manila, recommend Manila locations)
-   - SECONDARY PRIORITY: If cast location data is provided, prioritize locations near cast base to minimize travel costs
-   - Ideal: Story location matches cast location (e.g., Manila story with Manila-based actors = Manila locations)
-   - Compromise: If story location differs from cast location, recommend locations in cast's city that can represent story setting
-   - Always consider travel costs when cast must travel - factor into pros/cons
-   - Include proximity notes in logistics (e.g., "10 minutes from actor residence", "Central to cast locations")
+4. **LOGISTICS REQUIREMENTS**:
+   - Parking: Essential for crew/equipment
+   - Power Access: For lighting/equipment
+   - Restroom Access: For cast/crew comfort
+   - Permit Requirements: Note if permits are needed and estimated cost
 
-5. **PROS AND CONS (HONEST)**
-   - Pros: Real advantages (cost, logistics, aesthetic, control)
-   - Cons: Real challenges (limitations, restrictions, hidden costs, availability)
-   - Be honest - help decision-making, don't just sell options
-   - Each option should have 2-4 pros and 2-4 cons
+5. **OUTPUT FORMAT**:
+Provide STRICTLY valid JSON array of 2-3 location options. Each option must have:
+- id (unique identifier, e.g., "loc_scene1_option1")
+- name (location name)
+- description (brief description, max 200 chars)
+- type ("interior", "exterior", or "both")
+- estimatedCost (number in dollars, prefer $0-$150)
+- pros (array of 3-5 advantages)
+- cons (array of 2-3 challenges)
+- logistics (object with parkingAvailable, powerAccess, restroomAccess, permitRequired, permitCost, notes)
+- sourcing ("airbnb", "peerspace", "giggster", "public-space", "actor-owned", "rental", or "other")
+- sourcingPlatform (suggested platform text, e.g., "Search Airbnb for 'modern apartment' in [city]")
+- address (example/generic address or "TBD")
+- status ("suggested")
+- selected (false)
 
-6. **LOGISTICS ASSESSMENT**
-   - Parking: Available/not available/varies
-   - Power: Essential for lighting/equipment
-   - Restrooms: For crew comfort
-   - Permits: Required/not required, cost if needed
-   - Notes: Important considerations (insurance, restrictions, accessibility)
-
-7. **SOURCING SUGGESTIONS**
-   - free: Actor-owned, friend's space, public space
-   - rental: Airbnb, event venue, studio rental
-   - borrow: Friend/family property (no cost)
-   - owned: Producer/crew owns space
-   - public-space: Park, library, cafe (may need permission)
-
-8. **EVALUATION CRITERIA**
-   - Cost: $0 (free) > $50 (low) > $150 (moderate) > $300+ (expensive)
-   - Logistics: Parking, power, restrooms, accessibility
-   - Permits: None > Simple > Complex/Expensive
-   - Availability: Flexible > Limited dates > Fixed schedule
-   - Aesthetic Match: Perfect > Good > Acceptable > Poor
-   - Control: Full > Partial > Limited (public spaces)
-
-9. **OUTPUT FORMAT**
-   - Valid JSON only
-   - No markdown, no code blocks, no explanations
-   - Match the exact structure specified
-   - Always include exactly 2-3 options per scene requirement`
+NO markdown, NO code blocks, NO explanations - ONLY the JSON array.`
 }
 
 /**
- * Extract cast location information for proximity-based recommendations
- */
-function extractCastLocationInfo(castingData?: CastingData): {
-  storyLocation: string
-  primaryCastLocation: string | null
-  castLocations: Array<{ characterName: string; city?: string; state?: string; country?: string }>
-  castLocationMatch: boolean
-} {
-  if (!castingData?.cast || castingData.cast.length === 0) {
-    return {
-      storyLocation: '',
-      primaryCastLocation: null,
-      castLocations: [],
-      castLocationMatch: false
-    }
-  }
-
-  // Get confirmed cast with location info
-  const confirmedCast = castingData.cast
-    .filter(c => c.status === 'confirmed' && (c.city || c.state || c.country))
-    .map(c => ({
-      characterName: c.characterName,
-      city: c.city,
-      state: c.state,
-      country: c.country
-    }))
-
-  // Find most common cast location (primary hub)
-  const locationCounts = new Map<string, number>()
-  confirmedCast.forEach(c => {
-    const loc = c.city || c.state || c.country || ''
-    if (loc) locationCounts.set(loc, (locationCounts.get(loc) || 0) + 1)
-  })
-  
-  const primaryCastLocation = Array.from(locationCounts.entries())
-    .sort((a, b) => b[1] - a[1])[0]?.[0] || null
-
-  return {
-    storyLocation: '',
-    primaryCastLocation,
-    castLocations: confirmedCast,
-    castLocationMatch: false // Will be set based on story comparison
-  }
-}
-
-/**
- * Build user prompt with all context
+ * Build user prompt for location generation
  */
 function buildUserPrompt(
-  requirements: SceneLocationRequirement[],
+  sceneRequirement: SceneLocationRequirement,
   storyBible: any,
   episodeTitle: string,
-  castLocationInfo: ReturnType<typeof extractCastLocationInfo>
+  castLocationInfo?: CastLocationInfo,
+  locationPreference: 'story-based' | 'user-based' = 'story-based',
+  previousEpisodeLocations: Location[] = [],
+  storyBibleLocations: any[] = [],
+  reusedFromEpisode?: number
 ): string {
-  let prompt = `Generate 2-3 alternative location options for each scene requirement in this ${episodeTitle} episode.\n\n`
+  const seriesTitle = storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'
+  const genre = storyBible?.genre || 'Drama'
+  const tone = storyBible?.tone || 'Realistic'
+  const setting = storyBible?.setting || storyBible?.worldBuilding?.setting || 'Contemporary'
 
-  // Story context
-  const storyLocation = storyBible?.setting || storyBible?.location || storyBible?.storyLocation || 'Urban'
-  prompt += `**STORY CONTEXT:**\n`
-  prompt += `Series: ${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}\n`
-  prompt += `Genre: ${storyBible?.genre || 'Drama'}\n`
-  prompt += `Story Setting/Location: ${storyLocation}\n`
-  prompt += `Tone: ${storyBible?.tone || 'Realistic'}\n\n`
+  let prompt = `Generate 2-3 location options for a scene in "${seriesTitle}".\n\n`
 
-  // Cast location context
-  if (castLocationInfo.castLocations.length > 0) {
-    prompt += `**CAST LOCATION INFORMATION:**\n`
-    if (castLocationInfo.primaryCastLocation) {
-      prompt += `Primary Cast Hub: ${castLocationInfo.primaryCastLocation}\n`
-    }
-    prompt += `Confirmed Actors with Location Data:\n`
-    castLocationInfo.castLocations.forEach(cast => {
-      const locParts = [cast.city, cast.state, cast.country].filter(Boolean)
-      if (locParts.length > 0) {
-        prompt += `  - ${cast.characterName}: ${locParts.join(', ')}\n`
-      }
-    })
-    
-    // Check if cast location matches story location
-    const storyLocationLower = storyLocation.toLowerCase()
-    const castLocationLower = castLocationInfo.primaryCastLocation?.toLowerCase() || ''
-    const locationMatch = storyLocationLower.includes(castLocationLower) || 
-                         castLocationLower.includes(storyLocationLower) ||
-                         castLocationInfo.castLocations.some(c => 
-                           c.city?.toLowerCase().includes(storyLocationLower) ||
-                           storyLocationLower.includes(c.city?.toLowerCase() || '')
-                         )
-    
-    if (locationMatch) {
-      prompt += `✅ Cast locations MATCH story setting - prioritize locations in ${castLocationInfo.primaryCastLocation || storyLocation}\n`
-    } else {
-      prompt += `⚠️ Cast locations may differ from story setting - recommend locations that work for BOTH:\n`
-      prompt += `   - Story requires: ${storyLocation}\n`
-      prompt += `   - Cast based in: ${castLocationInfo.primaryCastLocation || 'various'}\n`
-      prompt += `   - Solution: Recommend locations in ${castLocationInfo.primaryCastLocation || storyLocation} that can represent ${storyLocation || castLocationInfo.primaryCastLocation || 'the story setting'}\n`
-    }
-    prompt += `\n`
-  } else {
-    // No cast location data, use story location only
-    prompt += `**LOCATION REQUIREMENT:**\n`
-    prompt += `Recommend locations based on STORY SETTING: ${storyLocation}\n`
-    prompt += `(No cast location data available - prioritize story authenticity)\n\n`
-  }
-
-  // Episode context
-  prompt += `**EPISODE:** ${episodeTitle}\n`
-  prompt += `Production Model: Micro-budget web series ($1k-$20k total series budget)\n`
-  prompt += `Location Budget: $0-$500 per location (prefer $0-$150)\n\n`
-
-  // Scene requirements
-  prompt += `**SCENE REQUIREMENTS:**\n\n`
+  prompt += `**SERIES CONTEXT:**\n`
+  prompt += `Title: ${seriesTitle}\n`
+  prompt += `Genre: ${genre}\n`
+  prompt += `Tone: ${tone}\n`
+  prompt += `Setting: ${setting}\n`
+  prompt += `Episode: ${episodeTitle}\n\n`
   
-  for (const req of requirements) {
-    prompt += `Scene ${req.sceneNumber}: ${req.sceneTitle}\n`
-    prompt += `  Location Type: ${req.locationType} (${req.locationType === 'INT' ? 'Interior' : 'Exterior'})\n`
-    prompt += `  Time of Day: ${req.timeOfDay}\n`
-    prompt += `  Description: ${req.sceneDescription}\n`
-    prompt += `  Characters: ${req.characterCount}\n`
-    if (req.specialRequirements.length > 0) {
-      prompt += `  Special Requirements: ${req.specialRequirements.join(', ')}\n`
+  // Add CORE story bible data
+  if (storyBible?.seriesOverview) {
+    prompt += `**SERIES OVERVIEW (Big Picture):**\n${storyBible.seriesOverview}\n\n`
+  }
+  
+  if (storyBible?.worldBuilding) {
+    prompt += `**WORLD/SETTING DETAILS:**\n`
+    if (typeof storyBible.worldBuilding === 'string') {
+      prompt += `${storyBible.worldBuilding.substring(0, 350)}\n\n`
+    } else {
+      if (storyBible.worldBuilding.setting) prompt += `Setting: ${storyBible.worldBuilding.setting}\n`
+      if (storyBible.worldBuilding.rules) {
+        prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules : ''}\n`
+      }
+      if (storyBible.worldBuilding.atmosphere) prompt += `Atmosphere: ${storyBible.worldBuilding.atmosphere}\n`
+      if (storyBible.worldBuilding.culturalContext) prompt += `Cultural Context: ${storyBible.worldBuilding.culturalContext}\n`
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        prompt += `\nEstablished Locations (use these for authenticity):\n`
+        storyBible.worldBuilding.locations.forEach((loc: any) => {
+          prompt += `- ${loc.name}: ${loc.description || ''}`
+          if (loc.atmosphere) prompt += ` (${loc.atmosphere})`
+          prompt += `\n`
+        })
+      }
+      prompt += `\n`
     }
+  }
+  
+  if (storyBible?.genreEnhancement) {
+    prompt += `**GENRE STYLE (for location aesthetics):**\n`
+    const genreEnh = storyBible.genreEnhancement
+    if (genreEnh.rawContent) {
+      prompt += `${genreEnh.rawContent.substring(0, 250)}\n\n`
+    } else if (genreEnh.visualStyle) {
+      prompt += `Visual Style: ${genreEnh.visualStyle}\n\n`
+    }
+  }
+
+  prompt += `**SCENE REQUIREMENTS:**\n`
+  prompt += `Scene ${sceneRequirement.sceneNumber}: ${sceneRequirement.sceneTitle}\n`
+  prompt += `Type: ${sceneRequirement.locationType} (${sceneRequirement.locationType === 'INT' ? 'Interior' : 'Exterior'})\n`
+  prompt += `Time of Day: ${sceneRequirement.timeOfDay}\n`
+  prompt += `Description: ${sceneRequirement.sceneDescription}\n`
+  prompt += `Characters: ${sceneRequirement.characterCount}\n`
+  if (sceneRequirement.specialRequirements.length > 0) {
+    prompt += `Special Requirements: ${sceneRequirement.specialRequirements.join(', ')}\n`
+  }
+  prompt += `\n`
+
+  // Add location preference context
+  if (locationPreference === 'user-based' && castLocationInfo && castLocationInfo.metroAreas.length > 0) {
+    prompt += `**CAST LOCATION PREFERENCE:**\n`
+    prompt += `Primary Location: ${castLocationInfo.primaryCity || 'N/A'}`
+    if (castLocationInfo.primaryState) prompt += `, ${castLocationInfo.primaryState}`
+    if (castLocationInfo.primaryCountry) prompt += `, ${castLocationInfo.primaryCountry}`
+    prompt += `\n`
+    prompt += `Metro Areas: ${castLocationInfo.metroAreas.join(', ')}\n`
+    prompt += `\n`
+    prompt += `**IMPORTANT**: Prioritize locations in or near these areas for practical filming.\n\n`
+  } else {
+    prompt += `**LOCATION PREFERENCE:** Story-based (match the narrative setting)\n\n`
+  }
+
+  // Add previous locations for reuse opportunities
+  if (previousEpisodeLocations.length > 0) {
+    prompt += `**PREVIOUS EPISODE LOCATIONS (for potential reuse):**\n`
+    previousEpisodeLocations.slice(0, 5).forEach((loc: Location) => {
+      prompt += `- ${loc.name} (${loc.address || 'Address TBD'}) - $${loc.cost || 0}/day`
+      if (loc.recurringLocationKey) {
+        prompt += ` [Key: ${loc.recurringLocationKey}]`
+      }
+      prompt += `\n`
+    })
+    prompt += `\n`
+    prompt += `**NOTE**: If a previous location matches this scene's needs, consider reusing it to save costs.\n\n`
+  }
+
+  // Add story bible locations
+  if (storyBibleLocations.length > 0) {
+    prompt += `**STORY BIBLE LOCATIONS:**\n`
+    storyBibleLocations.slice(0, 3).forEach((loc: any) => {
+      prompt += `- ${loc.name || loc.title || 'Unnamed Location'}: ${loc.description || loc.notes || 'No description'}\n`
+    })
     prompt += `\n`
   }
 
-  // Output format
-  prompt += `**TASK:**\n`
-  prompt += `For EACH scene requirement above, generate exactly 2-3 location options.\n\n`
+  if (reusedFromEpisode) {
+    prompt += `**REUSE OPPORTUNITY**: A similar location was used in Episode ${reusedFromEpisode}. Consider reusing it if it matches.\n\n`
+  }
 
-  prompt += `For each option, provide:\n`
-  prompt += `- name: Specific, descriptive location name\n`
-  prompt += `- description: Brief description of the space\n`
-  prompt += `- type: "interior" | "exterior" | "both"\n`
-  prompt += `- estimatedCost: Number in dollars ($0-$500)\n`
-  prompt += `- pros: Array of 2-4 advantages (strings)\n`
-  prompt += `- cons: Array of 2-4 challenges/limitations (strings)\n`
-  prompt += `- logistics: Object with parkingAvailable (boolean), powerAccess (boolean), restroomAccess (boolean), permitRequired (boolean), permitCost (number or null), notes (string)\n`
-  prompt += `- sourcing: "free" | "rental" | "borrow" | "owned" | "public-space"\n`
-  prompt += `- address: Optional example/generic address string\n\n`
+  prompt += `**INSTRUCTIONS:**\n`
+  prompt += `Generate 2-3 practical location options that:\n`
+  prompt += `1. Match the scene's requirements (${sceneRequirement.locationType}, ${sceneRequirement.timeOfDay})\n`
+  prompt += `2. Fit the series tone and genre (${genre}, ${tone})\n`
+  prompt += `3. Are budget-friendly (prefer $0-$150/day, max $500/day)\n`
+  prompt += `4. Have good logistics (parking, power, restrooms)\n`
+  if (locationPreference === 'user-based' && castLocationInfo) {
+    prompt += `5. Are located in or near: ${castLocationInfo.metroAreas.join(', ')}\n`
+  }
+  prompt += `\n`
 
-  prompt += `**OUTPUT FORMAT:**\n\n`
-  prompt += `Provide ONLY valid JSON with this structure:\n\n`
-  prompt += `{\n`
-  prompt += `  "sceneRequirements": [\n`
-  prompt += `    {\n`
-  prompt += `      "sceneNumber": 1,\n`
-  prompt += `      "sceneTitle": "Jason's Penthouse - Night",\n`
-  prompt += `      "locationType": "INT",\n`
-  prompt += `      "timeOfDay": "NIGHT",\n`
-  prompt += `      "options": [\n`
-  prompt += `        {\n`
-  prompt += `          "name": "Modern High-Rise Apartment (Rental)",\n`
-  prompt += `          "description": "Contemporary penthouse-style apartment with city views",\n`
-  prompt += `          "type": "interior",\n`
-  prompt += `          "estimatedCost": 200,\n`
-  prompt += `          "pros": ["Matches script aesthetic", "Good natural light", "Professional look"],\n`
-  prompt += `          "cons": ["Requires rental fee", "May need permit", "Limited availability"],\n`
-  prompt += `          "logistics": {\n`
-  prompt += `            "parkingAvailable": true,\n`
-  prompt += `            "powerAccess": true,\n`
-  prompt += `            "restroomAccess": true,\n`
-  prompt += `            "permitRequired": true,\n`
-  prompt += `            "permitCost": 50,\n`
-  prompt += `            "notes": "Building may require insurance certificate"\n`
-  prompt += `          },\n`
-  prompt += `          "sourcing": "rental",\n`
-  prompt += `          "address": "Modern apartment building, urban area"\n`
-  prompt += `        },\n`
-  prompt += `        {\n`
-  prompt += `          "name": "Actor's Own Apartment",\n`
-  prompt += `          "description": "Use lead actor's actual modern apartment",\n`
-  prompt += `          "type": "interior",\n`
-  prompt += `          "estimatedCost": 0,\n`
-  prompt += `          "pros": ["No rental cost", "Actor comfortable", "No permit needed"],\n`
-  prompt += `          "cons": ["May not match exact aesthetic", "Privacy concerns", "Limited control"],\n`
-  prompt += `          "logistics": {\n`
-  prompt += `            "parkingAvailable": false,\n`
-  prompt += `            "powerAccess": true,\n`
-  prompt += `            "restroomAccess": true,\n`
-  prompt += `            "permitRequired": false,\n`
-  prompt += `            "permitCost": null,\n`
-  prompt += `            "notes": "Check with building management for filming policy"\n`
-  prompt += `          },\n`
-  prompt += `          "sourcing": "free",\n`
-  prompt += `          "address": "Actor's residence"\n`
-  prompt += `        },\n`
-  prompt += `        {\n`
-  prompt += `          "name": "Airbnb Short-Term Rental",\n`
-  prompt += `          "description": "Book modern apartment via Airbnb for shoot day",\n`
-  prompt += `          "type": "interior",\n`
-  prompt += `          "estimatedCost": 120,\n`
-  prompt += `          "pros": ["Flexible booking", "Often good for filming", "Can preview online"],\n`
-  prompt += `          "cons": ["Host approval needed", "Limited to 1-2 days", "May have restrictions"],\n`
-  prompt += `          "logistics": {\n`
-  prompt += `            "parkingAvailable": true,\n`
-  prompt += `            "powerAccess": true,\n`
-  prompt += `            "restroomAccess": true,\n`
-  prompt += `            "permitRequired": false,\n`
-  prompt += `            "permitCost": null,\n`
-  prompt += `            "notes": "Negotiate filming rights upfront, not just booking"\n`
-  prompt += `          },\n`
-  prompt += `          "sourcing": "rental",\n`
-  prompt += `          "address": "Airbnb listing, urban area"\n`
-  prompt += `        }\n`
-  prompt += `      ]\n`
-  prompt += `    }\n`
-  prompt += `  ]\n`
-  prompt += `}\n\n`
-
-  prompt += `**CRITICAL REMINDERS:**\n`
-  prompt += `- Output ONLY valid JSON (no markdown, no code blocks, no explanation)\n`
-  prompt += `- Generate exactly 2-3 options per scene requirement\n`
-  prompt += `- All options must be realistic and viable for micro-budget production\n`
-  prompt += `- Prioritize free/low-cost options but include variety\n`
-  prompt += `- Be honest with pros/cons - help decision-making\n`
-  prompt += `- Consider logistics: parking, power, restrooms, permits\n`
-  prompt += `- Cost range: $0-$500 (prefer $0-$150)\n`
+  prompt += `Output ONLY a JSON array of 2-3 location options. NO markdown, NO explanations.`
 
   return prompt
 }
 
 /**
- * Parse AI response into structured location options
+ * Parse AI response into LocationOption objects
  */
 function parseLocationOptions(
   aiResponse: string,
-  requirements: SceneLocationRequirement[],
-  episodeNumber: number,
-  episodeTitle: string
-): LocationOptionsData {
+  sceneRequirement: SceneLocationRequirement,
+  reusedFromEpisode?: number,
+  reusedFromLocationId?: string
+): LocationOption[] {
   try {
-    // Clean AI output (remove markdown code blocks if present)
     let cleaned = aiResponse.trim()
-    if (cleaned.startsWith('```json')) {
+
+    // Extract JSON from markdown code blocks
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch && jsonMatch[1]) {
+      cleaned = jsonMatch[1].trim()
+    } else if (cleaned.startsWith('```json')) {
       cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '')
     } else if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '')
     }
 
+    // Find JSON array boundaries
+    const firstBracket = cleaned.indexOf('[')
+    const lastBracket = cleaned.lastIndexOf(']')
+
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      cleaned = cleaned.substring(firstBracket, lastBracket + 1)
+    }
+
+    // Clean up common JSON issues
+    cleaned = cleaned
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/\/\/.*$/gm, '')
+      .trim()
+
+    // Parse JSON
     const parsed = JSON.parse(cleaned)
 
-    if (!parsed.sceneRequirements || !Array.isArray(parsed.sceneRequirements)) {
-      throw new Error('Invalid AI response structure: missing sceneRequirements array')
+    if (!Array.isArray(parsed)) {
+      throw new Error('AI response is not an array')
     }
 
-    const sceneRequirements = parsed.sceneRequirements.map((req: any, idx: number) => {
-      const originalReq = requirements[idx]
-      if (!originalReq) {
-        throw new Error(`Scene requirement ${idx} not found in original requirements`)
-      }
+    // Convert to LocationOption format
+    const locationOptions: LocationOption[] = parsed.map((opt: any, index: number) => ({
+      id: opt.id || `loc_scene${sceneRequirement.sceneNumber}_option${index + 1}_${Date.now()}`,
+      sceneNumbers: [sceneRequirement.sceneNumber], // Legacy format
+      name: opt.name || `Location Option ${index + 1}`,
+      description: opt.description || '',
+      type: (opt.type || 'interior') as 'interior' | 'exterior' | 'both',
+      estimatedCost: typeof opt.estimatedCost === 'number' ? opt.estimatedCost : parseFloat(opt.estimatedCost) || 0,
+      pros: Array.isArray(opt.pros) ? opt.pros : [],
+      cons: Array.isArray(opt.cons) ? opt.cons : [],
+      logistics: {
+        parkingAvailable: opt.logistics?.parkingAvailable ?? true,
+        powerAccess: opt.logistics?.powerAccess ?? true,
+        restroomAccess: opt.logistics?.restroomAccess ?? true,
+        permitRequired: opt.logistics?.permitRequired ?? false,
+        permitCost: opt.logistics?.permitCost || 0,
+        notes: opt.logistics?.notes || ''
+      },
+      sourcing: (opt.sourcing || 'other') as LocationOption['sourcing'],
+      sourcingPlatform: opt.sourcingPlatform || undefined,
+      address: opt.address || undefined,
+      status: 'suggested' as const,
+      selected: false,
+      reusedFromEpisode: reusedFromEpisode,
+      reusedFromLocationId: reusedFromLocationId,
+      isReuse: !!reusedFromEpisode
+    }))
 
-      if (!req.options || !Array.isArray(req.options) || req.options.length === 0) {
-        throw new Error(`Scene ${req.sceneNumber || idx + 1} has no options`)
-      }
-
-      // Ensure 2-3 options
-      if (req.options.length < 2) {
-        console.warn(`⚠️  Scene ${req.sceneNumber} only has ${req.options.length} option(s), expected 2-3`)
-      }
-      if (req.options.length > 3) {
-        console.warn(`⚠️  Scene ${req.sceneNumber} has ${req.options.length} options, limiting to 3`)
-        req.options = req.options.slice(0, 3)
-      }
-
-      const options: LocationOption[] = req.options.map((opt: any, optIdx: number) => ({
-        id: `loc_opt_${req.sceneNumber}_${optIdx + 1}`,
-        sceneNumbers: [req.sceneNumber],
-        name: opt.name || `Location Option ${optIdx + 1}`,
-        description: opt.description || '',
-        type: opt.type || 'interior',
-        estimatedCost: typeof opt.estimatedCost === 'number' ? opt.estimatedCost : 0,
-        pros: Array.isArray(opt.pros) ? opt.pros : [],
-        cons: Array.isArray(opt.cons) ? opt.cons : [],
-        logistics: {
-          parkingAvailable: opt.logistics?.parkingAvailable === true,
-          powerAccess: opt.logistics?.powerAccess !== false, // Default true
-          restroomAccess: opt.logistics?.restroomAccess !== false, // Default true
-          permitRequired: opt.logistics?.permitRequired === true,
-          permitCost: typeof opt.logistics?.permitCost === 'number' ? opt.logistics.permitCost : undefined,
-          notes: opt.logistics?.notes || ''
-        },
-        sourcing: opt.sourcing || 'free',
-        address: opt.address,
-        status: 'suggested' as const,
-        selected: false
-      }))
-
-      return {
-        sceneNumber: req.sceneNumber || originalReq.sceneNumber,
-        sceneTitle: req.sceneTitle || originalReq.sceneTitle,
-        locationType: req.locationType || originalReq.locationType,
-        timeOfDay: req.timeOfDay || originalReq.timeOfDay,
-        options
-      }
-    })
-
-    return {
-      episodeNumber,
-      episodeTitle,
-      sceneRequirements,
-      lastUpdated: Date.now(),
-      generated: true
-    }
+    return locationOptions
   } catch (error) {
-    console.error('❌ Error parsing AI response:', error)
-    console.error('Response:', aiResponse.substring(0, 500))
+    console.error('❌ Error parsing location options:', error)
+    console.error('AI Response:', aiResponse.substring(0, 500))
     throw new Error(`Failed to parse location options: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

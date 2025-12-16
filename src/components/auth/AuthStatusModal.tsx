@@ -76,16 +76,16 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="relative w-full max-w-md bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl shadow-2xl overflow-hidden my-8"
+            className="relative w-full max-w-md bg-[#1A1A1A] border border-[#10B981]/30 rounded-2xl shadow-2xl overflow-hidden my-8"
           >
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/10 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/10 to-transparent pointer-events-none" />
           
           {/* Content */}
           <div className="relative p-8">
             {/* Status Indicator */}
             <div className="flex items-center justify-center mb-6">
-              <div className="flex items-center gap-3 px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg">
+              <div className="flex items-center gap-3 px-4 py-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 <span className="text-[#E7E7E7] text-sm font-medium">Not Logged In</span>
               </div>
@@ -110,7 +110,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white placeholder-[#E7E7E7]/40 focus:outline-none focus:border-[#00FF99] transition-colors"
+                  className="w-full px-4 py-3 bg-[#121212] border border-[#10B981]/20 rounded-lg text-white placeholder-[#E7E7E7]/40 focus:outline-none focus:border-[#10B981] transition-colors"
                   placeholder="your@email.com"
                   required
                 />
@@ -125,7 +125,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#121212] border border-[#00FF99]/20 rounded-lg text-white placeholder-[#E7E7E7]/40 focus:outline-none focus:border-[#00FF99] transition-colors"
+                  className="w-full px-4 py-3 bg-[#121212] border border-[#10B981]/20 rounded-lg text-white placeholder-[#E7E7E7]/40 focus:outline-none focus:border-[#10B981] transition-colors"
                   placeholder="••••••••"
                   required
                 />
@@ -148,7 +148,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
                 <motion.button
                   type="submit"
                   disabled={isSigningIn}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="w-full px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
@@ -159,7 +159,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
                 <button
                   type="button"
                   onClick={handleSignUpRedirect}
-                  className="w-full px-6 py-3 bg-transparent border border-[#00FF99]/30 text-[#00FF99] font-medium rounded-lg hover:bg-[#00FF99]/10 transition-all"
+                  className="w-full px-6 py-3 bg-transparent border border-[#10B981]/30 text-[#10B981] font-medium rounded-lg hover:bg-[#10B981]/10 transition-all"
                 >
                   Create Account
                 </button>
@@ -176,7 +176,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
             </form>
 
             {/* Feature List */}
-            <div className="mt-6 pt-6 border-t border-[#00FF99]/10">
+            <div className="mt-6 pt-6 border-t border-[#10B981]/10">
               <p className="text-xs text-[#E7E7E7]/50 text-center mb-3">
                 Benefits of signing in:
               </p>
@@ -187,7 +187,7 @@ export default function AuthStatusModal({ onSkip }: AuthStatusModalProps) {
                   '💾 Never lose your work',
                 ].map((benefit, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-[#E7E7E7]/60">
-                    <div className="w-1 h-1 bg-[#00FF99] rounded-full" />
+                    <div className="w-1 h-1 bg-[#10B981] rounded-full" />
                     {benefit}
                   </div>
                 ))}

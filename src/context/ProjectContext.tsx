@@ -454,24 +454,30 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
       });
       
       // Call the API to generate the image
-      const response = await fetch('/api/generate-image', {
+      const imageResponse = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ 
+          prompt,
+          userId: user?.id  // Pass userId for caching
+        })
       });
       
-      if (!response.ok) {
-        throw new Error(`Image generation failed: ${response.statusText}`);
+      if (!imageResponse.ok) {
+        throw new Error(`Image generation failed: ${imageResponse.statusText}`);
       }
       
-      const data = await response.json();
-      const imageUrl = data.imageUrl;
+      const imageData = await imageResponse.json();
+      const imageUrl = imageData.imageUrl || imageData.url;
       
       if (!imageUrl) {
         throw new Error('No image URL returned from API');
       }
+
+      // Store base64 data URL directly (can be persisted)
+      // Convert to blob URL only for display in components
       
       // Update the episode with the generated image URL
       setEpisodes(prevEpisodes => {

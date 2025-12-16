@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import Link from 'next/link'
 
 const loginSchema = z.object({
@@ -21,6 +22,8 @@ interface LoginFormProps {
 
 export function LoginForm({ isModal = false }: LoginFormProps) {
   const { signIn } = useAuth()
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -51,16 +54,24 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
   }
 
   const formContent = (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-[#e2c376] mb-2">
+        <label htmlFor="email" className={`block text-sm font-medium ${prefix === 'dark' ? 'text-white' : 'text-black'} mb-1.5`}>
           Email
         </label>
         <input
           id="email"
           type="email"
           {...register('email')}
-          className="input-field"
+          className={prefix === 'dark' ? `${prefix}-input w-full` : 'w-full'}
+          style={prefix === 'dark' ? {} : {
+            backgroundColor: '#FFFFFF',
+            color: '#1A1A1A',
+            border: '1px solid #E2E8F0',
+            padding: '0.75rem',
+            borderRadius: '0.375rem',
+            width: '100%'
+          }}
           placeholder="you@example.com"
           disabled={isSubmitting}
         />
@@ -68,7 +79,7 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
           <motion.p
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-2 text-sm text-[#e2c376]"
+            className={`mt-1.5 text-sm ${prefix === 'dark' ? 'text-red-400' : 'text-red-600'}`}
           >
             {errors.email.message}
           </motion.p>
@@ -76,14 +87,22 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-[#e2c376] mb-2">
+        <label htmlFor="password" className={`block text-sm font-medium ${prefix === 'dark' ? 'text-white' : 'text-black'} mb-1.5`}>
           Password
         </label>
         <input
           id="password"
           type="password"
           {...register('password')}
-          className="input-field"
+          className={prefix === 'dark' ? `${prefix}-input w-full` : 'w-full'}
+          style={prefix === 'dark' ? {} : {
+            backgroundColor: '#FFFFFF',
+            color: '#1A1A1A',
+            border: '1px solid #E2E8F0',
+            padding: '0.75rem',
+            borderRadius: '0.375rem',
+            width: '100%'
+          }}
           placeholder="••••••••"
           disabled={isSubmitting}
         />
@@ -91,7 +110,7 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
           <motion.p
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-2 text-sm text-[#e2c376]"
+            className={`mt-1.5 text-sm ${prefix === 'dark' ? 'text-red-400' : 'text-red-600'}`}
           >
             {errors.password.message}
           </motion.p>
@@ -102,7 +121,7 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-[#e2c37610] border border-[#e2c37640] rounded-xl p-4 text-[#e2c376]"
+          className={`${prefix === 'dark' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-600'} border rounded-lg p-3 text-sm`}
         >
           {error}
         </motion.div>
@@ -111,17 +130,25 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
       <motion.button
         type="submit"
         disabled={isSubmitting}
-        className="btn-primary w-full"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        className={`w-full py-2.5 px-4 rounded-lg font-semibold transition-all ${
+          isSubmitting
+            ? 'opacity-50 cursor-not-allowed'
+            : ''
+        } ${
+          prefix === 'dark'
+            ? 'bg-[#10B981] text-black hover:bg-[#059669]'
+            : 'bg-[#10B981] text-white hover:bg-[#059669]'
+        }`}
+        whileHover={!isSubmitting ? { scale: 1.01 } : {}}
+        whileTap={!isSubmitting ? { scale: 0.99 } : {}}
       >
         {isSubmitting ? 'Signing In...' : 'Sign In'}
       </motion.button>
       
       {!isModal && (
-        <div className="text-center mt-4 text-[#e7e7e7]/70 text-sm">
-          Don't have an account yet?{' '}
-          <Link href="/signup" className="text-[#e2c376] hover:underline">
+        <div className={`text-center mt-3 ${prefix === 'dark' ? 'text-white/60' : 'text-black/60'} text-sm`}>
+          Don't have an account?{' '}
+          <Link href="/signup" className={`${prefix === 'dark' ? 'text-[#10B981]' : 'text-[#059669]'} hover:underline font-medium`}>
             Sign up
           </Link>
         </div>
@@ -133,23 +160,5 @@ export function LoginForm({ isModal = false }: LoginFormProps) {
     return formContent
   }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="card max-w-md mx-auto max-h-[90vh] overflow-y-auto"
-    >
-      <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-[#e2c376] to-[#c4a75f] text-transparent bg-clip-text">
-          Welcome Back
-        </h2>
-        <p className="text-[#e7e7e7]/70">
-          Sign in to access your projects and continue your creative journey.
-        </p>
-      </div>
-
-      {formContent}
-    </motion.div>
-  )
+  return formContent
 } 

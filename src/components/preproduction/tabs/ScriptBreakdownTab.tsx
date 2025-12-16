@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import type { PreProductionData, ScriptBreakdownData, ScriptBreakdownScene } from '@/types/preproduction'
+import type { PreProductionData, ScriptBreakdownData, ScriptBreakdownScene, ScriptAnalysisData, ScriptAnalysisScene } from '@/types/preproduction'
 import { TableView, type TableColumn } from '../shared/TableView'
 import { StatusBadge } from '../shared/StatusBadge'
 import { convertToCSV, downloadCSV } from '../shared/ExportToolbar'
@@ -22,11 +22,11 @@ export function ScriptBreakdownTab({
   currentUserId,
   currentUserName
 }: ScriptBreakdownTabProps) {
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   
   const breakdownData = preProductionData.scriptBreakdown
+  const analysisData = (preProductionData as any).scriptAnalysis as ScriptAnalysisData | undefined
   const scriptsData = (preProductionData as any).scripts
 
   const handleGenerateBreakdown = async () => {
@@ -97,6 +97,52 @@ export function ScriptBreakdownTab({
     }
   }
 
+  const handleGenerateAnalysis = async () => {
+    setIsGenerating(true)
+    setGenerationError(null)
+    try {
+      if (!scriptsData?.fullScript) {
+        setGenerationError('Please generate a script first in the Scripts tab')
+        setIsGenerating(false)
+        return
+      }
+
+      const storyBible = await getStoryBible(preProductionData.storyBibleId, currentUserId)
+      if (!storyBible) throw new Error('Story bible not found')
+
+      const response = await fetch('/api/generate/script-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preProductionId: (preProductionData as any).id,
+          storyBibleId: preProductionData.storyBibleId,
+          episodeNumber: preProductionData.episodeNumber,
+          scriptData: scriptsData.fullScript,
+          storyBibleData: storyBible
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || errorData.error || 'Failed to generate analysis')
+      }
+
+      const result = await response.json()
+      await onUpdate('scriptAnalysis', result.analysis)
+    } catch (error: any) {
+      console.error('❌ Error generating analysis:', error)
+      setGenerationError(error.message || 'Failed to generate analysis. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleGenerateBoth = async () => {
+    setViewMode('breakdown')
+    await handleGenerateBreakdown()
+    await handleGenerateAnalysis()
+  }
+
   // If no data, show generate prompt
   if (!breakdownData) {
     // Check if script exists
@@ -144,7 +190,7 @@ export function ScriptBreakdownTab({
             <button 
               onClick={handleGenerateBreakdown}
               disabled={isGenerating}
-              className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
                 <span className="flex items-center gap-2">
@@ -210,6 +256,13 @@ export function ScriptBreakdownTab({
       'Characters': scene.characters.map(c => c.name).join(', '),
       'Props': scene.props.map(p => p.item).join(', '),
       'Budget Impact': `$${scene.budgetImpact}`,
+      'Location Cost': scene.budgetDetails?.locationCost ?? 0,
+      'Prop Cost': scene.budgetDetails?.propCost ?? 0,
+      'Extras Cost': scene.budgetDetails?.extrasCost ?? 0,
+      'Special Eq Cost': scene.budgetDetails?.specialEqCost ?? 0,
+      'Contingency': scene.budgetDetails?.contingency ?? 0,
+      'Savings Tips': (scene.budgetDetails?.savingsTips || []).join('; '),
+      'Warnings': (scene.warnings || []).join('; '),
       'Status': scene.status,
       'Notes': scene.notes
     }))
@@ -218,135 +271,117 @@ export function ScriptBreakdownTab({
     downloadCSV(csv, `script-breakdown-ep${breakdownData.episodeNumber}.csv`)
   }
 
-  // Table columns configuration
+  const handleExportAnalysisCSV = () => {
+    if (!analysisData) return
+    const csvData = analysisData.scenes.map((scene) => ({
+      'Scene #': scene.sceneNumber,
+      'Scene Title': scene.sceneTitle,
+      'Location': scene.location,
+      'Time of Day': scene.timeOfDay,
+      'Summary': scene.summary,
+      'Relevance': scene.relevanceToPlot,
+      'Emotional Tone': scene.emotionalTone,
+      'Pacing Role': scene.pacingRole,
+      'Stakes': scene.stakesSummary,
+      'Arcs': (scene.characterArcsAffected || []).map((arc) => {
+        if (typeof arc === 'string') return arc
+        if (arc && typeof arc === 'object') {
+          const { character, beat, arc: arcText, moment, note } = arc as any
+          const parts = [character, beat || arcText, moment, note].filter(Boolean)
+          return parts.join(' — ')
+        }
+        return String(arc)
+      }).join('; '),
+      'Foreshadowing/Callbacks': scene.foreshadowingOrCallBacks.join('; '),
+      'Open Questions': scene.openQuestions.join('; '),
+      'Continuity Dependencies': scene.continuityDependencies.join('; '),
+      'Key Props/Symbols': scene.keyPropsAndSymbols.join('; '),
+      'Theme Tie-In': scene.themeTieIn,
+      'Audience Takeaway': scene.audienceTakeaway,
+      'Marketing Hook': scene.marketingHook || ''
+    }))
+    const csv = convertToCSV(csvData, Object.keys(csvData[0] || {}))
+    downloadCSV(csv, `script-analysis-ep${analysisData.episodeNumber}.csv`)
+  }
+
+  // Table columns configuration - Concept 3: Simple Table View (matching design preview)
   const columns: TableColumn<ScriptBreakdownScene>[] = [
     {
       key: 'sceneNumber',
-      label: 'Scene #',
-      width: '80px',
+      label: 'Scene',
+      width: '100px',
       sortable: true,
       render: (value) => (
-        <span className="font-bold text-[#00FF99]">#{value}</span>
+        <span className="font-medium text-[#e7e7e7]">{value}</span>
       )
     },
     {
-      key: 'sceneTitle',
-      label: 'Scene Title',
+      key: 'budgetImpact',
+      label: 'Budget',
+      width: '180px',
+      render: (_value, scene) => {
+        const details = scene.budgetDetails || {}
+        return (
+          <div className="text-sm text-[#e7e7e7]/80 space-y-1">
+            <div className="font-semibold text-[#e7e7e7]">${scene.budgetImpact || 0}</div>
+            <div className="text-[11px] text-[#e7e7e7]/60">
+              L:{details.locationCost ?? 0} P:{details.propCost ?? 0} X:{details.extrasCost ?? 0} E:{details.specialEqCost ?? 0}
+            </div>
+            {(details.savingsTips?.length || 0) > 0 && (
+              <div className="text-[11px] text-[#10B981] truncate">
+                Tip: {details.savingsTips[0]}
+              </div>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      key: 'warnings',
+      label: 'Warnings',
       width: '200px',
-      editable: true,
-      type: 'text',
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'sceneTitle', newValue)
-      }
-    },
-    {
-      key: 'location',
-      label: 'Location',
-      width: '150px',
-      sortable: true,
-      filterable: true,
-      editable: true,
-      type: 'text',
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'location', newValue)
-      }
-    },
-    {
-      key: 'timeOfDay',
-      label: 'Time',
-      width: '120px',
-      editable: true,
-      type: 'select',
-      options: [
-        { value: 'DAY', label: '☀️ Day' },
-        { value: 'NIGHT', label: '🌙 Night' },
-        { value: 'SUNRISE', label: '🌅 Sunrise' },
-        { value: 'SUNSET', label: '🌇 Sunset' },
-        { value: 'MAGIC_HOUR', label: '✨ Magic Hour' }
-      ],
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'timeOfDay', newValue)
-      }
-    },
-    {
-      key: 'estimatedShootTime',
-      label: 'Shoot Time',
-      width: '120px',
-      sortable: true,
-      editable: true,
-      type: 'number',
-      render: (value) => `${value} min`,
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'estimatedShootTime', newValue)
-      }
+      render: (_value, scene) => (
+        <div className="flex flex-wrap gap-1">
+          {(scene.warnings || []).map((w, idx) => (
+            <span key={idx} className="px-2 py-0.5 bg-[#F59E0B]/20 text-[#F59E0B] rounded text-xs">
+              {w}
+            </span>
+          ))}
+        </div>
+      )
     },
     {
       key: 'characters',
       label: 'Characters',
-      width: '180px',
+      width: 'auto',
       render: (characters: any[]) => (
-        <div className="space-y-1">
-          {characters.slice(0, 3).map((char, idx) => (
-            <div key={idx} className="text-xs">
-              <span className="font-medium">{char.name}</span>
-              <span className="text-[#e7e7e7]/50"> ({char.lineCount} lines)</span>
-            </div>
+        <div className="flex flex-wrap gap-1">
+          {characters.map((char, idx) => (
+            <span
+              key={idx}
+              className="px-2 py-0.5 bg-[#10B981]/20 text-[#10B981] rounded text-xs"
+            >
+              {char.name}
+            </span>
           ))}
-          {characters.length > 3 && (
-            <div className="text-xs text-[#00FF99]">
-              +{characters.length - 3} more
-            </div>
-          )}
         </div>
       )
     },
     {
       key: 'props',
       label: 'Props',
-      width: '150px',
+      width: '120px',
       render: (props: any[]) => (
-        <div className="text-xs text-[#e7e7e7]/70">
-          {props.length > 0 ? (
-            <>
-              {props.slice(0, 2).map((prop, idx) => (
-                <div key={idx}>{prop.item}</div>
-              ))}
-              {props.length > 2 && (
-                <div className="text-[#00FF99]">+{props.length - 2} more</div>
-              )}
-            </>
-          ) : (
-            <span className="text-[#e7e7e7]/40">None</span>
-          )}
-        </div>
+        <span className="text-sm text-[#e7e7e7]/70">{props.length}</span>
       )
     },
     {
-      key: 'budgetImpact',
-      label: 'Budget',
-      width: '100px',
-      sortable: true,
-      editable: true,
-      type: 'number',
-      render: (value) => (
-        <span className={value > 500 ? 'text-[#F59E0B]' : 'text-[#00FF99]'}>
-          ${value}
-        </span>
-      ),
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'budgetImpact', newValue)
-      }
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      width: '150px',
-      type: 'status',
-      editable: true,
-      statusOptions: ['not-started', 'in-progress', 'completed', 'blocked'],
-      onEdit: async (rowIndex, newValue) => {
-        await handleSceneUpdate(rowIndex, 'status', newValue)
-      }
+      key: 'location',
+      label: 'Locations',
+      width: '200px',
+      render: (location) => (
+        <span className="text-sm text-[#e7e7e7]/70">{location}</span>
+      )
     }
   ]
 
@@ -368,87 +403,191 @@ export function ScriptBreakdownTab({
           icon="💰"
           label="Total Budget Impact"
           value={`$${breakdownData.totalBudgetImpact}`}
-          valueColor={breakdownData.totalBudgetImpact > 5000 ? '#F59E0B' : '#00FF99'}
+          valueColor={breakdownData.totalBudgetImpact > 625 ? '#F59E0B' : '#10B981'}
         />
         <StatCard
-          icon="✓"
-          label="Completed Scenes"
-          value={`${breakdownData.scenes.filter(s => s.status === 'completed').length}/${breakdownData.totalScenes}`}
+          icon="⚠️"
+          label="Warnings"
+          value={`${(breakdownData.warnings || []).length + breakdownData.scenes.reduce((sum, s) => sum + (s.warnings?.length || 0), 0)}`}
+          valueColor="#F59E0B"
         />
       </div>
 
-      {/* View Mode Toggle */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-[#e7e7e7]">Scene Breakdown</h2>
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-xl font-bold text-[#e7e7e7]">Script</h2>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleGenerateBoth}
+            disabled={isGenerating}
+            className="px-4 py-2 bg-[#10B981] text-black rounded-lg text-sm font-medium disabled:opacity-50"
+          >
+            {isGenerating ? 'Generating...' : 'Generate Both'}
+          </button>
           <button
             onClick={handleGenerateBreakdown}
             disabled={isGenerating}
-            className="px-4 py-2 bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30 rounded-lg hover:bg-[#00FF99]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 rounded-lg hover:bg-[#10B981]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? '🔄 Regenerating...' : '🔄 Regenerate'}
+            {isGenerating ? '🔄 Regenerating...' : '🔄 Regenerate Breakdown'}
           </button>
-          
+          <button
+            onClick={handleGenerateAnalysis}
+            disabled={isGenerating}
+            className="px-4 py-2 bg-[#6366F1]/10 text-[#6366F1] border border-[#6366F1]/30 rounded-lg hover:bg-[#6366F1]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? '🔄 Regenerating...' : '🔄 Regenerate Analysis'}
+          </button>
           <button
             onClick={handleExportCSV}
             className="px-4 py-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] transition-colors text-sm font-medium"
           >
-            📊 Export CSV
+            📊 Export Breakdown CSV
           </button>
-          
-          <div className="flex items-center gap-2 bg-[#2a2a2a] rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                viewMode === 'table' 
-                  ? 'bg-[#00FF99] text-black' 
-                  : 'text-[#e7e7e7] hover:bg-[#36393f]'
-              }`}
-            >
-              Table
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                viewMode === 'cards' 
-                  ? 'bg-[#00FF99] text-black' 
-                  : 'text-[#e7e7e7] hover:bg-[#36393f]'
-              }`}
-            >
-              Cards
-            </button>
-          </div>
+          <button
+            onClick={handleExportAnalysisCSV}
+            className="px-4 py-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] transition-colors text-sm font-medium"
+          >
+            📊 Export Analysis CSV
+          </button>
         </div>
       </div>
 
-      {/* Content */}
-      {viewMode === 'table' ? (
-        <TableView
-          columns={columns}
-          data={breakdownData.scenes}
-          keyField="id"
-          showSearch={true}
-          showPagination={true}
-          pageSize={20}
-          striped={true}
-          hoverable={true}
-          enableComments={true}
-          onAddComment={handleAddComment}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {breakdownData.scenes.map((scene, idx) => (
-            <SceneCard
-              key={scene.id}
-              scene={scene}
-              onUpdate={(field, value) => handleSceneUpdate(idx, field, value)}
-            />
-          ))}
+      {(breakdownData.warnings && breakdownData.warnings.length > 0) && (
+        <div className="px-4 py-3 bg-[#F59E0B]/10 border border-[#F59E0B]/40 text-[#F59E0B] rounded-lg">
+          <div className="font-semibold mb-1">Episode Warnings</div>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {breakdownData.warnings.map((w, idx) => (
+              <li key={idx}>{w}</li>
+            ))}
+          </ul>
         </div>
       )}
+
+      <div className="space-y-4">
+        {analysisData?.synopsis && (
+          <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-[#e7e7e7] mb-2">Episode Synopsis</h3>
+            <p className="text-sm text-[#e7e7e7]/80 whitespace-pre-line">{analysisData.synopsis}</p>
+          </div>
+        )}
+        {analysisData ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analysisData.scenes.map((scene) => (
+              <AnalysisCard key={scene.sceneNumber} scene={scene} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-[#1a1a1a] border border-[#36393f] rounded-lg">
+            <h3 className="text-xl font-semibold text-[#e7e7e7] mb-2">Script Analysis Not Generated</h3>
+            <p className="text-[#e7e7e7]/70 mb-4">Generate analysis to see scene-by-scene insights.</p>
+            <button
+              onClick={handleGenerateAnalysis}
+              disabled={isGenerating}
+              className="px-6 py-3 bg-[#6366F1] text-black font-medium rounded-lg hover:bg-[#4F46E5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isGenerating ? 'Analyzing...' : '✨ Generate Analysis'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Breakdown Table */}
+      <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-[#2a2a2a]">
+            <tr>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="text-left p-3 text-sm font-bold text-[#e7e7e7]"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+          {breakdownData.scenes.map((scene, idx) => (
+              <tr
+              key={scene.id}
+                className="border-t border-[#36393f] hover:bg-[#2a2a2a]/50 transition-colors"
+              >
+                {columns.map((col) => {
+                  const value = (scene as any)[col.key]
+                  return (
+                    <td key={col.key} className="p-3">
+                      {col.render ? col.render(value, scene as any, idx) : String(value || '')}
+                    </td>
+                  )
+                })}
+              </tr>
+          ))}
+          </tbody>
+        </table>
+        </div>
+    </div>
+  )
+}
+
+function AnalysisCard({ scene }: { scene: ScriptAnalysisScene }) {
+  const arcItems = (scene.characterArcsAffected || []).map((arc) => {
+    if (typeof arc === 'string') return arc
+    if (arc && typeof arc === 'object') {
+      const { character, beat, arc: arcText, moment, note } = arc as any
+      const parts = [character, beat || arcText, moment, note].filter(Boolean)
+      return parts.join(' — ')
+    }
+    return String(arc)
+  })
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4"
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="text-xs text-[#e7e7e7]/50">Scene {scene.sceneNumber} • {scene.location} • {scene.timeOfDay}</div>
+          <h3 className="text-lg font-semibold text-[#e7e7e7]">{scene.sceneTitle}</h3>
+        </div>
+        <span className="px-2 py-1 bg-[#2a2a2a] text-[#e7e7e7]/70 rounded text-xs">{scene.pacingRole}</span>
+      </div>
+
+      <div className="space-y-2 text-sm text-[#e7e7e7]/80">
+        <p><span className="text-[#e7e7e7]">Summary:</span> {scene.summary}</p>
+        <p><span className="text-[#e7e7e7]">Relevance:</span> {scene.relevanceToPlot}</p>
+        <p><span className="text-[#e7e7e7]">Stakes:</span> {scene.stakesSummary}</p>
+        <p><span className="text-[#e7e7e7]">Emotional Tone:</span> {scene.emotionalTone}</p>
+        {scene.marketingHook && (
+          <p className="text-[#10B981]"><span className="text-[#e7e7e7]">Hook:</span> {scene.marketingHook}</p>
+        )}
+        <FieldList label="Arcs" items={arcItems} />
+        <FieldList label="Foreshadowing / Callbacks" items={scene.foreshadowingOrCallBacks} />
+        <FieldList label="Open Questions" items={scene.openQuestions} />
+        <FieldList label="Continuity Dependencies" items={scene.continuityDependencies} />
+        <FieldList label="Key Props & Symbols" items={scene.keyPropsAndSymbols} />
+        <p><span className="text-[#e7e7e7]">Theme:</span> {scene.themeTieIn}</p>
+        <p><span className="text-[#e7e7e7]">Audience Takeaway:</span> {scene.audienceTakeaway}</p>
+      </div>
+    </motion.div>
+  )
+}
+
+function FieldList({ label, items }: { label: string; items: string[] }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div>
+      <span className="text-[#e7e7e7]">{label}:</span>
+      <div className="flex flex-wrap gap-1 mt-1">
+        {items.map((item, idx) => (
+          <span key={idx} className="px-2 py-0.5 bg-[#2a2a2a] text-[#e7e7e7]/80 rounded text-xs">
+            {item}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -458,7 +597,7 @@ function StatCard({
   icon, 
   label, 
   value, 
-  valueColor = '#00FF99' 
+  valueColor = '#10B981' 
 }: { 
   icon: string
   label: string
@@ -496,11 +635,11 @@ function SceneCard({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF99]/50 transition-colors"
+      className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4 hover:border-[#10B981]/50 transition-colors"
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-          <span className="text-2xl font-bold text-[#00FF99]">#{scene.sceneNumber}</span>
+          <span className="text-2xl font-bold text-[#10B981]">#{scene.sceneNumber}</span>
           <h3 className="text-lg font-bold text-[#e7e7e7] mt-1">{scene.sceneTitle}</h3>
         </div>
         <StatusBadge status={scene.status} size="sm" />

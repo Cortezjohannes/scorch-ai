@@ -1,7 +1,8 @@
 /**
- * Gemini 2.5 Pro API Integration
+ * Gemini 3 Pro API Integration
  * 
- * This file provides utilities for generating content using Google's Gemini 2.5 Pro model.
+ * This file provides utilities for generating content using Google's Gemini 3 Pro model.
+ * Includes automatic fallback to gemini-2.5-pro when hitting 429 rate limits.
  */
 
 // Import necessary dependencies
@@ -15,7 +16,8 @@ export interface GeminiContentOptions {
 }
 
 /**
- * Generate content using Gemini 2.5 Pro
+ * Generate content using Gemini with automatic 429 rate limit fallback
+ * Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
  */
 export async function generateGeminiContent(
   prompt: string,
@@ -27,7 +29,6 @@ export async function generateGeminiContent(
     systemPrompt
   } = options;
   
-  try {
     // Initialize the Gemini API with the API key
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -40,12 +41,8 @@ export async function generateGeminiContent(
     
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Get the model
-    const modelName = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-2.5-pro';
-    console.log(`Using Gemini model: ${modelName}`);
-    
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
+  // Get the primary model
+  const primaryModel = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-3-pro-preview';
       
       // Prepare generation config
       const generationConfig = {
@@ -55,21 +52,22 @@ export async function generateGeminiContent(
         topP: 0.95,
       };
       
-      // Gemini 2.5 Pro has issues with system instructions in some cases
+  // Helper function to generate with a specific model
+  async function generateWithModel(modelName: string): Promise<string> {
+    console.log(`🚀 Using Gemini model: ${modelName}`);
+    
+    const model = genAI.getGenerativeModel({ model: modelName });
+    
       // Create chat without system instruction to avoid Bad Request errors
-      let chat = model.startChat({
-        generationConfig
-      });
+    let chat = model.startChat({ generationConfig });
       
       // If system prompt was provided, send it as a separate message
       if (systemPrompt) {
         try {
-          // Prepend SYSTEM: to make it clear this is a system instruction
           console.log('Sending system prompt as regular message');
           await chat.sendMessage(`SYSTEM INSTRUCTION: ${systemPrompt}`);
         } catch (systemPromptError) {
           console.warn('⚠️ Error sending system prompt as message:', systemPromptError);
-          // Continue without system prompt if it fails
         }
       }
       
@@ -79,19 +77,24 @@ export async function generateGeminiContent(
       const response = result.response;
       const text = response.text();
       
-      console.log(`✅ Gemini content generation successful`);
+    console.log(`✅ Gemini content generation successful with ${modelName}`);
       return text;
-    } catch (modelError) {
-      console.error(`❌ Error with Gemini model ${modelName}:`, modelError);
-      
-      // Try with a fallback Gemini model if the primary model fails
-      // We're already using gemini-1.5-pro as our primary model
-      // This block is kept for future use if we want to try different models
-      
-      throw modelError;
-    }
+  }
+  
+  // Generate with primary model
+  try {
+    return await generateWithModel(primaryModel);
   } catch (error: any) {
-    // Provide more detailed error information
+    console.error(`❌ Error with Gemini model ${primaryModel}:`, error);
+    logDetailedError(error);
+    throw error;
+  }
+}
+
+/**
+ * Log detailed error information for debugging
+ */
+function logDetailedError(error: any): void {
     console.error('❌ Gemini content generation failed with details:');
     
     if (error.message) {
@@ -115,8 +118,5 @@ export async function generateGeminiContent(
       console.error('❌ RATE LIMIT: You have exceeded your Gemini API quota or rate limit');
     } else if (error.status === 403) {
       console.error('❌ FORBIDDEN: Your API key does not have permission to use this model');
-    }
-    
-    throw error;
   }
 }

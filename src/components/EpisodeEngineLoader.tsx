@@ -135,7 +135,7 @@ export default function EpisodeEngineLoader({
         <div className="w-full max-w-4xl px-6 py-5 space-y-5 relative" style={{ zIndex: 1 }}>
           {/* Header */}
           <div className="text-center space-y-1">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99] text-transparent bg-clip-text">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981] text-transparent bg-clip-text">
               Writing Episode {episodeNumber ?? '—'}
             </h1>
             <p className="text-xs text-[#e7e7e7]/70">{seriesTitle ?? 'Series'}</p>
@@ -144,15 +144,15 @@ export default function EpisodeEngineLoader({
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold text-[#00FF99]">Overall Progress</span>
+              <span className="text-sm font-semibold text-[#10B981]">Overall Progress</span>
               <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-[#00FF99]">{overall}%</span>
+                <span className="text-lg font-bold text-[#10B981]">{overall}%</span>
                 <span className="text-xs font-mono text-[#e7e7e7]/80">⏱️ {mm}:{ss}</span>
               </div>
             </div>
             <div className="h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
+                className="h-full bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981]"
                 initial={{ width: 0 }}
                 animate={{ width: `${overall}%` }}
                 transition={{ duration: 0.3 }}
@@ -172,7 +172,7 @@ export default function EpisodeEngineLoader({
                   i < active
                     ? 'border-green-500 bg-green-500/10 shadow-lg shadow-green-500/20'
                     : i === active
-                    ? 'border-[#00FF99] bg-[#00FF99]/10 shadow-lg shadow-[#00FF99]/20'
+                    ? 'border-[#10B981] bg-[#10B981]/10 shadow-lg shadow-[#10B981]/20'
                     : 'border-[#2f2f2f] bg-[#121212]'
                 }`}
               >
@@ -185,7 +185,7 @@ export default function EpisodeEngineLoader({
                     i < active
                       ? 'text-green-400'
                       : i === active
-                      ? 'text-[#00FF99]'
+                      ? 'text-[#10B981]'
                       : 'text-[#e7e7e7]/70'
                   }`}>
                     {s.name}
@@ -209,7 +209,7 @@ export default function EpisodeEngineLoader({
                     <motion.span
                       animate={{ rotate: 360 }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      className="text-[#00FF99] text-sm"
+                      className="text-[#10B981] text-sm"
                     >
                     </motion.span>
                   )}
@@ -225,10 +225,10 @@ export default function EpisodeEngineLoader({
               animate={{ y: 0, opacity: 1 }}
               className="text-center space-y-3"
             >
-              <div className="inline-flex items-center space-x-3 p-4 rounded-xl border border-[#00FF99] bg-[#00FF99]/10">
+              <div className="inline-flex items-center space-x-3 p-4 rounded-xl border border-[#10B981] bg-[#10B981]/10">
                 <span className="text-2xl">{steps[active].icon}</span>
                 <div>
-                  <h3 className="text-lg font-semibold text-[#00FF99]">
+                  <h3 className="text-lg font-semibold text-[#10B981]">
                     {steps[active].name}
                   </h3>
                   <p className="text-sm text-[#e7e7e7]/80">

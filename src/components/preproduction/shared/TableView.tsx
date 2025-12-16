@@ -203,7 +203,7 @@ export function TableView<T extends Record<string, any>>({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search..."
-              className="flex-1 px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#00FF99]"
+              className="flex-1 px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#10B981]"
             />
           )}
           
@@ -216,7 +216,7 @@ export function TableView<T extends Record<string, any>>({
                   value={filters[col.key] || ''}
                   onChange={(e) => handleFilter(col.key, e.target.value)}
                   placeholder={`Filter ${col.label}...`}
-                  className="px-3 py-2 bg-[#2a2a2a] border border-[#36393f] rounded text-[#e7e7e7] text-sm placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#00FF99]"
+                  className="px-3 py-2 bg-[#2a2a2a] border border-[#36393f] rounded text-[#e7e7e7] text-sm placeholder-[#e7e7e7]/40 focus:outline-none focus:border-[#10B981]"
                 />
               ))}
             </div>

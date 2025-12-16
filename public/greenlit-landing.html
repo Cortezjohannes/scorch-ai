@@ -615,5 +615,85 @@
             }
         };
     </script>
+    
+    <!-- Theme Toggle Button -->
+    <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="theme-icon">🌙</span>
+    </button>
+    
+    <!-- Theme Toggle Script -->
+    <script>
+        // Theme toggle functionality
+        function toggleTheme() {
+            const body = document.body;
+            const isLightMode = body.classList.contains('light-mode');
+            
+            if (isLightMode) {
+                body.classList.remove('light-mode');
+                localStorage.setItem('theme', 'dark');
+                document.getElementById('theme-icon').textContent = '🌙';
+            } else {
+                body.classList.add('light-mode');
+                localStorage.setItem('theme', 'light');
+                document.getElementById('theme-icon').textContent = '☀️';
+            }
+        }
+        
+        // Initialize theme on page load
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            
+            // Use saved theme, or default to dark for landing page
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                document.getElementById('theme-icon').textContent = '☀️';
+            } else {
+                // Default to dark mode (no saved theme or saved theme is 'dark')
+                document.body.classList.remove('light-mode');
+                document.getElementById('theme-icon').textContent = '🌙';
+            }
+        }
+        
+        // Initialize theme when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTheme);
+        } else {
+            initTheme();
+        }
+        
+        // Function to replace green colors with gold in light mode
+        function replaceGreenWithGold() {
+            if (!document.body.classList.contains('light-mode')) return;
+            
+            const goldPrimary = '#C9A961';
+            const goldSecondary = '#B8944F';
+            const goldHover = '#A67C3D';
+            
+            // Replace inline styles
+            document.querySelectorAll('[style]').forEach(el => {
+                const style = el.getAttribute('style');
+                if (style) {
+                    let newStyle = style
+                        .replace(/#00FF99/g, goldPrimary)
+                        .replace(/#00CC77/g, goldSecondary)
+                        .replace(/#00CC7A/g, goldSecondary)
+                        .replace(/rgba\(0,\s*255,\s*153/g, 'rgba(201, 169, 97');
+                    if (newStyle !== style) {
+                        el.setAttribute('style', newStyle);
+                    }
+                }
+            });
+        }
+        
+        // Run replacement after theme initialization
+        setTimeout(replaceGreenWithGold, 100);
+        
+        // Also run when theme is toggled
+        const originalToggleTheme = window.toggleTheme;
+        window.toggleTheme = function() {
+            originalToggleTheme();
+            setTimeout(replaceGreenWithGold, 50);
+        };
+    </script>
 </body>
 </html>

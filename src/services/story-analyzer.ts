@@ -23,7 +23,8 @@ interface EpisodeSettings {
 export async function analyzeStoryForEpisodeGeneration(
   storyBible: any,
   episodeNumber: number,
-  previousChoice?: string
+  previousChoice?: string,
+  previousEpisode?: any
 ): Promise<EpisodeSettings> {
   console.log(`🔍 Analyzing story for Episode ${episodeNumber}...`)
   
@@ -69,6 +70,72 @@ export async function analyzeStoryForEpisodeGeneration(
   
   const premise = storyBible.premise?.premiseStatement || 'No premise'
   
+  // Extract technical tabs for better vibe analysis
+  let tensionContext = ''
+  if (storyBible.tensionStrategy) {
+    const tension = storyBible.tensionStrategy
+    if (tension.rawContent) {
+      tensionContext = tension.rawContent.substring(0, 200)
+    } else if (tension.tensionCurve) {
+      tensionContext = `Tension Curve: ${tension.tensionCurve}`
+    }
+  }
+  
+  let dialogueContext = ''
+  if (storyBible.dialogueStrategy) {
+    const dialogue = storyBible.dialogueStrategy
+    if (dialogue.rawContent) {
+      dialogueContext = dialogue.rawContent.substring(0, 200)
+    } else if (dialogue.characterVoice) {
+      dialogueContext = `Character Voice: ${dialogue.characterVoice}`
+    }
+  }
+  
+  let genreContext = ''
+  if (storyBible.genreEnhancement) {
+    const genreEnh = storyBible.genreEnhancement
+    if (genreEnh.rawContent) {
+      genreContext = genreEnh.rawContent.substring(0, 200)
+    } else if (genreEnh.visualStyle) {
+      genreContext = `Visual Style: ${genreEnh.visualStyle}`
+    }
+  }
+  
+  let themeContext = ''
+  if (storyBible.themeIntegration) {
+    const theme = storyBible.themeIntegration
+    if (theme.rawContent) {
+      themeContext = theme.rawContent.substring(0, 200)
+    } else if (theme.characterIntegration) {
+      themeContext = `Theme Integration: ${theme.characterIntegration}`
+    }
+  }
+  
+  // Build previous episode context
+  let previousEpisodeContext = ''
+  if (previousEpisode) {
+    const prevEpTitle = previousEpisode.title || previousEpisode.episodeTitle || `Episode ${episodeNumber - 1}`
+    const prevEpSynopsis = previousEpisode.synopsis || ''
+    const prevEpScenes = previousEpisode.scenes || []
+    
+    previousEpisodeContext = `\n\n📺 PREVIOUS EPISODE (Episode ${episodeNumber - 1}): "${prevEpTitle}"`
+    
+    if (prevEpSynopsis) {
+      previousEpisodeContext += `\nSynopsis: ${prevEpSynopsis}`
+    }
+    
+    if (prevEpScenes.length > 0) {
+      previousEpisodeContext += `\n\nPrevious Episode Summary:`
+      prevEpScenes.forEach((scene: any, index: number) => {
+        const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+        const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+        // Include first 200 chars of each scene for context
+        const contentPreview = sceneContent.substring(0, 200) + (sceneContent.length > 200 ? '...' : '')
+        previousEpisodeContext += `\n\n${sceneTitle}:\n${contentPreview}`
+      })
+    }
+  }
+  
   // Build analysis prompt
   const analysisPrompt = `Analyze this story and suggest intelligent settings for Episode ${episodeNumber}:
 
@@ -85,24 +152,31 @@ ${worldBuildingText}
 ${charactersText}
 
 📖 NARRATIVE ARCS:
-${arcsText}
+${arcsText}${previousEpisodeContext}
 
-${previousChoice ? `\n🔀 PREVIOUS CHOICE:\n${previousChoice}\n` : ''}
+${tensionContext ? `\n⚡ TENSION STRATEGY:\n${tensionContext}\n` : ''}
+${dialogueContext ? `\n💬 DIALOGUE STYLE:\n${dialogueContext}\n` : ''}
+${genreContext ? `\n🎭 GENRE STYLE:\n${genreContext}\n` : ''}
+${themeContext ? `\n🎯 THEME:\n${themeContext}\n` : ''}
 
-Based on this story, provide intelligent creative settings for Episode ${episodeNumber}:
+${previousChoice ? `\n🔀 PREVIOUS CHOICE:\n${previousChoice}\n\nCRITICAL: When a previous choice exists, the Episode Goal must:\n- Follow naturally from where the previous episode ended (reference specific events from the previous episode above)\n- Show the immediate aftermath and consequences of the previous episode's ending\n- Build up GRADUALLY to the chosen option - do NOT jump directly to the choice's consequences\n- Create narrative beats that lead toward the chosen option's narrative moment\n- End on a specific emotional note (high/low, good/bad) that reflects the choice's impact\n- Ensure the episode feels like a natural progression, not a sudden jump\n` : ''}
+
+Based on this story (including tension strategy, dialogue style, genre conventions, and theme), provide intelligent creative settings for Episode ${episodeNumber}:
 
 1. **Tone** (0-100): Where 0 is dark/gritty and 100 is light/comedic
 2. **Pacing** (0-100): Where 0 is slow burn and 100 is high octane
 3. **Dialogue Style** (0-100): Where 0 is sparse/subtextual and 100 is snappy/expository
 4. **Director's Notes**: Specific creative guidance (atmosphere, focus areas, key moments)
-5. **Episode Goal**: What should happen in this episode (1-2 sentences)
+5. **Episode Goal**: What should happen in this episode (1-2 sentences)${previousChoice ? '\n   When a previous choice exists, the goal should describe building up to that choice gradually, not jumping to its consequences.' : ''}
 
 Consider:
-- The genre and its conventions
+- The genre and its conventions (use GENRE STYLE guidance above)
 - The overall tone of the series
 - Character development needs
 - Story progression for Episode ${episodeNumber}
-- Natural pacing for this point in the story
+- Natural pacing for this point in the story (use TENSION STRATEGY)
+- Dialogue style preferences (use DIALOGUE STYLE guidance)
+- Thematic elements to emphasize (use THEME guidance)${previousChoice ? '\n- How to naturally transition from the previous episode\'s ending\n- How to gradually build tension/conflict/development leading toward the chosen option\n- What emotional note the episode should end on (high/low, good/bad)' : ''}
 
 Return ONLY valid JSON in this exact format:
 {

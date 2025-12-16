@@ -3,16 +3,16 @@
  * Central configuration for all AI models used in Greenlit
  */
 
-// 🚀 GEMINI 2.5 PRO CONFIGURATION (As per official docs)
+// 🚀 GEMINI 3 PRO CONFIGURATION (As per official docs)
 export const GEMINI_CONFIG = {
   // Gemini models - USING THE BEST AVAILABLE AS USER DEMANDED
   MODELS: {
-    PRO: 'gemini-2.5-pro', // THE MOST POWERFUL MODEL - USER'S EXPLICIT REQUIREMENT
-    FLASH: 'gemini-2.5-flash', // UPGRADED MODEL
-    FLASH_LITE: 'gemini-2.5-flash',
-    // PROPER fallback hierarchy - 2.0 then 1.5 only if absolutely necessary
-    PRO_FALLBACK: 'gemini-2.0-flash',
-    LAST_RESORT: 'gemini-2.5-pro' // 🔥 UPGRADED TO 2.5 PRO!
+    PRO: 'gemini-3-pro-preview', // THE MOST POWERFUL MODEL - GEMINI 3 PRO
+    FLASH: 'gemini-3-pro-preview', // Upgraded from 2.5-flash to 3.0
+    FLASH_LITE: 'gemini-3-pro-preview', // Upgraded from 2.5-flash to 3.0
+    // PROPER fallback hierarchy - 3 Pro → 3 Pro (no 2.5 fallback as it's obsolete)
+    PRO_FALLBACK: 'gemini-3-pro-preview', // Upgraded from 2.5 Pro to 3.0
+    LAST_RESORT: 'gemini-3-pro-preview' // 🔥 UPGRADED TO GEMINI 3 PRO!
   },
   
   // Model selection based on use case
@@ -93,7 +93,7 @@ export const ENGINE_MODELS = {
   'conflict-architecture-engine-v2': 'gpt-4.1', // Logical conflict mapping
   'episode-cohesion-engine-v2': 'gpt-4.1', // Analytical coherence checking
   
-  // 🎨 CREATIVE/CHARACTER ENGINES → Gemini 2.5 Pro (Creativity & Psychology)
+  // 🎨 CREATIVE/CHARACTER ENGINES → Gemini 3 Pro (Creativity & Psychology)
   'character-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Complex psychology needs creative thinking
   'strategic-dialogue-engine': GEMINI_CONFIG.MODELS.PRO, // Natural dialogue needs creative voice
   'world-building-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Immersive world creation
@@ -101,7 +101,7 @@ export const ENGINE_MODELS = {
   'interactive-choice-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Creative branching narratives
   'choice-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Creative choice systems
   
-  // 🎭 GENRE-SPECIFIC ENGINES → Gemini 2.5 Pro (Genre expertise & creativity)  
+  // 🎭 GENRE-SPECIFIC ENGINES → Gemini 3 Pro (Genre expertise & creativity)  
   'comedy-timing-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Comedy requires creative timing
   'horror-atmosphere-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Horror needs atmospheric creativity
   'romance-chemistry-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Romance needs emotional intelligence
@@ -115,7 +115,7 @@ export const ENGINE_MODELS = {
   'performance-coaching-engine-v2': 'gpt-4.1', // Structured performance guidance
   'serialized-continuity-engine-v2': 'gpt-4.1', // Technical continuity tracking
   
-  // 🌍 LANGUAGE/CULTURAL ENGINES → Gemini 2.5 Pro (Cultural understanding)
+  // 🌍 LANGUAGE/CULTURAL ENGINES → Gemini 3 Pro (Cultural understanding)
   'language-engine-v2': GEMINI_CONFIG.MODELS.PRO, // Language nuance needs cultural creativity
   'intelligent-trope-system': GEMINI_CONFIG.MODELS.PRO, // Trope subversion needs creative insight
   
@@ -136,11 +136,10 @@ export const FALLBACK_CONFIG = {
     'gpt-4o-2024-11-20' // Last resort: Reliable backup
   ],
   
-  // Gemini fallback chain: 2.5 Pro → 2.0 Flash → 1.5 Pro
+  // Gemini fallback chain: 3 Pro Preview only (2.5 and below are obsolete)
   GEMINI_FALLBACKS: [
-    GEMINI_CONFIG.MODELS.PRO, // Primary: Best creative thinking
-    'gemini-2.0-flash', // Secondary: Reliable fallback
-    GEMINI_CONFIG.MODELS.FLASH, // Tertiary: Faster alternative
+    GEMINI_CONFIG.MODELS.PRO, // Primary: Best creative thinking (Gemini 3)
+    'gemini-3-pro-preview', // Secondary: Same model as retry
   ],
   
   // Cross-provider fallback: If all Azure fails → Gemini, if all Gemini fails → Azure
@@ -164,7 +163,8 @@ export const PERFORMANCE_CONFIG = {
   
   // Token limits per model
   TOKEN_LIMITS: {
-    [GEMINI_CONFIG.MODELS.PRO]: 2097152, // ~2M tokens
+    [GEMINI_CONFIG.MODELS.PRO]: 2097152, // ~2M tokens (Gemini 3 Pro)
+    'gemini-3-pro-preview': 2097152, // ~2M tokens (upgraded from 2.5)
     [AZURE_CONFIG.DEPLOYMENTS.GPT_5]: 128000, // 128k tokens
     [AZURE_CONFIG.DEPLOYMENTS.GPT_5_TURBO]: 128000
   }

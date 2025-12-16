@@ -1,0 +1,76 @@
+========================================================
+JSON PARSING - DEEP FIX COMPLETE ✅
+========================================================
+
+ROOT CAUSE ANALYSIS:
+🔍 Error: "Expected ',' or ']' after array element in JSON at position 16146"
+🔍 This means Azure GPT is generating JSON with syntax errors:
+   - Missing commas between array elements
+   - Missing commas between object properties
+   - Trailing commas where they shouldn't be
+   - Unescaped special characters in strings
+
+WHY THIS HAPPENS:
+🐛 Azure GPT at temperature 0.7 can generate inconsistent JSON
+🐛 Large JSON responses (16k+ chars) are more prone to errors
+🐛 Model sometimes forgets commas in long arrays/objects
+🐛 Manual JSON extraction wasn't robust enough
+
+COMPREHENSIVE FIX:
+
+1. USE ROBUST JSON UTILITY:
+   ✅ Replaced manual parsing with cleanAndParseJSON()
+   ✅ This utility has 10+ parsing strategies:
+      - Direct parse
+      - Basic cleanup (whitespace, trailing commas)
+      - Control character removal
+      - Quote normalization
+      - Fix unescaped newlines
+      - Fix missing commas
+      - And more...
+
+2. IMPROVED SYSTEM PROMPTS:
+   ✅ Added explicit JSON formatting requirements
+   ✅ Emphasized comma placement rules
+   ✅ Added validation instruction
+   ✅ Clear examples of correct formatting
+
+3. LOWER TEMPERATURE:
+   ✅ Changed from 0.7 to 0.5
+   ✅ More consistent JSON generation
+   ✅ Less creative but more reliable formatting
+
+4. BETTER ERROR DIAGNOSTICS:
+   ✅ Logs response length
+   ✅ Shows error position with context
+   ✅ Shows character at error position
+   ✅ Helps identify exact issue
+
+WHAT cleanAndParseJSON DOES:
+- Extracts JSON from markdown code blocks
+- Finds JSON boundaries ({...} or [...])
+- Tries multiple parsing strategies
+- Fixes common issues:
+  * Trailing commas
+  * Missing commas
+  * Control characters
+  * Unescaped newlines/tabs
+  * Smart quotes → regular quotes
+  * Whitespace normalization
+
+FILES MODIFIED:
+✅ /src/services/ai-generators/actor-materials-generator.ts
+   - All 3 generation functions updated
+   - Using cleanAndParseJSON utility
+   - Improved system prompts
+   - Lower temperature (0.5)
+   - Better error logging
+
+RESULT:
+✨ Robust JSON parsing with multiple fallback strategies
+✨ Explicit prompts reduce JSON errors
+✨ Lower temperature = more consistent output
+✨ Better diagnostics when errors occur
+✨ Graceful fallback to minimal structures
+
+The JSON parsing should now handle Azure GPT's occasional formatting issues! 🎭

@@ -77,7 +77,7 @@ export const LocationsTab: React.FC<LocationsTabProps> = ({ data }) => {
         <div className="p-6 md:p-8">
           {/* Episode Header */}
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
               <span className="text-2xl">📍</span>
             </div>
             <div>
@@ -137,7 +137,7 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
       }}
     >
       {/* Large Image Placeholder */}
-      <div className="aspect-video bg-gradient-to-br from-[#00FF99]/5 to-[#00CC7A]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer relative"
+      <div className="aspect-video bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer relative"
         style={{ borderColor: 'var(--border-color)' }}
       >
         {location.imageUrl ? (
@@ -145,9 +145,9 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
         ) : (
           <>
             <div className="text-5xl mb-2 group-hover:scale-110 transition-transform">🏢</div>
-            <p className="text-sm font-medium text-[#00FF99] text-center px-4">{location.name}</p>
+            <p className="text-sm font-medium text-[#10B981] text-center px-4">{location.name}</p>
             <p className="text-xs opacity-60">Location Reference</p>
-            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] transition-colors">
+            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] transition-colors">
               Scout
             </button>
           </>
@@ -163,7 +163,7 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
       
       {/* Location Details */}
       <div className="p-5">
-        <h5 className="text-lg font-semibold text-[#00FF99] mb-2">{location.name}</h5>
+        <h5 className="text-lg font-semibold text-[#10B981] mb-2">{location.name}</h5>
         <p className="text-sm mb-4 leading-relaxed opacity-80 line-clamp-2">{location.description}</p>
         
         {/* Address */}
@@ -180,7 +180,7 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
             {location.timeOfDay.map((time, idx) => (
               <span 
                 key={idx}
-                className="text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30"
+                className="text-xs px-3 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30"
               >
                 ⏰ {time}
               </span>
@@ -242,7 +242,7 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {location.requirements.features.map((feature, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-full bg-[#00FF99]/10 text-[#00FF99]">
+                    <span key={idx} className="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981]">
                       {feature}
                     </span>
                   ))}
@@ -277,7 +277,7 @@ const LocationCard: React.FC<{ location: Location }> = ({ location }) => {
         {/* Production Status */}
         <div className="pt-4 border-t flex justify-between items-center" style={{ borderColor: 'var(--border-color)' }}>
           <span className="text-xs opacity-60">Production Status</span>
-          <span className="text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30">
+          <span className="text-xs px-3 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30">
             Ready to Film
           </span>
         </div>

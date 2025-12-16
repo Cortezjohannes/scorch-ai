@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useEffect, useState } from 'react'
 import Navigation from '@/components/Navigation'
 
@@ -89,13 +89,13 @@ export default function UprisingPage() {
         initial={{ y: 0 }}
         animate={{ y: isScrolled ? -100 : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#00FF99]/20"
+        className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-[#10B981]/20"
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/greenlitailogo.png" alt="Greenlit" className="h-10 w-auto" />
-              <span className="text-[#00FF99] font-bold text-2xl">Greenlit</span>
+              <span className="text-[#10B981] font-bold text-2xl">Greenlit</span>
             </div>
             <Navigation />
           </div>
@@ -110,22 +110,22 @@ export default function UprisingPage() {
             {/* Bright animated particles */}
             <div className="absolute inset-0 overflow-hidden">
               {/* Large bright particles */}
-              <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-[#00FF99] rounded-full animate-ping opacity-80"></div>
-              <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-[#00FF99] rounded-full animate-bounce opacity-70"></div>
-              <div className="absolute bottom-1/3 left-1/3 w-2.5 h-2.5 bg-[#00FF99] rounded-full animate-pulse opacity-90"></div>
-              <div className="absolute bottom-1/4 right-1/4 w-2 h-2 bg-[#00FF99] rounded-full animate-ping opacity-75"></div>
+              <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-[#10B981] rounded-full animate-ping opacity-80"></div>
+              <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-[#10B981] rounded-full animate-bounce opacity-70"></div>
+              <div className="absolute bottom-1/3 left-1/3 w-2.5 h-2.5 bg-[#10B981] rounded-full animate-pulse opacity-90"></div>
+              <div className="absolute bottom-1/4 right-1/4 w-2 h-2 bg-[#10B981] rounded-full animate-ping opacity-75"></div>
               
               {/* Medium particles */}
-              <div className="absolute top-1/2 left-1/5 w-1.5 h-1.5 bg-[#00FF99] rounded-full animate-pulse opacity-85"></div>
-              <div className="absolute top-2/3 right-1/5 w-1 h-1 bg-[#00FF99] rounded-full animate-bounce opacity-80"></div>
-              <div className="absolute bottom-1/2 right-1/3 w-1.5 h-1.5 bg-[#00FF99] rounded-full animate-ping opacity-70"></div>
-              <div className="absolute top-1/5 left-2/3 w-1 h-1 bg-[#00FF99] rounded-full animate-pulse opacity-90"></div>
+              <div className="absolute top-1/2 left-1/5 w-1.5 h-1.5 bg-[#10B981] rounded-full animate-pulse opacity-85"></div>
+              <div className="absolute top-2/3 right-1/5 w-1 h-1 bg-[#10B981] rounded-full animate-bounce opacity-80"></div>
+              <div className="absolute bottom-1/2 right-1/3 w-1.5 h-1.5 bg-[#10B981] rounded-full animate-ping opacity-70"></div>
+              <div className="absolute top-1/5 left-2/3 w-1 h-1 bg-[#10B981] rounded-full animate-pulse opacity-90"></div>
               
               {/* Small bright particles */}
-              <div className="absolute top-3/4 left-1/2 w-1 h-1 bg-[#00FF99] rounded-full animate-bounce opacity-95"></div>
-              <div className="absolute bottom-1/5 left-1/4 w-0.5 h-0.5 bg-[#00FF99] rounded-full animate-ping opacity-85"></div>
-              <div className="absolute top-1/6 right-1/2 w-0.5 h-0.5 bg-[#00FF99] rounded-full animate-pulse opacity-90"></div>
-              <div className="absolute bottom-2/3 right-1/6 w-1 h-1 bg-[#00FF99] rounded-full animate-bounce opacity-80"></div>
+              <div className="absolute top-3/4 left-1/2 w-1 h-1 bg-[#10B981] rounded-full animate-bounce opacity-95"></div>
+              <div className="absolute bottom-1/5 left-1/4 w-0.5 h-0.5 bg-[#10B981] rounded-full animate-ping opacity-85"></div>
+              <div className="absolute top-1/6 right-1/2 w-0.5 h-0.5 bg-[#10B981] rounded-full animate-pulse opacity-90"></div>
+              <div className="absolute bottom-2/3 right-1/6 w-1 h-1 bg-[#10B981] rounded-full animate-bounce opacity-80"></div>
             </div>
           </div>
         )}
@@ -329,7 +329,7 @@ export default function UprisingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1 }}
-              className="text-4xl md:text-6xl lg:text-7xl font-black text-[#00FF99] leading-none mb-8"
+              className="text-4xl md:text-6xl lg:text-7xl font-black text-[#10B981] leading-none mb-8"
             >
               WE SING THE SONG OF ANGRY TALENT.
             </motion.h2>
@@ -509,7 +509,7 @@ export default function UprisingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1 }}
-              className="text-3xl md:text-5xl font-black text-[#00FF99] leading-none mb-8"
+              className="text-3xl md:text-5xl font-black text-[#10B981] leading-none mb-8"
             >
               YOU OWN THE IP.
             </motion.h3>
@@ -517,7 +517,7 @@ export default function UprisingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.3 }}
-              className="text-3xl md:text-5xl font-black text-[#00FF99] leading-none mb-8"
+              className="text-3xl md:text-5xl font-black text-[#10B981] leading-none mb-8"
             >
               YOU CONTROL THE NARRATIVE.
             </motion.h3>
@@ -525,7 +525,7 @@ export default function UprisingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.6 }}
-              className="text-3xl md:text-5xl font-black text-[#00FF99] leading-none"
+              className="text-3xl md:text-5xl font-black text-[#10B981] leading-none"
             >
               YOU KEEP THE REVENUE.
             </motion.h3>
@@ -603,7 +603,7 @@ export default function UprisingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.5 }}
             >
-              <button className="bg-[#00FF99] text-black px-12 py-6 rounded-lg text-2xl font-black hover:bg-[#00CC7A] transition-all duration-300 shadow-2xl shadow-[#00FF99]/50 hover:shadow-[#00FF99]/70 hover:scale-105">
+              <button className="bg-[#10B981] text-black px-12 py-6 rounded-lg text-2xl font-black hover:bg-[#059669] transition-all duration-300 shadow-2xl shadow-[#10B981]/50 hover:shadow-[#10B981]/70 hover:scale-105">
                 Join the Uprising →
               </button>
             </motion.div>

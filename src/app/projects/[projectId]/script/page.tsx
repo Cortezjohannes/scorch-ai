@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from '@/components/ui/ClientMotion';
 import { useProject, GeneratedEpisode } from '@/context/ProjectContext';
 import Link from 'next/link';
 import ScriptEditor from '@/components/ScriptEditor';

@@ -59,7 +59,7 @@ export default function ShareLinkCard({ link, storyBibleTitle, onRevoke }: Share
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-[#121212] rounded-lg p-4 border border-[#00FF99]/20 hover:border-[#00FF99]/40 transition-all"
+      className="bg-[#121212] rounded-lg p-4 border border-[#10B981]/20 hover:border-[#10B981]/40 transition-all"
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
@@ -71,7 +71,7 @@ export default function ShareLinkCard({ link, storyBibleTitle, onRevoke }: Share
             {/* Status Badge - Mobile inline */}
             <div className={`sm:hidden px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
               link.isActive
-                ? 'bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40'
+                ? 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
                 : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
             }`}>
               {link.isActive ? '✓' : '✕'}
@@ -93,7 +93,7 @@ export default function ShareLinkCard({ link, storyBibleTitle, onRevoke }: Share
         {/* Status Badge - Desktop */}
         <div className={`hidden sm:block px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
           link.isActive
-            ? 'bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40'
+            ? 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
             : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
         }`}>
           {link.isActive ? '✓ Active' : '✕ Revoked'}
@@ -105,7 +105,7 @@ export default function ShareLinkCard({ link, storyBibleTitle, onRevoke }: Share
         <div className="flex flex-col sm:flex-row gap-2">
           <button
             onClick={handleCopyLink}
-            className="flex-1 px-3 py-2.5 min-h-[44px] bg-[#00FF99]/10 text-[#00FF99] rounded-lg hover:bg-[#00FF99]/20 transition-all text-center text-xs font-medium border border-[#00FF99]/20 hover:border-[#00FF99]/40 flex items-center justify-center gap-1"
+            className="flex-1 px-3 py-2.5 min-h-[44px] bg-[#10B981]/10 text-[#10B981] rounded-lg hover:bg-[#10B981]/20 transition-all text-center text-xs font-medium border border-[#10B981]/20 hover:border-[#10B981]/40 flex items-center justify-center gap-1"
           >
             <span>{copied ? '✓' : '📋'}</span>
             <span>{copied ? 'Copied!' : 'Copy Link'}</span>

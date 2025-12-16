@@ -81,8 +81,8 @@ export const StoryboardTab: React.FC<StoryboardTabProps> = ({ data }) => {
         <div className="p-6 md:p-8">
           {/* Episode Header */}
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
-              <span className="text-2xl font-bold text-[#00FF99]">{currentEpisode.episodeNumber}</span>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
+              <span className="text-2xl font-bold text-[#10B981]">{currentEpisode.episodeNumber}</span>
             </div>
             <div>
               <h3 className="text-2xl font-bold">
@@ -122,8 +122,8 @@ export const StoryboardTab: React.FC<StoryboardTabProps> = ({ data }) => {
                   }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#00FF99]/20 border border-[#00FF99]/30">
-                          <span className="text-sm font-bold text-[#00FF99]">{scene.sceneNumber}</span>
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#10B981]/20 border border-[#10B981]/30">
+                          <span className="text-sm font-bold text-[#10B981]">{scene.sceneNumber}</span>
                         </div>
                         <div>
                           <h4 className="font-semibold text-lg">Scene {scene.sceneNumber}</h4>
@@ -178,7 +178,7 @@ const ShotCard: React.FC<ShotCardProps> = ({ shot, sceneNumber, isExpanded, onTo
   return (
     <motion.div
       layout
-      className="rounded-lg border overflow-hidden hover:border-[#00FF99]/50 transition-all"
+      className="rounded-lg border overflow-hidden hover:border-[#10B981]/50 transition-all"
       style={{
         backgroundColor: 'var(--card-bg)',
         borderColor: 'var(--border-color)'
@@ -186,7 +186,7 @@ const ShotCard: React.FC<ShotCardProps> = ({ shot, sceneNumber, isExpanded, onTo
       whileHover={{ y: -2, boxShadow: '0 4px 12px rgba(0, 255, 153, 0.1)' }}
     >
       {/* Image Placeholder */}
-      <div className="aspect-video bg-gradient-to-br from-[#00FF99]/5 to-[#00CC7A]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer relative overflow-hidden"
+      <div className="aspect-video bg-gradient-to-br from-[#10B981]/5 to-[#059669]/5 border-b border-dashed flex flex-col items-center justify-center group cursor-pointer relative overflow-hidden"
         style={{ borderColor: 'var(--border-color)' }}
       >
         {shot.imageUrl ? (
@@ -194,9 +194,9 @@ const ShotCard: React.FC<ShotCardProps> = ({ shot, sceneNumber, isExpanded, onTo
         ) : (
           <>
             <div className="text-4xl mb-2 group-hover:scale-110 transition-transform">🎬</div>
-            <p className="text-sm font-medium text-[#00FF99]">Shot {shot.number}</p>
+            <p className="text-sm font-medium text-[#10B981]">Shot {shot.number}</p>
             <p className="text-xs opacity-60">AI Image Frame</p>
-            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] transition-colors">
+            <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] transition-colors">
               Generate
             </button>
           </>
@@ -220,8 +220,8 @@ const ShotCard: React.FC<ShotCardProps> = ({ shot, sceneNumber, isExpanded, onTo
       {/* Shot Details */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <h5 className="font-bold text-[#00FF99]">Shot {shot.number}</h5>
-          <span className="text-xs px-2 py-1 rounded-full bg-[#00FF99]/10 text-[#00FF99]">
+          <h5 className="font-bold text-[#10B981]">Shot {shot.number}</h5>
+          <span className="text-xs px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981]">
             Scene {sceneNumber}
           </span>
         </div>
@@ -253,7 +253,7 @@ const ShotCard: React.FC<ShotCardProps> = ({ shot, sceneNumber, isExpanded, onTo
         {/* Expand Button */}
         <button
           onClick={onToggleExpand}
-          className="w-full text-xs py-2 rounded-lg border transition-colors hover:border-[#00FF99] hover:bg-[#00FF99]/5"
+          className="w-full text-xs py-2 rounded-lg border transition-colors hover:border-[#10B981] hover:bg-[#10B981]/5"
           style={{ borderColor: 'var(--border-color)' }}
         >
           {isExpanded ? '▲ Less Details' : '▼ Full Description'}

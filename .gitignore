@@ -63,3 +63,12 @@ backups/*.tar.gz
 *.avi
 *.mkv
 public/*.mp4
+
+# Firebase Admin SDK service account (contains secrets!)
+lib/firebase-admin/serviceAccountKey.json
+**/serviceAccountKey.json
+*.serviceAccountKey.json
+
+# Exclude API and config directories
+src/app/api/
+config/

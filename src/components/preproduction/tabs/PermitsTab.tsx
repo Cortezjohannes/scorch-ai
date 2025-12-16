@@ -1,34 +1,58 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import type { PreProductionData, Permit } from '@/types/preproduction'
 import { EditableField } from '../shared/EditableField'
 import { StatusBadge } from '../shared/StatusBadge'
 import { TableView } from '../shared/TableView'
+import { aggregatePermitsFromEpisodes } from '@/services/arc-preproduction-aggregator'
 
 interface PermitsTabProps {
   preProductionData: PreProductionData
   onUpdate: (tabName: string, tabData: any) => Promise<void>
   currentUserId: string
   currentUserName: string
+  // Arc-wide props (optional)
+  arcPreProdData?: any
+  episodePreProdData?: Record<number, any>
+  storyBible?: any
+  arcIndex?: number
 }
 
 export function PermitsTab({
   preProductionData,
   onUpdate,
   currentUserId,
-  currentUserName
+  currentUserName,
+  arcPreProdData,
+  episodePreProdData,
+  storyBible,
+  arcIndex
 }: PermitsTabProps) {
+  // Detect arc context
+  const isArcContext = preProductionData.type === 'arc' || !!arcPreProdData
   const [selectedType, setSelectedType] = useState<'all' | string>('all')
   const [uploadingPermitId, setUploadingPermitId] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({})
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   
-  const permitsData = preProductionData.permits || {
-    permits: [],
-    checklist: [],
-    lastUpdated: Date.now()
-  }
+  // Hybrid data source: Use arc document first, fall back to aggregation
+  const arcPermitsData = preProductionData.permits
+  const aggregatedPermitsData = useMemo(() => {
+    if (isArcContext && episodePreProdData && Object.keys(episodePreProdData).length > 0) {
+      return aggregatePermitsFromEpisodes(episodePreProdData)
+    }
+    return null
+  }, [isArcContext, episodePreProdData])
+  
+  // Priority: Arc document > Aggregated from episodes > Empty
+  const permitsData = arcPermitsData && (arcPermitsData as any).permits && (arcPermitsData as any).permits.length > 0
+    ? arcPermitsData
+    : aggregatedPermitsData || {
+        permits: [],
+        checklist: [],
+        lastUpdated: Date.now()
+      }
 
   const handlePermitUpdate = async (permitId: string, updates: Partial<Permit>) => {
     const updatedPermits = permitsData.permits.map(permit =>
@@ -274,7 +298,7 @@ export function PermitsTab({
             value={permit.cost?.toString() || '0'}
             onSave={(value) => handlePermitUpdate(permit.id, { cost: parseFloat(value) || 0 })}
             type="number"
-            className="text-[#00FF99] font-medium"
+            className="text-[#10B981] font-medium"
           />
         </div>
       ),
@@ -313,7 +337,7 @@ export function PermitsTab({
                   href={permit.documentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#00FF99] hover:text-[#00CC7A] text-sm flex items-center gap-1"
+                  className="text-[#10B981] hover:text-[#059669] text-sm flex items-center gap-1"
                 >
                   <span>📄</span>
                   <span className="max-w-[100px] truncate">
@@ -339,7 +363,7 @@ export function PermitsTab({
                   <div className="flex items-center gap-2">
                     <div className="w-16 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#00FF99] transition-all duration-200"
+                        className="h-full bg-[#10B981] transition-all duration-200"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -358,7 +382,7 @@ export function PermitsTab({
                     />
                     <button
                       onClick={() => fileInputRefs.current[permit.id]?.click()}
-                      className="text-[#00FF99] hover:text-[#00CC7A] text-sm flex items-center gap-1"
+                      className="text-[#10B981] hover:text-[#059669] text-sm flex items-center gap-1"
                       title="Upload document"
                     >
                       <span>📤</span>
@@ -380,7 +404,7 @@ export function PermitsTab({
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Permits</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{totalPermits}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{totalPermits}</div>
         </div>
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
@@ -395,7 +419,7 @@ export function PermitsTab({
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Cost</div>
-          <div className="text-2xl font-bold text-[#00FF99]">${totalCost.toLocaleString()}</div>
+          <div className="text-2xl font-bold text-[#10B981]">${totalCost.toLocaleString()}</div>
         </div>
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
@@ -448,7 +472,7 @@ export function PermitsTab({
 
         <button
           onClick={handleAddPermit}
-          className="px-4 py-2 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors"
+          className="px-4 py-2 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors"
         >
           + Add Permit
         </button>
@@ -464,7 +488,7 @@ export function PermitsTab({
           </p>
           <button
             onClick={handleAddPermit}
-            className="px-6 py-3 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors"
+            className="px-6 py-3 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors"
           >
             + Add First Permit
           </button>

@@ -82,3 +82,6 @@ gcloud secrets list --project=reeled-ai-production
 gcloud run services describe reeled-ai --region=us-central1 --format="value(spec.template.spec.containers[0].env)"
 ```
 
+
+
+

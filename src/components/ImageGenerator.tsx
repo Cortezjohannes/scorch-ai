@@ -3,6 +3,43 @@
 import { useState, useCallback, useMemo, memo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
+import { dataUrlToBlobUrl, revokeBlobUrl, isDataUrl } from '@/utils/image-utils'
+
+// Component to handle image display with blob URL conversion
+function GeneratedImageDisplay({ src, alt }: { src: string; alt: string }) {
+  const [displayUrl, setDisplayUrl] = useState<string>(src);
+
+  useEffect(() => {
+    // Convert base64 data URL to blob URL for better performance
+    if (isDataUrl(src)) {
+      try {
+        const blobUrl = dataUrlToBlobUrl(src);
+        setDisplayUrl(blobUrl);
+        
+        // Cleanup blob URL on unmount
+        return () => {
+          revokeBlobUrl(blobUrl);
+        };
+      } catch (error) {
+        console.error('Failed to convert data URL to blob URL:', error);
+        setDisplayUrl(src); // Fallback to data URL
+      }
+    } else {
+      setDisplayUrl(src);
+    }
+  }, [src]);
+
+  return (
+    <Image
+      src={displayUrl}
+      alt={alt}
+      width={1024}
+      height={1024}
+      className="w-full h-full object-cover"
+      unoptimized={displayUrl.startsWith('blob:') || displayUrl.startsWith('data:')}
+    />
+  );
+}
 
 interface ImageGeneratorProps {
   initialPrompt?: string
@@ -21,6 +58,7 @@ interface ImageGeneratorProps {
   scene?: {
     characters?: string[]
   }
+  userId?: string  // Optional: for caching support
 }
 
 function ImageGeneratorComponent({
@@ -31,7 +69,8 @@ function ImageGeneratorComponent({
   styleOptions = ['Realistic', 'Cinematic', 'Anime', 'Artistic', 'Fantasy'],
   showPromptField = false,
   characterData = [],
-  scene = {}
+  scene = {},
+  userId
 }: ImageGeneratorProps) {
   // Use a default prompt if initialPrompt is empty
   const defaultPrompt = "cinematic scene with dramatic lighting"
@@ -130,7 +169,8 @@ function ImageGeneratorComponent({
         },
         body: JSON.stringify({
           prompt: promptToUse,
-          style
+          style,
+          userId: userId  // Pass userId for caching
         })
       });
 
@@ -148,6 +188,7 @@ function ImageGeneratorComponent({
         throw new Error('No image URL in response');
       }
 
+      // Store base64 data URL directly, convert to blob URL only for display
       setImageUrl(imageUrlFromResponse);
       setImageSource(data.source || 'unknown');
       setGenerationProgress(100);
@@ -325,13 +366,9 @@ function ImageGeneratorComponent({
         {imageUrl ? (
           <div className={`mt-4 rounded-md overflow-hidden border border-[#36393f] ${sizeClasses[previewSize]} aspect-video relative group`}>
             <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center">
-              <Image
+              <GeneratedImageDisplay
                 src={imageUrl}
                 alt={prompt || "Generated image"}
-                width={1024}
-                height={1024}
-                className="w-full h-full object-cover"
-                unoptimized={imageUrl.startsWith('data:')} // For base64 images
               />
               {/* Source badge */}
               <div className={`absolute top-2 right-2 px-2 py-1 rounded-md text-xs text-white ${getSourceBadgeClass()} transition-opacity opacity-80 group-hover:opacity-100`}>

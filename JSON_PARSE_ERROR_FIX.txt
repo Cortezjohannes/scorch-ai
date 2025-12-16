@@ -1,0 +1,58 @@
+========================================================
+JSON PARSE ERROR - FIXED ✅
+========================================================
+
+ISSUE:
+❌ "Bad escaped character in JSON at position 9878"
+❌ Error occurred in generatePracticeMaterials function
+❌ Gemini's response contained unescaped control characters
+
+ROOT CAUSE:
+🐛 AI-generated JSON contained literal newlines, tabs, or special
+   characters within string values that broke JSON.parse()
+   
+   Example: "text": "Line 1
+   Line 2"  // Literal newline breaks JSON
+
+FIXES APPLIED:
+✅ Robust JSON cleaning for both core & practice materials
+✅ Smart regex to preserve quoted strings while fixing control chars
+✅ Two-level error recovery:
+   1. First attempt: Clean control characters intelligently
+   2. Second attempt: Strip all control characters if needed
+✅ Detailed error logging with context
+✅ Fallback to minimal structure if all parsing fails
+
+HOW IT WORKS:
+1. Extract JSON from AI response
+2. Clean string with smart regex:
+   - Preserves properly quoted strings
+   - Converts literal newlines/tabs to \n\t
+3. Try to parse
+4. If fails, log error position and show context
+5. Strip all control characters and try again
+6. If still fails, use minimal fallback structure
+
+TECHNICAL DETAILS:
+The regex /("(?:[^"\\]|\\.)*")|(\r?\n|\r|\t)/g:
+- Matches either: quoted strings OR control characters
+- Keeps quoted strings intact
+- Replaces control chars with escaped versions
+
+ERROR LOGGING NOW SHOWS:
+📄 JSON length
+❌ Error message with position
+📍 Context around error (50 chars before/after)
+🔄 Second attempt status
+
+FILES MODIFIED:
+✅ /src/services/ai-generators/actor-materials-generator.ts
+   - generateCoreMaterials function
+   - generatePracticeMaterials function
+
+RESULT:
+✨ Generation should now complete successfully
+✨ Better error messages if issues occur
+✨ Graceful fallback instead of complete failure
+
+Try generating again - the JSON parse error should be fixed! 🎭

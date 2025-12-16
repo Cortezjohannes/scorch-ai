@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/components/ui/ClientMotion'
 import EpisodeEngineLoader from '@/components/EpisodeEngineLoader'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useAuth } from '@/context/AuthContext'
@@ -592,7 +592,11 @@ export default function EpisodePage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const { user, isLoading: authLoading } = useAuth()
-  const episodeId = parseInt(params.id as string)
+  
+  // Handle both episode numbers (integers) and Firestore document IDs (strings)
+  const rawId = params.id as string
+  const episodeId = parseInt(rawId)
+  const isFirestoreId = isNaN(episodeId) || rawId.startsWith('ep_')
   
   const [storyBible, setStoryBible] = useState<any>(null)
   const [storyBibleId, setStoryBibleId] = useState<string | null>(null)
@@ -712,13 +716,28 @@ export default function EpisodePage() {
           return false
         }
         
+        // Check both useAuth hook and Firebase auth directly (fallback for cross-device issues)
+        let userIdToUse = user?.id
+        if (!userIdToUse && typeof window !== 'undefined') {
+          try {
+            const { auth } = await import('@/lib/firebase')
+            const currentUser = auth.currentUser
+            if (currentUser) {
+              userIdToUse = currentUser.uid
+              console.log('🔍 Episode page: useAuth returned null, but Firebase auth.currentUser exists:', userIdToUse)
+            }
+          } catch (authError) {
+            console.error('❌ Error checking Firebase auth in episode page:', authError)
+          }
+        }
+
         // Try to load from Firestore if storyBibleId is provided and user is authenticated
-        if (urlStoryBibleId && user) {
+        if (urlStoryBibleId && userIdToUse) {
           try {
             console.log('Loading story bible from Firestore with ID:', urlStoryBibleId)
             const { getStoryBible } = await import('@/services/story-bible-service')
             
-            const bible = await getStoryBible(urlStoryBibleId, user.id)
+            const bible = await getStoryBible(urlStoryBibleId, userIdToUse)
             if (bible) {
               console.log('✅ Story bible loaded from Firestore')
               setStoryBible(bible)
@@ -739,7 +758,7 @@ export default function EpisodePage() {
               return
             }
           }
-        } else if (urlStoryBibleId && !user) {
+        } else if (urlStoryBibleId && !userIdToUse) {
           console.log('⚠️ GUEST MODE: storyBibleId provided but no user, loading from localStorage')
           const loaded = loadFromLocalStorage()
           if (!loaded) {
@@ -758,7 +777,8 @@ export default function EpisodePage() {
         }
           
         // Check if this episode should be accessible
-        if (episodeId > 1) {
+        // Skip validation if we're loading by Firestore ID (we'll validate after loading)
+        if (!isFirestoreId && episodeId > 1) {
           // Wait for auth to load before checking
           if (authLoading) {
             console.log('⏳ Auth still loading, waiting...')
@@ -820,47 +840,121 @@ export default function EpisodePage() {
         }
         
         // STEP 4: Load the actual episode
-        console.log(`📖 Loading Episode ${episodeId}...`)
+        let actualEpisodeNumber = episodeId
+        
+        // If params.id is a Firestore document ID (not a number), try to load by ID
+        if (isFirestoreId && urlStoryBibleId) {
+          console.log(`📖 Loading episode by Firestore ID: ${rawId}...`)
+          
+          if (user) {
+            // Try to load from Firestore by document ID
+            try {
+              const { getEpisodesForStoryBible } = await import('@/services/episode-service')
+              const allEpisodes = await getEpisodesForStoryBible(urlStoryBibleId, user.id)
+              
+              // Find episode with matching ID
+              const foundEpisode = Object.values(allEpisodes).find((ep: any) => ep.id === rawId) as any
+              if (foundEpisode && foundEpisode.episodeNumber) {
+                console.log(`✅ Found episode by ID: ${foundEpisode.episodeNumber}`)
+                actualEpisodeNumber = foundEpisode.episodeNumber
+                setEpisodeData(foundEpisode as any)
+                setLoading(false)
+                isLoadingRef.current = false
+                return
+              }
+            } catch (error) {
+              console.error('Error loading episode by ID from Firestore:', error)
+            }
+          }
+          
+          // Try localStorage
+          const savedEpisodes = typeof window !== 'undefined' 
+            ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) 
+            : null
+          
+          if (savedEpisodes) {
+            try {
+              const episodes = JSON.parse(savedEpisodes)
+              // Find episode with matching ID in localStorage
+              const foundEpisode = Object.values(episodes).find((ep: any) => ep.id === rawId) as any
+              if (foundEpisode && foundEpisode.episodeNumber) {
+                console.log(`✅ Found episode by ID in localStorage: ${foundEpisode.episodeNumber}`)
+                actualEpisodeNumber = foundEpisode.episodeNumber
+                setEpisodeData(foundEpisode as any)
+                setLoading(false)
+                isLoadingRef.current = false
+                return
+              }
+            } catch (error) {
+              console.error('Error parsing localStorage episodes:', error)
+            }
+          }
+          
+          // If we couldn't find the episode by ID, show error
+          console.error(`❌ Episode with ID ${rawId} not found`)
+          setError(`Episode not found. Please navigate from the dashboard.`)
+          setLoading(false)
+          isLoadingRef.current = false
+          return
+        }
+        
+        // Normal flow: episodeId is a number
+        if (isNaN(actualEpisodeNumber) || actualEpisodeNumber < 1) {
+          console.error(`❌ Invalid episode number: ${episodeId}`)
+          setError(`Invalid episode number. Please navigate from the dashboard.`)
+          setLoading(false)
+          isLoadingRef.current = false
+          return
+        }
+        
+        console.log(`📖 Loading Episode ${actualEpisodeNumber}...`)
         
         // Try Firestore first if authenticated
         if (urlStoryBibleId && user) {
-          console.log(`Loading Episode ${episodeId} from Firestore...`)
+          console.log(`Loading Episode ${actualEpisodeNumber} from Firestore...`)
           const { getEpisode } = await import('@/services/episode-service')
           
-          const episode = await getEpisode(urlStoryBibleId, episodeId, user.id)
+          const episode = await getEpisode(urlStoryBibleId, actualEpisodeNumber, user.id)
           if (episode) {
-            console.log(`✅ Loaded Episode ${episodeId} from Firestore`)
+            console.log(`✅ Loaded Episode ${actualEpisodeNumber} from Firestore`)
             setEpisodeData(episode as any)
             setLoading(false)
             isLoadingRef.current = false
             return
           } else {
-            console.warn(`⚠️ Episode ${episodeId} not found in Firestore, checking localStorage`)
+            console.warn(`⚠️ Episode ${actualEpisodeNumber} not found in Firestore, checking localStorage`)
           }
         }
         
         // Fall back to localStorage
-        console.log(`Loading Episode ${episodeId} from localStorage...`)
+        console.log(`Loading Episode ${actualEpisodeNumber} from localStorage...`)
         const savedEpisodes = typeof window !== 'undefined' 
           ? (localStorage.getItem('greenlit-episodes') || localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes')) 
           : null
         
         if (savedEpisodes) {
           const episodes = JSON.parse(savedEpisodes)
-          if (episodes[episodeId]) {
-            console.log(`✅ Loaded Episode ${episodeId} from localStorage`)
-            setEpisodeData(episodes[episodeId])
+          if (episodes[actualEpisodeNumber]) {
+            console.log(`✅ Loaded Episode ${actualEpisodeNumber} from localStorage`)
+            setEpisodeData(episodes[actualEpisodeNumber])
             setLoading(false)
             isLoadingRef.current = false
             return
           }
         }
         
-        // Episode doesn't exist - redirect to Episode Studio
-        console.log(`⚠️ Episode ${episodeId} not found - redirecting to Episode Studio`)
+        // Episode doesn't exist - redirect to Episode Studio with valid episode number
+        // Validate episode number before constructing URL
+        if (isNaN(actualEpisodeNumber) || actualEpisodeNumber < 1) {
+          console.error(`❌ Invalid episode number: ${actualEpisodeNumber}, redirecting to dashboard`)
+          router.push(urlStoryBibleId ? `/dashboard?id=${urlStoryBibleId}` : '/dashboard')
+          return
+        }
+        
+        console.log(`⚠️ Episode ${actualEpisodeNumber} not found - redirecting to Episode Studio`)
         const studioUrl = urlStoryBibleId 
-          ? `/episode-studio/${episodeId}?storyBibleId=${urlStoryBibleId}`
-          : `/episode-studio/${episodeId}`
+          ? `/episode-studio/${actualEpisodeNumber}?storyBibleId=${urlStoryBibleId}`
+          : `/episode-studio/${actualEpisodeNumber}`
         router.push(studioUrl)
         
       } catch (error) {
@@ -873,7 +967,7 @@ export default function EpisodePage() {
     }
 
     loadPageData()
-  }, [router, episodeId, searchParams, user, authLoading])
+  }, [router, rawId, searchParams, user, authLoading])
 
   // NOTE: Polling logic is now handled by EpisodeGenerationLoader component
   // which polls localStorage and calls onComplete when episode is ready
@@ -1167,6 +1261,9 @@ export default function EpisodePage() {
     setGenerating(false)
     setError(null)
     
+    // Use episode number from episodeData (handles both numeric IDs and Firestore IDs)
+    const currentEpisodeNumber = episodeData?.episodeNumber || episodeId
+    
     // Check if this is the end of an arc using dynamic arc structure
     let isArcEnd = false;
     let arcNumber = 0;
@@ -1179,12 +1276,12 @@ export default function EpisodePage() {
         const arc = storyBible.narrativeArcs[i];
         const arcEpisodeCount = arc.episodes?.length || 10;
         
-        if (episodeId >= runningEpisodeCount + 1 && episodeId <= runningEpisodeCount + arcEpisodeCount) {
+        if (currentEpisodeNumber >= runningEpisodeCount + 1 && currentEpisodeNumber <= runningEpisodeCount + arcEpisodeCount) {
           // This episode is in arc i (0-based index for consistency with workspace)
           arcNumber = i; // Arc index is 0-based
           
           // Check if this is the last episode of the arc
-          if (episodeId === runningEpisodeCount + arcEpisodeCount) {
+          if (currentEpisodeNumber === runningEpisodeCount + arcEpisodeCount) {
             isArcEnd = true;
           }
           break;
@@ -1194,15 +1291,15 @@ export default function EpisodePage() {
       }
     } else {
       // Fallback to old logic if no arc structure
-      if (episodeId % 10 === 0) {
+      if (currentEpisodeNumber % 10 === 0) {
         isArcEnd = true;
-        arcNumber = Math.floor(episodeId / 10);
+        arcNumber = Math.floor(currentEpisodeNumber / 10);
       }
     }
     
     if (isArcEnd) {
       // This is the end of an arc - show congratulatory popup and redirect to workspace
-      console.log(`🎉 Arc ${arcNumber + 1} completed at episode ${episodeId}`);
+      console.log(`🎉 Arc ${arcNumber + 1} completed at episode ${currentEpisodeNumber}`);
       
       // Set a flag in localStorage to show we completed this arc (using 0-based index)
       const savedCompletedArcs = localStorage.getItem('greenlit-completed-arcs') || localStorage.getItem('scorched-completed-arcs') || localStorage.getItem('reeled-completed-arcs')
@@ -1217,17 +1314,35 @@ export default function EpisodePage() {
       
       // Auto-redirect after 5 seconds
       setTimeout(() => {
-        router.push('/workspace');
+        router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile');
       }, 5000);
     } else {
       // Use a slight delay to allow state updates before navigation
       setTimeout(() => {
-        if (episodeId < 60) {  // Allow up to 60 episodes total (6 arcs × 10 episodes)
+        // Validate currentEpisodeNumber before constructing URL
+        if (isNaN(currentEpisodeNumber) || currentEpisodeNumber < 1) {
+          console.error(`❌ Invalid currentEpisodeNumber: ${currentEpisodeNumber}, redirecting to dashboard`)
+          router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/dashboard')
+          return
+        }
+        
+        if (currentEpisodeNumber < 60) {  // Allow up to 60 episodes total (6 arcs × 10 episodes)
           // Save timestamp so we know when we started navigating
           localStorage.setItem('scorched-navigation-timestamp', Date.now().toString());
           
+          const nextEpisode = currentEpisodeNumber + 1
+          // Validate next episode number
+          if (isNaN(nextEpisode) || nextEpisode < 1) {
+            console.error(`❌ Invalid next episode number: ${nextEpisode}, redirecting to dashboard`)
+            router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/dashboard')
+            return
+          }
+          
           // Navigate to Episode Studio for next episode creation
-          router.push(`/episode-studio/${episodeId + 1}`);
+          const nextEpisodeUrl = storyBibleId 
+            ? `/episode-studio/${nextEpisode}?storyBibleId=${storyBibleId}`
+            : `/episode-studio/${nextEpisode}`
+          router.push(nextEpisodeUrl);
         } else {
           // Series finale - could show a completion screen
           router.push('/series-complete');
@@ -1330,13 +1445,13 @@ export default function EpisodePage() {
     return (
       <div className="min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center">
         <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-lg w-full">
-          <h2 className="text-xl font-bold text-[#00FF99] mb-4 font-medium cinematic-header">Episodes Must Be Generated In Order</h2>
+          <h2 className="text-xl font-bold text-[#10B981] mb-4 font-medium cinematic-header">Episodes Must Be Generated In Order</h2>
           <p className="text-[#e7e7e7]/80 mb-6">
             You need to generate Episode 1 first before proceeding to later episodes.
           </p>
           <button
             onClick={() => router.push('/episode/1')}
-            className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+            className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
           >
             Go to Episode 1
           </button>
@@ -1359,14 +1474,14 @@ export default function EpisodePage() {
     return (
       <div className="min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center">
         <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-lg w-full">
-          <h2 className="text-xl font-bold text-[#00FF99] mb-4 font-medium cinematic-header">Something went wrong</h2>
+          <h2 className="text-xl font-bold text-[#10B981] mb-4 font-medium cinematic-header">Something went wrong</h2>
           <p className="text-[#e7e7e7]/80 mb-6">{error || "Couldn't load the story bible."}</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => router.push('/story-bible')}
-              className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+              onClick={() => router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile')}
+              className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
             >
-              Return to Story Bible
+              Return to Dashboard
             </button>
             {episodeId === 1 && (
               <button
@@ -1406,7 +1521,7 @@ export default function EpisodePage() {
       <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 relative">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a]" />
         <div className="flex flex-col items-center">
-          <div className="w-20 h-20 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full animate-spin" />
+          <div className="w-20 h-20 border-4 border-t-[#10B981] border-r-[#10B98150] border-b-[#10B98130] border-l-[#10B98120] rounded-full animate-spin" />
           <p className="text-[#e7e7e7]/70 mt-4">Loading episode...</p>
         </div>
       </div>
@@ -1444,6 +1559,18 @@ export default function EpisodePage() {
       >
         {theme === 'light' ? '🌙' : '☀️'}
       </button>
+
+      {/* Breadcrumb Navigation */}
+      {storyBibleId && (
+        <div className="fixed top-6 left-6 z-50">
+          <button
+            onClick={() => router.push(`/dashboard?id=${storyBibleId}`)}
+            className={`px-4 py-2 ${themeColors.cardBg} ${themeColors.border} border rounded-lg text-sm ${themeColors.textMuted} hover:${themeColors.text} transition-colors backdrop-blur-sm`}
+          >
+            ← Dashboard
+          </button>
+        </div>
+      )}
 
       <div className="max-w-3xl mx-auto px-6 md:px-12 py-16">
         <motion.div
@@ -1652,16 +1779,16 @@ export default function EpisodePage() {
                       </h2>
                       
                 <p className={`font-sans text-lg ${themeColors.textMuted} leading-relaxed`}>
-                      Return to your workspace to manage your episodes and continue writing.
+                      Return to your dashboard to manage your episodes and continue writing.
                     </p>
                     
                         <motion.button
-                      onClick={() => router.push(`/workspace${storyBibleId ? `?id=${storyBibleId}` : ''}`)}
+                      onClick={() => router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile')}
                   className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 ${themeColors.shadow}`}
                           whileHover={{ y: -2 }}
                           whileTap={{ y: 0 }}
                         >
-                      ← Back to Workspace
+                      ← Back to Dashboard
                         </motion.button>
               </section>
             </article>
@@ -1679,9 +1806,22 @@ export default function EpisodePage() {
           
           {/* Navigation */}
           <nav className="flex flex-wrap justify-center gap-4 mt-12">
-            {userChoices.some(choice => choice.episodeNumber === episodeId) && episodeId < 60 && (
+            {episodeData && userChoices.some(choice => choice.episodeNumber === episodeData.episodeNumber) && episodeData.episodeNumber < 60 && (
               <button
-                onClick={() => router.push(`/episode-studio/${episodeId + 1}`)}
+                onClick={() => {
+                  // Validate episode number before constructing URL
+                  const nextEpisode = episodeData.episodeNumber + 1
+                  if (isNaN(nextEpisode) || nextEpisode < 1 || isNaN(episodeData.episodeNumber)) {
+                    console.error(`❌ Invalid episode number: ${episodeData.episodeNumber}, cannot navigate to next episode`)
+                    alert('Invalid episode number. Please navigate from the dashboard.')
+                    return
+                  }
+                  
+                  const nextEpisodeUrl = storyBibleId 
+                    ? `/episode-studio/${nextEpisode}?storyBibleId=${storyBibleId}`
+                    : `/episode-studio/${nextEpisode}`
+                  router.push(nextEpisodeUrl)
+                }}
                 className={`${themeColors.cardBg} ${themeColors.border} border px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 flex items-center gap-2`}
               >
                 Next
@@ -1704,28 +1844,28 @@ export default function EpisodePage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-black border border-[#00FF99]/50 rounded-xl p-6 max-w-lg w-full"
+              className="bg-black border border-[#10B981]/50 rounded-xl p-6 max-w-lg w-full"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 15 }}
             >
-              <h3 className="text-xl font-bold mb-2 text-[#00FF99] tracking-wide">Choose this path?</h3>
-              <div className="bg-[#00FF99]/5 border border-[#00FF99]/20 rounded-lg p-4 mb-4">
-                <div className="text-[#00FF99] font-medium mb-2 tracking-wide">{selectedOption.text}</div>
+              <h3 className="text-xl font-bold mb-2 text-[#10B981] tracking-wide">Choose this path?</h3>
+              <div className="bg-[#10B981]/5 border border-[#10B981]/20 rounded-lg p-4 mb-4">
+                <div className="text-[#10B981] font-medium mb-2 tracking-wide">{selectedOption.text}</div>
                 <p className="text-white/90 leading-relaxed font-light">{selectedOption.description}</p>
               </div>
               
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowOptionDetails(false)}
-                  className="px-4 py-2 bg-black border border-[#00FF99]/30 text-white font-medium rounded-lg hover:bg-[#00FF99]/10 transition-colors tracking-wide"
+                  className="px-4 py-2 bg-black border border-[#10B981]/30 text-white font-medium rounded-lg hover:bg-[#10B981]/10 transition-colors tracking-wide"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmChoice}
-                  className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors tracking-wide"
+                  className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors tracking-wide"
                 >
                   Confirm Choice
                 </button>
@@ -1807,7 +1947,7 @@ export default function EpisodePage() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#00FF99] rounded-xl p-8 max-w-lg w-full shadow-2xl overflow-hidden relative"
+              className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-[#10B981] rounded-xl p-8 max-w-lg w-full shadow-2xl overflow-hidden relative"
               initial={{ scale: 0.8, y: 30 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 30 }}
@@ -1815,12 +1955,12 @@ export default function EpisodePage() {
             >
               {/* Background animated elements */}
               <motion.div 
-                className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-[#00FF99]/20 blur-3xl z-0"
+                className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-[#10B981]/20 blur-3xl z-0"
                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 5, repeat: Infinity }}
               />
               <motion.div 
-                className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-[#00FF99]/20 blur-3xl z-0"
+                className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full bg-[#10B981]/20 blur-3xl z-0"
                 animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
                 transition={{ duration: 5, repeat: Infinity, delay: 0.5 }}
               />
@@ -1840,7 +1980,7 @@ export default function EpisodePage() {
                     <motion.div
                       key={i}
                       className={`absolute rounded-full w-2 h-2 ${
-                        i % 3 === 0 ? 'bg-[#00FF99]' : i % 3 === 1 ? 'bg-white' : 'bg-[#00CC7A]'
+                        i % 3 === 0 ? 'bg-[#10B981]' : i % 3 === 1 ? 'bg-white' : 'bg-[#059669]'
                       }`}
                       initial={{ 
                         x: initialX + "%", 
@@ -1883,7 +2023,7 @@ export default function EpisodePage() {
                 </motion.div>
                 
                 <motion.h2
-                  className="text-3xl font-bold text-center text-[#00FF99] mb-4"
+                  className="text-3xl font-bold text-center text-[#10B981] mb-4"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
@@ -1912,11 +2052,11 @@ export default function EpisodePage() {
                   <button
                     onClick={() => {
                       setShowCompletionLightbox(false);
-                      router.push('/workspace');
+                      router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile');
                     }}
-                    className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+                    className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
                   >
-                    Go to Workspace
+                    Go to Dashboard
                   </button>
                 </motion.div>
                 

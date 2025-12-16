@@ -1,10 +1,17 @@
 /**
- * 🎬 Gemini VEO 3 Video Generation Service
- * Generates character performance videos using Google's VEO 3 model
+ * 🎬 Google VEO 3.1 Video Generation Service
+ * Generates character performance videos using Google's VEO 3.1 model
  * Limited to 3 uses per episode (credit-based system)
+ * 
+ * Pricing (as of 2024):
+ * - Standard with audio: $0.40/second (8s = $3.20)
+ * - Standard without audio: $0.20/second (8s = $1.60)
+ * - Fast with audio: $0.15/second (8s = $1.20)
+ * - Fast without audio: $0.10/second (8s = $0.80)
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 interface VEO3VideoRequest {
   characterName: string;
@@ -12,9 +19,10 @@ interface VEO3VideoRequest {
   sceneDescription: string;
   performanceNotes: string;
   videoStyle?: 'realistic' | 'cinematic' | 'documentary' | 'artistic';
-  duration?: number; // seconds (5-60)
+  duration?: number; // seconds (4, 6, or 8 for VEO 3.1)
   aspectRatio?: '16:9' | '9:16' | '1:1';
   quality?: 'standard' | 'high';
+  hasAudio?: boolean; // Optional: only applies to quality mode, defaults to false to save costs
 }
 
 interface VEO3VideoResponse {
@@ -28,6 +36,12 @@ interface VEO3VideoResponse {
     quality: string;
     generationTime: number;
     creditsUsed: number;
+    cost?: {
+      amount: number;
+      currency: string;
+      mode: 'standard' | 'fast';
+      hasAudio: boolean;
+    };
   };
 }
 
@@ -43,14 +57,36 @@ interface VideoCredit {
  */
 export class VEO3VideoGenerator {
   
-  private genAI: GoogleGenerativeAI;
+  private genAI: GoogleGenerativeAI | null = null;
+  private genAIVideo: GoogleGenAI | null = null; // SDK for video generation with config support
   private readonly maxCreditsPerEpisode = 3;
   private creditStore: Map<string, VideoCredit> = new Map();
+  private readonly GEMINI_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
   
-  constructor() {
+  /**
+   * Lazy initialization of Gemini AI client
+   * Only initializes when actually needed, not at module load time
+   */
+  private getGenAI(): GoogleGenerativeAI {
+    if (!this.genAI) {
     const apiKey = this.getGeminiKey();
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
+    return this.genAI;
+  }
+  
+  /**
+   * Get the GoogleGenAI client for video generation (supports config parameters)
+   * Documentation: https://ai.google.dev/gemini-api/docs/video
+   */
+  private getGenAIVideo(): GoogleGenAI {
+    if (!this.genAIVideo) {
+      const apiKey = this.getGeminiKey();
+      this.genAIVideo = new GoogleGenAI({ apiKey });
+    }
+    return this.genAIVideo;
+  }
+  
   
   /**
    * Generate character performance video
@@ -137,61 +173,249 @@ export class VEO3VideoGenerator {
   }
   
   /**
-   * Core VEO 3 video generation using Gemini API
+   * Generate storyboard video from shot description
+   * Optimized for storyboard shot sequences
+   */
+  async generateStoryboardVideo(
+    shotDescription: string,
+    sceneContext: string,
+    episodeId: string,
+    options?: {
+      duration?: number;
+      aspectRatio?: '16:9' | '9:16' | '1:1';
+      style?: 'realistic' | 'cinematic' | 'documentary';
+      quality?: 'standard' | 'high';
+      hasAudio?: boolean; // Optional: only applies to quality mode
+    }
+  ): Promise<VEO3VideoResponse> {
+    console.log(`🎬 Generating storyboard video for episode ${episodeId}...`);
+    
+    try {
+      // Check credit availability
+      const creditCheck = this.checkCredits(episodeId);
+      if (!creditCheck.available) {
+        throw new Error(`Credit limit exceeded for episode ${episodeId}. Used: ${creditCheck.used}/${this.maxCreditsPerEpisode}`);
+      }
+      
+      const startTime = Date.now();
+      
+      // Validate required parameters
+      if (!options?.duration) {
+        throw new Error('Duration is required for video generation');
+      }
+      if (!options?.aspectRatio) {
+        throw new Error('Aspect ratio is required for video generation');
+      }
+      if (!options?.quality) {
+        throw new Error('Quality is required for video generation');
+      }
+      
+      // VEO 3.1 API LIMITATIONS (per official documentation):
+      // - Duration: Only supports 4, 6, or 8 seconds per clip
+      // - Fast Mode: Supports both 16:9 and 9:16 aspect ratios (per official documentation)
+      // - Quality Mode: Supports both 16:9 and 9:16 aspect ratios
+      const validDurations = [4, 6, 8];
+      if (!validDurations.includes(options.duration)) {
+        throw new Error(`Duration must be 4, 6, or 8 seconds. VEO 3.1 does not support ${options.duration} seconds.`);
+      }
+      
+      // Fast Mode now supports both 16:9 and 9:16 (per official documentation)
+      // No validation needed - both aspect ratios are supported
+      
+      // Convert storyboard shot to VEO 3 request format - use exact values from options
+      const videoRequest: VEO3VideoRequest = {
+        characterName: 'Storyboard Shot',
+        characterDescription: sceneContext,
+        sceneDescription: shotDescription,
+        performanceNotes: `Cinematic storyboard shot: ${shotDescription}`,
+        videoStyle: options.style || 'cinematic',
+        duration: options.duration, // Use exact value from options
+        aspectRatio: options.aspectRatio, // Use exact value from options
+        quality: options.quality, // Use exact value from options
+        hasAudio: options.hasAudio ?? false // Default to false to save costs (only applies to quality mode)
+      };
+      
+      console.log(`📋 Storyboard video request parameters (EXACT VALUES):`, {
+        duration: videoRequest.duration,
+        aspectRatio: videoRequest.aspectRatio,
+        quality: videoRequest.quality,
+        style: videoRequest.videoStyle,
+        hasAudio: videoRequest.hasAudio,
+        willUseFastMode: videoRequest.quality === 'standard'
+      });
+      
+      // VALIDATE: Ensure quality parameter is correct
+      if (videoRequest.quality !== 'standard' && videoRequest.quality !== 'high') {
+        throw new Error(`Invalid quality parameter: ${videoRequest.quality}. Must be 'standard' (fast) or 'high' (quality)`);
+      }
+      
+      // VALIDATE: Ensure hasAudio is false for fast mode
+      if (videoRequest.quality === 'standard' && videoRequest.hasAudio) {
+        console.warn(`⚠️ Fast mode doesn't support audio - forcing hasAudio to false`);
+        videoRequest.hasAudio = false;
+      }
+      
+      // Generate video using VEO 3
+      const result = await this.generateVideoWithVEO3(videoRequest);
+      
+      // Consume credit on successful generation
+      if (result.success) {
+        this.consumeCredit(episodeId);
+      }
+      
+      const generationTime = Date.now() - startTime;
+      
+      if (result.success) {
+        const cost = result.metadata?.cost;
+        console.log(`✅ Successfully generated storyboard video (${generationTime}ms)`);
+        if (cost) {
+          console.log(`💰 Cost: $${cost.amount.toFixed(2)} (${cost.mode} mode, ${cost.hasAudio ? 'with' : 'without'} audio)`);
+        }
+        
+        // Use exact values from options to ensure metadata matches what was requested
+        const requestedDuration = options?.duration || result.metadata?.duration || 8;
+        const requestedAspectRatio = options?.aspectRatio || result.metadata?.aspectRatio || '16:9';
+        const requestedQuality = options?.quality || result.metadata?.quality || 'high';
+        
+        return {
+          ...result,
+          metadata: {
+            ...result.metadata,
+            duration: requestedDuration,
+            aspectRatio: requestedAspectRatio,
+            quality: requestedQuality,
+            generationTime,
+            creditsUsed: 1,
+            cost: cost || this.getCostEstimate(
+              requestedDuration,
+              true, // hasAudio
+              requestedQuality === 'standard' // useFastMode
+            )
+          }
+        };
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ Failed to generate storyboard video:`, error);
+      return {
+        videoUrl: '',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+  
+  /**
+   * Core VEO 3.1 video generation using Gemini API
+   * Uses Google VEO 3.1 for video generation
+   * Pricing: $0.40/sec (standard+audio), $0.20/sec (standard), $0.15/sec (fast+audio), $0.10/sec (fast)
    */
   private async generateVideoWithVEO3(request: VEO3VideoRequest): Promise<VEO3VideoResponse> {
     try {
-      // Use Gemini's video generation capabilities
-      const model = this.genAI.getGenerativeModel({ 
-        model: 'gemini-exp-1206'  // VEO 3 model name 
-      });
+      // Validate required parameters - no defaults, use exact values
+      // VEO 3.1 only supports 4, 6, or 8 seconds
+      const validDurations = [4, 6, 8];
+      if (!request.duration || !validDurations.includes(request.duration)) {
+        throw new Error(`Invalid duration: ${request.duration}. VEO 3.1 only supports 4, 6, or 8 seconds.`);
+      }
+      if (!request.aspectRatio) {
+        throw new Error(`Aspect ratio is required.`);
+      }
+      if (!request.quality) {
+        throw new Error(`Quality is required.`);
+      }
       
       const videoPrompt = this.createVideoPrompt(request);
+      const duration = request.duration; // Use exact value, no default
+      const useFastMode = request.quality === 'standard'; // Use fast mode for standard quality
+      // Fast mode doesn't support audio, so always false for fast mode
+      // For quality mode, use the request's hasAudio preference (defaults to false to save costs)
+      const hasAudio = useFastMode ? false : (request.hasAudio ?? false);
+      const aspectRatio = request.aspectRatio; // Use exact value, no default
       
-      console.log(`🎥 Making VEO 3 API call for ${request.characterName}...`);
-      
-      // Generate video content
-      const result = await model.generateContent({
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: videoPrompt
-          }]
-        }],
-        generationConfig: {
-          // VEO 3 specific configuration
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        },
-        // Video generation parameters
-        systemInstruction: {
-          role: 'system',
-          parts: [{
-            text: `You are VEO 3, Google's advanced video generation model. Generate realistic character performance videos based on the provided casting and scene information. Focus on authentic character portrayal and professional acting quality.`
-          }]
-        }
+      console.log(`🎥 Making VEO 3.1 API call for ${request.characterName}...`);
+      console.log(`📊 Request parameters (EXACT VALUES - NO DEFAULTS):`, {
+        duration,
+        aspectRatio,
+        quality: request.quality,
+        hasAudio: request.hasAudio,
+        useFastMode,
+        finalHasAudio: hasAudio ? 'YES' : 'NO'
       });
+      console.log(`💰 Estimated cost: $${this.calculateVideoCost(duration, hasAudio, useFastMode).toFixed(2)}`);
       
-      // Parse the response to extract video information
-      const response = result.response.text();
+      // CRITICAL VALIDATION - Log what we're actually sending
+      if (aspectRatio === '9:16') {
+        console.log(`✅ EXPECTING VERTICAL (9:16) VIDEO`);
+      } else if (aspectRatio === '16:9') {
+        console.log(`✅ EXPECTING HORIZONTAL (16:9) VIDEO`);
+      }
       
-      // Note: This is a simplified implementation
-      // In reality, VEO 3 would return actual video URLs
-      // For now, we'll simulate the response structure
-      const videoUrl = this.simulateVideoGeneration(request);
+      if (!hasAudio) {
+        console.log(`✅ EXPECTING SILENT VIDEO (NO AUDIO)`);
+      } else {
+        console.log(`✅ EXPECTING VIDEO WITH AUDIO`);
+      }
       
+      // VEO 3.1 is accessed through Gemini API
+      try {
+        console.log(`🔄 Using Gemini API for VEO 3.1...`);
+        
+        // Use Gemini API REST endpoint for video generation
+        const videoGenerationResult = await this.callGeminiVideoAPI(
+          videoPrompt,
+          duration,
+          aspectRatio,
+          useFastMode,
+          hasAudio
+        );
+        
+        if (videoGenerationResult.success && videoGenerationResult.videoUrl) {
+          const cost = this.calculateVideoCost(duration, hasAudio, useFastMode);
+          // Use exact values from request - no defaults
       return {
-        videoUrl: videoUrl,
-        thumbnailUrl: this.generateThumbnailUrl(videoUrl),
+            videoUrl: videoGenerationResult.videoUrl,
+            thumbnailUrl: this.generateThumbnailUrl(videoGenerationResult.videoUrl),
         success: true,
         metadata: {
-          duration: request.duration || 30,
-          aspectRatio: request.aspectRatio || '16:9',
-          quality: request.quality || 'high',
+              duration: duration, // Exact value from request
+              aspectRatio: aspectRatio, // Exact value from request
+              quality: request.quality, // Exact value from request
           generationTime: 0, // Will be set by calling function
-          creditsUsed: 1
+              creditsUsed: 1,
+              cost: {
+                amount: cost,
+                currency: 'USD',
+                mode: useFastMode ? 'fast' : 'standard',
+                hasAudio
+              }
+            }
+          };
         }
-      };
+        
+        throw new Error(videoGenerationResult.error || 'Video generation failed');
+        
+      } catch (geminiError: any) {
+        console.error('❌ Gemini API VEO 3.1 error:', geminiError);
+        
+        // Provide helpful error message
+        if (geminiError.message?.includes('GEMINI_API_KEY')) {
+          return {
+            videoUrl: '',
+            success: false,
+            error: 'GEMINI_API_KEY environment variable is required for VEO 3.1. Please set it in your environment variables.'
+          };
+        }
+        
+        // DO NOT fall back to simulated - return actual error to prevent wasting tokens
+        return {
+          videoUrl: '',
+          success: false,
+          error: `VEO 3.1 generation failed: ${geminiError.message || 'Unknown error'}. Model: ${useFastMode ? 'veo-3.1-fast-generate-preview' : 'veo-3.1-generate-preview'}. Please check the console for details.`
+        };
+      }
       
     } catch (error) {
       console.error('VEO 3 generation error:', error);
@@ -204,7 +428,92 @@ export class VEO3VideoGenerator {
   }
   
   /**
-   * Create optimized prompt for character video generation
+   * Parse video URL from API response
+   */
+  private parseVideoUrlFromResponse(responseText: string, request: VEO3VideoRequest): string | null {
+    // Try to extract video URL from response
+    const urlPatterns = [
+      /https?:\/\/[^\s"']+\.mp4/gi,
+      /https?:\/\/[^\s"']+\.mov/gi,
+      /https?:\/\/[^\s"']+video[^\s"']*/gi,
+      /https?:\/\/generativelanguage\.googleapis\.com\/[^\s"']*/gi,
+    ];
+    
+    for (const pattern of urlPatterns) {
+      const match = responseText.match(pattern);
+      if (match && match[0]) {
+        return match[0];
+      }
+    }
+    
+    // Check for JSON response with video URL
+    try {
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.videoUrl || parsed.url || parsed.video_url) {
+          return parsed.videoUrl || parsed.url || parsed.video_url;
+        }
+      }
+    } catch (e) {
+      // Not JSON, continue
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Parse task ID from response for async video generation
+   */
+  private parseTaskIdFromResponse(responseText: string): string | null {
+    const taskIdPatterns = [
+      /task[_-]?id["\s:]+([a-zA-Z0-9_-]+)/i,
+      /id["\s:]+([a-zA-Z0-9_-]{20,})/i,
+    ];
+    
+    for (const pattern of taskIdPatterns) {
+      const match = responseText.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Poll for video completion when async generation is used
+   */
+  private async pollForVideoCompletion(taskId: string, request: VEO3VideoRequest, maxAttempts: number = 30): Promise<string | null> {
+    console.log(`🔄 Polling for video completion (task: ${taskId})...`);
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        // Wait before polling (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.min(2000 * (attempt + 1), 10000)));
+        
+        // In a real implementation, this would call the API to check task status
+        // For now, we'll simulate or use a placeholder
+        console.log(`⏳ Polling attempt ${attempt + 1}/${maxAttempts}...`);
+        
+        // TODO: Implement actual polling API call when VEO 3 async API is available
+        // const status = await this.checkVideoGenerationStatus(taskId);
+        // if (status.complete && status.videoUrl) {
+        //   return status.videoUrl;
+        // }
+        
+      } catch (error) {
+        console.warn(`⚠️ Polling attempt ${attempt + 1} failed:`, error);
+      }
+    }
+    
+    console.warn(`⚠️ Video generation polling timed out after ${maxAttempts} attempts`);
+    return null;
+  }
+  
+  /**
+   * Create optimized prompt for VEO 3.1 video generation
+   * VEO 3.1 works best with concise, descriptive prompts
    */
   private createVideoPrompt(request: VEO3VideoRequest): string {
     const {
@@ -213,37 +522,60 @@ export class VEO3VideoGenerator {
       sceneDescription,
       performanceNotes,
       videoStyle = 'realistic',
-      duration = 30,
       aspectRatio = '16:9'
     } = request;
     
-    let prompt = `Generate a ${duration}-second ${videoStyle} video in ${aspectRatio} format:\n\n`;
+    // Build a concise, descriptive prompt for VEO 3.1
+    // VEO 3.1 excels with clear visual descriptions
+    let prompt = '';
     
-    prompt += `CHARACTER: ${characterName}\n`;
-    prompt += `Description: ${characterDescription}\n\n`;
-    
-    prompt += `SCENE: ${sceneDescription}\n\n`;
-    
-    prompt += `PERFORMANCE DIRECTION: ${performanceNotes}\n\n`;
-    
-    prompt += `VIDEO REQUIREMENTS:\n`;
-    prompt += `- Style: ${videoStyle} cinematography\n`;
-    prompt += `- Duration: ${duration} seconds\n`;
-    prompt += `- Aspect ratio: ${aspectRatio}\n`;
-    prompt += `- Quality: Professional casting demo quality\n`;
-    prompt += `- Focus: Character acting performance and authenticity\n`;
-    
-    if (videoStyle === 'realistic') {
-      prompt += `- Realistic lighting, natural movements, believable performance\n`;
-    } else if (videoStyle === 'cinematic') {
-      prompt += `- Cinematic lighting, dynamic camera work, dramatic performance\n`;
+    // For storyboard videos, combine scene context with shot description
+    if (characterName === 'Storyboard Shot') {
+      // Start with scene context to provide overall context
+      if (characterDescription && characterDescription.trim()) {
+        prompt = `Scene context: ${characterDescription}. `;
+      }
+      
+      // Add the specific shot description
+      prompt += sceneDescription;
+      
+      // Add style context if provided
+      if (videoStyle === 'cinematic') {
+        prompt += ', cinematic lighting, dramatic composition';
+      } else if (videoStyle === 'documentary') {
+        prompt += ', documentary style, natural lighting';
+      } else {
+        prompt += ', realistic, natural lighting';
+      }
+    } else {
+      // For character videos, combine character and scene
+      prompt = `${sceneDescription}`;
+      
+      if (characterDescription) {
+        prompt += `, featuring ${characterDescription}`;
+      }
+      
+      if (performanceNotes) {
+        prompt += `. ${performanceNotes}`;
+      }
+      
+      // Add style context
+      if (videoStyle === 'cinematic') {
+        prompt += ', cinematic quality, professional cinematography';
     } else if (videoStyle === 'documentary') {
-      prompt += `- Documentary-style filming, natural lighting, candid performance\n`;
+        prompt += ', documentary style, natural and authentic';
+      } else {
+        prompt += ', realistic and natural';
+      }
     }
     
-    prompt += `\nGenerate a professional character performance video suitable for casting evaluation.`;
+    // Ensure prompt is within token limit (1024 tokens for VEO 3.1)
+    // Truncate if too long (rough estimate: 1 token ≈ 4 characters)
+    if (prompt.length > 4000) {
+      prompt = prompt.substring(0, 4000);
+    }
     
-    return prompt;
+    return prompt.trim();
   }
   
   /**
@@ -331,9 +663,389 @@ export class VEO3VideoGenerator {
   private generateThumbnailUrl(videoUrl: string): string {
     return videoUrl.replace('.mp4', '_thumbnail.jpg');
   }
+  
+  /**
+   * Call Gemini API REST endpoint for VEO 3.1 video generation
+   * Uses predictLongRunning endpoint with operation polling
+   * Documentation: https://ai.google.dev/gemini-api/docs/video
+   */
+  private async callGeminiVideoAPI(
+    prompt: string,
+    duration: number,
+    aspectRatio: string,
+    useFastMode: boolean,
+    hasAudio: boolean
+  ): Promise<{ success: boolean; videoUrl?: string; taskId?: string; error?: string }> {
+    try {
+      const apiKey = this.getGeminiKey();
+      
+      // Select model based on quality mode - CRITICAL: verify this is correct
+      const model = useFastMode 
+        ? 'veo-3.1-fast-generate-preview'
+        : 'veo-3.1-generate-preview';
+      
+      // VALIDATE: Ensure we're using the correct model
+      if (useFastMode && model !== 'veo-3.1-fast-generate-preview') {
+        throw new Error(`CRITICAL: Fast mode selected but wrong model: ${model}`);
+      }
+      if (!useFastMode && model !== 'veo-3.1-generate-preview') {
+        throw new Error(`CRITICAL: Quality mode selected but wrong model: ${model}`);
+      }
+      
+      const apiUrl = `${this.GEMINI_API_BASE_URL}/models/${model}:predictLongRunning`;
+      
+      console.log(`📡 Calling Gemini API VEO 3.1...`);
+      console.log(`\n   🔍 MODEL SELECTION VERIFICATION:`);
+      console.log(`      useFastMode parameter: ${useFastMode}`);
+      console.log(`      Selected model: ${model}`);
+      console.log(`      Expected for Fast Mode: veo-3.1-fast-generate-preview`);
+      console.log(`      Expected for Quality Mode: veo-3.1-generate-preview`);
+      console.log(`      ✅ Model matches Fast Mode: ${model === 'veo-3.1-fast-generate-preview' && useFastMode ? 'YES ✅' : 'NO ❌'}`);
+      console.log(`      ✅ Model matches Quality Mode: ${model === 'veo-3.1-generate-preview' && !useFastMode ? 'YES ✅' : 'NO ❌'}`);
+      console.log(`   ✅ Duration: ${duration}s, Aspect Ratio: ${aspectRatio}, Fast Mode: ${useFastMode}, Audio: ${hasAudio}`);
+      
+      // Use SDK with config object - per official documentation
+      // Documentation: https://ai.google.dev/gemini-api/docs/video
+      // The SDK supports aspectRatio, resolution, and other parameters via config object
+      
+      try {
+        const ai = this.getGenAIVideo();
+        
+        console.log(`\n📡 ===== VEO 3.1 API REQUEST (SDK with config) =====`);
+        console.log(`   Model: ${model}`);
+        console.log(`   Requested Parameters:`);
+        console.log(`     - Duration: ${duration} seconds`);
+        console.log(`     - Aspect Ratio: ${aspectRatio}`);
+        console.log(`     - Resolution: 720p (default, saves costs)`);
+        console.log(`     - Fast Mode: ${useFastMode}`);
+        console.log(`     - Has Audio: ${hasAudio}`);
+        console.log(`\n   📝 PROMPT:`);
+        console.log(`   "${prompt}"`);
+        
+        // Build config object with parameters per documentation
+        // Documentation: https://ai.google.dev/gemini-api/docs/video?example=realism#veo-model-parameters
+        const config: any = {
+          aspectRatio: aspectRatio, // "16:9" or "9:16" - supported for both Fast and Quality modes
+          resolution: '720p', // Default to 720p to save costs (720p or 1080p supported)
+          durationSeconds: duration // Number: 4, 6, or 8 - supported for Veo 3.1
+        };
+        
+        // ⚠️ CRITICAL: Veo 3.1 ALWAYS generates audio, even in Fast Mode
+        // There is NO API parameter to disable audio
+        // negativePrompt can be used but doesn't guarantee silent videos
+        if (!hasAudio) {
+          config.negativePrompt = 'no audio, silent video, no sound, no music, no dialogue, no voice, completely silent';
+          console.log(`   ⚠️  WARNING: Audio disabled requested, but Veo 3.1 always generates audio`);
+          console.log(`   ⚠️  Added negativePrompt as best effort, but video will likely still have audio`);
+        }
+        
+        // Note: Based on actual API behavior:
+        // - Fast Mode DOES generate audio (contrary to some documentation)
+        // - There is NO way to disable audio via API parameters
+        // - negativePrompt may help but is not guaranteed
+        // - Pricing confirms Fast Mode with audio: $0.15/sec
+        
+        console.log(`\n   📤 CONFIG OBJECT:`);
+        console.log(JSON.stringify(config, null, 2));
+        console.log(`\n=====================================\n`);
+        
+        // Start video generation with SDK
+        console.log(`\n   🎯 CRITICAL: About to call SDK with:`);
+        console.log(`      Model: ${model}`);
+        console.log(`      useFastMode: ${useFastMode}`);
+        console.log(`      Expected model for Fast Mode: veo-3.1-fast-generate-preview`);
+        console.log(`      Expected model for Quality Mode: veo-3.1-generate-preview`);
+        
+        let operation = await ai.models.generateVideos({
+          model: model,
+          prompt: prompt,
+          config: config
+        });
+        
+        const operationName = operation.name;
+        console.log(`\n🔄 Operation started: ${operationName}`);
+        console.log(`   ✅ VERIFICATION: Operation name contains model: ${operationName.includes('fast') ? 'FAST MODE ✅' : operationName.includes('generate') ? 'QUALITY MODE ⚠️' : 'UNKNOWN'}`);
+        console.log(`   ✅ Model used: ${model}`);
+        console.log(`   ✅ Fast Mode requested: ${useFastMode}`);
+        
+        // Poll for completion - use REST API for polling as SDK polling can timeout
+        // The SDK successfully created the operation, but we'll poll using REST API for reliability
+        console.log(`   ⚠️  Using REST API for polling (SDK polling can timeout in Next.js)`);
+        const videoUrl = await this.pollGeminiOperation(operationName, apiKey, 60, duration, aspectRatio, useFastMode, hasAudio);
+        
+        if (videoUrl) {
+          return { success: true, videoUrl };
+        }
+        
+        return { success: false, error: 'Video generation completed but no video URL found' };
+        
+      } catch (sdkError: any) {
+        console.error(`❌ SDK error:`, sdkError.message);
+        console.error(`   Full error:`, sdkError);
+        
+        // Fallback to REST API if SDK fails
+        console.log(`\n   ⚠️  Falling back to REST API...`);
+        
+        // Build prompt with specifications for REST API fallback
+        const aspectRatioText = aspectRatio === '9:16' 
+          ? 'vertical portrait format (9:16 aspect ratio)' 
+          : aspectRatio === '16:9' 
+            ? 'horizontal widescreen format (16:9 aspect ratio)'
+            : 'square format (1:1 aspect ratio)';
+        
+        let enhancedPrompt = `${prompt}. Video must be ${duration} seconds long, ${aspectRatioText}, 720p resolution`;
+        
+        const requestBody = {
+          instances: [{
+            prompt: enhancedPrompt
+          }]
+        };
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ REST API fallback error (${response.status}):`, errorText);
+          return {
+            success: false,
+            error: `API error: ${response.status} - ${errorText.substring(0, 200)}`
+          };
+        }
+        
+        const result = await response.json();
+        
+        if (!result.name) {
+          return {
+            success: false,
+            error: 'No operation name in response'
+          };
+        }
+        
+        const operationName = result.name;
+        const videoUrl = await this.pollGeminiOperation(operationName, apiKey, 60, duration, aspectRatio, useFastMode, hasAudio);
+        
+        if (videoUrl) {
+          return { success: true, videoUrl };
+        }
+        
+        return {
+          success: false,
+          error: 'Video generation completed but no video URL found'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Gemini API call failed:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to call Gemini API'
+      };
+    }
+  }
+  
+  /**
+   * Poll Gemini API operation for video completion
+   * Documentation: https://ai.google.dev/gemini-api/docs/video
+   */
+  private async pollGeminiOperation(
+    operationName: string,
+    apiKey: string,
+    maxAttempts: number = 60,
+    requestedDuration?: number,
+    requestedAspectRatio?: string,
+    requestedFastMode?: boolean,
+    requestedHasAudio?: boolean
+  ): Promise<string | null> {
+    const pollUrl = `${this.GEMINI_API_BASE_URL}/${operationName}`;
+    
+    console.log(`🔄 Polling Gemini API operation ${operationName}...`);
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        // Poll every 10 seconds as per documentation recommendation
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+      
+      try {
+        const response = await fetch(pollUrl, {
+          headers: {
+            'x-goog-api-key': apiKey,
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`⚠️ Poll attempt ${attempt + 1} failed: ${response.status} - ${errorText.substring(0, 100)}`);
+          continue;
+        }
+        
+        const result = await response.json();
+        
+        // Verify we're polling the correct operation (ignore old operations)
+        if (result.name && result.name !== operationName) {
+          console.warn(`⚠️ Skipping old operation: ${result.name} (polling for ${operationName})`);
+          continue;
+        }
+        
+        if (result.done) {
+          // Extract video URI from response per documentation format
+          // Format: response.generateVideoResponse.generatedSamples[0].video.uri
+          if (result.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri) {
+            const videoSample = result.response.generateVideoResponse.generatedSamples[0];
+            const videoUri = videoSample.video.uri;
+            const videoData = videoSample.video;
+            
+            console.log(`\n✅ ===== VIDEO GENERATION COMPLETE =====`);
+            console.log(`   Video URI: ${videoUri}`);
+            console.log(`   Full Video Response:`, JSON.stringify(videoSample, null, 2));
+            console.log(`\n   ⚠️  ACTUAL vs REQUESTED COMPARISON:`);
+            if (requestedDuration !== undefined) {
+              console.log(`      Requested Duration: ${requestedDuration}s`);
+            }
+            if (requestedAspectRatio) {
+              console.log(`      Requested Aspect Ratio: ${requestedAspectRatio}`);
+            }
+            if (requestedHasAudio !== undefined) {
+              console.log(`      Requested Audio: ${requestedHasAudio ? 'YES' : 'NO'}`);
+            }
+            if (requestedFastMode !== undefined) {
+              console.log(`      Requested Fast Mode: ${requestedFastMode}`);
+            }
+            console.log(`      Actual Video Data from API:`, {
+              uri: videoUri,
+              duration: videoData.durationSeconds || 'NOT PROVIDED BY API',
+              resolution: videoData.resolution || 'NOT PROVIDED BY API',
+              aspectRatio: videoData.aspectRatio || 'NOT PROVIDED BY API',
+              hasAudio: videoData.hasAudio !== undefined ? videoData.hasAudio : 'NOT PROVIDED BY API'
+            });
+            console.log(`\n   ⚠️  IMPORTANT: The API does not return video metadata.`);
+            console.log(`      To verify if the video matches your request, you must:`);
+            console.log(`      1. Download and play the video`);
+            console.log(`      2. Check the actual duration, aspect ratio, and audio`);
+            console.log(`      3. Compare with what was requested above`);
+            console.log(`\n   📝 PROMPT SENT TO API:`);
+            console.log(`      (Check earlier logs for the full prompt text)`);
+            console.log(`==========================================\n`);
+            
+            // Download video using the URI
+            const videoUrl = await this.downloadGeminiVideo(videoUri, apiKey);
+            return videoUrl;
+          }
+          
+          if (result.error) {
+            throw new Error(result.error.message || JSON.stringify(result.error));
+          }
+          
+          // Check for filtered/blocked video
+          if (result.response?.generateVideoResponse?.raiMediaFilteredCount > 0) {
+            const reasons = result.response.generateVideoResponse.raiMediaFilteredReasons || [];
+            const errorMessage = reasons.join('; ') || 'Video was filtered by safety/content filters';
+            
+            console.error(`\n❌ ===== VIDEO GENERATION BLOCKED =====`);
+            console.error(`   Reason: ${errorMessage}`);
+            console.error(`   Filtered Count: ${result.response.generateVideoResponse.raiMediaFilteredCount}`);
+            console.error(`   Full Response:`, JSON.stringify(result.response.generateVideoResponse, null, 2));
+            console.error(`==========================================\n`);
+            
+            throw new Error(`Video generation blocked: ${errorMessage}`);
+          }
+          
+          // Log full response if no video URI found
+          console.error('❌ Operation done but no video URI in response:', JSON.stringify(result).substring(0, 500));
+        } else {
+          console.log(`⏳ Task still processing... (attempt ${attempt + 1}/${maxAttempts})`);
+        }
+      } catch (error: any) {
+        console.warn(`⚠️ Poll error:`, error.message);
+        if (attempt === maxAttempts - 1) {
+          throw error; // Re-throw on last attempt
+        }
+      }
+    }
+    
+    console.warn(`⚠️ Polling timed out after ${maxAttempts} attempts`);
+    return null;
+  }
+  
+  /**
+   * Convert Gemini API video URI to proxy URL
+   * The video URI requires authentication, so we use a proxy endpoint
+   */
+  private async downloadGeminiVideo(videoUri: string, apiKey: string): Promise<string> {
+    try {
+      console.log(`📥 Converting video URI to proxy URL: ${videoUri.substring(0, 50)}...`);
+      
+      // Use proxy endpoint to serve video with authentication
+      // The proxy endpoint handles the API key authentication
+      const proxyUrl = `/api/veo3-video-proxy?uri=${encodeURIComponent(videoUri)}`;
+      
+      return proxyUrl;
+      
+    } catch (error: any) {
+      console.error('❌ Failed to create proxy URL:', error);
+      // Return URI anyway - might work in some cases
+      return videoUri;
+    }
+  }
+  
+  /**
+   * Calculate video generation cost based on VEO 3.1 pricing
+   * Pricing (as of 2024):
+   * - Standard with audio: $0.40/second
+   * - Standard without audio: $0.20/second
+   * - Fast with audio: $0.15/second
+   * - Fast without audio: $0.10/second
+   */
+  private calculateVideoCost(durationSeconds: number, hasAudio: boolean, useFastMode: boolean): number {
+    let costPerSecond: number;
+    
+    if (useFastMode) {
+      costPerSecond = hasAudio ? 0.15 : 0.10;
+    } else {
+      costPerSecond = hasAudio ? 0.40 : 0.20;
+    }
+    
+    return durationSeconds * costPerSecond;
+  }
+  
+  /**
+   * Get cost estimate for video generation
+   */
+  getCostEstimate(durationSeconds: number, hasAudio: boolean = true, useFastMode: boolean = false): {
+    amount: number;
+    currency: string;
+    mode: 'standard' | 'fast';
+    hasAudio: boolean;
+    duration: number;
+  } {
+    return {
+      amount: this.calculateVideoCost(durationSeconds, hasAudio, useFastMode),
+      currency: 'USD',
+      mode: useFastMode ? 'fast' : 'standard',
+      hasAudio,
+      duration: durationSeconds
+    };
+  }
 }
 
-// Export singleton instance
-export const veo3VideoGenerator = new VEO3VideoGenerator();
+// Export singleton instance (lazy initialization - won't fail if API key not set at module load)
+let veo3VideoGeneratorInstance: VEO3VideoGenerator | null = null;
+
+export const veo3VideoGenerator: VEO3VideoGenerator = new Proxy({} as VEO3VideoGenerator, {
+  get(target, prop) {
+    if (!veo3VideoGeneratorInstance) {
+      veo3VideoGeneratorInstance = new VEO3VideoGenerator();
+    }
+    const value = (veo3VideoGeneratorInstance as any)[prop];
+    return typeof value === 'function' ? value.bind(veo3VideoGeneratorInstance) : value;
+  }
+});
+
 export type { VEO3VideoRequest, VEO3VideoResponse, VideoCredit };
 

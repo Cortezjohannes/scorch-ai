@@ -9,7 +9,7 @@ spec:
       - image: CLOUD_RUN_SERVICE_PLACEHOLDER
         env:
         - name: GEMINI_API_KEY
-          value: "AIzaSyB4Zv84FGbknZZ8_h_Pjc6fDdqiRa3txWQ"
+          value: "AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo"
         - name: UNSPLASH_ACCESS_KEY
           value: "a9d7ec28753fe782f2e898e09a774c13ce95a31e4262a7a685b7de02ee109524"
         - name: UNSPLASH_SECRET_KEY

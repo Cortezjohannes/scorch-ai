@@ -42,18 +42,18 @@ export default function MigrationPromptModal({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-[#1A1A1A] border border-[#00FF99]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl my-8"
+            className="bg-[#1A1A1A] border border-[#10B981]/30 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl my-8"
             style={{ fontFamily: 'League Spartan, sans-serif' }}
           >
             {/* Icon */}
             <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border-2 border-[#00FF99]/40 rounded-full flex items-center justify-center shadow-lg shadow-[#00FF99]/20">
+              <div className="w-20 h-20 bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border-2 border-[#10B981]/40 rounded-full flex items-center justify-center shadow-lg shadow-[#10B981]/20">
                 <span className="text-5xl">💾</span>
               </div>
             </div>
 
             {/* Title */}
-            <h3 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00FF99] to-[#00CC7A] mb-4 text-center">
+            <h3 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] to-[#059669] mb-4 text-center">
               Save Your Work to Your Account
             </h3>
             
@@ -65,7 +65,7 @@ export default function MigrationPromptModal({
             {/* List of bibles */}
             <div className="mb-6 space-y-2 max-h-48 overflow-y-auto">
               {localBibles.map(bible => (
-                <div key={bible.id} className="bg-[#121212] rounded-lg p-3 border border-[#00FF99]/10">
+                <div key={bible.id} className="bg-[#121212] rounded-lg p-3 border border-[#10B981]/10">
                   <p className="font-semibold text-white text-sm">{bible.seriesTitle}</p>
                   <p className="text-xs text-white/50">
                     Last updated: {new Date(bible.updatedAt).toLocaleDateString()}
@@ -82,7 +82,7 @@ export default function MigrationPromptModal({
                   checked={skipDuplicates}
                   onChange={(e) => setSkipDuplicates(e.target.checked)}
                   disabled={isLoading}
-                  className="mt-1 w-4 h-4 text-[#00FF99] bg-[#121212] border-[#00FF99]/30 rounded focus:ring-[#00FF99] focus:ring-2"
+                  className="mt-1 w-4 h-4 text-[#10B981] bg-[#121212] border-[#10B981]/30 rounded focus:ring-[#10B981] focus:ring-2"
                 />
                 <span className="text-sm text-white/80">
                   Skip if already saved to account
@@ -95,7 +95,7 @@ export default function MigrationPromptModal({
                   checked={clearLocal}
                   onChange={(e) => setClearLocal(e.target.checked)}
                   disabled={isLoading}
-                  className="mt-1 w-4 h-4 text-[#00FF99] bg-[#121212] border-[#00FF99]/30 rounded focus:ring-[#00FF99] focus:ring-2"
+                  className="mt-1 w-4 h-4 text-[#10B981] bg-[#121212] border-[#10B981]/30 rounded focus:ring-[#10B981] focus:ring-2"
                 />
                 <span className="text-sm text-white/80">
                   Clear local storage after saving
@@ -108,7 +108,7 @@ export default function MigrationPromptModal({
               <button
                 onClick={() => onMigrate({ skipDuplicates, clearLocal })}
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Saving...' : 'Save to Account'}
               </button>
@@ -116,7 +116,7 @@ export default function MigrationPromptModal({
               <button
                 onClick={onClose}
                 disabled={isLoading}
-                className="px-4 py-3 bg-[#1A1A1A] border border-[#00FF99]/30 text-white rounded-lg hover:bg-[#121212] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-3 bg-[#1A1A1A] border border-[#10B981]/30 text-white rounded-lg hover:bg-[#121212] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Later
               </button>

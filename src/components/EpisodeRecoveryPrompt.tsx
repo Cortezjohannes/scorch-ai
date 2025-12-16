@@ -83,13 +83,13 @@ export default function EpisodeRecoveryPrompt({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ duration: 0.2 }}
-          className="relative w-full max-w-md bg-[#1a1a1a] border border-[#00FF99]/30 rounded-2xl shadow-2xl overflow-hidden"
+          className="relative w-full max-w-md bg-[#1a1a1a] border border-[#10B981]/30 rounded-2xl shadow-2xl overflow-hidden"
         >
           {/* Icon */}
           <div className="flex justify-center pt-8 pb-4">
-            <div className="w-16 h-16 rounded-full bg-[#00FF99]/20 border-2 border-[#00FF99]/40 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-[#10B981]/20 border-2 border-[#10B981]/40 flex items-center justify-center">
               <svg 
-                className="w-8 h-8 text-[#00FF99]" 
+                className="w-8 h-8 text-[#10B981]" 
                 fill="none" 
                 viewBox="0 0 24 24" 
                 stroke="currentColor"
@@ -158,7 +158,7 @@ export default function EpisodeRecoveryPrompt({
               <button
                 onClick={handleRecover}
                 disabled={isRecovering}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isRecovering ? (
                   <>

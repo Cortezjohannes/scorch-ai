@@ -466,7 +466,7 @@ export async function runGeminiComprehensiveEngines(
   mode: 'beast' | 'stable' = 'beast'
 ): Promise<{ notes: ComprehensiveEngineNotes; metadata: ComprehensiveEngineMetadata }> {
   const startTime = Date.now()
-  console.log('🚀 GEMINI COMPREHENSIVE ENGINES: Starting Gemini 2.5 Pro 19-engine system...')
+  console.log('🚀 GEMINI COMPREHENSIVE ENGINES: Starting Gemini 3 Pro Preview 19-engine system...')
   
   // Initialize result structure
   const notes: ComprehensiveEngineNotes = {

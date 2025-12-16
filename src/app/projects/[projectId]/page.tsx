@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useProject } from '@/context/ProjectContext'
 import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'

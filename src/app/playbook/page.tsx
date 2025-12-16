@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect } from 'react'
 import FAQ from '@/components/FAQ'
 import Navigation from '@/components/Navigation'
@@ -37,13 +37,13 @@ export default function PlaybookPage() {
         initial={{ y: 0 }}
         animate={{ y: isScrolled ? -100 : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#00FF99]/20"
+        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#10B981]/20"
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/greenlitailogo.png" alt="Greenlit" className="h-10 w-auto" />
-              <span className="text-[#00FF99] font-bold text-2xl">Greenlit</span>
+              <span className="text-[#10B981] font-bold text-2xl">Greenlit</span>
             </div>
             <Navigation />
           </div>
@@ -73,7 +73,7 @@ export default function PlaybookPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <button className="bg-[#00FF99] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#00CC7A] transition-colors">
+            <button className="bg-[#10B981] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#059669] transition-colors">
               Apply Now →
             </button>
           </motion.div>
@@ -89,11 +89,11 @@ export default function PlaybookPage() {
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <h2 className="text-4xl md:text-6xl font-bold text-[#00FF99] mb-8">
+            <h2 className="text-4xl md:text-6xl font-bold text-[#10B981] mb-8">
               You Direct the System
             </h2>
             <p className="text-xl text-[#E7E7E7]/80 mb-8 max-w-3xl mx-auto">
-              The platform is your crew, not the artist. The Golden Rule: <span className="text-[#00FF99] font-bold">Specificity = Soul</span>.
+              The platform is your crew, not the artist. The Golden Rule: <span className="text-[#10B981] font-bold">Specificity = Soul</span>.
             </p>
           </motion.div>
         </div>
@@ -112,9 +112,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">1. The Logline</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">1. The Logline</h3>
               <p className="text-[#E7E7E7]/80 mb-6">One sentence that captures the essence of your series.</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -122,8 +122,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"A group of friends navigate high school drama."</p>
                 </div>
-                <div className="bg-[#121212] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#121212] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"When a viral video exposes the school's secret underground fight club, a shy transfer student must choose between protecting her new friends or exposing the truth that could destroy them all."</p>
                 </div>
               </div>
@@ -134,9 +134,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">2. The Protagonist</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">2. The Protagonist</h3>
               <p className="text-[#E7E7E7]/80 mb-6">Who is your main character and what makes them compelling?</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -144,8 +144,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"Sarah is a typical teenager who wants to fit in."</p>
                 </div>
-                <div className="bg-[#121212] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#121212] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"Maya Chen, a 17-year-old former competitive gymnast with a photographic memory, moves to a new school after her family's restaurant burns down. She's desperate to stay invisible, but her ability to remember every detail makes her the perfect witness to crimes others miss."</p>
                 </div>
               </div>
@@ -156,9 +156,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">3. The Stakes</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">3. The Stakes</h3>
               <p className="text-[#E7E7E7]/80 mb-6">What happens if your protagonist fails?</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -166,8 +166,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"She might not get the guy she likes."</p>
                 </div>
-                <div className="bg-[#121212] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#121212] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"If Maya speaks up, her family loses their new home and her little brother gets expelled. If she stays silent, the underground ring continues to recruit and potentially harm other students, including her only friend."</p>
                 </div>
               </div>
@@ -178,9 +178,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">4. The Vibe</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">4. The Vibe</h3>
               <p className="text-[#E7E7E7]/80 mb-6">What's the emotional tone and visual style?</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -188,8 +188,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"It's a teen drama like Riverdale."</p>
                 </div>
-                <div className="bg-[#121212] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#121212] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"Think 'Euphoria' meets 'The Social Network' - neon-lit hallways, social media as a weapon, the constant hum of notifications creating anxiety. Every frame feels like it's being watched, recorded, judged."</p>
                 </div>
               </div>
@@ -200,9 +200,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">5. The Theme</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">5. The Theme</h3>
               <p className="text-[#E7E7E7]/80 mb-6">What's the deeper message or question you're exploring?</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -210,8 +210,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"Friendship is important."</p>
                 </div>
-                <div className="bg-[#121212] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#121212] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"In a world where every moment is recorded and judged, what does it mean to be truly authentic? Can you maintain your integrity when the cost of truth is everything you've built?"</p>
                 </div>
               </div>
@@ -233,9 +233,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Episode Goal</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Episode Goal</h3>
               <p className="text-[#E7E7E7]/80 mb-6">What must happen in this episode to advance your story?</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -243,8 +243,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"Maya goes to school and meets new people."</p>
                 </div>
-                <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#1a1a1a] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"Maya must choose between protecting her new friend's secret (that he's been forced to fight) or exposing the underground ring, knowing that speaking up will destroy her family's fresh start and potentially get her friend killed."</p>
                 </div>
               </div>
@@ -255,23 +255,23 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Editing the Beat Sheet (The Blueprint)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Editing the Beat Sheet (The Blueprint)</h3>
               <p className="text-[#E7E7E7]/80 mb-6">The system generates a structure, but you refine it with specific emotional beats.</p>
               
-              <div className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-[#00FF99] mb-4">Example Beat Sheet Refinement:</h4>
+              <div className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-[#10B981] mb-4">Example Beat Sheet Refinement:</h4>
                 <div className="space-y-4">
                   <div className="flex items-start">
-                    <span className="bg-[#00FF99] text-black px-3 py-1 rounded text-sm font-bold mr-4">1</span>
+                    <span className="bg-[#10B981] text-black px-3 py-1 rounded text-sm font-bold mr-4">1</span>
                     <div>
                       <p className="text-[#E7E7E7]/90 font-medium">Opening: Maya arrives at school</p>
                       <p className="text-[#E7E7E7]/60 text-sm">Refined: Maya arrives with her camera, documenting everything as a coping mechanism for her anxiety about being the new kid.</p>
                     </div>
                   </div>
                   <div className="flex items-start">
-                    <span className="bg-[#00FF99] text-black px-3 py-1 rounded text-sm font-bold mr-4">2</span>
+                    <span className="bg-[#10B981] text-black px-3 py-1 rounded text-sm font-bold mr-4">2</span>
                     <div>
                       <p className="text-[#E7E7E7]/90 font-medium">Inciting Incident: She witnesses a fight</p>
                       <p className="text-[#E7E7E7]/60 text-sm">Refined: Maya's camera accidentally records a brutal fight in the locker room, but when she tries to help, she's threatened by the ringleader who recognizes her from her gymnastics videos.</p>
@@ -286,9 +286,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Vibe Sliders</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Vibe Sliders</h3>
               <p className="text-[#E7E7E7]/80 mb-6">Fine-tune the emotional tone of each scene.</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -301,7 +301,7 @@ export default function PlaybookPage() {
                         <span>Intense</span>
                       </div>
                       <div className="w-full bg-[#121212] rounded-full h-2">
-                        <div className="bg-[#00FF99] h-2 rounded-full" style={{width: '80%'}}></div>
+                        <div className="bg-[#10B981] h-2 rounded-full" style={{width: '80%'}}></div>
                       </div>
                     </div>
                   </div>
@@ -314,7 +314,7 @@ export default function PlaybookPage() {
                         <span>Heavy</span>
                       </div>
                       <div className="w-full bg-[#121212] rounded-full h-2">
-                        <div className="bg-[#00FF99] h-2 rounded-full" style={{width: '90%'}}></div>
+                        <div className="bg-[#10B981] h-2 rounded-full" style={{width: '90%'}}></div>
                       </div>
                     </div>
                   </div>
@@ -329,7 +329,7 @@ export default function PlaybookPage() {
                         <span>Fast</span>
                       </div>
                       <div className="w-full bg-[#121212] rounded-full h-2">
-                        <div className="bg-[#00FF99] h-2 rounded-full" style={{width: '70%'}}></div>
+                        <div className="bg-[#10B981] h-2 rounded-full" style={{width: '70%'}}></div>
                       </div>
                     </div>
                   </div>
@@ -342,7 +342,7 @@ export default function PlaybookPage() {
                         <span>Stylized</span>
                       </div>
                       <div className="w-full bg-[#121212] rounded-full h-2">
-                        <div className="bg-[#00FF99] h-2 rounded-full" style={{width: '85%'}}></div>
+                        <div className="bg-[#10B981] h-2 rounded-full" style={{width: '85%'}}></div>
                       </div>
                     </div>
                   </div>
@@ -355,9 +355,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Director's Notes (Subtext/Sensory Details)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Director's Notes (Subtext/Sensory Details)</h3>
               <p className="text-[#E7E7E7]/80 mb-6">This is where you add the soul. Specific emotional beats and sensory details.</p>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -365,8 +365,8 @@ export default function PlaybookPage() {
                   <h4 className="text-lg font-semibold text-red-400 mb-3">Mid Input</h4>
                   <p className="text-[#E7E7E7]/60 italic">"Maya feels nervous about the fight."</p>
                 </div>
-                <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-6">
-                  <h4 className="text-lg font-semibold text-[#00FF99] mb-3">S-Tier Input</h4>
+                <div className="bg-[#1a1a1a] border border-[#10B981]/30 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-[#10B981] mb-3">S-Tier Input</h4>
                   <p className="text-[#E7E7E7]/90">"Maya's hands shake as she holds the camera, the same tremor she had before her final gymnastics routine when she knew one wrong move could end her career. The metallic taste of blood fills her mouth as she bites her lip, trying to stay invisible while her photographic memory captures every detail of the violence she's witnessing."</p>
                 </div>
               </div>
@@ -388,9 +388,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Case Study: High School Drama</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Case Study: High School Drama</h3>
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
                   <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">The Vision</h4>
@@ -423,9 +423,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Case Study: Office Rom-Com</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Case Study: Office Rom-Com</h3>
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
                   <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">The Vision</h4>
@@ -458,9 +458,9 @@ export default function PlaybookPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Case Study: Grounded Thriller</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-6">Case Study: Grounded Thriller</h3>
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
                   <h4 className="text-lg font-semibold text-[#E7E7E7] mb-4">The Vision</h4>

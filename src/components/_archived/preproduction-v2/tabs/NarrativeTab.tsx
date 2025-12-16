@@ -34,8 +34,8 @@ export const NarrativeTab: React.FC<NarrativeTabProps> = ({ data }) => {
         {currentEpisode && (
           <div className="p-6 md:p-8">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
-                <span className="text-2xl font-bold text-[#00FF99]">{currentEpisode.episodeNumber}</span>
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
+                <span className="text-2xl font-bold text-[#10B981]">{currentEpisode.episodeNumber}</span>
               </div>
               <div>
                 <h3 className="text-2xl font-bold">{currentEpisode.episodeTitle || `Episode ${currentEpisode.episodeNumber}`}</h3>
@@ -45,19 +45,19 @@ export const NarrativeTab: React.FC<NarrativeTabProps> = ({ data }) => {
             
             {currentEpisode.synopsis && (
               <div className="p-6 rounded-xl mb-6" style={{ backgroundColor: 'var(--background-secondary)' }}>
-                <h4 className="font-semibold mb-3 text-[#00FF99]">Synopsis</h4>
+                <h4 className="font-semibold mb-3 text-[#10B981]">Synopsis</h4>
                 <p className="opacity-80 leading-relaxed">{currentEpisode.synopsis}</p>
               </div>
             )}
             
             {currentEpisode.scenes && currentEpisode.scenes.length > 0 && (
               <div className="space-y-4">
-                <h4 className="font-semibold text-[#00FF99]">Scenes</h4>
+                <h4 className="font-semibold text-[#10B981]">Scenes</h4>
                 {currentEpisode.scenes.map((scene, idx) => (
                   <div key={idx} className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)' }}>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-lg bg-[#00FF99]/20 flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#00FF99]">{scene.sceneNumber}</span>
+                      <div className="w-8 h-8 rounded-lg bg-[#10B981]/20 flex items-center justify-center">
+                        <span className="text-xs font-bold text-[#10B981]">{scene.sceneNumber}</span>
                       </div>
                       <h5 className="font-semibold">Scene {scene.sceneNumber}</h5>
                     </div>

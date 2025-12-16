@@ -1,0 +1,63 @@
+========================================================
+ACTOR MATERIALS MODAL - REBRANDED ✅
+========================================================
+
+ISSUE:
+❌ Modal was using purple/blue gradient (off-brand)
+❌ Didn't match the cinematic aesthetic of other loading screens
+❌ Different color scheme from episode generation
+
+BRAND DESIGN ELEMENTS NOW APPLIED:
+✅ Primary accent: #10B981 (brand green)
+✅ Secondary accent: #00cc7a (green gradient)
+✅ Background: Black (#0a0a0a, #121212, #2a2a2a)
+✅ Text colors: #e7e7e7 (primary), #e7e7e7/70 (secondary)
+✅ Film strip decorations (top & bottom borders)
+✅ Cinematic frame border (green 2px border with opacity)
+✅ Black backdrop with backdrop-blur-sm
+✅ Serif fonts for headings (matching episode generation)
+
+VISUAL CHANGES:
+BEFORE:
+- Purple/blue gradient background
+- Different animation style
+- No film strip aesthetic
+- Different text colors
+
+AFTER:
+- Black background with green accents
+- Film strip borders (20 decorative strips top/bottom)
+- Cinematic 2px green border
+- Brand green (#10B981) for all accents
+- Serif font for title
+- Matching animation style to episode generation
+- Green progress bar with gradient
+- Dark card backgrounds (#2a2a2a)
+- Consistent text colors (#e7e7e7)
+
+SPECIFIC BRAND ELEMENTS:
+✅ Progress bar: from-[#10B981] to-[#00cc7a] gradient
+✅ Completed items: #10B981 background with black checkmark
+✅ Active items: #10B981 border with pulsing dot
+✅ Film strips: #10B981/20 opacity
+✅ Border: border-[#10B981]/30
+✅ Title: text-[#10B981] with font-serif
+✅ Stats: Green dots and highlights
+✅ Update feed: #10B981 arrows
+
+RESPONSIVE DESIGN:
+✅ Works on mobile, tablet, desktop
+✅ Text sizes adapt (sm:, md: breakpoints)
+✅ Spacing adjusts for small screens
+✅ Icons scale appropriately
+
+FILES MODIFIED:
+✅ /src/components/actor-materials/ActorMaterialsGenerationModal.tsx
+
+RESULT:
+✨ Modal now perfectly matches brand aesthetic
+✨ Consistent with episode generation loader
+✨ Cinematic film strip design
+✨ Professional, on-brand appearance
+
+The actor materials modal now looks like it belongs in the app! 🎭🎬

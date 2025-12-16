@@ -30,11 +30,11 @@ export default function FAQ({ items, title = "Frequently Asked Questions" }: FAQ
         {items.map((item, index) => (
           <div
             key={index}
-            className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl overflow-hidden"
+            className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl overflow-hidden"
           >
             <button
               onClick={() => toggleFAQ(index)}
-              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-[#00FF99]/5 transition-colors"
+              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-[#10B981]/5 transition-colors"
             >
               <h3 className="text-lg font-semibold text-white pr-4">
                 {item.question}
@@ -45,7 +45,7 @@ export default function FAQ({ items, title = "Frequently Asked Questions" }: FAQ
                 className="flex-shrink-0"
               >
                 <svg
-                  className="w-5 h-5 text-[#00FF99]"
+                  className="w-5 h-5 text-[#10B981]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

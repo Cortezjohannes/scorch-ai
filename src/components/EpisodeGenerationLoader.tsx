@@ -239,14 +239,14 @@ export default function EpisodeGenerationLoader({
         <div className={`relative border-2 ${
           isPremiumMode 
             ? 'border-[#d4af37]/30' 
-            : 'border-[#00FF99]/30'
+            : 'border-[#10B981]/30'
         } rounded-lg p-8 md:p-12 backdrop-blur-sm bg-black/40`}>
           
           {/* Film strip decoration - top */}
           <div className="absolute top-0 left-0 right-0 h-3 flex justify-between px-2">
             {[...Array(20)].map((_, i) => (
               <div key={`top-${i}`} className={`w-2 h-full ${
-                isPremiumMode ? 'bg-[#d4af37]/20' : 'bg-[#00FF99]/20'
+                isPremiumMode ? 'bg-[#d4af37]/20' : 'bg-[#10B981]/20'
               }`} />
             ))}
           </div>
@@ -255,7 +255,7 @@ export default function EpisodeGenerationLoader({
           <div className="absolute bottom-0 left-0 right-0 h-3 flex justify-between px-2">
             {[...Array(20)].map((_, i) => (
               <div key={`bottom-${i}`} className={`w-2 h-full ${
-                isPremiumMode ? 'bg-[#d4af37]/20' : 'bg-[#00FF99]/20'
+                isPremiumMode ? 'bg-[#d4af37]/20' : 'bg-[#10B981]/20'
               }`} />
             ))}
           </div>
@@ -276,7 +276,7 @@ export default function EpisodeGenerationLoader({
             <h1 className={`text-2xl md:text-3xl font-serif font-bold mb-2 ${
               isPremiumMode 
                 ? 'text-[#d4af37]' 
-                : 'text-[#00FF99]'
+                : 'text-[#10B981]'
             }`}>
               {isPremiumMode ? '✨ Premium Generation' : 'Creating Episode'}
             </h1>
@@ -312,7 +312,7 @@ export default function EpisodeGenerationLoader({
                 className={`h-full ${
                   isPremiumMode
                     ? 'bg-gradient-to-r from-[#d4af37] to-[#f4d03f]'
-                    : 'bg-gradient-to-r from-[#00FF99] to-[#00cc7a]'
+                    : 'bg-gradient-to-r from-[#10B981] to-[#00cc7a]'
                 }`}
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
@@ -322,7 +322,7 @@ export default function EpisodeGenerationLoader({
             
             {/* Progress percentage and time */}
             <div className="flex justify-between items-center mt-3 text-sm">
-              <span className={isPremiumMode ? 'text-[#d4af37]' : 'text-[#00FF99]'}>
+              <span className={isPremiumMode ? 'text-[#d4af37]' : 'text-[#10B981]'}>
                 {Math.round(progress)}%
               </span>
               {isMounted && (
@@ -342,7 +342,7 @@ export default function EpisodeGenerationLoader({
                     index <= currentPhaseIndex
                       ? isPremiumMode
                         ? 'bg-[#d4af37]'
-                        : 'bg-[#00FF99]'
+                        : 'bg-[#10B981]'
                       : 'bg-[#2a2a2a]'
                   }`}
                   animate={index === currentPhaseIndex ? {
@@ -371,7 +371,7 @@ export default function EpisodeGenerationLoader({
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center mt-6 text-[#00FF99] font-semibold"
+              className="text-center mt-6 text-[#10B981] font-semibold"
             >
               ✓ Generation Complete • Transitioning to episode...
             </motion.div>

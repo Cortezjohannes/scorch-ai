@@ -1,3 +1,6 @@
+// Force dynamic rendering to avoid SSR issues with AuthProvider
+export const dynamic = 'force-dynamic'
+
 export default function Home() {
   return (
     <html>
@@ -36,7 +39,7 @@ export default function Home() {
             .spinner {
               width: 32px;
               height: 32px;
-              border: 2px solid #00FF99;
+              border: 2px solid #10B981;
               border-top: 2px solid transparent;
               border-radius: 50%;
               animation: spin 1s linear infinite;

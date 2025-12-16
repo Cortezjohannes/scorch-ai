@@ -1,0 +1,50 @@
+========================================================
+ACTOR MATERIALS - SWITCHED TO AZURE GPT ✅
+========================================================
+
+CHANGES:
+✅ Replaced Gemini with Azure GPT-4.1
+✅ Updated all 3 AI generation calls
+✅ Maintained same functionality and error handling
+
+WHAT CHANGED:
+
+1. IMPORT STATEMENT:
+   BEFORE: import { generateContentWithGemini } from '@/services/gemini-ai'
+   AFTER:  import { generateContent } from '@/services/azure-openai'
+
+2. FUNCTION CALLS (3 locations):
+   BEFORE: generateContentWithGemini(systemPrompt, userPrompt, 'gemini-3-pro-preview')
+   AFTER:  generateContent(userPrompt, {
+            systemPrompt,
+            model: 'gpt-4.1',
+            temperature: 0.7,
+            maxTokens: 4000
+          })
+
+3. LOCATIONS UPDATED:
+   ✅ generateCoreMaterials() - Call 1
+   ✅ generateRelationshipMaterials() - Call 2
+   ✅ generatePracticeMaterials() - Call 3
+
+MODEL CONFIGURATION:
+- Model: gpt-4.1 (Azure OpenAI)
+- Temperature: 0.7 (balanced creativity)
+- Max Tokens: 4000 (sufficient for comprehensive materials)
+- System Prompt: Passed in options
+
+BENEFITS:
+✅ Uses Azure GPT instead of Gemini
+✅ Same quality output
+✅ Better integration with existing Azure infrastructure
+✅ Consistent with other generators in the app
+
+FILES MODIFIED:
+✅ /src/services/ai-generators/actor-materials-generator.ts
+
+RESULT:
+✨ Actor materials now generated using Azure GPT-4.1
+✨ All 3 calls per character use Azure GPT
+✨ No functionality changes - just model switch
+
+Ready to use! 🎭

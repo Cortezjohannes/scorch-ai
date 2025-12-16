@@ -69,7 +69,16 @@ function buildUserPrompt(
   questionnaireAnswers?: Record<string, any>
 ): string {
   let prompt = `Generate a minimal equipment package for episode ${episodeTitle}.\n\n`
-  prompt += `Scenes: ${breakdownData.scenes.length}\n`
+  
+  // CORE story context
+  if (storyBible?.seriesOverview) {
+    prompt += `Series Overview: ${storyBible.seriesOverview}\n`
+  }
+  prompt += `Genre: ${storyBible?.genre || 'Drama'}\n`
+  if (storyBible?.worldBuilding?.setting) {
+    prompt += `World Setting: ${storyBible.worldBuilding.setting}\n`
+  }
+  prompt += `\nScenes: ${breakdownData.scenes.length}\n`
   const ints = breakdownData.scenes.filter(s => (s.location||'').includes('INT')).length
   const exts = breakdownData.scenes.length - ints
   const nights = breakdownData.scenes.filter(s => (s.timeOfDay||'').toUpperCase().includes('NIGHT')).length

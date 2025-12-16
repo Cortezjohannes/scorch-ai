@@ -155,3 +155,6 @@ grep -r "api[_-]?key" -i --include="*.yaml" --include="*.sh" --include="*.ts" .
 3. **Audit recent commits** to find when the secret was exposed
 4. **Update this guide** if a new exposure vector is discovered
 
+
+
+

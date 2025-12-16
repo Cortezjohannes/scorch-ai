@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Image as ImageIcon, Sparkles, RefreshCw, Download, Trash2, History, Settings } from 'lucide-react'
 import { characterVisualConsistency, VisualReference } from '@/services/character-visual-consistency'
-import { generateImage } from '@/services/ai-image-generator'
+import { generateImageWithStorage } from '@/services/image-generation-with-storage'
+import { dataUrlToBlobUrl, revokeBlobUrl, isDataUrl } from '@/utils/image-utils'
 
 // ============================================================================
 // TYPES
@@ -13,6 +14,7 @@ interface CharacterGalleryProps {
   characters: any[]
   onUpdateCharacter?: (characterName: string, visualData: any) => void
   readOnly?: boolean
+  userId?: string // Required for Firebase Storage upload
 }
 
 type ImageStyle = 'photorealistic' | 'anime' | 'comic' | 'painterly' | 'sketch'
@@ -24,7 +26,8 @@ type ImageStyle = 'photorealistic' | 'anime' | 'comic' | 'painterly' | 'sketch'
 export default function CharacterGallery({
   characters,
   onUpdateCharacter,
-  readOnly = false
+  readOnly = false,
+  userId
 }: CharacterGalleryProps) {
   const [selectedCharacter, setSelectedCharacter] = useState<any | null>(null)
   const [generatingFor, setGeneratingFor] = useState<string | null>(null)
@@ -37,6 +40,11 @@ export default function CharacterGallery({
   // ============================================================================
 
   const handleGenerateImage = async (character: any, style: ImageStyle) => {
+    if (!userId) {
+      alert('Please sign in to generate images')
+      return
+    }
+    
     setGeneratingFor(character.name)
 
     try {
@@ -49,34 +57,45 @@ export default function CharacterGallery({
 
       console.log('🎨 Generating image with prompt:', prompt)
 
-      // Generate image
-      const imageUrl = await generateImage(prompt, {
-        width: 512,
-        height: 512,
-        model: 'stable-diffusion'
+      // Generate image and upload to Firebase Storage
+      const result = await generateImageWithStorage(prompt, {
+        userId,
+        context: 'character',
+        aspectRatio: '1:1',
+        quality: 'standard',
+        style: 'natural'
       })
 
-      // Store visual reference
+      if (!result.success) {
+        throw new Error(result.error || 'Image generation failed')
+      }
+
+      // Store the Firebase Storage URL (persists across devices)
       characterVisualConsistency.storeVisualReference(
         character.name,
-        imageUrl,
+        result.imageUrl,
         prompt,
         style
       )
 
-      // Update character data
+      // Update character data with Storage URL
       if (onUpdateCharacter) {
         onUpdateCharacter(character.name, {
           visualReference: {
-            imageUrl,
+            imageUrl: result.imageUrl, // This is now a Firebase Storage URL
             style,
             prompt,
-            generatedAt: new Date()
+            generatedAt: new Date().toISOString(),
+            source: result.metadata?.model || 'gemini',
+            uploadedToStorage: result.uploadedToStorage
           }
         })
       }
 
-      console.log('✅ Image generated successfully')
+      console.log('✅ Image generated and saved to Firebase Storage:', {
+        uploadedToStorage: result.uploadedToStorage,
+        imageUrl: result.imageUrl.substring(0, 60) + '...'
+      })
     } catch (error) {
       console.error('Error generating image:', error)
       alert('Failed to generate image. Please try again.')
@@ -189,10 +208,9 @@ export default function CharacterGallery({
               {/* Image */}
               <div className="relative aspect-square bg-gray-900 flex items-center justify-center">
                 {visualRef?.imageUrl ? (
-                  <img
+                  <CharacterImage
                     src={visualRef.imageUrl}
                     alt={character.name}
-                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="text-center p-8">
@@ -310,6 +328,39 @@ export default function CharacterGallery({
   )
 }
 
+// Component to handle image display with blob URL conversion
+function CharacterImage({ src, alt }: { src: string; alt: string }) {
+  const [displayUrl, setDisplayUrl] = useState<string>(src);
+
+  useEffect(() => {
+    // Convert base64 data URL to blob URL for better performance
+    if (isDataUrl(src)) {
+      try {
+        const blobUrl = dataUrlToBlobUrl(src);
+        setDisplayUrl(blobUrl);
+        
+        // Cleanup blob URL on unmount
+        return () => {
+          revokeBlobUrl(blobUrl);
+        };
+      } catch (error) {
+        console.error('Failed to convert data URL to blob URL:', error);
+        setDisplayUrl(src); // Fallback to data URL
+      }
+    } else {
+      setDisplayUrl(src);
+    }
+  }, [src]);
+
+  return (
+    <img
+      src={displayUrl}
+      alt={alt}
+      className="w-full h-full object-cover"
+    />
+  );
+}
+
 // ============================================================================
 // HISTORY MODAL
 // ============================================================================
@@ -341,10 +392,9 @@ function HistoryModal({
             {history.map((ref) => (
               <div key={ref.version} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
                 <div className="aspect-square bg-gray-900">
-                  <img
+                  <CharacterImage
                     src={ref.imageUrl}
                     alt={`Version ${ref.version}`}
-                    className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="p-3">

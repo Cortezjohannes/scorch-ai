@@ -285,7 +285,7 @@ export default function PreProductionV2Page() {
       return (
       <div className="min-h-screen bg-[#1a1a1a] text-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#00FF99] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-lg">Generating comprehensive pre-production materials...</p>
           <p className="text-sm opacity-60 mt-2">This may take a few minutes</p>
             </div>
@@ -308,7 +308,7 @@ export default function PreProductionV2Page() {
           
           {!storyBible ? (
             <div className="opacity-70">
-              <div className="w-12 h-12 border-4 border-[#00FF99] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <div className="w-12 h-12 border-4 border-[#10B981] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p>Loading story bible...</p>
                               </div>
           ) : !hasEpisodes ? (
@@ -321,14 +321,14 @@ export default function PreProductionV2Page() {
               </p>
               <button
                 onClick={() => router.push('/workspace?tab=episodes')}
-                className="bg-[#00FF99] text-black px-6 py-3 rounded-lg font-medium hover:bg-[#00CC7A] transition-colors"
+                className="bg-[#10B981] text-black px-6 py-3 rounded-lg font-medium hover:bg-[#059669] transition-colors"
               >
                 Go to Workspace → Create Episodes
                         </button>
                       </div>
           ) : (
             <>
-              <div className="bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg p-6 mb-6">
+              <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg p-6 mb-6">
                 <p className="text-lg mb-2">
                   Ready to generate pre-production for <strong>{storyBible.seriesTitle || 'your series'}</strong>
                 </p>
@@ -341,7 +341,7 @@ export default function PreProductionV2Page() {
                   </div>
               <button
                 onClick={startV2Generation}
-                className="bg-[#00FF99] text-black px-8 py-4 rounded-lg font-medium text-lg hover:bg-[#00CC7A] transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+                className="bg-[#10B981] text-black px-8 py-4 rounded-lg font-medium text-lg hover:bg-[#059669] transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
               >
                 🎬 Start Generation
                       </button>

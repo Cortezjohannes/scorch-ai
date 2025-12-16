@@ -1,0 +1,39 @@
+========================================================
+REGENERATE BUTTON ADDED ✅
+========================================================
+
+LOCATION:
+✅ Actor Materials Viewer - Header section
+
+FEATURES:
+✅ Prominent "Regenerate" button with rotating icon
+✅ Located in top-right of materials viewer
+✅ Hover effect (scales to 105%)
+✅ Uses existing onRegenerate handler
+✅ Confirmation dialog asks before regenerating
+✅ Maintains current technique when regenerating
+✅ Beautiful UI with icon + text
+
+HEADER INFORMATION ADDED:
+✅ "Actor Preparation Materials" title
+✅ Arc title display
+✅ Character count
+✅ Current technique (if selected)
+
+HOW IT WORKS:
+1. User views generated materials
+2. Clicks "Regenerate" button in header
+3. Confirmation dialog appears: "This will replace existing materials. Continue?"
+4. If confirmed: Materials cleared and regeneration starts
+5. Loading modal shows with real-time progress
+6. New materials generated and displayed
+
+RESPONSIVE:
+✅ Header stacks vertically on mobile
+✅ Button remains accessible on all screen sizes
+✅ Text adapts to screen width
+
+FILE MODIFIED:
+✅ /src/components/actor-materials/ActorMaterialsViewer.tsx
+
+Ready to use! The regenerate button is now visible and functional. 🎭

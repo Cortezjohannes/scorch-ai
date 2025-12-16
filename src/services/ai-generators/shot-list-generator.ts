@@ -2,7 +2,7 @@
  * Shot List Generator - AI Service
  * Generates comprehensive production shot lists from script breakdown and storyboards
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for technical production planning
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for technical production planning
  * 
  * Standards:
  * - Generate technical shot specifications for on-set efficiency
@@ -32,11 +32,13 @@ interface StoryboardsData {
     sceneNumber: number
     sceneTitle: string
     frames: Array<{
+      id?: string
       shotNumber: string
       cameraAngle: string
       cameraMovement: string
       dialogueSnippet: string
       lightingNotes: string
+      frameImage?: string
     }>
   }>
 }
@@ -68,6 +70,15 @@ interface ShotFrame {
   priority: 'must-have' | 'nice-to-have' | 'optional'
   fpsCameraFrameRate?: number
   notes: string
+  actorInstructions?: string
+  cameraCrewInstructions?: string
+  lightingSetup?: string
+  audioRequirements?: string
+  continuityNotes?: string
+  blockingDescription?: string
+  storyboardFrameId?: string
+  setupGroup?: string
+  estimatedSetupTime?: number
 }
 
 /**
@@ -89,14 +100,30 @@ export async function generateShotList(params: ShotListGenerationParams): Promis
 
   try {
     console.log('🤖 Calling AI for shot list generation...')
-    const response = await EngineAIRouter.generateContent({
-      prompt: userPrompt,
-      systemPrompt: systemPrompt,
-      temperature: 0.7, // Lower temperature for technical precision
-      maxTokens: 12000, // Large enough for multiple scenes with detailed shots
-      engineId: 'shot-list-generator',
-      forceProvider: 'gemini' // Gemini excels at structured technical tasks
-    })
+    // Use Azure GPT-4.1 (better for long responses, no truncation)
+    // Falls back to Gemini if Azure fails
+    let response
+    try {
+      response = await EngineAIRouter.generateContent({
+        prompt: userPrompt,
+        systemPrompt: systemPrompt,
+        temperature: 0.7, // Lower temperature for technical precision
+        maxTokens: 12000, // Large enough for multiple scenes with detailed shots
+        engineId: 'shot-list-generator',
+        forceProvider: 'azure' // Azure GPT for longer responses without truncation
+      })
+    } catch (azureError) {
+      console.warn('⚠️ Azure GPT failed, falling back to Gemini:', azureError instanceof Error ? azureError.message : String(azureError))
+      // Fallback to Gemini if Azure fails
+      response = await EngineAIRouter.generateContent({
+        prompt: userPrompt,
+        systemPrompt: systemPrompt,
+        temperature: 0.7,
+        maxTokens: 12000,
+        engineId: 'shot-list-generator',
+        forceProvider: 'gemini' // Gemini fallback
+      })
+    }
 
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
 
@@ -121,16 +148,15 @@ export async function generateShotList(params: ShotListGenerationParams): Promis
  * Build system prompt for shot list generation
  */
 function buildSystemPrompt(): string {
-  return `You are a professional production coordinator and camera technician working on a micro-budget web series.
-Your job is to create detailed shot lists that provide technical specifications for on-set execution, focusing on camera specs, duration estimates, and production efficiency.
+  return `You are a professional production coordinator and 1st AD working on a micro-budget 5-minute web series.
+Your job is to create a production-focused shot list that explains HOW to shoot each beat: camera setup, actor direction, lighting/audio needs, continuity, and efficiency (minimal company moves).
 
 **CRITICAL RULES:**
 
-1. **TECHNICAL FOCUS (NOT VISUAL)**
-   - Shot lists are PRODUCTION EXECUTION PLANS, not visual/creative descriptions
-   - Focus on camera specs (lens, frame rate, duration) rather than visual composition
-   - Prioritize on-set efficiency over creative storytelling
-   - This is for the camera team and AD, not the director/cinematographer
+1. **EXECUTION FOCUS (NOT STORYBOARD DUPLICATION)**
+   - Storyboards = WHAT to show (creative). Shot list = HOW to shoot it (execution).
+   - Include instructions for camera crew, actors, lighting, and sound.
+   - Keep descriptions concise but actionable; avoid repeating storyboard prose.
 
 2. **SHOT BREAKDOWN**
    - If storyboards exist, use them as reference for shot count and camera angles
@@ -138,6 +164,7 @@ Your job is to create detailed shot lists that provide technical specifications 
    - Analyze each scene to determine appropriate shot breakdown
    - Consider dialogue, action, and production efficiency
    - Vary shot counts per scene (simple: 2-3, medium: 4-5, complex: 6-8 shots)
+   - 5-minute episode constraint: keep setups lean and reduce unnecessary coverage
 
 3. **CAMERA SPECIFICATIONS**
    - **Camera Angle**: wide, medium, close-up, extreme-close-up, over-shoulder, pov, dutch
@@ -162,15 +189,25 @@ Your job is to create detailed shot lists that provide technical specifications 
    - Base estimates on dialogue length and action complexity
 
 6. **PRODUCTION EFFICIENCY**
-   - Group similar camera setups together
+   - Group similar camera setups together using setupGroup labels
+   - Provide estimatedSetupTime (minutes) for each shot/setup
    - Note special equipment requirements (stabilizer, lights, etc.)
    - Consider micro-budget constraints (equipment availability)
    - Keep descriptions concise and production-focused
 
-7. **OUTPUT FORMAT**
+7. **DEPARTMENT NOTES PER SHOT**
+   - actorInstructions: performance, blocking, emotional beat, eyelines
+   - cameraCrewInstructions: setup, focus marks, coverage intent, critical continuity
+   - lightingSetup: key/fill/rim, motivation, fixtures or practicals
+   - audioRequirements: lav/boom needs, wild lines, ambience to capture
+   - continuityNotes: wardrobe/props/positions that must match
+   - blockingDescription: text layout of actor positions/moves
+   - storyboardFrameId: link the referenced storyboard frame (if provided)
+
+8. **OUTPUT FORMAT**
    - Valid JSON only
    - No markdown, no code blocks, no explanations outside the JSON
-   - Structure: { scenes: [ { sceneNumber, sceneTitle, location, shots: [ { shotNumber, description, cameraAngle, cameraMovement, lensRecommendation, durationEstimate, priority, fpsCameraFrameRate, notes } ] } ] }
+   - Structure: { scenes: [ { sceneNumber, sceneTitle, location, shots: [ { shotNumber, description, cameraAngle, cameraMovement, lensRecommendation, durationEstimate, priority, fpsCameraFrameRate, notes, actorInstructions, cameraCrewInstructions, lightingSetup, audioRequirements, continuityNotes, blockingDescription, storyboardFrameId, setupGroup, estimatedSetupTime } ] } ] }
    - Ensure all fields are populated realistically
 `
 }
@@ -187,12 +224,50 @@ function buildUserPrompt(
 ): string {
   let prompt = `Generate comprehensive production shot list for Episode "${episodeTitle}" of the series "${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}".\n\n`
 
-  // Story context
+  // Story context (CORE DATA)
   prompt += `**STORY CONTEXT:**\n`
+  if (storyBible?.seriesOverview) {
+    prompt += `Series Overview: ${storyBible.seriesOverview}\n\n`
+  }
   prompt += `Series Genre: ${storyBible?.genre || 'Drama'}\n`
   prompt += `Series Tone: ${storyBible?.tone || 'Realistic'}\n`
   prompt += `Production Model: Micro-budget web series ($1k-$20k total series budget)\n`
   prompt += `\n`
+  
+  // Add technical tabs for better shot planning
+  if (storyBible?.genreEnhancement) {
+    prompt += `**GENRE & VISUAL STYLE:**\n`
+    const genre = storyBible.genreEnhancement
+    if (genre.rawContent) {
+      prompt += `${genre.rawContent.substring(0, 350)}\n\n`
+    } else {
+      if (genre.visualStyle) prompt += `Visual Style: ${genre.visualStyle}\n`
+      if (genre.pacing) prompt += `Pacing: ${genre.pacing}\n\n`
+    }
+  }
+  
+  if (storyBible?.tensionStrategy) {
+    prompt += `**TENSION/PACING (affects shot duration and intensity):**\n`
+    const tension = storyBible.tensionStrategy
+    if (tension.rawContent) {
+      prompt += `${tension.rawContent.substring(0, 250)}\n\n`
+    } else {
+      if (tension.escalationTechniques) prompt += `Escalation: ${tension.escalationTechniques}\n\n`
+    }
+  }
+  
+  if (storyBible?.worldBuilding) {
+    prompt += `**WORLD/SETTING (for location context):**\n`
+    if (typeof storyBible.worldBuilding === 'string') {
+      prompt += `${storyBible.worldBuilding.substring(0, 300)}\n\n`
+    } else {
+      if (storyBible.worldBuilding.setting) prompt += `Setting: ${storyBible.worldBuilding.setting}\n`
+      if (storyBible.worldBuilding.rules) {
+        prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules.substring(0, 200) : ''}\n`
+      }
+      prompt += `\n`
+    }
+  }
 
   // Episode context
   prompt += `**EPISODE:** ${episodeTitle}\n`
@@ -207,12 +282,12 @@ function buildUserPrompt(
       prompt += `Scene ${scene.sceneNumber}: ${scene.sceneTitle}\n`
       prompt += `  Total Shots: ${scene.frames.length}\n`
       scene.frames.forEach(frame => {
-        prompt += `  Shot ${frame.shotNumber}: ${frame.cameraAngle} ${frame.cameraMovement}, ${frame.dialogueSnippet ? 'Dialogue: ' + frame.dialogueSnippet.substring(0, 50) + '...' : 'No dialogue'}\n`
+        prompt += `  Shot ${frame.shotNumber}: ${frame.cameraAngle} ${frame.cameraMovement}, ${frame.dialogueSnippet ? 'Dialogue: ' + frame.dialogueSnippet.substring(0, 50) + '...' : 'No dialogue'}${frame.id ? ` (frameId: ${frame.id})` : ''}\n`
       })
       prompt += `\n`
     })
     prompt += `**IMPORTANT:** Use storyboard shots as reference - generate technical shot list that reflects these shots.\n`
-    prompt += `Focus on camera specs (lens, frame rate, duration) rather than visual descriptions.\n\n`
+    prompt += `Focus on camera specs (lens, frame rate, duration) and execution instructions (actors/camera/lighting/audio/continuity). Do NOT repeat storyboard prose.\n\n`
   } else {
     prompt += `**NOTE:** No storyboards available - generate shot list directly from script breakdown.\n\n`
   }
@@ -275,14 +350,23 @@ function buildUserPrompt(
   
   prompt += `For each shot, provide:\n`
   prompt += `- shotNumber: Sequential shot number within the scene (e.g., "1", "2", "3" or "1A", "1B" for variations)\n`
-  prompt += `- description: Brief production-focused description (what happens, not visual composition)\n`
+  prompt += `- description: Brief production-focused description (what is covered in this shot)\n`
   prompt += `- cameraAngle: Camera angle type (wide, medium, close-up, extreme-close-up, over-shoulder, pov, dutch)\n`
   prompt += `- cameraMovement: Camera movement type (static, pan, tilt, dolly, tracking, handheld, steadicam, crane)\n`
   prompt += `- lensRecommendation: Recommended lens (e.g., "24mm", "50mm", "85mm", "24-70mm")\n`
   prompt += `- durationEstimate: Estimated shot duration in seconds (based on dialogue length and action)\n`
   prompt += `- priority: Shot priority (must-have, nice-to-have, optional)\n`
   prompt += `- fpsCameraFrameRate: Frame rate if different from 24fps (e.g., 60 for slow-mo, omit if 24fps)\n`
-  prompt += `- notes: Production notes (equipment needs, special considerations, etc.)\n\n`
+  prompt += `- notes: Production notes (equipment needs, special considerations, etc.)\n`
+  prompt += `- actorInstructions: Performance notes, blocking, emotional beat, eyelines\n`
+  prompt += `- cameraCrewInstructions: Setup details for camera team, focus marks, coverage intent\n`
+  prompt += `- lightingSetup: Key/fill/rim, motivation, fixtures or practicals\n`
+  prompt += `- audioRequirements: Lav/boom needs, dialogue cues, ambience to capture\n`
+  prompt += `- continuityNotes: Wardrobe/props/positions to match\n`
+  prompt += `- blockingDescription: Text layout of actor positions/movement\n`
+  prompt += `- storyboardFrameId: ID of referenced storyboard frame when provided\n`
+  prompt += `- setupGroup: Label for batching similar setups (e.g., "INT Loft - 50mm Static")\n`
+  prompt += `- estimatedSetupTime: Minutes to prep this shot/setup\n\n`
 
   prompt += `**OUTPUT FORMAT:**\n\n`
   prompt += `Provide ONLY valid JSON with this structure:\n\n`
@@ -302,7 +386,16 @@ function buildUserPrompt(
   prompt += `          "durationEstimate": 3,\n`
   prompt += `          "priority": "must-have",\n`
   prompt += `          "fpsCameraFrameRate": 24,\n`
-  prompt += `          "notes": "Establish location, static shot"\n`
+  prompt += `          "notes": "Establish location, static shot",\n`
+  prompt += `          "actorInstructions": "Actors enter frame and hold for beat",\n`
+  prompt += `          "cameraCrewInstructions": "Static on sticks, lock exposure for windows",\n`
+  prompt += `          "lightingSetup": "Practical lamps + soft key from camera left",\n`
+  prompt += `          "audioRequirements": "Room tone capture",\n`
+  prompt += `          "continuityNotes": "Lamp on, curtains half open",\n`
+  prompt += `          "blockingDescription": "Jason at window, Sarah crosses behind sofa",\n`
+  prompt += `          "storyboardFrameId": "frame_1",\n`
+  prompt += `          "setupGroup": "INT PENTHOUSE - Wide 24mm Static",\n`
+  prompt += `          "estimatedSetupTime": 5\n`
   prompt += `        },\n`
   prompt += `        {\n`
   prompt += `          "shotNumber": "2",\n`
@@ -312,7 +405,16 @@ function buildUserPrompt(
   prompt += `          "lensRecommendation": "50mm",\n`
   prompt += `          "durationEstimate": 8,\n`
   prompt += `          "priority": "must-have",\n`
-  prompt += `          "notes": "Key dialogue shot, static medium"\n`
+  prompt += `          "notes": "Key dialogue shot, static medium",\n`
+  prompt += `          "actorInstructions": "Jason turns from window, delivers line to Sarah",\n`
+  prompt += `          "cameraCrewInstructions": "50mm on sticks, eye-level, keep window highlights controlled",\n`
+  prompt += `          "lightingSetup": "Soft key camera right, negative fill on left",\n`
+  prompt += `          "audioRequirements": "Boom preferred, lav backup",\n`
+  prompt += `          "continuityNotes": "Glass in right hand",\n`
+  prompt += `          "blockingDescription": "Jason pivots toward Sarah, holds eyeline to her mark",\n`
+  prompt += `          "storyboardFrameId": "frame_2",\n`
+  prompt += `          "setupGroup": "INT PENTHOUSE - 50mm Static",\n`
+  prompt += `          "estimatedSetupTime": 4\n`
   prompt += `        }\n`
   prompt += `      ]\n`
   prompt += `    }\n`
@@ -323,9 +425,9 @@ function buildUserPrompt(
   prompt += `- Output ONLY valid JSON (no markdown, no code blocks, no explanation)\n`
   prompt += `- Generate shot list for ALL scenes listed above\n`
   prompt += `- Vary shot counts per scene based on complexity (2-8 shots per scene)\n`
-  prompt += `- Focus on technical specs (lens, frame rate, duration) not visual descriptions\n`
+  prompt += `- Focus on execution: camera specs + department instructions (actors, camera, lighting, audio, continuity)\n`
   prompt += `- Assign priorities realistically (must-have for critical story beats)\n`
-  prompt += `- Consider micro-budget constraints (prefer simpler camera setups)\n`
+  prompt += `- Consider micro-budget and 5-minute runtime constraints (lean setups)\n`
   prompt += `- All fields must be populated realistically\n`
 
   return prompt
@@ -341,15 +443,166 @@ function parseShotList(
   episodeTitle: string,
   userId: string
 ): ShotListData {
-  try {
-    let cleaned = aiResponse.trim()
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '')
-    } else if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '')
-    }
+  console.log('📊 Parsing shot list data...')
+  console.log('   Raw response length:', aiResponse.length)
+  console.log('   Raw response (first 300 chars):', aiResponse.substring(0, 300))
 
-    const parsed = JSON.parse(cleaned)
+  // Use the robust JSON parser which handles markdown, extra text, malformed JSON, etc.
+  // The cleanAndParseJSON utility will handle all the cleaning and parsing strategies
+
+  // Helper function to try to complete incomplete JSON
+  function tryCompleteIncompleteJSON(jsonStr: string): string {
+    // Count open/close braces and brackets to detect incomplete JSON
+    let openBraces = 0
+    let openBrackets = 0
+    let inString = false
+    let escapeNext = false
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i]
+      
+      if (escapeNext) {
+        escapeNext = false
+        continue
+      }
+      
+      if (char === '\\') {
+        escapeNext = true
+        continue
+      }
+      
+      if (char === '"') {
+        inString = !inString
+        continue
+      }
+      
+      if (inString) continue
+      
+      if (char === '{') openBraces++
+      if (char === '}') openBraces--
+      if (char === '[') openBrackets++
+      if (char === ']') openBrackets--
+    }
+    
+    // If we're in a string at the end, close it
+    if (inString) {
+      // Find the last unclosed string (look for ": " pattern)
+      const lastStringMatch = jsonStr.match(/("(?:sceneTitle|location|description|notes|actorInstructions|cameraCrewInstructions|lightingSetup|audioRequirements|continuityNotes|blockingDescription|setupGroup)"\s*:\s*")([^"]*)$/)
+      if (lastStringMatch) {
+        jsonStr += '"'
+      }
+    }
+    
+    // Close incomplete objects/arrays
+    while (openBraces > 0) {
+      // Before closing, check if we need to close any incomplete arrays or strings
+      if (jsonStr.match(/,\s*$/)) {
+        jsonStr = jsonStr.replace(/,\s*$/, '')
+      }
+      jsonStr += '}'
+      openBraces--
+    }
+    
+    while (openBrackets > 0) {
+      if (jsonStr.match(/,\s*$/)) {
+        jsonStr = jsonStr.replace(/,\s*$/, '')
+      }
+      jsonStr += ']'
+      openBrackets--
+    }
+    
+    // Remove trailing commas before closing brackets/braces
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1')
+    
+    return jsonStr
+  }
+
+  try {
+    let parsed
+    try {
+      // Use the robust JSON parser from json-utils
+      const { cleanAndParseJSON } = require('@/lib/json-utils')
+      parsed = cleanAndParseJSON(aiResponse)
+      console.log('✅ Successfully parsed JSON using robust parser')
+    } catch (parseError: any) {
+      // If robust parser fails, try to complete incomplete JSON
+      console.error('❌ JSON parse error with robust parser:', parseError.message)
+      console.error('   Raw response (first 500 chars):', aiResponse.substring(0, 500))
+      
+      // Clean response for fallback attempts
+      let cleaned = aiResponse.trim()
+      
+      // Extract JSON from markdown code blocks
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.replace(/^```json\n?/, '').replace(/\n?```$/, '')
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```\n?/, '').replace(/\n?```$/, '')
+      }
+      
+      // Extract JSON object if wrapped in other text
+      const objectMatch = cleaned.match(/\{[\s\S]*\}/)
+      if (objectMatch) {
+        cleaned = objectMatch[0]
+      }
+      const errorPos = parseError.message.match(/position (\d+)/)?.[1]
+      if (errorPos) {
+        const pos = parseInt(errorPos)
+        console.error('   Error position:', pos)
+        const contextStart = Math.max(0, pos - 100)
+        const contextEnd = Math.min(cleaned.length, pos + 100)
+        console.error('   Context around error:', cleaned.substring(contextStart, contextEnd))
+      }
+      
+      // Try to complete incomplete JSON
+      try {
+        const completedJSON = tryCompleteIncompleteJSON(cleaned)
+        parsed = JSON.parse(completedJSON)
+        console.log('✅ Recovered JSON by completing incomplete structure')
+      } catch (completionError) {
+        // If completion fails, try to extract valid scenes from partial JSON
+        console.warn('⚠️ Could not complete JSON, trying to extract valid scenes...')
+        
+        // Try to find and parse individual scene objects
+        const sceneMatches = cleaned.match(/\{[^{}]*"sceneNumber"\s*:\s*\d+[^{}]*\}/g)
+        if (sceneMatches && sceneMatches.length > 0) {
+          const validScenes: any[] = []
+          for (const sceneMatch of sceneMatches) {
+            try {
+              // Try to complete this individual scene object
+              const completedScene = tryCompleteIncompleteJSON(sceneMatch)
+              const parsedScene = JSON.parse(completedScene)
+              if (parsedScene.sceneNumber) {
+                validScenes.push(parsedScene)
+              }
+            } catch (e) {
+              // Skip invalid scenes
+              console.warn(`⚠️ Skipping invalid scene: ${sceneMatch.substring(0, 50)}...`)
+            }
+          }
+          
+          if (validScenes.length > 0) {
+            parsed = { scenes: validScenes }
+            console.log(`✅ Recovered ${validScenes.length} valid scenes from partial JSON`)
+          } else {
+            throw new Error(`Failed to parse JSON even after recovery attempts: ${parseError.message}. First 500 chars: ${aiResponse.substring(0, 500)}`)
+          }
+        } else {
+          // Last resort: try to extract JSON object
+          const objectMatch = cleaned.match(/\{[\s\S]*\}/)
+          if (objectMatch) {
+            try {
+              const completedObject = tryCompleteIncompleteJSON(objectMatch[0])
+              parsed = JSON.parse(completedObject)
+              console.log('✅ Recovered JSON by extracting and completing object')
+            } catch (recoveryError) {
+              throw new Error(`Failed to parse JSON even after recovery attempts: ${parseError.message}. First 500 chars: ${aiResponse.substring(0, 500)}`)
+            }
+          } else {
+            throw new Error(`Failed to parse JSON: ${parseError.message}. First 500 chars: ${aiResponse.substring(0, 500)}`)
+          }
+        }
+      }
+    }
 
     if (!parsed.scenes || !Array.isArray(parsed.scenes)) {
       throw new Error('Invalid AI response structure: expected scenes array')
@@ -373,6 +626,15 @@ function parseShotList(
             priority: shot.priority || 'must-have',
             fpsCameraFrameRate: shot.fpsCameraFrameRate || undefined,
             notes: shot.notes || '',
+            actorInstructions: shot.actorInstructions || '',
+            cameraCrewInstructions: shot.cameraCrewInstructions || '',
+            lightingSetup: shot.lightingSetup || '',
+            audioRequirements: shot.audioRequirements || '',
+            continuityNotes: shot.continuityNotes || '',
+            blockingDescription: shot.blockingDescription || '',
+            storyboardFrameId: shot.storyboardFrameId || undefined,
+            setupGroup: shot.setupGroup || '',
+            estimatedSetupTime: shot.estimatedSetupTime || 0,
             status: 'planned',
             comments: []
           }))

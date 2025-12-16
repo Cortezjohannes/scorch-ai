@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 
 export default function GreenlitOption2() {
   const [isLoaded, setIsLoaded] = useState(false)
@@ -16,7 +16,7 @@ export default function GreenlitOption2() {
         @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700;800;900&display=swap');
         
         .fire-gradient {
-          background: linear-gradient(135deg, #ffffff 0%, #00FF99 50%, #ffffff 100%);
+          background: linear-gradient(135deg, #ffffff 0%, #10B981 50%, #ffffff 100%);
           background-size: 400% 400%;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -34,7 +34,7 @@ export default function GreenlitOption2() {
         }
         
         .burn-button {
-          background: linear-gradient(135deg, #00FF99 0%, #00CC7A 100%);
+          background: linear-gradient(135deg, #10B981 0%, #059669 100%);
           transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
@@ -63,7 +63,7 @@ export default function GreenlitOption2() {
 
         
         .text-fire {
-          background: linear-gradient(135deg, #ffffff 0%, #00FF99 50%, #ffffff 100%);
+          background: linear-gradient(135deg, #ffffff 0%, #10B981 50%, #ffffff 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -77,7 +77,7 @@ export default function GreenlitOption2() {
         }
         
         .rebellious-card:hover {
-          border-color: #00FF99;
+          border-color: #10B981;
           box-shadow: 0 8px 25px rgba(0, 255, 153, 0.15);
           transform: translateY(-3px);
         }
@@ -127,9 +127,9 @@ export default function GreenlitOption2() {
                 <h1 className="text-3xl font-black elegant-fire fire-gradient">Greenlit</h1>
               </div>
               <div className="hidden md:flex items-center space-x-8">
-                <a href="#burn" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Platform</a>
-                <a href="#launch" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Platform</a>
-                <a href="#rebels" className="text-gray-300 hover:text-[#00FF99] transition-colors font-semibold">Founders</a>
+                <a href="#burn" className="text-gray-300 hover:text-[#10B981] transition-colors font-semibold">Platform</a>
+                <a href="#launch" className="text-gray-300 hover:text-[#10B981] transition-colors font-semibold">Platform</a>
+                <a href="#rebels" className="text-gray-300 hover:text-[#10B981] transition-colors font-semibold">Founders</a>
                 <button className="burn-button text-black font-bold px-6 py-2 rounded-lg">
                   Join the Platform
                 </button>
@@ -153,7 +153,7 @@ export default function GreenlitOption2() {
               
               <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight">
                 BUILD YOUR OWN.<br />
-                <span className="text-[#00FF99] flame-text">LAUNCH YOUR SERIES.</span>
+                <span className="text-[#10B981] flame-text">LAUNCH YOUR SERIES.</span>
               </h2>
               
               <p className="text-2xl md:text-3xl text-gray-300 mb-6 max-w-4xl mx-auto leading-relaxed">
@@ -168,7 +168,7 @@ export default function GreenlitOption2() {
                 <button className="burn-button text-black text-xl font-bold px-12 py-4 rounded-lg">
                   Launch Your Series
                 </button>
-                <button className="border-2 border-[#00FF99] text-[#00FF99] text-xl font-semibold px-12 py-4 rounded-lg hover:bg-[#00FF99] hover:text-black transition-all duration-300">
+                <button className="border-2 border-[#10B981] text-[#10B981] text-xl font-semibold px-12 py-4 rounded-lg hover:bg-[#10B981] hover:text-black transition-all duration-300">
                   Watch the Demo
                 </button>
               </div>
@@ -233,7 +233,7 @@ export default function GreenlitOption2() {
                   problem: "Ownership for most actors",
                   description: "They own your story. You become a hired hand on your own creation.",
                   icon: "⛓️",
-                  color: "#00FF99"
+                  color: "#10B981"
                 }
               ].map((problem, index) => (
                 <motion.div 
@@ -275,7 +275,7 @@ export default function GreenlitOption2() {
                 WE GIVE YOU THE TOOLS
               </h3>
               <p className="text-3xl text-white mb-16 max-w-5xl mx-auto leading-relaxed font-semibold">
-                <span className="text-[#00FF99]">Greenlit</span> is your solution. 
+                <span className="text-[#10B981]">Greenlit</span> is your solution. 
                 Create, control, and distribute <span className="text-fire">without permission</span>.
               </p>
             </motion.div>
@@ -289,10 +289,10 @@ export default function GreenlitOption2() {
               >
                 <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">🎬 Create Your Vision</h4>
                 <ul className="space-y-4 text-lg text-gray-300">
-                  <li>• <span className="text-[#00FF99] font-semibold">AI showrunner</span> generates episodes in minutes</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">Full creative control</span> over every story beat</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">Professional scripts</span>, storyboards, production guides</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">No committees</span>, no compromise, no gatekeepers</li>
+                  <li>• <span className="text-[#10B981] font-semibold">AI showrunner</span> generates episodes in minutes</li>
+                  <li>• <span className="text-[#10B981] font-semibold">Full creative control</span> over every story beat</li>
+                  <li>• <span className="text-[#10B981] font-semibold">Professional scripts</span>, storyboards, production guides</li>
+                  <li>• <span className="text-[#10B981] font-semibold">No committees</span>, no compromise, no gatekeepers</li>
                 </ul>
               </motion.div>
               
@@ -304,10 +304,10 @@ export default function GreenlitOption2() {
               >
                 <h4 className="elegant-fire text-3xl font-bold mb-6 fire-gradient">⚡ Build Your Series</h4>
                 <ul className="space-y-4 text-lg text-gray-300">
-                  <li>• <span className="text-[#00FF99] font-semibold">60% ownership</span> of all your content</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">Direct-to-audience</span> distribution</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">Fan monetization</span> from day 1</li>
-                  <li>• <span className="text-[#00FF99] font-semibold">From idea to screen</span> in hours, not years</li>
+                  <li>• <span className="text-[#10B981] font-semibold">60% ownership</span> of all your content</li>
+                  <li>• <span className="text-[#10B981] font-semibold">Direct-to-audience</span> distribution</li>
+                  <li>• <span className="text-[#10B981] font-semibold">Fan monetization</span> from day 1</li>
+                  <li>• <span className="text-[#10B981] font-semibold">From idea to screen</span> in hours, not years</li>
                 </ul>
               </motion.div>
             </div>
@@ -331,10 +331,10 @@ export default function GreenlitOption2() {
             
             <div className="grid lg:grid-cols-4 gap-8">
               {[
-                { step: "01", title: "Spark", desc: "Drop your idea into the platform", time: "45 min", icon: "💡", color: "#00FF99" },
+                { step: "01", title: "Spark", desc: "Drop your idea into the platform", time: "45 min", icon: "💡", color: "#10B981" },
                 { step: "02", title: "Ignite", desc: "AI generates your series bible", time: "Real-time", icon: "🔥", color: "#FF6B00" },
                 { step: "03", title: "Blaze", desc: "Produce episodes with AI", time: "1-2 hours", icon: "🎬", color: "#D62828" },
-                { step: "04", title: "Launch", desc: "Distribute to your audience", time: "Instant", icon: "🚀", color: "#00FF99" }
+                { step: "04", title: "Launch", desc: "Distribute to your audience", time: "Instant", icon: "🚀", color: "#10B981" }
               ].map((step, index) => (
                 <motion.div 
                   key={index}
@@ -349,11 +349,11 @@ export default function GreenlitOption2() {
                     </div>
                     <div className="elegant-fire text-lg font-bold mb-2" style={{ color: step.color }}>{step.step}</div>
                     <h4 className="elegant-fire text-2xl font-bold mb-4 text-white">{step.title}</h4>
-                    <div className="text-[#00FF99] font-semibold mb-4">({step.time})</div>
+                    <div className="text-[#10B981] font-semibold mb-4">({step.time})</div>
                     <p className="text-gray-300 leading-relaxed">{step.desc}</p>
                   </div>
                   {index < 3 && (
-                    <div className="hidden lg:block absolute top-1/2 -right-4 text-[#00FF99] text-3xl transform -translate-y-1/2">
+                    <div className="hidden lg:block absolute top-1/2 -right-4 text-[#10B981] text-3xl transform -translate-y-1/2">
                       →
                     </div>
                   )}
@@ -393,14 +393,14 @@ export default function GreenlitOption2() {
                   </div>
                   <div>
                     <h4 className="elegant-fire text-2xl font-bold fire-gradient">Maty Luarca</h4>
-                    <div className="text-[#00FF99] font-semibold">Co-Founder & Actress</div>
+                    <div className="text-[#10B981] font-semibold">Co-Founder & Actress</div>
                   </div>
                 </div>
                 <div className="space-y-3 text-gray-300">
-                  <div>• <span className="text-[#00FF99] font-semibold">Star Magic Meisner</span> Program Graduate</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">Multiple Theatre</span> Organizations</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">Content Creator</span> & Brand Model</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">Experienced</span> industry challenges firsthand</div>
+                  <div>• <span className="text-[#10B981] font-semibold">Star Magic Meisner</span> Program Graduate</div>
+                  <div>• <span className="text-[#10B981] font-semibold">Multiple Theatre</span> Organizations</div>
+                  <div>• <span className="text-[#10B981] font-semibold">Content Creator</span> & Brand Model</div>
+                  <div>• <span className="text-[#10B981] font-semibold">Experienced</span> industry challenges firsthand</div>
                 </div>
               </motion.div>
 
@@ -416,14 +416,14 @@ export default function GreenlitOption2() {
                   </div>
                   <div>
                     <h4 className="elegant-fire text-2xl font-bold fire-gradient">Johannes Cortez</h4>
-                    <div className="text-[#00FF99] font-semibold">CEO & Technical Co-Founder</div>
+                    <div className="text-[#10B981] font-semibold">CEO & Technical Co-Founder</div>
                   </div>
                 </div>
                 <div className="space-y-3 text-gray-300">
-                  <div>• <span className="text-[#00FF99] font-semibold">6 years building</span> tech startups</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">2 venture-backed</span> startups</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">Helped 80k+ gamers</span> earn globally</div>
-                  <div>• <span className="text-[#00FF99] font-semibold">On a mission</span> to redistribute power</div>
+                  <div>• <span className="text-[#10B981] font-semibold">6 years building</span> tech startups</div>
+                  <div>• <span className="text-[#10B981] font-semibold">2 venture-backed</span> startups</div>
+                  <div>• <span className="text-[#10B981] font-semibold">Helped 80k+ gamers</span> earn globally</div>
+                  <div>• <span className="text-[#10B981] font-semibold">On a mission</span> to redistribute power</div>
                 </div>
               </motion.div>
             </div>
@@ -446,7 +446,7 @@ export default function GreenlitOption2() {
               Stop waiting for permission. 
             </p>
             <p className="text-4xl mb-16 leading-relaxed font-bold">
-              <span className="text-[#00FF99] flame-text">Start your series today.</span>
+              <span className="text-[#10B981] flame-text">Start your series today.</span>
             </p>
             
             <div className="flex flex-col sm:flex-row gap-10 justify-center items-center">
@@ -472,12 +472,12 @@ export default function GreenlitOption2() {
             </div>
             <p className="text-gray-500 mb-8 text-lg">Build Your Own. Launch Your Series.</p>
             <div className="flex justify-center space-x-8 text-gray-400">
-              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Platform</a>
-              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Platform</a>
-              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Founders</a>
-              <a href="#" className="hover:text-[#00FF99] transition-colors font-medium">Contact</a>
+              <a href="#" className="hover:text-[#10B981] transition-colors font-medium">Platform</a>
+              <a href="#" className="hover:text-[#10B981] transition-colors font-medium">Platform</a>
+              <a href="#" className="hover:text-[#10B981] transition-colors font-medium">Founders</a>
+              <a href="#" className="hover:text-[#10B981] transition-colors font-medium">Contact</a>
             </div>
-            <div className="border-t border-[#00FF99]/30 mt-8 pt-8 text-gray-500">
+            <div className="border-t border-[#10B981]/30 mt-8 pt-8 text-gray-500">
               <p>&copy; 2024 Greenlit. Empowering actors to create their own content.</p>
             </div>
           </div>

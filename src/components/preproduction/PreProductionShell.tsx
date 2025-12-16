@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import type { PreProductionData } from '@/types/preproduction'
 import { subscribeToPreProduction, updatePreProduction } from '@/services/preproduction-firestore'
 import { ExportToolbar } from './shared/ExportToolbar'
@@ -10,7 +11,8 @@ import { ExportToolbar } from './shared/ExportToolbar'
 // Tab Components - All 12 Production Tabs
 import { ScriptsTab } from './tabs/ScriptsTab'
 import { ScriptBreakdownTab } from './tabs/ScriptBreakdownTab'
-import { ShootingScheduleTab } from './tabs/ShootingScheduleTab'
+import { ScriptAnalysisTab } from './tabs/ScriptAnalysisTab'
+import { ScheduleRehearsalTab } from './tabs/ScheduleRehearsalTab'
 import { ShotListTab } from './tabs/ShotListTab'
 import { BudgetTrackerTab } from './tabs/BudgetTrackerTab'
 import { LocationsTab } from './tabs/LocationsTab'
@@ -19,11 +21,12 @@ import { EquipmentTab } from './tabs/EquipmentTab'
 import { CastingTab } from './tabs/CastingTab'
 import { StoryboardsTab } from './tabs/StoryboardsTab'
 import { PermitsTab } from './tabs/PermitsTab'
-import { RehearsalTab } from './tabs/RehearsalTab'
+// RehearsalTab merged into ScheduleRehearsalTab (single combined tab)
 
 type TabType = 
   | 'scripts'
   | 'breakdown'
+  | 'analysis'
   | 'schedule'
   | 'shotlist'
   | 'budget'
@@ -33,11 +36,11 @@ type TabType =
   | 'casting'
   | 'storyboards'
   | 'permits'
-  | 'rehearsal'
 
 const TABS = [
   { id: 'scripts', label: 'Scripts', icon: '📝', description: 'Formatted screenplay' },
   { id: 'breakdown', label: 'Script Breakdown', icon: '📋', description: 'Scene analysis' },
+  { id: 'analysis', label: 'Script Analysis', icon: '🧠', description: 'Story insights' },
   { id: 'schedule', label: 'Schedule', icon: '📅', description: 'Shoot timeline' },
   { id: 'shotlist', label: 'Shot List', icon: '🎬', description: 'Camera shots' },
   { id: 'budget', label: 'Budget', icon: '💰', description: 'Cost tracking' },
@@ -46,8 +49,7 @@ const TABS = [
   { id: 'equipment', label: 'Equipment', icon: '🎥', description: 'Gear checklist' },
   { id: 'casting', label: 'Casting', icon: '🎭', description: 'Actor info' },
   { id: 'storyboards', label: 'Storyboards', icon: '🖼️', description: 'Visual plan' },
-  { id: 'permits', label: 'Permits', icon: '📄', description: 'Legal docs' },
-  { id: 'rehearsal', label: 'Rehearsal', icon: '🎪', description: 'Practice schedule' }
+  { id: 'permits', label: 'Permits', icon: '📄', description: 'Legal docs' }
 ] as const
 
 interface PreProductionShellProps {
@@ -59,6 +61,8 @@ interface PreProductionShellProps {
 
 export function PreProductionShell({ preProductionId, userId, storyBibleId, onBack }: PreProductionShellProps) {
   const { user } = useAuth()
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
   const [activeTab, setActiveTab] = useState<TabType>('scripts')
   const [preProductionData, setPreProductionData] = useState<PreProductionData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -111,8 +115,10 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
         return <ScriptsTab {...commonProps} />
       case 'breakdown':
         return <ScriptBreakdownTab {...commonProps} />
+      case 'analysis':
+        return <ScriptAnalysisTab {...commonProps} />
       case 'schedule':
-        return <ShootingScheduleTab {...commonProps} />
+        return <ScheduleRehearsalTab {...commonProps} />
       case 'shotlist':
         return <ShotListTab {...commonProps} />
       case 'budget':
@@ -129,8 +135,6 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
         return <StoryboardsTab {...commonProps} />
       case 'permits':
         return <PermitsTab {...commonProps} />
-      case 'rehearsal':
-        return <RehearsalTab {...commonProps} />
       default:
         return <div>Tab not implemented</div>
     }
@@ -163,10 +167,10 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center`}>
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#00FF99] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#e7e7e7]">Loading pre-production data...</p>
+          <div className={`w-16 h-16 border-4 ${prefix}-border border-t-transparent rounded-full animate-spin mx-auto mb-4`} style={{ borderColor: '#10B981' }} />
+          <p className={`${prefix}-text-primary`}>Loading pre-production data...</p>
         </div>
       </div>
     )
@@ -174,13 +178,13 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
 
   if (!preProductionData) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center`}>
         <div className="text-center">
-          <p className="text-[#e7e7e7] text-xl mb-4">Pre-production data not found</p>
+          <p className={`${prefix}-text-primary text-xl mb-4`}>Pre-production data not found</p>
           {onBack && (
             <button
               onClick={onBack}
-              className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+              className={`px-6 py-3 ${prefix}-btn-primary font-medium rounded-lg transition-colors`}
             >
               Go Back
             </button>
@@ -191,39 +195,44 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
   }
 
   return (
-    <div className="min-h-screen bg-[#121212]">
+    <div className={`min-h-screen ${prefix}-bg-primary`}>
       {/* Header */}
-      <div className="bg-[#1a1a1a] border-b border-[#36393f] sticky top-0 z-40">
+      <div className={`${prefix}-bg-secondary border-b ${prefix}-border sticky top-0 z-40`}>
         <div className="max-w-[1800px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {onBack && (
                 <button
                   onClick={onBack}
-                  className="p-2 rounded-lg border border-[#36393f] hover:bg-[#2a2a2a] transition-colors text-[#e7e7e7]"
+                  className={`p-2 rounded-lg border ${prefix}-border hover:${prefix}-bg-secondary transition-colors ${prefix}-text-secondary`}
                 >
                   ← Back
                 </button>
               )}
               <div>
-                <h1 className="text-2xl font-bold text-[#00FF99]">
+                <h1 className={`text-2xl font-bold ${prefix}-text-accent`} style={{ color: '#10B981' }}>
                   Pre-Production
                 </h1>
-                <p className="text-sm text-[#e7e7e7]/70">
-                  Episode {preProductionData.episodeNumber}: {preProductionData.episodeTitle}
+                <p className={`text-sm ${prefix}-text-secondary`}>
+                  {preProductionData.type === 'episode' && (
+                    <>Episode {preProductionData.episodeNumber}: {preProductionData.episodeTitle}</>
+                  )}
+                  {preProductionData.type === 'arc' && (
+                    <>Arc {preProductionData.arcIndex + 1}: {preProductionData.arcTitle}</>
+                  )}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
               {isSyncing && (
-                <div className="flex items-center gap-2 text-sm text-[#00FF99]">
-                  <div className="w-3 h-3 border-2 border-[#00FF99] border-t-transparent rounded-full animate-spin" />
+                <div className={`flex items-center gap-2 text-sm ${prefix}-text-accent`} style={{ color: '#10B981' }}>
+                  <div className={`w-3 h-3 border-2 ${prefix}-border border-t-transparent rounded-full animate-spin`} style={{ borderColor: '#10B981' }} />
                   <span>Syncing...</span>
                 </div>
               )}
               
-              <div className="text-sm text-[#e7e7e7]/50">
+              <div className={`text-sm ${prefix}-text-tertiary`}>
                 {preProductionData.collaborators.length} collaborator
                 {preProductionData.collaborators.length !== 1 ? 's' : ''}
               </div>
@@ -233,7 +242,7 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-[#1a1a1a] border-b border-[#36393f] sticky top-[73px] z-30">
+      <div className={`${prefix}-bg-secondary border-b ${prefix}-border sticky top-[73px] z-30`}>
         <div className="max-w-[1800px] mx-auto px-6">
           <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {TABS.map((tab) => {
@@ -245,10 +254,11 @@ export function PreProductionShell({ preProductionId, userId, storyBibleId, onBa
                   onClick={() => setActiveTab(tab.id as TabType)}
                   className={`
                     flex-shrink-0 px-4 py-3 text-sm font-medium transition-all relative
-                    ${isActive ? 'text-[#00FF99]' : 'text-[#e7e7e7]/70 hover:text-[#e7e7e7]'}
+                    ${isActive ? `${prefix}-text-accent` : `${prefix}-text-secondary hover:${prefix}-text-primary`}
                   `}
                   style={{
-                    borderBottom: isActive ? '2px solid #00FF99' : '2px solid transparent'
+                    color: isActive ? '#10B981' : undefined,
+                    borderBottom: isActive ? '2px solid #10B981' : '2px solid transparent'
                   }}
                 >
                   <div className="flex items-center gap-2">

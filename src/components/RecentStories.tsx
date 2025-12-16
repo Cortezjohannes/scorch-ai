@@ -92,7 +92,7 @@ export function RecentStories() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <h2 className="text-xl font-bold mb-4 text-[#00FF99]">Recent Stories</h2>
+      <h2 className="text-xl font-bold mb-4 text-[#10B981]">Recent Stories</h2>
       
       <div className="space-y-3">
         {recentStories.map((story, index) => {
@@ -103,7 +103,7 @@ export function RecentStories() {
           return (
             <motion.div 
               key={index}
-              className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF99] transition-colors"
+              className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 hover:border-[#10B981] transition-colors"
               whileHover={{ y: -2 }}
             >
               <div className="flex justify-between items-start">
@@ -111,7 +111,7 @@ export function RecentStories() {
                   <h3 className="font-bold text-[#e7e7e7]">{storyTitle}</h3>
                   <p className="text-[#e7e7e7]/60 text-sm">Created: {creationDate}</p>
                   <div className="flex items-center mt-1">
-                    <span className="inline-block w-2 h-2 rounded-full mr-2 bg-[#00FF99]"></span>
+                    <span className="inline-block w-2 h-2 rounded-full mr-2 bg-[#10B981]"></span>
                     <span className="text-xs text-[#e7e7e7]/70">Multi-Model AI</span>
                   </div>
                 </div>
@@ -119,7 +119,7 @@ export function RecentStories() {
                 <div className="flex space-x-2">
                   <button 
                     onClick={continueStory}
-                    className="px-3 py-1.5 text-sm bg-[#00FF99] text-black rounded-md hover:bg-[#00CC7A] transition-colors"
+                    className="px-3 py-1.5 text-sm bg-[#10B981] text-black rounded-md hover:bg-[#059669] transition-colors"
                   >
                     Story Bible
                   </button>

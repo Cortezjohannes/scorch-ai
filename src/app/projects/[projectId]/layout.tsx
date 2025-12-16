@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -64,7 +64,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div 
-          className="w-16 h-16 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full"
+          className="w-16 h-16 border-4 border-t-[#10B981] border-r-[#10B98150] border-b-[#10B98130] border-l-[#10B98120] rounded-full"
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         />
@@ -77,9 +77,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-md w-full">
-          <h2 className="text-xl font-bold text-[#00FF99] mb-4">Error</h2>
+          <h2 className="text-xl font-bold text-[#10B981] mb-4">Error</h2>
           <p className="text-[#e7e7e7]/80 mb-6">{error || "Couldn't load project"}</p>
-          <Link href="/projects" className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors">
+          <Link href="/projects" className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors">
             Back to Projects
           </Link>
         </div>
@@ -106,7 +106,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-transparent bg-clip-text">
+                <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#10B981] to-[#059669] text-transparent bg-clip-text">
                   {projectTitle}
                 </h1>
                 <p className="text-[#e7e7e7]/70 mt-1">
@@ -122,7 +122,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
                 </Link>
                 <Link 
                   href={`/workspace`}
-                  className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+                  className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
                 >
                   Story Workspace
                 </Link>

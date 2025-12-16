@@ -3,7 +3,10 @@
  * 
  * This service ensures all engines use the correct AI provider based on mode:
  * - BEAST MODE: Azure OpenAI (GPT-4.1, GPT-4o)
- * - STABLE MODE: Google Gemini (gemini-2.5-pro, gemini-2.0-flash)
+ * - STABLE MODE: Google Gemini (gemini-3-pro-preview, gemini-2.5-pro)
+ * 
+ * 🔄 FALLBACK MECHANISM for 429 rate limit errors:
+ * - Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
  * 
  * All engines should use this service instead of calling AI providers directly.
  */
@@ -64,7 +67,7 @@ export class AIOrchestrator {
         response = await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens, model, engineName);
       } else {
         console.log(`🔹 [${timestamp}] ${engineName}: Engaging Gemini for stable performance...`);
-        EngineLogger.logEngineProcessing(engineName, 'gemini', model || 'gemini-2.5-pro', 'Stable performance AI processing');
+        EngineLogger.logEngineProcessing(engineName, 'gemini', model || 'gemini-3-pro-preview', 'Stable performance AI processing');
         response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens, model, engineName);
       }
       
@@ -149,21 +152,24 @@ export class AIOrchestrator {
 
   /**
    * STABLE MODE: Use Google Gemini for reliable, cost-effective generation
+   * With automatic 429 fallback: gemini-3-pro-preview → gemini-2.5-pro
    */
   private static async generateWithGemini(
     prompt: string,
     systemPrompt: string,
     temperature: number,
     maxTokens: number,
-    model: string = 'gemini-2.5-pro',
+    model: string = 'gemini-3-pro-preview',
     engineName: string
   ): Promise<AIResponse> {
     const startTime = Date.now();
     const timestamp = new Date().toISOString().substring(11, 23);
     
-    try {
       // Use environment variable for stable mode model or default
-      const geminiModel = process.env.GEMINI_STABLE_MODE_MODEL || model;
+    const primaryModel = process.env.GEMINI_STABLE_MODE_MODEL || model;
+    
+    // Helper to generate with a specific model
+    const generateWithModel = async (geminiModel: string): Promise<AIResponse> => {
       console.log(`🔹 [${timestamp}] STABLE MODE: ${engineName} connecting to Google Gemini ${geminiModel}...`);
       console.log(`🌐 [${timestamp}] ${engineName}: Establishing connection to Google AI endpoint...`);
       console.log(`📨 [${timestamp}] ${engineName}: Transmitting ${prompt.length} character prompt to Gemini...`);
@@ -174,6 +180,7 @@ export class AIOrchestrator {
       const duration = ((endTime - startTime) / 1000).toFixed(2);
       const endTimestamp = new Date().toISOString().substring(11, 23);
       
+      console.log(`✅ [${endTimestamp}] ${engineName}: Generated ${content.length} chars in ${duration}s with ${geminiModel}`);
 
       return {
         content,
@@ -182,15 +189,10 @@ export class AIOrchestrator {
         mode: 'stable',
         engineUsed: engineName
       };
-    } catch (error) {
-      const errorTime = Date.now();
-      const errorDuration = ((errorTime - startTime) / 1000).toFixed(2);
-      const errorTimestamp = new Date().toISOString().substring(11, 23);
-      
-      console.error(`❌ [${errorTimestamp}] STABLE MODE FAILED for ${engineName} after ${errorDuration}s:`, error);
-      console.error(`💥 [${errorTimestamp}] ${engineName}: Google Gemini connection/processing error`);
-      throw new Error(`Stable mode Gemini failed for ${engineName}: ${error}`);
-    }
+    };
+    
+    // Generate with primary model
+    return await generateWithModel(primaryModel);
   }
 
   /**

@@ -2,7 +2,7 @@
  * Script Breakdown Generator - AI Service
  * Analyzes Hollywood-grade screenplays and generates micro-budget production breakdowns
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical tasks
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical tasks
  * 
  * Standards:
  * - Extract ONLY what exists in the screenplay
@@ -13,6 +13,10 @@
 
 import { EngineAIRouter } from '@/services/engine-ai-router'
 import type { ScriptBreakdownData, ScriptBreakdownScene, ScriptBreakdownCharacter, ScriptBreakdownProp } from '@/types/preproduction'
+
+const BREAKDOWN_SCHEMA_VERSION = 'v2'
+const MAX_EPISODE_BUDGET = 625
+const MAX_SCENE_BUDGET = 250
 
 interface GeneratedScript {
   title: string
@@ -67,20 +71,35 @@ export async function generateScriptBreakdown(params: BreakdownGenerationParams)
   const userPrompt = buildUserPrompt(script, storyBible, scriptScenes)
 
   try {
-    // Use EngineAIRouter with Gemini 2.5 Pro (analytical tasks)
-    const response = await EngineAIRouter.generateContent({
-      prompt: userPrompt,
-      systemPrompt: systemPrompt,
-      temperature: 0.6, // Balanced - creative but consistent
-      maxTokens: 8000, // Enough for detailed breakdown
-      engineId: 'script-breakdown-generator',
-      forceProvider: 'gemini' // Gemini excels at analysis
-    })
+    // Use EngineAIRouter with Azure GPT-4.1 (better for long responses, no truncation)
+    // Falls back to Gemini if Azure fails
+    let response
+    try {
+      response = await EngineAIRouter.generateContent({
+        prompt: userPrompt,
+        systemPrompt: systemPrompt,
+        temperature: 0.6, // Balanced - creative but consistent
+        maxTokens: 8000, // Enough for detailed breakdown
+        engineId: 'script-breakdown-generator',
+        forceProvider: 'azure' // Azure GPT for longer responses without truncation
+      })
+    } catch (azureError) {
+      console.warn('⚠️ Azure GPT failed, falling back to Gemini:', azureError instanceof Error ? azureError.message : String(azureError))
+      // Fallback to Gemini if Azure fails
+      response = await EngineAIRouter.generateContent({
+        prompt: userPrompt,
+        systemPrompt: systemPrompt,
+        temperature: 0.6,
+        maxTokens: 8000,
+        engineId: 'script-breakdown-generator',
+        forceProvider: 'gemini' // Gemini fallback
+      })
+    }
 
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
     
     // Parse AI response into structured breakdown
-    const structuredBreakdown = structureBreakdownData(response.content, script, episodeNumber, episodeTitle)
+    const structuredBreakdown = structureBreakdownData(response.content, script, episodeNumber, episodeTitle, scriptScenes)
     
     console.log('✅ Breakdown generated:', structuredBreakdown.scenes.length, 'scenes')
     console.log('💰 Total budget impact: $', structuredBreakdown.totalBudgetImpact)
@@ -162,6 +181,7 @@ function buildSystemPrompt(): string {
 - Extract ALL production elements that exist in the script
 - Provide realistic micro-budget cost estimates
 - Focus on practical, actionable breakdown for indie filmmakers
+- Surface continuity, logistics, and savings tips to help downstream scheduling and budgeting
 
 **STRICT RULES:**
 
@@ -197,6 +217,7 @@ function buildSystemPrompt(): string {
    - Extract from slug line: INT./EXT. and location name
    - Time of day: DAY, NIGHT, SUNRISE, SUNSET, MAGIC_HOUR
    - Keep location names exactly as written in slug lines
+   - Identify if night shoot, weather risks, or company move needed
 
 6. **SHOOT TIME ESTIMATION (5-MINUTE EPISODES)**
    - These are SHORT episodes (5 min = 5 pages) with REHEARSED actors
@@ -220,6 +241,18 @@ function buildSystemPrompt(): string {
    - Use exact location names from slug lines
    - Be specific and practical
 
+9. **CONTINUITY & COVERAGE**
+   - Note props/wardrobe that must persist between scenes
+   - Capture blocking/coverage complexity (simple/moderate/complex)
+   - Suggest setup count and any company moves
+
+10. **BUDGET BREAKDOWN**
+    - Decompose budgetImpact into locationCost, propCost, extrasCost, specialEqCost, contingency
+    - Add savingsTips and assumptions; flag warnings if scene budget > $250 or episode risk > $625
+
+11. **WARNINGS**
+    - Add warnings array for anything risky: missing characters, over-budget, invented items, unclear slug lines, or continuity risks
+
 **REMEMBER:** You're helping indie filmmakers plan a realistic, affordable shoot. Extract what's in the script, estimate fairly, and keep it practical.`
 }
 
@@ -242,6 +275,54 @@ function buildUserPrompt(
   prompt += `Per Episode Budget: ~$30-$625 (ultra-micro-budget)\n`
   prompt += `Episode Runtime: 5 minutes\n`
   prompt += `Production Model: Actors NOT paid (revenue share), crew optional\n\n`
+  
+  // Add CORE story bible context
+  if (storyBible.seriesOverview) {
+    prompt += `**SERIES OVERVIEW (Big Picture):**\n${storyBible.seriesOverview}\n\n`
+  }
+  
+  if (storyBible.worldBuilding) {
+    prompt += `**WORLD/SETTING CONTEXT (for location analysis):**\n`
+    if (typeof storyBible.worldBuilding === 'string') {
+      prompt += `${storyBible.worldBuilding.substring(0, 400)}\n\n`
+    } else {
+      if (storyBible.worldBuilding.setting) prompt += `Setting: ${storyBible.worldBuilding.setting}\n`
+      if (storyBible.worldBuilding.rules) {
+        prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules : JSON.stringify(storyBible.worldBuilding.rules).substring(0, 200)}\n`
+      }
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        prompt += `Key Locations:\n`
+        storyBible.worldBuilding.locations.slice(0, 5).forEach((loc: any) => {
+          prompt += `  - ${loc.name}: ${loc.description || loc.type || 'Location'}`
+          if (loc.atmosphere) prompt += ` (${loc.atmosphere})`
+          prompt += `\n`
+        })
+      }
+      prompt += `\n`
+    }
+  }
+  
+  if (storyBible.mainCharacters && Array.isArray(storyBible.mainCharacters)) {
+    prompt += `**CHARACTER REFERENCE (for casting analysis):**\n`
+    storyBible.mainCharacters.slice(0, 8).forEach((char: any) => {
+      prompt += `  - ${char.name}`
+      if (char.archetype) prompt += ` (${char.archetype})`
+      if (char.premiseRole) prompt += ` - ${char.premiseRole}`
+      prompt += `\n`
+    })
+    prompt += `\n`
+  }
+  
+  if (storyBible.genreEnhancement) {
+    prompt += `**GENRE CONTEXT (for equipment/style needs):**\n`
+    const genre = storyBible.genreEnhancement
+    if (genre.rawContent) {
+      prompt += `${genre.rawContent.substring(0, 300)}\n\n`
+    } else {
+      if (genre.visualStyle) prompt += `Visual Style: ${genre.visualStyle}\n`
+      if (genre.pacing) prompt += `Pacing: ${genre.pacing}\n\n`
+    }
+  }
 
   // Script metadata
   prompt += `**SCREENPLAY:**\n`
@@ -271,13 +352,15 @@ function buildUserPrompt(
   prompt += `2. **Characters:**\n`
   prompt += `   - List all characters who appear or speak in THIS scene\n`
   prompt += `   - Count dialogue lines for each character in THIS scene\n`
-  prompt += `   - Importance: "lead" (main character), "supporting" (significant role), "background" (1-2 lines)\n\n`
+  prompt += `   - Importance: "lead" (main character), "supporting" (significant role), "background" (1-2 lines)\n`
+  prompt += `   - For each: entranceBeat, exitBeat, emotionalBeat, goal, conflict, stakes, continuityNotes, returningFromPrevScene (true/false)\n\n`
 
   prompt += `3. **Props:**\n`
   prompt += `   - List items characters interact with in THIS scene\n`
   prompt += `   - Importance: "hero" (featured), "secondary" (noticeable), "background" (set dressing)\n`
   prompt += `   - Source: "buy" (<$50), "rent" ($50-200), "borrow" (free), "actor-owned" (free)\n`
-  prompt += `   - Estimated cost for each prop\n\n`
+  prompt += `   - Estimated cost for each prop\n`
+  prompt += `   - For each: isCriticalForStory (true/false), reusabilityAcrossScenes (scene numbers), sourcingNotes, rentDays (if rented)\n\n`
 
   prompt += `4. **Special Requirements:**\n`
   prompt += `   - Equipment needed beyond basic camera/mic (stabilizer, lights, etc.)\n`
@@ -298,10 +381,20 @@ function buildUserPrompt(
   prompt += `   - Scene with location fee: $50-$150 (location + props)\n`
   prompt += `   - Complex (extras + location + props): $130-$250\n`
   prompt += `   - Target: Keep TOTAL episode under $30-$625 range\n\n`
+  prompt += `   - Provide budgetDetails: locationCost, propCost, extrasCost, specialEqCost, contingency, savingsTips (list), assumptions (list)\n\n`
 
   prompt += `7. **Production Notes:**\n`
   prompt += `   - Brief notes on production considerations\n`
   prompt += `   - Challenges, tips, or important details\n\n`
+
+  prompt += `8. **Logistics & Coverage:**\n`
+  prompt += `   - nightShoot (true/false), weatherRisk, companyMoveRequired (true/false)\n`
+  prompt += `   - stunts, vfx, crowdSize, vehicle, childActor, animal, fxMakeup\n`
+  prompt += `   - coverage: suggestedSetupCount, complexity (simple/moderate/complex), blockingNotes, continuityRisks (list), altLocation\n`
+  prompt += `   - continuity: keyPropsCarried, wardrobeNotes, reusabilityAcrossScenes (scene numbers)\n\n`
+
+  prompt += `9. **Warnings:**\n`
+  prompt += `   - warnings array for any issues (budget high, missing info, invented items, continuity risk)\n\n`
 
   // Output format
   prompt += `**OUTPUT FORMAT:**\n\n`
@@ -321,6 +414,11 @@ function buildUserPrompt(
   prompt += `    ],\n`
   prompt += `    "specialRequirements": ["Natural light from windows"],\n`
   prompt += `    "budgetImpact": 8,\n`
+  prompt += `    "budgetDetails": {"locationCost": 0, "propCost": 8, "extrasCost": 0, "specialEqCost": 0, "contingency": 0, "savingsTips": ["Borrow glass"], "assumptions": ["Actor apartment is free"]},\n`
+  prompt += `    "logistics": {"nightShoot": false, "companyMoveRequired": false},\n`
+  prompt += `    "coverage": {"suggestedSetupCount": 2, "complexity": "simple"},\n`
+  prompt += `    "continuity": {"keyPropsCarried": ["Whiskey tumbler"], "wardrobeNotes": "Same hoodie as Scene 2"},\n`
+  prompt += `    "warnings": ["Budget below target is OK"],\n`
   prompt += `    "notes": "Simple dialogue scene, actor's apartment (free location), cheap prop, natural lighting, 2 actors (revenue share - no cost)"\n`
   prompt += `  }\n`
   prompt += `]\n\n`
@@ -347,57 +445,239 @@ function structureBreakdownData(
   aiResponse: string,
   script: GeneratedScript,
   episodeNumber: number,
-  episodeTitle: string
+  episodeTitle: string,
+  scriptScenes: Array<{ sceneNumber: number; heading: string; content: string }>
 ): ScriptBreakdownData {
   console.log('📊 Structuring breakdown data...')
+  console.log('   Raw response length:', aiResponse.length)
+  console.log('   Raw response (first 300 chars):', aiResponse.substring(0, 300))
 
-  // Clean response - remove markdown code blocks if present
-  let cleanedResponse = aiResponse.trim()
-  if (cleanedResponse.startsWith('```json')) {
-    cleanedResponse = cleanedResponse.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-  } else if (cleanedResponse.startsWith('```')) {
-    cleanedResponse = cleanedResponse.replace(/^```\n?/, '').replace(/\n?```$/, '')
+  // Use the robust JSON parser from json-utils for primary parsing
+  // This handles markdown, extra text, malformed JSON, control characters, etc.
+
+  // Helper function to try to complete incomplete JSON
+  function tryCompleteIncompleteJSON(jsonStr: string): string {
+    // Count open/close braces and brackets to detect incomplete JSON
+    let openBraces = 0
+    let openBrackets = 0
+    let inString = false
+    let escapeNext = false
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i]
+      
+      if (escapeNext) {
+        escapeNext = false
+        continue
+      }
+      
+      if (char === '\\') {
+        escapeNext = true
+        continue
+      }
+      
+      if (char === '"') {
+        inString = !inString
+        continue
+      }
+      
+      if (inString) continue
+      
+      if (char === '{') openBraces++
+      if (char === '}') openBraces--
+      if (char === '[') openBrackets++
+      if (char === ']') openBrackets--
+    }
+    
+    // If we're in a string at the end, close it
+    if (inString) {
+      // Find the last unclosed string (look for ": " pattern)
+      const lastStringMatch = jsonStr.match(/("(?:sceneTitle|location|notes|blockingNotes|wardrobeNotes|sourcingNotes|entranceBeat|exitBeat|emotionalBeat|goal|conflict|stakes|continuityNotes|altLocation|item|name|importance|source)"\s*:\s*")([^"]*)$/)
+      if (lastStringMatch) {
+        jsonStr += '"'
+      }
+    }
+    
+    // Close incomplete objects/arrays
+    while (openBraces > 0) {
+      // Before closing, check if we need to close any incomplete arrays or strings
+      if (jsonStr.match(/,\s*$/)) {
+        jsonStr = jsonStr.replace(/,\s*$/, '')
+      }
+      jsonStr += '}'
+      openBraces--
+    }
+    
+    while (openBrackets > 0) {
+      if (jsonStr.match(/,\s*$/)) {
+        jsonStr = jsonStr.replace(/,\s*$/, '')
+      }
+      jsonStr += ']'
+      openBrackets--
+    }
+    
+    // Remove trailing commas before closing brackets/braces
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1')
+    
+    return jsonStr
   }
 
   try {
-    const parsedScenes = JSON.parse(cleanedResponse)
+    let parsedScenes: any[]
+    
+    // Use the robust array-specific JSON parser from json-utils
+    // This handles markdown code blocks, malformed JSON, arrays vs objects, etc.
+    const { cleanAndParseJSONArray } = require('@/lib/json-utils')
+    
+    try {
+      parsedScenes = cleanAndParseJSONArray(aiResponse)
+      console.log('✅ Successfully parsed JSON array using robust parser')
+    } catch (parseError: any) {
+      console.error('❌ JSON parse error:', parseError.message)
+      
+      // Last resort: try to extract individual scene objects manually
+      console.warn('⚠️ Attempting manual scene extraction...')
+      
+      // Clean response first
+      let cleanedResponse = aiResponse.trim()
+      if (cleanedResponse.startsWith('```json')) {
+        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+      } else if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '')
+      }
+      
+      // Try to find and parse individual scene objects
+      const sceneMatches = cleanedResponse.match(/\{[^{}]*"sceneNumber"\s*:\s*\d+[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)
+      if (sceneMatches && sceneMatches.length > 0) {
+        const validScenes: any[] = []
+        for (const sceneMatch of sceneMatches) {
+          try {
+            const completedScene = tryCompleteIncompleteJSON(sceneMatch)
+            const parsedScene = JSON.parse(completedScene)
+            if (parsedScene.sceneNumber !== undefined) {
+              validScenes.push(parsedScene)
+            }
+          } catch (e) {
+            console.warn(`⚠️ Skipping invalid scene: ${sceneMatch.substring(0, 50)}...`)
+          }
+        }
+        
+        if (validScenes.length > 0) {
+          parsedScenes = validScenes
+          console.log(`✅ Recovered ${validScenes.length} valid scenes from partial JSON`)
+        } else {
+          throw new Error(`Failed to parse breakdown data: ${parseError.message}`)
+        }
+      } else {
+        throw new Error(`Failed to parse breakdown data: ${parseError.message}`)
+      }
+    }
 
     if (!Array.isArray(parsedScenes)) {
       throw new Error('AI response is not an array')
     }
 
     // Convert to TypeScript types
-    const scenes: ScriptBreakdownScene[] = parsedScenes.map((scene: any) => ({
-      id: `scene-${scene.sceneNumber}-${Date.now()}`,
-      sceneNumber: scene.sceneNumber || 0,
-      sceneTitle: scene.sceneTitle || 'Untitled Scene',
-      location: scene.location || 'Unknown Location',
-      timeOfDay: validateTimeOfDay(scene.timeOfDay),
-      estimatedShootTime: scene.estimatedShootTime || 20,
-      characters: (scene.characters || []).map((char: any) => ({
-        name: char.name || 'Unknown',
-        lineCount: char.lineCount || 0,
-        importance: validateImportance(char.importance)
-      })),
-      props: (scene.props || []).map((prop: any) => ({
-        item: prop.item || 'Unknown Item',
-        importance: validatePropImportance(prop.importance),
-        source: validatePropSource(prop.source),
-        estimatedCost: prop.estimatedCost || 0
-      })),
-      specialRequirements: scene.specialRequirements || [],
-      budgetImpact: scene.budgetImpact || 0,
-      status: 'not-started',
-      notes: scene.notes || '',
-      comments: [],
-      linkedEpisode: episodeNumber,
-      linkedSceneContent: scene.sceneTitle
-    }))
+    const scenes: ScriptBreakdownScene[] = parsedScenes.map((scene: any) => {
+      // Find matching scene content from script extraction
+      const matchingScriptScene = scriptScenes.find(
+        (s) => s.sceneNumber === scene.sceneNumber
+      )
+      const actualSceneContent = matchingScriptScene?.content || scene.sceneTitle || ''
+      const budgetDetails = scene.budgetDetails || {}
+      const logistics = scene.logistics || {}
+      const coverage = scene.coverage || {}
+      const continuity = scene.continuity || {}
+      const warnings = Array.isArray(scene.warnings) ? [...scene.warnings] : []
+      const rawBudget = scene.budgetImpact || 0
+      const cappedBudget = Math.min(rawBudget, MAX_SCENE_BUDGET)
+      if (rawBudget > MAX_SCENE_BUDGET) {
+        warnings.push(`Scene budget capped at $${MAX_SCENE_BUDGET}`)
+      }
+      
+      return {
+        id: `scene-${scene.sceneNumber}-${Date.now()}`,
+        sceneNumber: scene.sceneNumber || 0,
+        sceneTitle: scene.sceneTitle || 'Untitled Scene',
+        location: scene.location || 'Unknown Location',
+        timeOfDay: validateTimeOfDay(scene.timeOfDay),
+        estimatedShootTime: scene.estimatedShootTime || 20,
+        characters: (scene.characters || []).map((char: any) => ({
+          name: char.name || 'Unknown',
+          lineCount: char.lineCount || 0,
+          importance: validateImportance(char.importance),
+          entranceBeat: char.entranceBeat || '',
+          exitBeat: char.exitBeat || '',
+          emotionalBeat: char.emotionalBeat || '',
+          goal: char.goal || '',
+          conflict: char.conflict || '',
+          stakes: char.stakes || '',
+          continuityNotes: char.continuityNotes || '',
+          returningFromPrevScene: !!char.returningFromPrevScene
+        })),
+        props: (scene.props || []).map((prop: any) => ({
+          item: prop.item || 'Unknown Item',
+          importance: validatePropImportance(prop.importance),
+          source: validatePropSource(prop.source),
+          estimatedCost: prop.estimatedCost || 0,
+          isCriticalForStory: !!prop.isCriticalForStory,
+          reusabilityAcrossScenes: prop.reusabilityAcrossScenes || [],
+          sourcingNotes: prop.sourcingNotes || '',
+          rentDays: prop.rentDays || undefined
+        })),
+        specialRequirements: scene.specialRequirements || [],
+        budgetImpact: cappedBudget,
+        budgetDetails: {
+          locationCost: budgetDetails.locationCost || 0,
+          propCost: budgetDetails.propCost || 0,
+          extrasCost: budgetDetails.extrasCost || 0,
+          specialEqCost: budgetDetails.specialEqCost || 0,
+          contingency: budgetDetails.contingency || 0,
+          savingsTips: budgetDetails.savingsTips || [],
+          assumptions: budgetDetails.assumptions || []
+        },
+        logistics: {
+          nightShoot: !!logistics.nightShoot,
+          stunts: !!logistics.stunts,
+          vfx: !!logistics.vfx,
+          crowdSize: logistics.crowdSize,
+          vehicle: logistics.vehicle || undefined,
+          childActor: !!logistics.childActor,
+          animal: !!logistics.animal,
+          fxMakeup: !!logistics.fxMakeup,
+          companyMoveRequired: !!logistics.companyMoveRequired,
+          weatherRisk: logistics.weatherRisk || undefined,
+          timePressure: validateTimePressure(logistics.timePressure)
+        },
+        coverage: {
+          suggestedSetupCount: coverage.suggestedSetupCount || 0,
+          complexity: validateComplexity(coverage.complexity),
+          blockingNotes: coverage.blockingNotes || '',
+          continuityRisks: coverage.continuityRisks || [],
+          altLocation: coverage.altLocation || ''
+        },
+        continuity: {
+          keyPropsCarried: continuity.keyPropsCarried || [],
+          wardrobeNotes: continuity.wardrobeNotes || '',
+          reusabilityAcrossScenes: continuity.reusabilityAcrossScenes || []
+        },
+        warnings,
+        status: 'not-started',
+        notes: scene.notes || '',
+        comments: [],
+        linkedEpisode: episodeNumber,
+        linkedSceneContent: actualSceneContent // Use actual script content instead of just title
+      }
+    })
 
     // Calculate totals
     const totalScenes = scenes.length
     const totalEstimatedTime = scenes.reduce((sum, scene) => sum + scene.estimatedShootTime, 0)
     const totalBudgetImpact = scenes.reduce((sum, scene) => sum + scene.budgetImpact, 0)
+    const warnings: string[] = []
+    if (totalBudgetImpact > MAX_EPISODE_BUDGET) {
+      warnings.push(`Episode budget target $${MAX_EPISODE_BUDGET} exceeded: $${totalBudgetImpact}`)
+    }
 
     console.log('✅ Breakdown structured successfully')
     console.log(`  Scenes: ${totalScenes}`)
@@ -412,7 +692,9 @@ function structureBreakdownData(
       totalBudgetImpact,
       scenes,
       lastUpdated: Date.now(),
-      updatedBy: 'ai-generator'
+      updatedBy: 'ai-generator',
+      schemaVersion: BREAKDOWN_SCHEMA_VERSION,
+      warnings
     }
   } catch (error) {
     console.error('❌ Error parsing AI response:', error)
@@ -446,5 +728,17 @@ function validatePropSource(value: any): 'buy' | 'rent' | 'borrow' | 'actor-owne
   const valid = ['buy', 'rent', 'borrow', 'actor-owned']
   const lower = String(value).toLowerCase()
   return valid.includes(lower) ? lower as any : 'buy'
+}
+
+function validateComplexity(value: any): 'simple' | 'moderate' | 'complex' {
+  const valid = ['simple', 'moderate', 'complex']
+  const lower = String(value || '').toLowerCase()
+  return valid.includes(lower) ? lower as any : 'simple'
+}
+
+function validateTimePressure(value: any): 'low' | 'medium' | 'high' {
+  const valid = ['low', 'medium', 'high']
+  const lower = String(value || '').toLowerCase()
+  return valid.includes(lower) ? lower as any : 'medium'
 }
 

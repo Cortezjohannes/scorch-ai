@@ -54,8 +54,8 @@ export const ScriptTab: React.FC<ScriptTabProps> = ({ data }) => {
         
         <div className="p-6 md:p-8">
           <div className="flex items-center gap-4 mb-8">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
-              <span className="text-2xl font-bold text-[#00FF99]">{currentEpisode.episodeNumber}</span>
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
+              <span className="text-2xl font-bold text-[#10B981]">{currentEpisode.episodeNumber}</span>
             </div>
             <div>
               <h3 className="text-2xl font-bold">{currentEpisode.episodeTitle || `Episode ${currentEpisode.episodeNumber}`}</h3>

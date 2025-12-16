@@ -275,7 +275,7 @@ export default function UltimateEngineLoader({
             {[...Array(20)].map((_, i) => (
               <motion.div
                 key={i}
-                className="absolute w-1 h-1 bg-[#00FF99]/20 rounded-full"
+                className="absolute w-1 h-1 bg-[#10B981]/20 rounded-full"
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
@@ -296,7 +296,7 @@ export default function UltimateEngineLoader({
           
           {/* Gradient orbs */}
           <motion.div
-            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00FF99]/10 rounded-full blur-3xl"
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#10B981]/10 rounded-full blur-3xl"
             animate={{
               scale: [1, 1.2, 1],
               opacity: [0.3, 0.6, 0.3],
@@ -308,7 +308,7 @@ export default function UltimateEngineLoader({
             }}
           />
           <motion.div
-            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#00CC7A]/10 rounded-full blur-3xl"
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#059669]/10 rounded-full blur-3xl"
             animate={{
               scale: [1.2, 1, 1.2],
               opacity: [0.4, 0.7, 0.4],
@@ -345,8 +345,8 @@ export default function UltimateEngineLoader({
               ease: "easeInOut",
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 rounded-2xl blur-xl" />
-            <div className="relative w-full h-full bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 rounded-2xl border border-[#00FF99]/30 flex items-center justify-center backdrop-blur-sm">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 rounded-2xl blur-xl" />
+            <div className="relative w-full h-full bg-gradient-to-br from-[#10B981]/10 to-[#059669]/10 rounded-2xl border border-[#10B981]/30 flex items-center justify-center backdrop-blur-sm">
               <motion.span
                 className="text-4xl"
                 animate={{
@@ -366,7 +366,7 @@ export default function UltimateEngineLoader({
           
           {/* Main Title with Enhanced Typography */}
           <motion.h1
-            className="text-6xl font-black bg-gradient-to-r from-white via-[#00FF99] to-white bg-clip-text text-transparent"
+            className="text-6xl font-black bg-gradient-to-r from-white via-[#10B981] to-white bg-clip-text text-transparent"
             animate={{
               backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
             }}
@@ -399,7 +399,7 @@ export default function UltimateEngineLoader({
               transition={{ delay: 0.7 }}
             >
               <motion.p
-                className="text-lg text-[#00FF99] font-medium px-4 py-2 rounded-full bg-[#00FF99]/10 border border-[#00FF99]/30"
+                className="text-lg text-[#10B981] font-medium px-4 py-2 rounded-full bg-[#10B981]/10 border border-[#10B981]/30"
                 animate={{
                   scale: isComplete ? [1, 1.05, 1] : 1,
                 }}
@@ -419,12 +419,12 @@ export default function UltimateEngineLoader({
           initial={{ scaleX: 0, opacity: 0 }}
           animate={{ scaleX: 1, opacity: 1 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="relative bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-8 shadow-2xl"
+          className="relative bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#10B981]/20 rounded-2xl p-8 shadow-2xl"
         >
           {/* Progress Header */}
           <div className="flex justify-between items-center mb-6">
             <motion.h2
-              className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] to-[#00CC7A] bg-clip-text text-transparent"
+              className="text-2xl font-bold bg-gradient-to-r from-[#10B981] to-[#059669] bg-clip-text text-transparent"
               animate={{
                 backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
               }}
@@ -451,7 +451,7 @@ export default function UltimateEngineLoader({
                   ease: "easeInOut",
                 }}
               >
-                <div className="text-3xl font-black text-[#00FF99]">{Math.round(overallProgress)}%</div>
+                <div className="text-3xl font-black text-[#10B981]">{Math.round(overallProgress)}%</div>
                 <div className="text-xs text-white/60 uppercase tracking-wider">Complete</div>
               </motion.div>
               <div className="text-center">
@@ -465,9 +465,9 @@ export default function UltimateEngineLoader({
             
           {/* Enhanced Progress Bar */}
           <div className="relative">
-            <div className="h-6 bg-black/50 rounded-full overflow-hidden border border-[#00FF99]/30 shadow-inner">
+            <div className="h-6 bg-black/50 rounded-full overflow-hidden border border-[#10B981]/30 shadow-inner">
               <motion.div
-                className="h-full bg-gradient-to-r from-[#00CC7A] via-[#00FF99] to-[#33FFAD] relative"
+                className="h-full bg-gradient-to-r from-[#059669] via-[#10B981] to-[#33FFAD] relative"
                 initial={{ width: 0 }}
                 animate={{ width: `${overallProgress}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
@@ -480,7 +480,7 @@ export default function UltimateEngineLoader({
             />
                 {/* Glow effect */}
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 blur-sm"
+                  className="absolute inset-0 bg-gradient-to-r from-[#10B981]/20 to-[#059669]/20 blur-sm"
                   animate={{
                     opacity: [0.5, 1, 0.5],
                   }}
@@ -531,18 +531,18 @@ export default function UltimateEngineLoader({
                 whileHover={{ scale: 1.02 }}
                 className={`relative group p-6 rounded-2xl border-2 transition-all duration-500 backdrop-blur-sm ${
                     isActive 
-                    ? 'border-[#00FF99] bg-gradient-to-br from-[#00FF99]/20 via-[#00FF99]/10 to-[#00CC7A]/20 shadow-2xl shadow-[#00FF99]/20' 
+                    ? 'border-[#10B981] bg-gradient-to-br from-[#10B981]/20 via-[#10B981]/10 to-[#059669]/20 shadow-2xl shadow-[#10B981]/20' 
                       : isCompleted 
-                      ? 'border-[#00FF99]/60 bg-gradient-to-br from-[#00FF99]/10 to-[#00CC7A]/10 shadow-lg' 
+                      ? 'border-[#10B981]/60 bg-gradient-to-br from-[#10B981]/10 to-[#059669]/10 shadow-lg' 
                       : isUpcoming
-                        ? 'border-[#00FF99]/20 bg-black/30'
-                        : 'border-[#00FF99]/30 bg-black/40'
+                        ? 'border-[#10B981]/20 bg-black/30'
+                        : 'border-[#10B981]/30 bg-black/40'
                 }`}
               >
                 {/* Engine Status Glow */}
                 {isActive && (
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 rounded-2xl blur-xl"
+                    className="absolute inset-0 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 rounded-2xl blur-xl"
                     animate={{
                       opacity: [0.3, 0.6, 0.3],
                       scale: [1, 1.05, 1],
@@ -572,8 +572,8 @@ export default function UltimateEngineLoader({
                       {engine.icon}
                   </motion.div>
                   <h3 className={`text-sm font-bold transition-all duration-300 ${
-                    isActive ? 'text-[#00FF99]' : 
-                    isCompleted ? 'text-[#00FF99]/90' : 
+                    isActive ? 'text-[#10B981]' : 
+                    isCompleted ? 'text-[#10B981]/90' : 
                     isUpcoming ? 'text-white/50' : 'text-white/70'
                         }`}>
                           {engine.name}
@@ -582,12 +582,12 @@ export default function UltimateEngineLoader({
 
                 {/* Enhanced Progress Bar */}
                 <div className="mt-4 space-y-3">
-                  <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden border border-[#00FF99]/30 shadow-inner">
+                  <div className="w-full bg-black/50 rounded-full h-3 overflow-hidden border border-[#10B981]/30 shadow-inner">
                       <motion.div
                       className={`h-full rounded-full relative ${
-                        isActive ? 'bg-gradient-to-r from-[#00CC7A] to-[#00FF99]' : 
-                        isCompleted ? 'bg-gradient-to-r from-[#00FF99] to-[#00CC7A]' : 
-                        'bg-[#00FF99]/30'
+                        isActive ? 'bg-gradient-to-r from-[#059669] to-[#10B981]' : 
+                        isCompleted ? 'bg-gradient-to-r from-[#10B981] to-[#059669]' : 
+                        'bg-[#10B981]/30'
                         }`}
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
@@ -605,8 +605,8 @@ export default function UltimateEngineLoader({
                     </div>
                   <div className="flex justify-between items-center">
                     <div className={`text-xs font-bold ${
-                      isActive ? 'text-[#00FF99]' : 
-                      isCompleted ? 'text-[#00FF99]/80' : 
+                      isActive ? 'text-[#10B981]' : 
+                      isCompleted ? 'text-[#10B981]/80' : 
                       'text-white/60'
                     }`}>
                       {Math.round(progress)}%
@@ -615,7 +615,7 @@ export default function UltimateEngineLoader({
                       <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                        className="text-[#00FF99] text-sm"
+                        className="text-[#10B981] text-sm"
                       >
                         ✓
                       </motion.div>
@@ -629,7 +629,7 @@ export default function UltimateEngineLoader({
                     <motion.div
                       initial={{ scale: 0, rotate: -180 }}
                       animate={{ scale: 1, rotate: 0 }}
-                      className="w-6 h-6 bg-[#00FF99] rounded-full flex items-center justify-center"
+                      className="w-6 h-6 bg-[#10B981] rounded-full flex items-center justify-center"
                     >
                       <span className="text-white text-xs font-bold">✓</span>
                     </motion.div>
@@ -645,7 +645,7 @@ export default function UltimateEngineLoader({
                         repeat: Infinity, 
                         ease: "easeInOut" 
                       }}
-                      className="w-6 h-6 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] rounded-full flex items-center justify-center"
+                      className="w-6 h-6 bg-gradient-to-r from-[#10B981] to-[#059669] rounded-full flex items-center justify-center"
                     >
                       <span className="text-white text-xs">⚡</span>
                     </motion.div>
@@ -664,7 +664,7 @@ export default function UltimateEngineLoader({
           className="text-center space-y-6"
         >
           <motion.div
-            className="inline-flex items-center space-x-6 p-8 bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl shadow-2xl"
+            className="inline-flex items-center space-x-6 p-8 bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#10B981]/20 rounded-2xl shadow-2xl"
             animate={{
               scale: [1, 1.02, 1],
             }}
@@ -690,7 +690,7 @@ export default function UltimateEngineLoader({
             </motion.div>
             <div className="text-left">
               <motion.h3
-                className="text-2xl font-bold bg-gradient-to-r from-[#00FF99] to-[#00CC7A] bg-clip-text text-transparent mb-2"
+                className="text-2xl font-bold bg-gradient-to-r from-[#10B981] to-[#059669] bg-clip-text text-transparent mb-2"
                 animate={{
                   backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
                 }}
@@ -717,7 +717,7 @@ export default function UltimateEngineLoader({
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.7 }}
-          className="bg-gradient-to-r from-black/95 via-black/90 to-black/95 backdrop-blur-md border border-[#00FF99]/30 rounded-2xl p-6 mt-6"
+          className="bg-gradient-to-r from-black/95 via-black/90 to-black/95 backdrop-blur-md border border-[#10B981]/30 rounded-2xl p-6 mt-6"
         >
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -734,8 +734,8 @@ export default function UltimateEngineLoader({
                     ease: "easeInOut",
                   }}
                 >
-                  <div className="w-3 h-3 bg-[#00FF99] rounded-full animate-pulse" />
-                  <span className="text-[#00FF99] font-bold text-lg">
+                  <div className="w-3 h-3 bg-[#10B981] rounded-full animate-pulse" />
+                  <span className="text-[#10B981] font-bold text-lg">
                     Phase {Math.floor(overallProgress / 25) + 1} of 4
               </span>
                 </motion.div>
@@ -758,8 +758,8 @@ export default function UltimateEngineLoader({
                     ease: "easeInOut",
                   }}
                 >
-                  <span className="text-[#00FF99] text-lg">✅</span>
-                  <span className="text-[#00FF99] font-bold">
+                  <span className="text-[#10B981] text-lg">✅</span>
+                  <span className="text-[#10B981] font-bold">
                     {Object.values(engineProgress).filter(p => p >= 100).length} Complete
                 </span>
                 </motion.div>
@@ -775,8 +775,8 @@ export default function UltimateEngineLoader({
                     ease: "easeInOut",
                   }}
                 >
-                  <span className="text-[#00CC7A] text-lg">⚡</span>
-                  <span className="text-[#00CC7A] font-bold">
+                  <span className="text-[#059669] text-lg">⚡</span>
+                  <span className="text-[#059669] font-bold">
                     {currentEngineIndex + 1} Active
                 </span>
                 </motion.div>

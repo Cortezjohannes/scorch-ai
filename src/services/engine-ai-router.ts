@@ -1,9 +1,12 @@
 /**
  * 🎯 ENGINE AI ROUTER - INTELLIGENT API SELECTION
  * Routes engines to the optimal AI provider based on their purpose and strengths
+ * 
+ * 🔄 FALLBACK MECHANISM:
+ * - Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro (for 429 rate limit errors)
  */
 
-import { generateContent as generateWithAzure } from './azure-openai'
+import { generateContent as generateContentWithAzure } from './azure-openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { ENGINE_MODELS, GEMINI_CONFIG, AZURE_CONFIG, FALLBACK_CONFIG } from './model-config'
 
@@ -17,6 +20,7 @@ export interface EngineRequest {
   maxTokens?: number
   engineId?: string
   forceProvider?: 'azure' | 'gemini'
+  allowFallback?: boolean // when false, do not auto-fallback to the other provider
 }
 
 export interface EngineResponse {
@@ -27,6 +31,8 @@ export interface EngineResponse {
     contentLength: number
     thinkingTokens?: number
     completionTime: number
+    truncated?: boolean
+    finishReason?: string
   }
 }
 
@@ -40,14 +46,14 @@ export class EngineAIRouter {
    * Route engine request to optimal AI provider
    */
   static async generateContent(request: EngineRequest): Promise<EngineResponse> {
-    const startTime = Date.now()
     const {
       prompt,
       systemPrompt = 'You are a professional storytelling assistant.',
       temperature = 0.85, // HIGHER FOR CREATIVE EXCELLENCE!
       maxTokens = 2000,
       engineId,
-      forceProvider
+      forceProvider,
+      allowFallback = true
     } = request
 
     // Determine optimal provider
@@ -62,45 +68,50 @@ export class EngineAIRouter {
       provider = this.isCreativeTask(prompt) ? 'gemini' : 'azure'
     }
 
-    console.log(`🎯 ENGINE ROUTER: ${engineId || 'Unknown'} → ${provider.toUpperCase()}`)
+      const startTime = Date.now()
+      console.log(`🎯 ENGINE ROUTER: ${engineId || 'Unknown'} → ${provider.toUpperCase()}`)
 
-    try {
-      let response: EngineResponse
-
-      if (provider === 'gemini') {
-        response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
-      } else {
-        response = await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
-      }
-
-      response.metadata.completionTime = Date.now() - startTime
-      console.log(`✅ ENGINE ROUTER: Generated ${response.metadata.contentLength} chars in ${response.metadata.completionTime}ms`)
-
-      return response
-
-    } catch (error) {
-      console.error(`❌ ENGINE ROUTER: ${provider} failed, trying fallback...`)
-      
-      // Try fallback provider
-      const fallbackProvider = provider === 'azure' ? 'gemini' : 'azure'
-      
       try {
-        const fallbackResponse = fallbackProvider === 'gemini' 
-          ? await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
-          : await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
+        let response: EngineResponse
+
+        if (provider === 'gemini') {
+          response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
+        } else {
+          response = await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
+        }
+
+        response.metadata.completionTime = Date.now() - startTime
+        console.log(`✅ ENGINE ROUTER: Generated ${response.metadata.contentLength} chars in ${response.metadata.completionTime}ms`)
+
+        return response
+
+      } catch (error) {
+        console.error(`❌ ENGINE ROUTER: ${provider} failed, trying fallback...`)
+        if (!allowFallback) {
+          throw error instanceof Error ? error : new Error(String(error))
+        }
         
-        fallbackResponse.metadata.completionTime = Date.now() - startTime
-        console.log(`✅ ENGINE ROUTER: Fallback ${fallbackProvider} succeeded`)
+        // Try fallback provider
+        const fallbackProvider = provider === 'azure' ? 'gemini' : 'azure'
         
-        return fallbackResponse
-      } catch (fallbackError) {
-        throw new Error(`Both providers failed: ${error instanceof Error ? error.message : String(error)} | ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`)
+        try {
+          const fallbackResponse = fallbackProvider === 'gemini' 
+            ? await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
+            : await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
+          
+          fallbackResponse.metadata.completionTime = Date.now() - startTime
+          console.log(`✅ ENGINE ROUTER: Fallback ${fallbackProvider} succeeded`)
+          
+          return fallbackResponse
+        } catch (fallbackError) {
+          throw new Error(`Both providers failed: ${error instanceof Error ? error.message : String(error)} | ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`)
+        }
       }
-    }
   }
 
   /**
-   * Generate with Gemini 2.5 Pro (optimized for creativity)
+   * Generate with Gemini with automatic 429 fallback
+   * Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
    */
   private static async generateWithGemini(
     prompt: string,
@@ -109,31 +120,57 @@ export class EngineAIRouter {
     maxTokens: number
   ): Promise<EngineResponse> {
     
+    const geminiMaxTokens = 8192 // Gemini's actual max output tokens
+    const primaryModel = GEMINI_CONFIG.getModel('stable');
+    
+    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt
+    
+    // Helper to generate with a specific model
+    const generateWithModel = async (modelName: string): Promise<EngineResponse> => {
     const model = genAI.getGenerativeModel({ 
-      model: GEMINI_CONFIG.getModel('stable'),
+        model: modelName,
       generationConfig: {
         temperature: Math.min(temperature, 1), // Gemini max temp is 1
-        maxOutputTokens: Math.min(maxTokens, 8192),
+        maxOutputTokens: Math.min(maxTokens, geminiMaxTokens),
         topP: 0.95,
       }
     })
-
-    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt
+    
+    // Log if we're hitting token limits
+    if (maxTokens > geminiMaxTokens) {
+      console.warn(`⚠️  Requested ${maxTokens} tokens but Gemini max is ${geminiMaxTokens}. Response may be truncated.`)
+    }
     
     const result = await model.generateContent(fullPrompt)
     const response = await result.response
     const text = response.text()
     
+      // Check if response was truncated
+    const finishReason = (response as any).candidates?.[0]?.finishReason
+    const isTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH'
+    
+    if (isTruncated) {
+      console.warn(`⚠️  Gemini response truncated (finishReason: ${finishReason})`)
+      console.warn(`  Response length: ${text.length} characters`)
+    }
+    
     return {
       content: text,
       provider: 'gemini',
-      model: GEMINI_CONFIG.getModel('stable'),
+        model: modelName,
       metadata: {
         contentLength: text.length,
         thinkingTokens: response.usageMetadata?.promptTokenCount || 0,
-        completionTime: 0 // Will be set by caller
+        completionTime: 0, // Will be set by caller
+        truncated: isTruncated,
+        finishReason: finishReason
+      }
       }
     }
+    
+    // Generate with primary model
+    console.log(`🚀 [ENGINE ROUTER] Using primary Gemini model: ${primaryModel}`)
+    return await generateWithModel(primaryModel)
   }
 
   /**
@@ -153,7 +190,7 @@ export class EngineAIRouter {
       try {
         console.log(`🔵 Trying Azure model: ${model}`)
         
-        const content = await generateWithAzure(prompt, {
+        const content = await generateContentWithAzure(prompt, {
           systemPrompt,
           temperature: model === 'gpt-5-mini' ? 1 : Math.min(temperature, 2),
           maxTokens: Math.min(maxTokens, model === 'gpt-5-mini' ? 4096 : 8192),

@@ -23,6 +23,20 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
   let apiKey = process.env.AZURE_OPENAI_API_KEY || '';
   let endpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
   
+  // Validate API key before making request
+  if (!apiKey || apiKey.trim().length === 0) {
+    console.error('❌ AZURE_OPENAI_API_KEY is missing or empty');
+    console.error('   Check environment variables and Secret Manager configuration');
+    throw new Error('Azure OpenAI API key is not configured');
+  }
+  
+  // Check if API key looks like a placeholder
+  if (apiKey.includes('placeholder') || apiKey.length < 20) {
+    console.error('❌ AZURE_OPENAI_API_KEY appears to be invalid (placeholder or too short)');
+    console.error(`   Key length: ${apiKey.length}, starts with: ${apiKey.substring(0, 10)}...`);
+    throw new Error('Azure OpenAI API key appears to be invalid - check Secret Manager');
+  }
+  
   // Handle specific model deployments
   if (model === 'gpt-5-mini') {
     deploymentId = process.env.GPT_5_MINI_DEPLOYMENT || 'gpt-5-mini';
@@ -35,10 +49,18 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
     deploymentId = model;
   }
   
+  // Validate endpoint
+  if (!endpoint || !endpoint.startsWith('http')) {
+    console.error('❌ AZURE_OPENAI_ENDPOINT is missing or invalid');
+    console.error(`   Endpoint: ${endpoint}`);
+    throw new Error('Azure OpenAI endpoint is not configured');
+  }
+  
   // Construct the API URL
   const url = `${endpoint}openai/deployments/${deploymentId}/chat/completions?api-version=${WORKING_API_VERSION}`;
   
-  console.log(`🚀 Making ${model} API call to: ${url} with deployment: ${deploymentId}`);
+  console.log(`🚀 Making ${model} API call to: ${url.replace(/\/\/[^\/]+@/, '//***@')} with deployment: ${deploymentId}`);
+  console.log(`   API Key present: ${apiKey ? 'Yes' : 'No'}, length: ${apiKey.length}`);
   
   try {
     // Create an AbortController with 120 second timeout
@@ -68,8 +90,28 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
     
     // Parse the response
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error(`Direct API call failed with status ${response.status}:`, errorData);
+      let errorData: any = {};
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status} ${response.statusText}` };
+      }
+      console.error(`❌ Azure OpenAI API call failed with status ${response.status}:`, errorData);
+      
+      // Provide specific error messages for common issues
+      if (response.status === 401) {
+        console.error('💡 Authentication failed - check AZURE_OPENAI_API_KEY');
+      } else if (response.status === 404) {
+        console.error(`💡 Deployment not found - check deployment name: ${deploymentId}`);
+        console.error(`   Endpoint: ${endpoint}`);
+      } else if (response.status === 403) {
+        console.error('💡 Access forbidden - check API key permissions');
+      } else if (response.status === 429) {
+        console.error('💡 Rate limit exceeded - check quota');
+      } else if (response.status === 503) {
+        console.error('💡 Service unavailable - Azure OpenAI may be temporarily down');
+      }
+      
       return null;
     }
     
@@ -78,10 +120,25 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
   } catch (error) {
     // Check if error is due to timeout/abort
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Direct API call timed out after 120 seconds');
+      console.error('❌ Azure OpenAI API call timed out after 120 seconds');
       throw new Error('AI service timeout - request took too long to respond');
     }
-    console.error('Direct API call error:', error);
+    
+    // Network/connectivity errors
+    if (error instanceof Error) {
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        console.error('❌ Azure OpenAI network error:', error.message);
+        console.error('💡 Check endpoint URL and network connectivity');
+      } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        console.error('❌ Azure OpenAI connection error:', error.message);
+        console.error('💡 Cannot reach Azure endpoint - check endpoint URL and network');
+      } else {
+        console.error('❌ Azure OpenAI API call error:', error.message);
+      }
+    } else {
+      console.error('❌ Azure OpenAI API call error:', error);
+    }
+    
     return null;
   }
 }
@@ -192,7 +249,7 @@ export async function generateContent(
       
       console.log('✅ Gemini fallback succeeded!');
       monitoring.logUsage({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         inputTokens: Math.ceil(prompt.length / 4),
         outputTokens: Math.ceil(geminiResponse.length / 4),
         cost: 0.005, // Rough estimate for Gemini

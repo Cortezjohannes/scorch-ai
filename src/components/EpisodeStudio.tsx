@@ -82,6 +82,9 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
   // Story Bible Cheat Sheet
   const [showCheatSheet, setShowCheatSheet] = useState(true)
+  
+  // Responsive state for sidebar
+  const [isMobile, setIsMobile] = useState(false)
 
   // Previous episode for context
   const [previousEpisode, setPreviousEpisode] = useState<any>(null)
@@ -184,6 +187,16 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
     
     loadPreviousEpisode()
   }, [episodeNumber, storyBibleId, user])
+
+  // Detect screen size for responsive sidebar
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024) // lg breakpoint
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Generate AI summary of previous episode
   const generatePreviousEpisodeSummary = async (prevEpisode: any) => {
@@ -400,9 +413,28 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
         }
         
         // Save episode: Firestore for authenticated users, localStorage for guests
+        // Check both useAuth hook and Firebase auth directly (fallback for cross-device issues)
+        let userIdToUse = user?.id
+        if (!userIdToUse) {
+          try {
+            const { auth } = await import('@/lib/firebase')
+            const currentUser = auth.currentUser
+            if (currentUser) {
+              userIdToUse = currentUser.uid
+              console.log('🔍 useAuth returned null, but Firebase auth.currentUser exists:', userIdToUse)
+            }
+          } catch (authError) {
+            console.error('❌ Error checking Firebase auth:', authError)
+          }
+        }
+        
         try {
-          console.log(`💾 Saving episode ${episodeNumber} to ${user ? 'Firestore' : 'localStorage'}...`)
-          await saveEpisode(finalEpisode, storyBibleId, user?.id)
+          console.log(`💾 Saving episode ${episodeNumber} to ${userIdToUse ? 'Firestore' : 'localStorage'}...`, {
+            userId: userIdToUse,
+            fromHook: !!user?.id,
+            fromDirect: !user?.id
+          })
+          await saveEpisode(finalEpisode, storyBibleId, userIdToUse)
           console.log(`✅ Episode ${episodeNumber} saved successfully`)
           
           // Analyze episode and save reflection (authenticated users only)
@@ -691,17 +723,17 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
   return (
     <div className="min-h-screen bg-[rgb(18,18,18)] text-white">
       {/* Header */}
-      <div className={`border-b border-[#36393f] bg-[#1a1a1a]/80 backdrop-blur-md transition-all duration-300 ${showCheatSheet ? 'pl-80' : ''}`}>
+      <div className={`border-b border-[#36393f] bg-[#1a1a1a]/80 backdrop-blur-md transition-all duration-300 ${showCheatSheet && !isMobile ? 'pl-80' : ''}`}>
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-[#00FF99] mb-2">Episode Studio</h1>
+              <h1 className="text-3xl font-bold text-[#10B981] mb-2">Episode Studio</h1>
               <p className="text-[#e7e7e7]/70">
                 Episode {episodeNumber} • {storyBible?.seriesTitle || 'Untitled Series'}
               </p>
               <button
                 onClick={() => setShowPlaybook(true)}
-                className="bg-gradient-to-r from-[#00FF99] to-[#00cc7a] text-black px-4 py-2 rounded-lg font-semibold text-sm hover:from-[#00cc7a] hover:to-[#00b366] transition-all duration-200 shadow-[0_0_15px_rgba(0,255,153,0.3)] hover:shadow-[0_0_20px_rgba(0,255,153,0.5)] mt-3"
+                className="bg-gradient-to-r from-[#10B981] to-[#00cc7a] text-black px-4 py-2 rounded-lg font-semibold text-sm hover:from-[#00cc7a] hover:to-[#00b366] transition-all duration-200 shadow-[0_0_15px_rgba(0,255,153,0.3)] hover:shadow-[0_0_20px_rgba(0,255,153,0.5)] mt-3"
               >
                 📖 The Director's Playbook: How to Execute Your Vision
               </button>
@@ -717,23 +749,38 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
       </div>
 
       {/* Guest Mode Warning */}
-      <div className={`max-w-7xl mx-auto px-6 pt-6 transition-all duration-300 ${showCheatSheet ? 'ml-80' : 'ml-0'}`}>
+      <div className={`max-w-7xl mx-auto px-6 pt-6 transition-all duration-300 ${showCheatSheet && !isMobile ? 'ml-80' : 'ml-0'}`}>
         <GuestModeWarning />
       </div>
 
-      {/* Story Bible Cheat Sheet - Fixed Sidebar */}
+      {/* Story Bible Cheat Sheet - Responsive Sidebar */}
       <AnimatePresence>
         {showCheatSheet && storyBible && (
-          <motion.div
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-            className="fixed left-0 top-0 h-screen w-80 bg-[#1a1a1a] border-r border-[#36393f] overflow-y-auto z-40 shadow-2xl"
-          >
+          <>
+            {/* Backdrop for mobile overlay */}
+            {isMobile && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowCheatSheet(false)}
+                className="fixed inset-0 bg-black/50 z-40"
+              />
+            )}
+            
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              className={`fixed left-0 top-0 h-screen w-80 bg-[#1a1a1a] border-r border-[#36393f] overflow-y-auto shadow-2xl ${
+                isMobile ? 'z-50' : 'z-40'
+              }`}
+            >
             <div className="p-6">
               {/* Header with close button */}
               <div className="flex items-center justify-between mb-6 sticky top-0 bg-[#1a1a1a] pb-4 border-b border-[#36393f]">
-                <h3 className="text-lg font-bold text-[#00FF99]">📖 Story Bible</h3>
+                <h3 className="text-lg font-bold text-[#10B981]">📖 Story Bible</h3>
                 <button
                   onClick={() => setShowCheatSheet(false)}
                   className="text-[#e7e7e7]/50 hover:text-[#e7e7e7] transition-colors"
@@ -745,7 +792,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
               {/* Series Title */}
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-[#00FF99]/70 mb-2">Series</h4>
+                <h4 className="text-sm font-semibold text-[#10B981]/70 mb-2">Series</h4>
                 <p className="text-[#e7e7e7] font-bold text-lg">{storyBible.seriesTitle || 'Untitled'}</p>
               </div>
 
@@ -786,7 +833,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               {/* Premise */}
               {storyBible.premise && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-[#00FF99]/70 mb-2">Premise</h4>
+                  <h4 className="text-sm font-semibold text-[#10B981]/70 mb-2">Premise</h4>
                   <p className="text-[#e7e7e7]/80 text-sm">
                     {typeof storyBible.premise === 'string' 
                       ? storyBible.premise 
@@ -798,13 +845,13 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               {/* Characters */}
               {storyBible.mainCharacters && storyBible.mainCharacters.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-[#00FF99]/70 mb-2">
+                  <h4 className="text-sm font-semibold text-[#10B981]/70 mb-2">
                     Characters ({storyBible.mainCharacters.length})
                   </h4>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {storyBible.mainCharacters.map((char: any, i: number) => (
                       <div key={i} className="bg-[#2a2a2a] rounded-lg p-3">
-                        <p className="font-semibold text-[#00FF99] text-sm">{char.name}</p>
+                        <p className="font-semibold text-[#10B981] text-sm">{char.name}</p>
                         {char.premiseFunction && (
                           <p className="text-[#e7e7e7]/60 text-xs mt-1">{char.premiseFunction}</p>
                         )}
@@ -822,13 +869,13 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               {/* World Rules */}
               {storyBible.worldBuilding?.rules && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-[#00FF99]/70 mb-2">World Rules</h4>
+                  <h4 className="text-sm font-semibold text-[#10B981]/70 mb-2">World Rules</h4>
                   <ul className="space-y-1 text-xs text-[#e7e7e7]/70">
                     {(Array.isArray(storyBible.worldBuilding.rules) 
                       ? storyBible.worldBuilding.rules 
                       : [storyBible.worldBuilding.rules]).slice(0, 5).map((rule: any, i: number) => (
                       <li key={i} className="flex items-start gap-2">
-                        <span className="text-[#00FF99] mt-0.5">•</span>
+                        <span className="text-[#10B981] mt-0.5">•</span>
                         <span>{typeof rule === 'string' ? rule : JSON.stringify(rule)}</span>
                       </li>
                     ))}
@@ -839,7 +886,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               {/* Current Arc */}
               {storyBible.narrativeArcs && storyBible.narrativeArcs.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="text-sm font-semibold text-[#00FF99]/70 mb-2">Current Arc</h4>
+                  <h4 className="text-sm font-semibold text-[#10B981]/70 mb-2">Current Arc</h4>
                   {(() => {
                     // Find which arc this episode belongs to
                     let currentArc = storyBible.narrativeArcs[0]
@@ -851,7 +898,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                     }
                     return (
                       <div className="bg-[#2a2a2a] rounded-lg p-3">
-                        <p className="font-semibold text-[#00FF99] text-sm">{currentArc.title}</p>
+                        <p className="font-semibold text-[#10B981] text-sm">{currentArc.title}</p>
                         <p className="text-[#e7e7e7]/60 text-xs mt-1">{currentArc.summary}</p>
                       </div>
                     )
@@ -863,13 +910,14 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               <div className="mt-6 pt-4 border-t border-[#36393f]">
                 <button
                   onClick={() => router.push('/story-bible')}
-                  className="w-full px-4 py-2 bg-[#00FF99]/10 hover:bg-[#00FF99]/20 text-[#00FF99] rounded-lg text-sm font-semibold transition-colors border border-[#00FF99]/30"
+                  className="w-full px-4 py-2 bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] rounded-lg text-sm font-semibold transition-colors border border-[#10B981]/30"
                 >
                   View Full Story Bible →
                 </button>
               </div>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -877,15 +925,15 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
       {!showCheatSheet && (
         <button
           onClick={() => setShowCheatSheet(true)}
-          className="fixed left-0 top-1/2 -translate-y-1/2 bg-[#00FF99] text-black px-3 py-6 rounded-r-lg font-bold text-sm shadow-lg hover:px-4 transition-all z-40"
+          className="fixed left-0 top-1/2 -translate-y-1/2 bg-[#10B981] text-black px-3 py-6 rounded-r-lg font-bold text-sm shadow-lg hover:px-4 transition-all z-40"
           title="Show story bible cheat sheet"
         >
           📖
         </button>
       )}
 
-      {/* Main Content - Adjust margin when cheat sheet is open */}
-      <div className={`max-w-7xl mx-auto px-6 py-8 transition-all duration-300 ${showCheatSheet ? 'ml-80' : 'ml-0'}`}>
+      {/* Main Content - Adjust margin when cheat sheet is open (desktop only) */}
+      <div className={`max-w-7xl mx-auto px-6 py-8 transition-all duration-300 ${showCheatSheet && !isMobile ? 'ml-80' : 'ml-0'}`}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* COLUMN 1: THE BLUEPRINT (Structure) */}
@@ -895,7 +943,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
             className="space-y-6"
           >
             <div className="card">
-              <h2 className="text-xl font-bold text-[#00FF99] mb-4">
+              <h2 className="text-xl font-bold text-[#10B981] mb-4">
                 📋 The Blueprint
               </h2>
               <p className="text-[#e7e7e7]/70 mb-6">
@@ -922,7 +970,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               <button
                 onClick={() => handleGenerateBeatSheet()}
                 disabled={!episodeGoal.trim() || beatSheetGen.isGenerating}
-                className="btn-primary mb-6 w-full border border-[#00FF99] bg-transparent text-[#00FF99] hover:bg-[#00FF99] hover:text-black transition-all"
+                className="btn-primary mb-6 w-full border border-[#10B981] bg-transparent text-[#10B981] hover:bg-[#10B981] hover:text-black transition-all"
               >
                 {beatSheetGen.isGenerating ? (
                   <div className="flex items-center justify-center gap-2">
@@ -962,7 +1010,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
             className="space-y-6"
           >
             <div className="card">
-              <h2 className="text-xl font-bold text-[#00FF99] mb-4">
+              <h2 className="text-xl font-bold text-[#10B981] mb-4">
                 🎬 The Director's Chair
               </h2>
               <p className="text-[#e7e7e7]/70 mb-6">
@@ -1015,7 +1063,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-sm font-medium">Tone</label>
-                    <span className="text-xs text-[#00FF99]">{getToneLabel(vibeSettings.tone)}</span>
+                    <span className="text-xs text-[#10B981]">{getToneLabel(vibeSettings.tone)}</span>
                   </div>
                   <div className="relative">
                     <input
@@ -1037,7 +1085,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-sm font-medium">Pacing</label>
-                    <span className="text-xs text-[#00FF99]">{getPacingLabel(vibeSettings.pacing)}</span>
+                    <span className="text-xs text-[#10B981]">{getPacingLabel(vibeSettings.pacing)}</span>
                   </div>
                   <div className="relative">
                     <input
@@ -1059,7 +1107,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-sm font-medium">Dialogue Style</label>
-                    <span className="text-xs text-[#00FF99]">{getDialogueLabel(vibeSettings.dialogueStyle)}</span>
+                    <span className="text-xs text-[#10B981]">{getDialogueLabel(vibeSettings.dialogueStyle)}</span>
                   </div>
                   <div className="relative">
                     <input
@@ -1099,7 +1147,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 disabled={!canWriteScript}
                 className={`btn-primary w-full text-lg font-semibold py-4 transition-all mb-4 ${
                   canWriteScript 
-                    ? 'bg-[#00FF99] text-black hover:bg-[#00cc7a] shadow-[0_0_20px_rgba(0,255,153,0.3)]' 
+                    ? 'bg-[#10B981] text-black hover:bg-[#00cc7a] shadow-[0_0_20px_rgba(0,255,153,0.3)]' 
                     : 'opacity-50 cursor-not-allowed'
                 }`}
               >
@@ -1162,7 +1210,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             {/* Modal Header */}
             <div className="border-b border-[#36393f] p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-[#00FF99]">📖 The Director's Playbook: Executing Your Vision</h2>
+              <h2 className="text-2xl font-bold text-[#10B981]">📖 The Director's Playbook: Executing Your Vision</h2>
               <button
                 onClick={() => setShowPlaybook(false)}
                 className="text-[#e7e7e7]/70 hover:text-[#e7e7e7] text-2xl transition-colors"
@@ -1184,7 +1232,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
               {/* Mastering the Episode Studio Workflow */}
               <div className="space-y-5">
-                <h3 className="text-xl font-bold text-[#00FF99] border-b border-[#36393f] pb-2">
+                <h3 className="text-xl font-bold text-[#10B981] border-b border-[#36393f] pb-2">
                   Mastering the Episode Studio Workflow
                 </h3>
 
@@ -1192,7 +1240,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div className="space-y-3">
                   <h4 className="text-lg font-semibold text-white">1. Episode Goal (The Objective)</h4>
                   <p className="text-[#e7e7e7]/90">
-                    <strong className="text-[#00FF99]">The Tactic:</strong> Define the main objective for this 3-5 minute episode. 
+                    <strong className="text-[#10B981]">The Tactic:</strong> Define the main objective for this 3-5 minute episode. 
                     Keep it laser-focused. (e.g., "Character A must hide the secret, but Character B gets suspicious and confronts them.")
                   </p>
                 </div>
@@ -1201,7 +1249,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-white">2. The Beat Sheet (The Blueprint - CRITICAL STEP)</h4>
                   <p className="text-[#e7e7e7]/90">
-                    <strong className="text-[#00FF99]">The Tactic:</strong> The Architect Engine generates a beat sheet - think of it as a 
+                    <strong className="text-[#10B981]">The Tactic:</strong> The Architect Engine generates a beat sheet - think of it as a 
                     detailed outline that breaks your episode into 3-6 story moments (beats). Each beat is a mini-scene with purpose.
                   </p>
                   
@@ -1233,8 +1281,8 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                   </div>
 
                   {/* How to Edit */}
-                  <div className="bg-[#2a2a2a] border-l-4 border-[#00FF99] p-4 space-y-3">
-                    <h5 className="font-semibold text-[#00FF99] mb-2">✂️ How to edit like a pro:</h5>
+                  <div className="bg-[#2a2a2a] border-l-4 border-[#10B981] p-4 space-y-3">
+                    <h5 className="font-semibold text-[#10B981] mb-2">✂️ How to edit like a pro:</h5>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-red-900/20 border border-red-500/30 p-3 rounded">
@@ -1293,7 +1341,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
                   {/* Example Transformation */}
                   <div className="bg-[#2a2a2a] border border-[#36393f] p-4 rounded-lg">
-                    <h5 className="font-semibold text-[#00FF99] mb-3">📝 Real example transformation:</h5>
+                    <h5 className="font-semibold text-[#10B981] mb-3">📝 Real example transformation:</h5>
                     
                     <div className="space-y-4">
                       <div className="bg-red-900/20 border border-red-500/30 p-3 rounded">
@@ -1319,7 +1367,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                     
                     <div className="bg-[#1a1a1a] p-3 rounded mt-3">
                       <p className="text-xs text-[#e7e7e7]/80">
-                        <strong className="text-[#00FF99]">See the difference?</strong> Same basic story structure, but the edited version has 
+                        <strong className="text-[#10B981]">See the difference?</strong> Same basic story structure, but the edited version has 
                         specific actions, emotional stakes, and concrete details that create tension. This is what turns a generic episode into compelling content.
                       </p>
                     </div>
@@ -1330,7 +1378,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div className="space-y-3">
                   <h4 className="text-lg font-semibold text-white">3. Vibe Check Sliders (The Tone & Pacing)</h4>
                   <p className="text-[#e7e7e7]/90">
-                    <strong className="text-[#00FF99]">The Tactic:</strong> Use these to define the atmosphere and rhythm.
+                    <strong className="text-[#10B981]">The Tactic:</strong> Use these to define the atmosphere and rhythm.
                   </p>
                   <div className="bg-[#2a2a2a] p-4 space-y-3">
                     <div>
@@ -1341,7 +1389,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                       <strong className="text-yellow-400">Comedic Fight?</strong> Set Tone to "Light/Comedic," 
                       Pacing to "High Octane," and Dialogue to "Snappy/Expository."
                     </div>
-                    <div className="text-[#00FF99] font-semibold">
+                    <div className="text-[#10B981] font-semibold">
                       Pro Tip: The AI heavily weights these settings. Use them deliberately.
                     </div>
                   </div>
@@ -1351,7 +1399,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                 <div className="space-y-3">
                   <h4 className="text-lg font-semibold text-white">4. Director's Notes (The Soul - MOST IMPORTANT)</h4>
                   <p className="text-[#e7e7e7]/90">
-                    <strong className="text-[#00FF99]">The Tactic:</strong> This is where you inject the magic, the nuance, 
+                    <strong className="text-[#10B981]">The Tactic:</strong> This is where you inject the magic, the nuance, 
                     and the artistry. The Auteur Engine prioritizes these notes above everything else. This is how you avoid generic output.
                   </p>
                   
@@ -1395,7 +1443,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
 
               {/* Case Studies */}
               <div className="space-y-5">
-                <h3 className="text-xl font-bold text-[#00FF99] border-b border-[#36393f] pb-2">
+                <h3 className="text-xl font-bold text-[#10B981] border-b border-[#36393f] pb-2">
                   Case Studies: Director's Notes in Action
                 </h3>
 
@@ -1438,7 +1486,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
               <div className="text-center pt-4 border-t border-[#36393f]">
                 <button
                   onClick={() => setShowPlaybook(false)}
-                  className="btn-primary bg-[#00FF99] text-black px-6 py-3 rounded-lg hover:bg-[#00cc7a] transition-colors"
+                  className="btn-primary bg-[#10B981] text-black px-6 py-3 rounded-lg hover:bg-[#00cc7a] transition-colors"
                 >
                   Got it! Let's Create
                 </button>
@@ -1454,7 +1502,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
             {/* Modal Header */}
             <div className="border-b border-[#36393f] p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-[#00FF99]">💡 Previous Episode Inspiration</h2>
+              <h2 className="text-2xl font-bold text-[#10B981]">💡 Previous Episode Inspiration</h2>
               <button
                 onClick={() => setShowInspirationOptions(false)}
                 className="text-[#e7e7e7]/70 hover:text-[#e7e7e7] text-2xl transition-colors"
@@ -1544,17 +1592,17 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
                         }, 500)
                       }
                     }}
-                    className="w-full text-left bg-[#2a2a2a] border border-[#36393f] rounded-lg p-5 hover:bg-[#36393f] hover:border-[#00FF99]/50 transition-all duration-200 group"
+                    className="w-full text-left bg-[#2a2a2a] border border-[#36393f] rounded-lg p-5 hover:bg-[#36393f] hover:border-[#10B981]/50 transition-all duration-200 group"
                   >
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-[#00FF99]/20 text-[#00FF99] flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-[#00FF99]/30 transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-[#10B981]/20 text-[#10B981] flex items-center justify-center font-bold flex-shrink-0 group-hover:bg-[#10B981]/30 transition-colors">
                         {option.id || index + 1}
                       </div>
                       <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-white mb-2 group-hover:text-[#00FF99] transition-colors">{option.text}</h4>
+                        <h4 className="text-lg font-semibold text-white mb-2 group-hover:text-[#10B981] transition-colors">{option.text}</h4>
                         <p className="text-[#e7e7e7]/80">{option.description}</p>
                       </div>
-                      <div className="text-[#00FF99] opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="text-[#10B981] opacity-0 group-hover:opacity-100 transition-opacity">
                         →
                       </div>
                     </div>
@@ -1583,7 +1631,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           height: 20px;
           width: 20px;
           border-radius: 50%;
-          background: #00FF99;
+          background: #10B981;
           cursor: pointer;
           border: 2px solid #1a1a1a;
           box-shadow: 0 0 10px rgba(0, 255, 153, 0.3);
@@ -1593,7 +1641,7 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           height: 20px;
           width: 20px;
           border-radius: 50%;
-          background: #00FF99;
+          background: #10B981;
           cursor: pointer;
           border: 2px solid #1a1a1a;
           box-shadow: 0 0 10px rgba(0, 255, 153, 0.3);

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 
 export default function ModelTestPage() {
   const [testing, setTesting] = useState(false)
@@ -56,14 +56,14 @@ export default function ModelTestPage() {
     const { content, metrics, generationTime } = modelResult
 
     return (
-      <div className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-lg p-6">
+      <div className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
-          <h4 className="text-xl font-bold text-[#00FF99]">{label}</h4>
-          <span className="text-[#00FF99] font-mono">{(generationTime / 1000).toFixed(2)}s</span>
+          <h4 className="text-xl font-bold text-[#10B981]">{label}</h4>
+          <span className="text-[#10B981] font-mono">{(generationTime / 1000).toFixed(2)}s</span>
         </div>
 
         {/* Episode Title & Synopsis */}
-        <div className="mb-6 pb-6 border-b border-[#00FF99]/20">
+        <div className="mb-6 pb-6 border-b border-[#10B981]/20">
           <h5 className="text-2xl font-bold text-white mb-2">{content.title}</h5>
           <p className="text-white/80 italic">{content.synopsis}</p>
         </div>
@@ -71,19 +71,19 @@ export default function ModelTestPage() {
         {/* Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-black/30 p-3 rounded">
-            <div className="text-[#00FF99]/70 text-sm">Scenes</div>
+            <div className="text-[#10B981]/70 text-sm">Scenes</div>
             <div className="text-white text-2xl font-bold">{metrics.sceneCount}</div>
           </div>
           <div className="bg-black/30 p-3 rounded">
-            <div className="text-[#00FF99]/70 text-sm">Total Words</div>
+            <div className="text-[#10B981]/70 text-sm">Total Words</div>
             <div className="text-white text-2xl font-bold">{metrics.totalWords}</div>
           </div>
           <div className="bg-black/30 p-3 rounded">
-            <div className="text-[#00FF99]/70 text-sm">Avg/Scene</div>
+            <div className="text-[#10B981]/70 text-sm">Avg/Scene</div>
             <div className="text-white text-2xl font-bold">{metrics.avgWordsPerScene}</div>
           </div>
           <div className="bg-black/30 p-3 rounded">
-            <div className="text-[#00FF99]/70 text-sm">Dialogue</div>
+            <div className="text-[#10B981]/70 text-sm">Dialogue</div>
             <div className="text-white text-2xl font-bold">{metrics.dialogueCount}</div>
           </div>
         </div>
@@ -108,10 +108,10 @@ export default function ModelTestPage() {
 
         {/* Scene Previews */}
         <div className="space-y-4">
-          <h6 className="text-lg font-semibold text-[#00FF99]">Scene Previews:</h6>
+          <h6 className="text-lg font-semibold text-[#10B981]">Scene Previews:</h6>
           {content.scenes?.map((scene: any, idx: number) => (
-            <div key={idx} className="bg-black/50 p-4 rounded border border-[#00FF99]/10">
-              <div className="text-[#00FF99] font-semibold mb-2">
+            <div key={idx} className="bg-black/50 p-4 rounded border border-[#10B981]/10">
+              <div className="text-[#10B981] font-semibold mb-2">
                 Scene {scene.sceneNumber}: {scene.title}
               </div>
               <div className="text-white/90 text-sm line-clamp-4">
@@ -122,22 +122,22 @@ export default function ModelTestPage() {
                   const modal = document.getElementById(`scene-${label}-${idx}`)
                   if (modal) modal.classList.remove('hidden')
                 }}
-                className="text-[#00FF99] text-xs mt-2 hover:underline"
+                className="text-[#10B981] text-xs mt-2 hover:underline"
               >
                 Read Full Scene →
               </button>
 
               {/* Full Scene Modal */}
               <div id={`scene-${label}-${idx}`} className="hidden fixed inset-0 bg-black/80 z-50 overflow-auto p-8">
-                <div className="max-w-4xl mx-auto bg-[#1a1a1a] border border-[#00FF99]/20 rounded-lg p-8">
+                <div className="max-w-4xl mx-auto bg-[#1a1a1a] border border-[#10B981]/20 rounded-lg p-8">
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-[#00FF99]">Scene {scene.sceneNumber}: {scene.title}</h3>
+                    <h3 className="text-2xl font-bold text-[#10B981]">Scene {scene.sceneNumber}: {scene.title}</h3>
                     <button
                       onClick={() => {
                         const modal = document.getElementById(`scene-${label}-${idx}`)
                         if (modal) modal.classList.add('hidden')
                       }}
-                      className="text-white hover:text-[#00FF99] text-2xl"
+                      className="text-white hover:text-[#10B981] text-2xl"
                     >
                       ×
                     </button>
@@ -163,7 +163,15 @@ export default function ModelTestPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-[#00FF99] mb-2">🧪 Model Comparison Test</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-bold text-[#10B981] mb-2">🧪 Model Comparison Test</h1>
+            <a
+              href="/gemini-comparison"
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-semibold transition"
+            >
+              🎬 Script Comparison Test →
+            </a>
+          </div>
           <p className="text-white/70 text-lg">
             GPT-4.1 vs Gemini 2.5 Pro - Which generates better narrative prose?
           </p>
@@ -174,7 +182,7 @@ export default function ModelTestPage() {
           <motion.button
             onClick={runTest}
             disabled={testing}
-            className="bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-8 py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(0,255,153,0.5)] transition-all"
+            className="bg-gradient-to-r from-[#10B981] to-[#059669] text-black px-8 py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(0,255,153,0.5)] transition-all"
             whileHover={{ scale: testing ? 1 : 1.05 }}
             whileTap={{ scale: testing ? 1 : 0.95 }}
           >
@@ -184,8 +192,8 @@ export default function ModelTestPage() {
 
         {/* Testing Indicator */}
         {testing && (
-          <div className="mt-8 bg-[#1a1a1a] border border-[#00FF99]/20 rounded-lg p-8 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#00FF99] mx-auto mb-4"></div>
+          <div className="mt-8 bg-[#1a1a1a] border border-[#10B981]/20 rounded-lg p-8 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-[#10B981] mx-auto mb-4"></div>
             <p className="text-xl text-white/90">Testing both models in parallel...</p>
             <p className="text-sm text-white/60 mt-2">This may take 30-60 seconds</p>
           </div>
@@ -209,13 +217,13 @@ export default function ModelTestPage() {
         {results && (
           <div className="space-y-8 mt-8">
             {/* Comparison Summary */}
-            <div className="bg-gradient-to-br from-[#00FF99]/20 to-transparent border border-[#00FF99] rounded-lg p-6">
-              <h2 className="text-3xl font-bold text-[#00FF99] mb-6">📊 Comparison Results</h2>
+            <div className="bg-gradient-to-br from-[#10B981]/20 to-transparent border border-[#10B981] rounded-lg p-6">
+              <h2 className="text-3xl font-bold text-[#10B981] mb-6">📊 Comparison Results</h2>
               
               <div className="grid md:grid-cols-3 gap-6">
                 {/* Speed Winner */}
                 <div className="bg-black/30 p-6 rounded-lg">
-                  <div className="text-[#00FF99] text-sm font-semibold mb-2">⚡ SPEED</div>
+                  <div className="text-[#10B981] text-sm font-semibold mb-2">⚡ SPEED</div>
                   <div className="text-white text-2xl font-bold mb-1">{results.comparison.speed.faster}</div>
                   <div className="text-white/60 text-sm">
                     {results.comparison.speed.speedDifferencePercent}% faster
@@ -228,7 +236,7 @@ export default function ModelTestPage() {
 
                 {/* Content Length Winner */}
                 <div className="bg-black/30 p-6 rounded-lg">
-                  <div className="text-[#00FF99] text-sm font-semibold mb-2">📝 LENGTH</div>
+                  <div className="text-[#10B981] text-sm font-semibold mb-2">📝 LENGTH</div>
                   <div className="text-white text-2xl font-bold mb-1">{results.comparison.contentLength.longer}</div>
                   <div className="text-white/60 text-sm">
                     {results.comparison.contentLength.lengthDifference} more words
@@ -241,7 +249,7 @@ export default function ModelTestPage() {
 
                 {/* Quality Winner */}
                 <div className="bg-black/30 p-6 rounded-lg">
-                  <div className="text-[#00FF99] text-sm font-semibold mb-2">⭐ QUALITY SCORE</div>
+                  <div className="text-[#10B981] text-sm font-semibold mb-2">⭐ QUALITY SCORE</div>
                   <div className="text-white text-2xl font-bold mb-1">{results.comparison.qualityScore.winner}</div>
                   <div className="text-white/60 text-sm">
                     Based on automated metrics
@@ -267,7 +275,7 @@ export default function ModelTestPage() {
                   setResults(null)
                   setError(null)
                 }}
-                className="bg-[#00FF99]/20 hover:bg-[#00FF99]/30 border border-[#00FF99] text-[#00FF99] px-6 py-3 rounded-lg font-semibold transition-all"
+                className="bg-[#10B981]/20 hover:bg-[#10B981]/30 border border-[#10B981] text-[#10B981] px-6 py-3 rounded-lg font-semibold transition-all"
               >
                 🔄 Run Another Test
               </button>

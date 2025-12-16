@@ -2,7 +2,7 @@
  * Budget Generator - AI Service
  * Analyzes script and breakdown to suggest realistic OPTIONAL budget items
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro
+ * Uses EngineAIRouter with Gemini 3 Pro Preview
  * 
  * Budget Structure:
  * - BASE budget: From Script Breakdown (extras, props, locations) - READ-ONLY
@@ -140,6 +140,11 @@ function extractBaseBudget(breakdown: ScriptBreakdownData): BaseBudget {
   let locations = 0
 
   breakdown.scenes.forEach(scene => {
+    const details = scene.budgetDetails || {}
+    extras += details.extrasCost || 0
+    props += details.propCost || 0
+    locations += details.locationCost || 0
+
     // Extras cost (characters marked as "background" or with 0 lines)
     const extrasInScene = scene.characters.filter(
       char => char.importance === 'background' || char.lineCount === 0
@@ -245,6 +250,45 @@ function buildUserPrompt(
   prompt += `Format: UGC Web Series (5-minute episodes)\n`
   prompt += `Series Budget: $1,000 - $20,000 for ALL 32 episodes\n`
   prompt += `Target per episode: $30-$625\n\n`
+  
+  // Add CORE story bible context
+  if (storyBible.seriesOverview) {
+    prompt += `**SERIES OVERVIEW (Big Picture):**\n${storyBible.seriesOverview}\n\n`
+  }
+  
+  if (storyBible.genreEnhancement) {
+    prompt += `**GENRE & PRODUCTION STYLE:**\n`
+    const genre = storyBible.genreEnhancement
+    if (genre.rawContent) {
+      prompt += `${genre.rawContent.substring(0, 300)}\n\n`
+    } else {
+      if (genre.visualStyle) prompt += `Visual Style: ${genre.visualStyle}\n`
+      if (genre.pacing) prompt += `Pacing: ${genre.pacing}\n\n`
+    }
+  }
+  
+  if (storyBible.worldBuilding) {
+    prompt += `**WORLD/SETTING (for location/equipment needs):**\n`
+    if (typeof storyBible.worldBuilding === 'string') {
+      prompt += `${storyBible.worldBuilding.substring(0, 300)}\n\n`
+    } else {
+      if (storyBible.worldBuilding.setting) prompt += `${storyBible.worldBuilding.setting}\n`
+      if (storyBible.worldBuilding.rules) {
+        prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules.substring(0, 200) : ''}\n`
+      }
+      prompt += `\n`
+    }
+  }
+  
+  if (storyBible.tensionStrategy) {
+    prompt += `**TENSION/PACING (affects crew/equipment needs):**\n`
+    const tension = storyBible.tensionStrategy
+    if (tension.rawContent) {
+      prompt += `${tension.rawContent.substring(0, 200)}\n\n`
+    } else if (tension.escalationTechniques) {
+      prompt += `Escalation Techniques: ${tension.escalationTechniques}\n\n`
+    }
+  }
 
   // Episode info
   prompt += `**EPISODE ${episodeNumber}:**\n`

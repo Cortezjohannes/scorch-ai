@@ -2,7 +2,7 @@
  * Props/Wardrobe Generator - AI Service
  * Generates props and wardrobe breakdowns based on script, breakdown, and questionnaire answers
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical + practical generation
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical + practical generation
  * 
  * Standards:
  * - Extract props and wardrobe from script breakdown
@@ -13,7 +13,7 @@
  */
 
 import { EngineAIRouter } from '@/services/engine-ai-router'
-import type { ScriptBreakdownData, PropsWardrobeData, PropItem } from '@/types/preproduction'
+import type { ScriptBreakdownData, PropsWardrobeData, PropItem, ArcPropsWardrobeData } from '@/types/preproduction'
 
 interface GeneratedScript {
   title: string
@@ -28,21 +28,27 @@ interface GeneratedScript {
 }
 
 interface PropsWardrobeGenerationParams {
-  scriptData: GeneratedScript
+  scriptData: GeneratedScript | GeneratedScript[]
   breakdownData: ScriptBreakdownData
   storyBible: any
-  episodeNumber: number
+  episodeNumber?: number
+  episodeNumbers?: number[]
   episodeTitle: string
   questionnaireAnswers?: Record<string, any> // Answers to contextual questionnaire
+  isArcContext?: boolean
+  arcIndex?: number
 }
 
 /**
  * Generate props and wardrobe breakdown
  */
-export async function generatePropsWardrobe(params: PropsWardrobeGenerationParams): Promise<PropsWardrobeData> {
-  const { scriptData, breakdownData, storyBible, episodeNumber, episodeTitle, questionnaireAnswers } = params
+export async function generatePropsWardrobe(params: PropsWardrobeGenerationParams): Promise<PropsWardrobeData | ArcPropsWardrobeData> {
+  const { scriptData, breakdownData, storyBible, episodeNumber = 0, episodeNumbers, episodeTitle, questionnaireAnswers, isArcContext, arcIndex } = params
 
-  console.log('🎬 Generating props and wardrobe for Episode', episodeNumber)
+  const scriptsArray = Array.isArray(scriptData) ? scriptData : [scriptData]
+  const contextLabel = isArcContext ? 'ARC' : 'EPISODE'
+
+  console.log(`🎬 Generating props and wardrobe for ${contextLabel}`, isArcContext ? `(episodes: ${episodeNumbers?.length || 0})` : episodeNumber)
   console.log('📋 Analyzing', breakdownData.scenes.length, 'scenes')
 
   // Extract props and wardrobe requirements from breakdown
@@ -51,10 +57,19 @@ export async function generatePropsWardrobe(params: PropsWardrobeGenerationParam
 
   // Build AI prompts
   const systemPrompt = buildSystemPrompt()
-  const userPrompt = buildUserPrompt(requirements, scriptData, breakdownData, storyBible, episodeTitle, questionnaireAnswers)
+  const userPrompt = buildUserPrompt(
+    requirements,
+    scriptsArray[0],
+    breakdownData,
+    storyBible,
+    episodeTitle,
+    questionnaireAnswers,
+    isArcContext,
+    episodeNumbers
+  )
 
   try {
-    // Use EngineAIRouter with Gemini 2.5 Pro (analytical + practical)
+    // Use EngineAIRouter with Gemini 3 Pro Preview (analytical + practical)
     console.log('🤖 Calling AI for props/wardrobe generation...')
     const response = await EngineAIRouter.generateContent({
       prompt: userPrompt,
@@ -68,7 +83,15 @@ export async function generatePropsWardrobe(params: PropsWardrobeGenerationParam
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
     
     // Parse AI response into structured props/wardrobe data
-    const propsWardrobeData = parsePropsWardrobe(response.content, requirements, episodeNumber, episodeTitle)
+    const propsWardrobeData = parsePropsWardrobe(
+      response.content,
+      requirements,
+      episodeNumber,
+      episodeTitle,
+      isArcContext,
+      episodeNumbers,
+      arcIndex
+    )
     
     console.log('✅ Props/Wardrobe generated:', propsWardrobeData.props.length, 'props,', propsWardrobeData.wardrobe.length, 'wardrobe items')
     
@@ -180,21 +203,42 @@ function buildUserPrompt(
   breakdownData: ScriptBreakdownData,
   storyBible: any,
   episodeTitle: string,
-  questionnaireAnswers?: Record<string, any>
+  questionnaireAnswers?: Record<string, any>,
+  isArcContext?: boolean,
+  episodeNumbers?: number[]
 ): string {
-  let prompt = `Generate props and wardrobe breakdown for ${episodeTitle} episode.\n\n`
+  const totalEpisodes = episodeNumbers?.length || 0
+  let prompt = isArcContext
+    ? `Generate props and wardrobe breakdown for the ARC "${episodeTitle}" covering ${totalEpisodes} episodes.\n\n`
+    : `Generate props and wardrobe breakdown for ${episodeTitle} episode.\n\n`
 
-  // Story context
+  // Story context (CORE DATA)
   prompt += `**STORY CONTEXT:**\n`
   prompt += `Series: ${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}\n`
+  if (storyBible?.seriesOverview) {
+    prompt += `Series Overview: ${storyBible.seriesOverview}\n`
+  }
   prompt += `Genre: ${storyBible?.genre || 'Drama'}\n`
   prompt += `Setting: ${storyBible?.setting || storyBible?.location || 'Urban'}\n`
+  if (storyBible?.worldBuilding?.setting) {
+    prompt += `World Setting: ${storyBible.worldBuilding.setting}\n`
+  }
+  if (storyBible?.worldBuilding?.rules) {
+    prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules.substring(0, 200) : ''}\n`
+  }
   prompt += `Time Period: ${storyBible?.timePeriod || 'Contemporary'}\n\n`
 
-  // Episode context
-  prompt += `**EPISODE:** ${episodeTitle}\n`
-  prompt += `Budget: $5-$350 TOTAL for props + wardrobe (micro-budget web series)\n`
-  prompt += `Scenes: ${breakdownData.scenes.length}\n\n`
+  // Episode or Arc context
+  if (isArcContext) {
+    prompt += `**ARC:** ${episodeTitle}\n`
+    prompt += `Episodes: ${totalEpisodes}\n`
+    prompt += `Budget: $30-$625 per episode; focus on shared/reusable items across the arc.\n`
+    prompt += `Scenes (aggregated): ${breakdownData.scenes.length}\n\n`
+  } else {
+    prompt += `**EPISODE:** ${episodeTitle}\n`
+    prompt += `Budget: $5-$350 TOTAL for props + wardrobe (micro-budget web series)\n`
+    prompt += `Scenes: ${breakdownData.scenes.length}\n\n`
+  }
 
   // Props from breakdown
   if (requirements.props.length > 0) {
@@ -257,11 +301,20 @@ function buildUserPrompt(
 
   // Task
   prompt += `**TASK:**\n`
-  prompt += `Generate comprehensive props and wardrobe breakdown with:\n`
-  prompt += `1. All props from breakdown (plus any clearly implied in script)\n`
-  prompt += `2. Wardrobe for each character based on script context\n`
-  prompt += `3. Cost estimates based on source (prioritize $0 sources)\n`
-  prompt += `4. Importance levels and procurement status\n\n`
+  if (isArcContext) {
+    prompt += `Generate comprehensive props and wardrobe breakdown for the entire arc with:\n`
+    prompt += `1. All props from breakdown (plus clearly implied), grouped by reuse across episodes\n`
+    prompt += `2. Wardrobe for characters across episodes; emphasize reusability and consistency\n`
+    prompt += `3. Cost estimates aggregated for arc; prioritize $0 sources and sharing items\n`
+    prompt += `4. Importance levels and procurement status\n`
+    prompt += `5. Notes on storage/transportation and which episodes each item covers\n\n`
+  } else {
+    prompt += `Generate comprehensive props and wardrobe breakdown with:\n`
+    prompt += `1. All props from breakdown (plus any clearly implied in script)\n`
+    prompt += `2. Wardrobe for each character based on script context\n`
+    prompt += `3. Cost estimates based on source (prioritize $0 sources)\n`
+    prompt += `4. Importance levels and procurement status\n\n`
+  }
 
   prompt += `**OUTPUT FORMAT:**\n\n`
   prompt += `{\n`
@@ -308,8 +361,11 @@ function parsePropsWardrobe(
   aiResponse: string,
   requirements: ReturnType<typeof extractRequirements>,
   episodeNumber: number,
-  episodeTitle: string
-): PropsWardrobeData {
+  episodeTitle: string,
+  isArcContext?: boolean,
+  episodeNumbers?: number[],
+  arcIndex?: number
+): PropsWardrobeData | ArcPropsWardrobeData {
   try {
     // Clean AI output
     let cleaned = aiResponse.trim()
@@ -373,6 +429,21 @@ function parsePropsWardrobe(
 
     const totalCost = [...props, ...wardrobe].reduce((sum, item) => sum + item.estimatedCost, 0)
     const obtainedItems = [...props, ...wardrobe].filter(item => item.procurementStatus === 'obtained' || item.procurementStatus === 'packed').length
+
+    if (isArcContext) {
+      return {
+        arcTitle: episodeTitle,
+        arcIndex: arcIndex ?? 0,
+        episodeNumbers: episodeNumbers || [],
+        totalItems: props.length + wardrobe.length,
+        obtainedItems,
+        totalCost,
+        props,
+        wardrobe,
+        lastUpdated: Date.now(),
+        updatedBy: 'system'
+      }
+    }
 
     return {
       episodeNumber,

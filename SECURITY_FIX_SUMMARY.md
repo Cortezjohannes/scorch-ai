@@ -116,3 +116,6 @@ To set `greenlit-main` as the default branch:
 
 **Summary**: Your codebase is now protected against future secret exposure. All secrets use environment variables or secure secret management systems. GitHub Secret Scanning will block any future attempts to commit secrets.
 
+
+
+

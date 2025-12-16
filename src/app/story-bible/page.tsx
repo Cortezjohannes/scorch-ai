@@ -1,15 +1,17 @@
-'use client'
+ 'use client'
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/components/ui/ClientMotion'
 import Image from 'next/image'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import StoryBiblePlaybookModal from '@/components/StoryBiblePlaybookModal'
 import ShareStoryBibleModal from '@/components/share/ShareStoryBibleModal'
+import ShareInvestorMaterialsModal from '@/components/share/ShareInvestorMaterialsModal'
 import AuthStatusModal from '@/components/auth/AuthStatusModal'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import { saveStoryBible as saveStoryBibleToFirestore, getStoryBible as getStoryBibleFromFirestore, StoryBibleStatus } from '@/services/story-bible-service'
 import { updateStoryBibleFields, updateLockStatus } from '@/services/story-bible-firestore'
 import { versionControl } from '@/services/version-control'
@@ -18,11 +20,19 @@ import { exportAsJSON, copyAsText, downloadMarkdown } from '@/utils/export-story
 import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
 import CharacterCreationWizard from '@/components/modals/CharacterCreationWizard'
 import AIEditModal from '@/components/modals/AIEditModal'
+import StoryBibleSidebar, { StoryBibleSection } from '@/components/story-bible/StoryBibleSidebar'
+import CharacterDetailModal from '@/components/story-bible/CharacterDetailModal'
+import GlobalThemeToggle from '@/components/navigation/GlobalThemeToggle'
+import StoryBibleImage from '@/components/story-bible/StoryBibleImage'
+import GenerateImagesModal from '@/components/story-bible/GenerateImagesModal'
+import MarketingSection from '@/components/story-bible/MarketingSection'
 
 export default function StoryBiblePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
   const [storyBible, setStoryBible] = useState<any>(null)
   
   // Debug logging
@@ -32,11 +42,14 @@ export default function StoryBiblePage() {
     console.log('  - Story Bible loaded:', !!storyBible);
     console.log('  - Share button should be:', (!user || !storyBible) ? 'DISABLED' : 'ENABLED');
   }, [user, storyBible])
-  // Add premise tab to the active tab state
-  const [activeTab, setActiveTab] = useState<'premise' | 'overview' | 'characters' | 'arcs' | 'world' | 'choices' | 'tension' | 'choice-arch' | 'living-world' | 'trope' | 'cohesion' | 'dialogue' | 'genre' | 'theme'>('premise')
+  // Use StoryBibleSection type for active section
+  const [activeSection, setActiveSection] = useState<StoryBibleSection>('overview')
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false)
   const [loading, setLoading] = useState(true)
   const [currentCharacterIndex, setCurrentCharacterIndex] = useState(0)
   const [currentArcIndex, setCurrentArcIndex] = useState(0)
+  const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [selectedCharacterIndex, setSelectedCharacterIndex] = useState<number | null>(null)
   const [showTechnicalTabs, setShowTechnicalTabs] = useState(false)
   const [showTechnicalModal, setShowTechnicalModal] = useState(false)
   const [isClient, setIsClient] = useState(false)
@@ -56,6 +69,8 @@ export default function StoryBiblePage() {
   const [showAddCharacterModal, setShowAddCharacterModal] = useState(false)
   const [showAddWorldModal, setShowAddWorldModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showInvestorShareModal, setShowInvestorShareModal] = useState(false)
+  const [selectedArcIndex, setSelectedArcIndex] = useState(0)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -64,6 +79,10 @@ export default function StoryBiblePage() {
   
   // Story Bible lock state (locked after first episode)
   const [isStoryBibleLocked, setIsStoryBibleLocked] = useState(false)
+  
+  // Image generation state
+  const [showGenerateImagesModal, setShowGenerateImagesModal] = useState(false)
+  const [generatingImageFor, setGeneratingImageFor] = useState<{type: string, index?: number} | null>(null)
 
   // Helper function to save story bible to both localStorage and Firestore
   const saveStoryBibleData = async (updatedBible: any) => {
@@ -289,6 +308,17 @@ export default function StoryBiblePage() {
             const firestoreBible = await getStoryBibleFromFirestore(storyBibleId, user.id)
             if (firestoreBible) {
               console.log('✅ Loaded from Firestore successfully!')
+              // Debug: Log character images
+              if (firestoreBible.mainCharacters) {
+                console.log(`📸 [Load] Found ${firestoreBible.mainCharacters.length} characters`)
+                firestoreBible.mainCharacters.forEach((char: any, idx: number) => {
+                  if (char.visualReference?.imageUrl) {
+                    console.log(`  Character ${idx} (${char.name}): ${char.visualReference.imageUrl.substring(0, 60)}...`)
+                  } else {
+                    console.log(`  Character ${idx} (${char.name}): NO IMAGE`)
+                  }
+                })
+              }
               setStoryBible(firestoreBible)
               return // Exit early, we found it in Firestore
             } else {
@@ -351,6 +381,15 @@ export default function StoryBiblePage() {
             
             let dynamicStoryBible = { ...parsed.storyBible }
             
+            // Ensure storyBible has an ID (required for image generation and other features)
+            if (!dynamicStoryBible.id) {
+              // Generate a simple ID: sb_timestamp_random
+              const timestamp = Date.now()
+              const random = Math.random().toString(36).substring(2, 9)
+              dynamicStoryBible.id = `sb_${timestamp}_${random}`
+              console.log('🆔 Generated ID for story bible:', dynamicStoryBible.id)
+            }
+            
             // Apply user choices to update the story bible dynamically
             if (savedEpisodes) {
               try {
@@ -403,7 +442,37 @@ export default function StoryBiblePage() {
     // Add a small delay to ensure localStorage is fully available
     const timeoutId = setTimeout(loadStoryBible, 100)
     return () => clearTimeout(timeoutId)
-  }, [router])
+  }, [router, searchParams, user])
+
+  // Auto-open image generation modal for newly generated story bibles with no images
+  useEffect(() => {
+    if (!storyBible || !storyBible.id || showGenerateImagesModal || !user) return
+    
+    // Check if story bible has no images
+    const hasHeroImage = storyBible.visualAssets?.heroImage?.imageUrl
+    const hasCharacterImages = storyBible.mainCharacters?.some((char: any) => char.visualReference?.imageUrl)
+    const hasArcImages = storyBible.narrativeArcs?.some((arc: any) => arc.keyArt?.imageUrl)
+    const hasLocationImages = storyBible.worldBuilding?.locations?.some((loc: any) => loc.conceptArt?.imageUrl)
+    
+    const hasNoImages = !hasHeroImage && !hasCharacterImages && !hasArcImages && !hasLocationImages
+    
+    if (!hasNoImages) return // Has images, don't auto-open
+    
+    // Check if this story bible was just generated (via sessionStorage flag)
+    const wasJustGenerated = sessionStorage.getItem(`story-bible-just-generated-${storyBible.id}`)
+    
+    if (wasJustGenerated) {
+      console.log('🎨 Newly generated story bible detected with no images - opening image generation modal')
+      // Clear the flag so it doesn't trigger again
+      sessionStorage.removeItem(`story-bible-just-generated-${storyBible.id}`)
+      // Small delay to ensure page is fully loaded
+      const timeoutId = setTimeout(() => {
+        setShowGenerateImagesModal(true)
+      }, 1500)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [storyBible?.id, user, showGenerateImagesModal]) // Only depend on ID to avoid re-triggering
 
   // 🛠️ DEBUG HELPER: Test localStorage functionality (for browser console)
   useEffect(() => {
@@ -802,7 +871,13 @@ export default function StoryBiblePage() {
       const response = await fetch('/api/generate/story-bible', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ synopsis, theme })
+        body: JSON.stringify({ 
+          synopsis, 
+          theme,
+          // Do NOT auto-generate images; user triggers manually
+          generateImages: false,
+          userId: user?.id
+        })
       })
 
       if (!response.ok) {
@@ -827,6 +902,12 @@ export default function StoryBiblePage() {
         }
         localStorage.setItem('greenlit-story-bible', JSON.stringify(savedData))
         setStoryBible(data.storyBible)
+
+        // Set flag to indicate story bible was just regenerated (for auto-opening image modal)
+        if (data.storyBible.id) {
+          sessionStorage.setItem(`story-bible-just-generated-${data.storyBible.id}`, 'true')
+          console.log('🎨 Set flag for auto-opening image generation modal after regeneration')
+        }
 
         alert(`✅ Story bible regenerated successfully! ${newCount} regeneration${newCount !== 1 ? 's' : ''} remaining.`)
       } else {
@@ -944,17 +1025,67 @@ export default function StoryBiblePage() {
       return
     }
     
-    if (!storyBible || !confirm(`Are you sure you want to delete "${storyBible.characters[index]?.name}"? This cannot be undone.`)) return
+    if (!storyBible || !storyBible.mainCharacters || storyBible.mainCharacters.length <= 1) {
+      alert('You must have at least one character.')
+      return
+    }
     
-    const updatedCharacters = storyBible.characters.filter((_: any, i: number) => i !== index)
-    const updatedBible = { ...storyBible, characters: updatedCharacters }
+    const characterName = storyBible.mainCharacters[index]?.name || 'this character'
+    if (!confirm(`Are you sure you want to delete "${characterName}"? This cannot be undone.`)) return
+    
+    const updatedCharacters = storyBible.mainCharacters.filter((_: any, i: number) => i !== index)
+    const updatedBible = { ...storyBible, mainCharacters: updatedCharacters }
     setStoryBible(updatedBible)
     await saveStoryBibleData(updatedBible)
+    
+    // Close modal if deleting the selected character
+    if (selectedCharacterIndex === index) {
+      setShowCharacterModal(false)
+      setSelectedCharacterIndex(null)
+    }
     
     // Adjust current index if needed
     if (currentCharacterIndex >= updatedCharacters.length) {
       setCurrentCharacterIndex(Math.max(0, updatedCharacters.length - 1))
     }
+  }
+
+  const openCharacterModal = (index: number) => {
+    setSelectedCharacterIndex(index)
+    setCurrentCharacterIndex(index)
+    setShowCharacterModal(true)
+  }
+
+  const handleCharacterSave = async (updatedCharacter: any) => {
+    if (!storyBible || selectedCharacterIndex === null) return
+    
+    const updatedCharacters = [...storyBible.mainCharacters]
+    updatedCharacters[selectedCharacterIndex] = updatedCharacter
+    const updatedBible = { ...storyBible, mainCharacters: updatedCharacters }
+    await saveStoryBibleData(updatedBible)
+    setStoryBible(updatedBible)
+  }
+
+  const getInitials = (name: string) => {
+    if (!name) return '??'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const getCharacterBriefDescription = (character: any) => {
+    if (character.description) {
+      return character.description.length > 120 
+        ? character.description.substring(0, 120) + '...'
+        : character.description
+    }
+    if (character.physiology?.appearance) {
+      return character.physiology.appearance.length > 120
+        ? character.physiology.appearance.substring(0, 120) + '...'
+        : character.physiology.appearance
+    }
+    if (character.premiseFunction) {
+      return character.premiseFunction
+    }
+    return 'A complex character with hidden motivations and a mysterious past that drives the narrative forward...'
   }
   
   const updateCharacterField = (index: number, path: string, value: any) => {
@@ -1055,6 +1186,341 @@ export default function StoryBiblePage() {
   // ========================================
   // ARC CRUD FUNCTIONS
   // ========================================
+  
+  // Image generation handlers
+  const handleRegenerateImage = async (type: 'hero' | 'character' | 'arc' | 'location', index?: number) => {
+    if (!storyBible || !user?.id) return
+    
+    setGeneratingImageFor({ type, index })
+    
+    try {
+      // Delete old image from Storage before generating new one
+      let oldImageUrl: string | null = null
+      
+      if (type === 'hero' && storyBible.visualAssets?.heroImage?.imageUrl) {
+        oldImageUrl = storyBible.visualAssets.heroImage.imageUrl
+      } else if (type === 'character' && index !== undefined && storyBible.mainCharacters?.[index]?.visualReference?.imageUrl) {
+        oldImageUrl = storyBible.mainCharacters[index].visualReference.imageUrl
+      } else if (type === 'arc' && index !== undefined && storyBible.narrativeArcs?.[index]?.keyArt?.imageUrl) {
+        oldImageUrl = storyBible.narrativeArcs[index].keyArt.imageUrl
+      } else if (type === 'location' && index !== undefined && storyBible.worldBuilding?.locations?.[index]?.conceptArt?.imageUrl) {
+        oldImageUrl = storyBible.worldBuilding.locations[index].conceptArt.imageUrl
+      }
+      
+      // Delete old image from Storage if it exists
+      if (oldImageUrl) {
+        try {
+          const { deleteImageFromStorage } = await import('@/services/image-storage-service')
+          await deleteImageFromStorage(oldImageUrl)
+          console.log(`✅ Old ${type} image deleted from Storage before regeneration`)
+        } catch (deleteError: any) {
+          console.warn(`⚠️  Failed to delete old image (continuing anyway):`, deleteError.message)
+          // Continue with generation even if deletion fails
+        }
+      }
+      
+      const sections: ('hero' | 'characters' | 'arcs' | 'world')[] = []
+      if (type === 'hero') sections.push('hero')
+      else if (type === 'character') sections.push('characters')
+      else if (type === 'arc') sections.push('arcs')
+      else if (type === 'location') sections.push('world')
+      
+      const response = await fetch('/api/generate/story-bible-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBibleId: storyBible.id,
+          userId: user.id,
+          sections,
+          regenerate: true,
+          // CRITICAL: Always set specificIndex for single image regeneration
+          // For hero image, index is undefined but we still want to generate only that specific image
+          specificIndex: type === 'hero' 
+            ? { type: 'hero', index: 0 }  // Hero image is always index 0
+            : index !== undefined 
+              ? { type, index } 
+              : undefined,
+          // Send story bible data as fallback if not in Firestore
+          storyBible: storyBible || undefined
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate image')
+      }
+      
+      // Handle SSE stream - update state as images come in
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      
+      if (!reader) throw new Error('No response body')
+      
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.substring(6))
+            
+            // Handle individual image generation - upload to Storage and update state
+            if (data.type === 'image-generated' && data.imageData) {
+              // Upload to Storage and update state with Storage URL
+              const handleImageUpload = async () => {
+                try {
+                  const { uploadImageToStorage } = await import('@/services/image-storage-service')
+                  const { hashPrompt } = await import('@/services/image-cache-service')
+                  
+                  let imageData = { ...data.imageData }
+                  
+                  // Upload base64 to Storage if needed
+                  if (imageData.imageUrl?.startsWith('data:')) {
+                    const context = data.imageType === 'hero' ? 'hero' : 
+                                   data.imageType === 'character' ? 'character' : 
+                                   data.imageType === 'arc' ? 'arc' : 'location'
+                    const promptText = imageData.prompt || `${data.imageType}-${data.itemIndex || 0}`
+                    const hash = await hashPrompt(promptText, undefined, context)
+                    
+                    const storageUrl = await uploadImageToStorage(user.id, imageData.imageUrl, hash)
+                    imageData.imageUrl = storageUrl
+                    
+                    // Save to Firestore
+                    const { getStoryBible } = await import('@/services/story-bible-service')
+                    const { saveStoryBible } = await import('@/services/story-bible-service')
+                    const currentBible = await getStoryBible(storyBible.id, user.id)
+                    
+                    if (currentBible) {
+                      // Determine the path being updated for better error messages
+                      let updatingPath: string | undefined
+                      
+                      if (data.imageType === 'hero') {
+                        currentBible.visualAssets = currentBible.visualAssets || {}
+                        currentBible.visualAssets.heroImage = imageData
+                        updatingPath = 'visualAssets.heroImage'
+                      } else if (data.imageType === 'character' && data.itemIndex !== undefined) {
+                        // CRITICAL: Ensure mainCharacters array exists and has the character at this index
+                        currentBible.mainCharacters = currentBible.mainCharacters || []
+                        if (!currentBible.mainCharacters[data.itemIndex]) {
+                          console.error(`❌ [Page] Character at index ${data.itemIndex} doesn't exist! Array length: ${currentBible.mainCharacters.length}`)
+                          // Create a placeholder if missing
+                          currentBible.mainCharacters[data.itemIndex] = { name: `Character ${data.itemIndex + 1}` }
+                        }
+                        currentBible.mainCharacters[data.itemIndex].visualReference = imageData
+                        updatingPath = `mainCharacters[${data.itemIndex}].visualReference`
+                        console.log(`✅ [Page] Saved character ${data.itemIndex} visualReference to Firestore:`, imageData.imageUrl?.substring(0, 60))
+                      } else if (data.imageType === 'arc' && data.itemIndex !== undefined && currentBible.narrativeArcs) {
+                        if (currentBible.narrativeArcs[data.itemIndex]) {
+                          currentBible.narrativeArcs[data.itemIndex].keyArt = imageData
+                          updatingPath = `narrativeArcs[${data.itemIndex}].keyArt`
+                        }
+                      } else if (data.imageType === 'location' && data.itemIndex !== undefined && currentBible.worldBuilding?.locations) {
+                        if (currentBible.worldBuilding.locations[data.itemIndex]) {
+                          currentBible.worldBuilding.locations[data.itemIndex].conceptArt = imageData
+                          updatingPath = `worldBuilding.locations[${data.itemIndex}].conceptArt`
+                        }
+                      }
+                      
+                      await saveStoryBible(currentBible, user.id, updatingPath)
+                      console.log(`✅ [Page] Story bible saved to Firestore with ${data.imageType} image`)
+                    } else {
+                      console.error(`❌ [Page] Could not load story bible for saving ${data.imageType} image`)
+                    }
+                  }
+                  
+                  // Update state with Storage URL
+                  setStoryBible((prev: any) => {
+                    if (!prev) return prev
+                    const updated = { ...prev }
+                    
+                    if (data.imageType === 'hero') {
+                      updated.visualAssets = updated.visualAssets || {}
+                      updated.visualAssets.heroImage = imageData
+                    } else if (data.imageType === 'character' && data.itemIndex !== undefined && updated.mainCharacters) {
+                      if (updated.mainCharacters[data.itemIndex]) {
+                        updated.mainCharacters[data.itemIndex].visualReference = imageData
+                        console.log(`✅ [Page] Updated character ${data.itemIndex} visualReference:`, imageData.imageUrl?.substring(0, 50))
+                      } else {
+                        console.error(`❌ [Page] Character ${data.itemIndex} not found in mainCharacters array`)
+                      }
+                    } else if (data.imageType === 'arc' && data.itemIndex !== undefined && updated.narrativeArcs) {
+                      if (updated.narrativeArcs[data.itemIndex]) {
+                        updated.narrativeArcs[data.itemIndex].keyArt = imageData
+                      }
+                    } else if (data.imageType === 'location' && data.itemIndex !== undefined && updated.worldBuilding?.locations) {
+                      if (updated.worldBuilding.locations[data.itemIndex]) {
+                        updated.worldBuilding.locations[data.itemIndex].conceptArt = imageData
+                      }
+                    }
+                    
+                    return updated
+                  })
+                  
+                  // Reload from Firestore immediately to ensure image is displayed
+                  if (user && storyBible?.id) {
+                    setTimeout(async () => {
+                      try {
+                        const reloaded = await getStoryBibleFromFirestore(storyBible.id, user.id)
+                        if (reloaded) {
+                          console.log(`✅ [Page] Reloaded story bible after ${data.imageType} image upload`)
+                          setStoryBible(reloaded)
+                        }
+                      } catch (error) {
+                        console.error(`❌ [Page] Error reloading story bible:`, error)
+                      }
+                    }, 500) // Small delay to ensure Firestore write is complete
+                  }
+                } catch (error: any) {
+                  console.error(`❌ Failed to upload and save ${data.imageType} image:`, error)
+                }
+              }
+              
+              // Upload and update state
+              handleImageUpload()
+            }
+            
+            if (data.type === 'complete' && data.storyBible) {
+              setStoryBible(data.storyBible)
+              await saveStoryBibleData(data.storyBible)
+              
+              // Reload from Firestore to ensure all images are loaded with Storage URLs
+              if (user && storyBible?.id) {
+                try {
+                  const reloaded = await getStoryBibleFromFirestore(storyBible.id, user.id)
+                  if (reloaded) {
+                    setStoryBible(reloaded)
+                    console.log('✅ Story bible reloaded with all images')
+                  }
+                } catch (error) {
+                  console.error('❌ Error reloading story bible:', error)
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Image generation error:', error)
+      alert(`Failed to generate image: ${error.message}`)
+    } finally {
+      setGeneratingImageFor(null)
+    }
+  }
+  
+  const handleGenerateImagesComplete = async (updatedBible: any) => {
+    // Upload base64 images to Storage (client-side, like storyboards)
+    if (user && updatedBible) {
+      try {
+        const { processImageForStorage } = await import('@/services/image-storage-service')
+        const { hashPrompt } = await import('@/services/image-cache-service')
+        
+        console.log('📤 [Story Bible] Uploading images to Storage client-side...')
+        
+        // Upload hero image
+        if (updatedBible.visualAssets?.heroImage?.imageUrl?.startsWith('data:')) {
+          try {
+            const hash = await hashPrompt(updatedBible.visualAssets.heroImage.prompt || 'hero', undefined, 'hero')
+            updatedBible.visualAssets.heroImage.imageUrl = await processImageForStorage(
+              user.id,
+              updatedBible.visualAssets.heroImage.imageUrl,
+              hash,
+              0 // Upload all base64
+            )
+            console.log('✅ [Story Bible] Hero image uploaded to Storage')
+          } catch (error) {
+            console.error('❌ [Story Bible] Failed to upload hero image:', error)
+          }
+        }
+        
+        // Upload character images
+        if (updatedBible.mainCharacters) {
+          for (let i = 0; i < updatedBible.mainCharacters.length; i++) {
+            const char = updatedBible.mainCharacters[i]
+            if (char.visualReference?.imageUrl?.startsWith('data:')) {
+              try {
+                const hash = await hashPrompt(char.visualReference.prompt || `char-${i}`, undefined, 'character')
+                char.visualReference.imageUrl = await processImageForStorage(
+                  user.id,
+                  char.visualReference.imageUrl,
+                  hash,
+                  0
+                )
+                console.log(`✅ [Story Bible] Character ${i} image uploaded to Storage`)
+              } catch (error) {
+                console.error(`❌ [Story Bible] Failed to upload character ${i} image:`, error)
+              }
+            }
+          }
+        }
+        
+        // Upload arc key art
+        if (updatedBible.narrativeArcs) {
+          for (let i = 0; i < updatedBible.narrativeArcs.length; i++) {
+            const arc = updatedBible.narrativeArcs[i]
+            if (arc.keyArt?.imageUrl?.startsWith('data:')) {
+              try {
+                const hash = await hashPrompt(arc.keyArt.prompt || `arc-${i}`, undefined, 'arc')
+                arc.keyArt.imageUrl = await processImageForStorage(
+                  user.id,
+                  arc.keyArt.imageUrl,
+                  hash,
+                  0
+                )
+                console.log(`✅ [Story Bible] Arc ${i} key art uploaded to Storage`)
+              } catch (error) {
+                console.error(`❌ [Story Bible] Failed to upload arc ${i} key art:`, error)
+              }
+            }
+          }
+        }
+        
+        // Upload location concept art
+        if (updatedBible.worldBuilding?.locations) {
+          for (let i = 0; i < updatedBible.worldBuilding.locations.length; i++) {
+            const location = updatedBible.worldBuilding.locations[i]
+            if (location.conceptArt?.imageUrl?.startsWith('data:')) {
+              try {
+                const hash = await hashPrompt(location.conceptArt.prompt || `location-${i}`, undefined, 'location')
+                location.conceptArt.imageUrl = await processImageForStorage(
+                  user.id,
+                  location.conceptArt.imageUrl,
+                  hash,
+                  0
+                )
+                console.log(`✅ [Story Bible] Location ${i} concept art uploaded to Storage`)
+              } catch (error) {
+                console.error(`❌ [Story Bible] Failed to upload location ${i} concept art:`, error)
+              }
+            }
+          }
+        }
+        
+        console.log('✅ [Story Bible] All images uploaded to Storage')
+      } catch (uploadError) {
+        console.error('❌ [Story Bible] Error uploading images to Storage:', uploadError)
+        // Continue anyway - base64 will be saved and migrated later
+      }
+    }
+    
+    setStoryBible(updatedBible)
+    await saveStoryBibleData(updatedBible)
+    
+    // Reload story bible to ensure images are displayed
+    if (user && updatedBible.id) {
+      try {
+        const reloaded = await getStoryBibleFromFirestore(updatedBible.id, user.id)
+        if (reloaded) {
+          setStoryBible(reloaded)
+        }
+      } catch (error) {
+        console.error('Error reloading story bible:', error)
+      }
+    }
+  }
   
   const addNewArc = () => {
     if (!storyBible) return
@@ -1242,7 +1708,7 @@ export default function StoryBiblePage() {
     event.target.value = ''
   }
 
-    const handleBeginEpisode = () => {
+  const handleBeginEpisode = () => {
     const synopsis = searchParams.get('synopsis') || ''
     const theme = searchParams.get('theme') || ''
     router.push(`/episode-studio/1?synopsis=${encodeURIComponent(synopsis)}&theme=${encodeURIComponent(theme)}`)
@@ -1250,8 +1716,11 @@ export default function StoryBiblePage() {
 
   if (!isClient || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#0a0a0a]" />
+      <div className={`min-h-screen ${prefix}-bg-primary flex items-center justify-center relative`}>
+        <AnimatedBackground variant="particles" intensity="low" page="story-bible" />
+        <div className="fixed top-4 right-4 z-50">
+          <GlobalThemeToggle />
+        </div>
         <motion.div
           className="flex flex-col items-center"
           initial={{ opacity: 0 }}
@@ -1259,11 +1728,11 @@ export default function StoryBiblePage() {
           transition={{ duration: 0.5 }}
         >
           <motion.div 
-            className="w-20 h-20 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full"
+            className={`w-20 h-20 border-4 ${prefix}-border-accent border-t-transparent rounded-full`}
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           />
-          <p className="text-[#e7e7e7]/70 mt-4">Loading your Story Bible...</p>
+          <p className={`${prefix}-text-secondary mt-4`}>Loading your Story Bible...</p>
         </motion.div>
       </div>
     )
@@ -1278,38 +1747,32 @@ export default function StoryBiblePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-2xl font-bold text-[#00FF99] mb-4 font-medium cinematic-header">No Story Bible Found</h2>
-          <p className="text-[#e7e7e7]/70 mb-6">
+          <h2 className={`text-2xl font-bold ${prefix}-text-accent mb-4`}>No Story Bible Found</h2>
+          <p className={`${prefix}-text-secondary mb-6`}>
             You haven't created a story bible yet, or it couldn't be loaded from your browser's storage.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
-              className="px-6 py-3 bg-[#00FF99] text-black font-bold rounded-lg hover:bg-[#00CC7A] transition-colors"
+              className={`px-6 py-3 ${prefix}-btn-primary font-bold rounded-lg transition-colors`}
               onClick={() => router.push('/')}
             >
               🔥 Create New Story
             </button>
             
             <button 
-              className="px-6 py-3 border-2 border-[#00FF99] text-[#00FF99] font-bold rounded-lg hover:bg-[#00FF99]/10 transition-colors"
-              onClick={async () => {
-                if (!storyBible) {
-                  console.error('No story bible to save')
-                  return
+              className={`px-6 py-3 border-2 ${prefix}-border-accent ${prefix}-text-accent font-bold rounded-lg hover:${prefix}-bg-accent transition-colors`}
+              onClick={() => {
+                // Get story bible ID from URL params or try to get from storyBible if it exists
+                const bibleId = searchParams.get('id') || storyBible?.id
+                if (bibleId) {
+                  router.push(`/dashboard?id=${bibleId}`)
+                } else {
+                  router.push('/profile')
                 }
-                
-                // Save story bible before navigating
-                console.log('💾 Saving story bible before navigating to workspace...')
-                const savedBible = await saveStoryBibleData(storyBible)
-                
-                // Navigate to workspace with story bible ID
-                const bibleId = savedBible?.id || storyBible.id
-                console.log('✅ Navigating to workspace with ID:', bibleId)
-                router.push(`/workspace?id=${bibleId}`)
               }}
             >
-              ⚡ Go to Workspace
+              ⚡ Go to Dashboard
             </button>
           </div>
         </motion.div>
@@ -1318,306 +1781,183 @@ export default function StoryBiblePage() {
   }
 
   return (
-    <motion.div 
-      className="min-h-screen p-4 sm:p-6 md:p-8 relative"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-      style={{ fontFamily: 'League Spartan, sans-serif', zIndex: 1 }}
-    >
-      <AnimatedBackground intensity="medium" />
-      <div className="max-w-7xl mx-auto">
-        {/* Professional Header */}
-        <motion.div
-          className="mb-12 text-center"
-          initial={{ y: 50, opacity: 0, scale: 0.9 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
-        >
-          {/* Fire Icon */}
-          <motion.div
-            className="w-20 h-20 flex items-center justify-center mx-auto mb-6"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            transition={{ type: "spring", stiffness: 300 }}
+    <div className={`min-h-screen flex flex-col ${prefix}-bg-primary relative`} style={{ fontFamily: 'League Spartan, sans-serif' }}>
+      <AnimatedBackground variant="particles" intensity="low" page="story-bible" />
+      {/* Theme Toggle - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <GlobalThemeToggle />
+      </div>
+      
+      {/* Top Header Bar */}
+      <div className={`h-16 border-b ${prefix}-border ${prefix}-bg-primary flex items-center justify-between px-4 md:px-6 flex-shrink-0 z-10`}>
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          {/* Mobile Sidebar Toggle */}
+          <button
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            className={`md:hidden p-2 ${prefix}-text-secondary hover:${prefix}-text-primary`}
           >
-            <motion.div
-              animate={{ 
-                scale: [1, 1.1, 1],
-                opacity: [0.6, 1, 0.6],
-                filter: [
-                  "brightness(1) drop-shadow(0 0 10px rgba(0, 255, 153, 0.3))",
-                  "brightness(1.2) drop-shadow(0 0 20px rgba(0, 255, 153, 0.6))",
-                  "brightness(1) drop-shadow(0 0 10px rgba(0, 255, 153, 0.3))"
-                ]
-              }}
-              transition={{ 
-                duration: 2.5,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="w-16 h-16"
-            >
-              <img 
-                src="/greenlitailogo.png" 
-                alt="Greenlit Logo" 
-                className="w-full h-full object-contain"
-              />
-            </motion.div>
-          </motion.div>
+            ☰
+          </button>
           
-          {/* Series Title with Edit Button */}
-          <div className="flex items-center justify-center gap-4 mb-6">
+          {/* Breadcrumb */}
+          {storyBible?.id && (
+            <div className="flex items-center gap-2 text-sm min-w-0">
+              <button
+                onClick={() => router.push(`/dashboard?id=${storyBible.id}`)}
+                className={`${prefix}-text-secondary hover:${prefix}-text-primary transition-colors truncate`}
+              >
+                Dashboard
+              </button>
+              <span className={prefix + '-text-tertiary'}>/</span>
+              <span className={prefix + '-text-primary truncate'}>Story Bible</span>
+            </div>
+          )}
+          
+          {/* Series Title */}
+          <div className="flex-1 min-w-0 hidden md:flex items-center gap-3">
             {editingField?.type === 'seriesTitle' ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="text-4xl sm:text-5xl md:text-6xl font-bold bg-[#2a2a2a] border-2 border-[#00FF99] rounded-lg px-4 py-2 text-white"
+                  className={`flex-1 text-lg font-bold ${prefix}-bg-secondary border-2 ${prefix}-border-accent rounded-lg px-3 py-1 ${prefix}-text-primary`}
                   autoFocus
                 />
                 <button
                   onClick={saveEdit}
-                  className="bg-[#00FF99] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#00CC7A]"
+                  className={`${prefix}-btn-primary px-3 py-1 rounded-lg font-bold text-sm`}
                 >
                   ✓
                 </button>
                 <button
                   onClick={cancelEditing}
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-red-600"
+                  className={`bg-red-500 ${prefix}-text-primary px-3 py-1 rounded-lg font-bold hover:bg-red-600 text-sm`}
                 >
                   ✕
                 </button>
               </div>
             ) : (
               <>
-                <motion.h1 
-                  className="text-5xl sm:text-6xl md:text-7xl font-bold font-medium"
-                  initial={{ letterSpacing: "-0.1em", opacity: 0 }}
-                  animate={{ letterSpacing: "0.02em", opacity: 1 }}
-                  transition={{ duration: 1.2, delay: 0.3 }}
-                >
-                  {typeof storyBible.seriesTitle === 'string' ? storyBible.seriesTitle : getContentOrFallback(storyBible, 'seriesTitle') || "YOUR GREENLIT SERIES"}
-                </motion.h1>
+                <h1 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
+                  {typeof storyBible?.seriesTitle === 'string' ? storyBible.seriesTitle : getContentOrFallback(storyBible, 'seriesTitle') || "Story Bible"}
+                </h1>
+                {!isStoryBibleLocked && (
                 <button
-                  onClick={() => startEditing('seriesTitle', 'seriesTitle', storyBible.seriesTitle || '')}
-                  className={`text-2xl transition-colors ${
-                    isStoryBibleLocked 
-                      ? 'text-gray-500 cursor-not-allowed' 
-                      : 'text-white/70 hover:text-[#00FF99]'
-                  }`}
-                  title={isStoryBibleLocked ? "Series title locked after episode generation" : "Edit series title"}
-                  disabled={isStoryBibleLocked}
+                    onClick={() => startEditing('seriesTitle', 'seriesTitle', storyBible?.seriesTitle || '')}
+                    className={`text-sm transition-colors ${prefix}-text-secondary hover:${prefix}-text-accent`}
+                    title="Edit series title"
                 >
                   ✏️
                 </button>
+                )}
               </>
             )}
           </div>
-          
-          {/* Professional Subtitle */}
-          <motion.div
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.8 }}
-            className="space-y-4"
-          >
-            
-            <motion.div 
-              className="flex flex-wrap justify-center gap-4 mt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1, duration: 0.6 }}
-            >
-              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
-                <span className="text-[#00FF99] font-bold text-sm font-medium">PREMISE ENGINE</span>
               </div>
-              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
-                <span className="text-[#00FF99] font-bold text-sm font-medium">CHARACTER FORGE</span>
-              </div>
-              <div className="px-4 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30 rounded-xl">
-                <span className="text-[#00FF99] font-bold text-sm font-medium">WORLD BUILDER</span>
-              </div>
-            </motion.div>
-
-            {/* Login Status Indicator */}
-            <motion.div
-              className="flex flex-wrap justify-center gap-4 mt-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.1, duration: 0.6 }}
-            >
-              <div className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                user 
-                  ? 'bg-[#00FF99]/10 border border-[#00FF99]/30' 
-                  : 'bg-orange-500/10 border border-orange-500/30'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${
-                  user ? 'bg-[#00FF99] animate-pulse' : 'bg-orange-500 animate-pulse'
-                }`} />
-                <span className={`text-sm font-medium ${
-                  user ? 'text-[#00FF99]' : 'text-orange-300'
-                }`}>
-                  {user 
-                    ? `✓ Logged in as ${user.displayName || user.email}` 
-                    : '⚠️ Not logged in - Limited features'}
-                </span>
-                {!user && (
-                  <button
-                    onClick={() => setHasSkippedLogin(false)}
-                    className="ml-2 px-3 py-1 bg-[#00FF99] text-black text-xs font-bold rounded hover:bg-[#00CC7A] transition-colors"
-                  >
-                    Login
-                  </button>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Story Bible Lock Notice */}
-            {isStoryBibleLocked && (
-              <motion.div
-                className="flex flex-wrap justify-center gap-4 mt-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.2, duration: 0.6 }}
-              >
-                <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 max-w-2xl">
-                  <p className="text-red-200 text-sm text-center">
-                    🔒 <strong>Story Bible Locked!</strong> Episodes have been generated. Most editing is disabled to maintain continuity. 
-                    You can still <strong>add new characters</strong> using the ➕ button.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Playbook Button */}
-            <motion.div
-              className="flex flex-wrap justify-center gap-4 mt-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.4, duration: 0.6 }}
-            >
-              <button
-                onClick={() => setShowPlaybook(true)}
-                className="text-white/60 hover:text-white/90 text-sm px-3 py-2 rounded-md hover:bg-white/10 transition-all flex items-center gap-2"
-                title="How to Use the Story Bible"
-              >
-                <span>📖</span>
-                <span>How to Use the Story Bible</span>
-              </button>
-            </motion.div>
-
-          </motion.div>
-        </motion.div>
-
-        {/* Playbook Modal */}
-        <StoryBiblePlaybookModal 
-          isOpen={showPlaybook} 
-          onClose={() => setShowPlaybook(false)} 
-        />
-
-        {/* Clean Toolbar */}
-        <motion.div
-          className="max-w-5xl mx-auto mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 px-4"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
-        >
-          {/* Left: Primary Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <Link
-              href="/profile"
-              className="px-4 py-2 bg-[#1A1A1A] border border-[#00FF99]/20 rounded-lg text-white/80 hover:text-white hover:border-[#00FF99]/40 transition-all flex items-center gap-2 text-sm font-medium"
-            >
-              <span>←</span>
-              <span>Dashboard</span>
-            </Link>
-            
+        
+        {/* Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
             <motion.button
               onClick={async () => {
                 if (!storyBible) return
-                
                 if (user) {
-                  // Logged in user - save to both localStorage and Firestore
                   await saveStoryBibleData(storyBible)
                   alert('Story bible saved!')
                 } else {
-                  // Guest user - prompt to create account
-                  const shouldLogin = confirm(
-                    "Create an account to save your story bible and access it from any device.\n\nClick OK to create an account, or Cancel to save locally only."
-                  )
-                  
+                const shouldLogin = confirm("Create an account to save your story bible and access it from any device.\n\nClick OK to create an account, or Cancel to save locally only.")
                   if (shouldLogin) {
-                    // Save to localStorage first (preserve work)
                     await saveStoryBibleData(storyBible)
-                    
-                    // Redirect to login with return path
                     router.push('/login?redirect=/story-bible')
                   } else {
-                    // Just save to localStorage
                     await saveStoryBibleData(storyBible)
                     alert('Story bible saved locally on this device.')
                   }
                 }
               }}
               disabled={!storyBible}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
                 storyBible
-                  ? 'bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] hover:bg-[#00FF99]/20'
-                  : 'bg-gray-700/50 border border-gray-600 text-gray-500 cursor-not-allowed'
+                ? `${prefix}-bg-accent ${prefix}-text-accent hover:opacity-90`
+                : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
               }`}
-              whileHover={storyBible ? { scale: 1.05 } : {}}
-              whileTap={storyBible ? { scale: 0.95 } : {}}
             >
               <span>💾</span>
-              <span>Save</span>
+            <span className="hidden sm:inline">Save</span>
             </motion.button>
+
+            {storyBible && storyBible.id && user && (
+              <motion.button
+                onClick={() => setShowGenerateImagesModal(true)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all bg-gradient-to-r from-[#10B981] to-[#059669] text-white hover:shadow-lg`}
+                title="Generate images for Story Bible"
+              >
+                <span>🎨</span>
+                <span className="hidden sm:inline">Generate Images</span>
+              </motion.button>
+            )}
 
             <motion.button
               onClick={() => setShowShareModal(true)}
               disabled={!user || !storyBible}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
                 user && storyBible
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg'
-                  : 'bg-gray-700/50 border border-gray-600 text-gray-500 cursor-not-allowed'
+                  ? `bg-gradient-to-r from-blue-500 to-blue-600 ${prefix}-text-primary hover:shadow-lg`
+                : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
               }`}
-              whileHover={user && storyBible ? { scale: 1.05 } : {}}
-              whileTap={user && storyBible ? { scale: 0.95 } : {}}
               title={!user ? 'Sign in to share' : 'Share this story bible'}
             >
               <span>🔗</span>
-              <span>Share</span>
+            <span className="hidden sm:inline">Share</span>
             </motion.button>
 
-            {/* More Actions Dropdown */}
+            <motion.button
+              onClick={() => {
+                if (storyBible?.narrativeArcs && storyBible.narrativeArcs.length > 0) {
+                  setSelectedArcIndex(0) // Default to first arc
+                  setShowInvestorShareModal(true)
+                }
+              }}
+              disabled={!user || !storyBible || !storyBible?.narrativeArcs || storyBible.narrativeArcs.length === 0}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+                user && storyBible && storyBible?.narrativeArcs && storyBible.narrativeArcs.length > 0
+                  ? `bg-gradient-to-r from-[#10B981] to-[#059669] text-black hover:shadow-lg`
+                  : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!user ? 'Sign in to share' : !storyBible?.narrativeArcs || storyBible.narrativeArcs.length === 0 ? 'Generate arcs first' : 'Share for investors'}
+            >
+              <span>📊</span>
+              <span className="hidden sm:inline">Investors</span>
+            </motion.button>
+
+          {/* More Actions */}
             <div className="relative">
               <button
                 onClick={() => setShowActionsMenu(!showActionsMenu)}
-                className="px-3 py-2 bg-[#1A1A1A] border border-[#00FF99]/20 rounded-lg text-white/80 hover:text-white hover:border-[#00FF99]/40 transition-all"
+              className={`px-3 py-1.5 ${prefix}-bg-secondary ${prefix}-border rounded-lg ${prefix}-text-secondary hover:${prefix}-text-primary transition-all`}
                 title="More actions"
               >
-                <span className="text-lg">⋮</span>
+              <span>⋮</span>
               </button>
               
               {showActionsMenu && (
-                <div className="absolute top-full left-0 mt-2 w-48 bg-[#1A1A1A] border border-[#00FF99]/30 rounded-lg shadow-xl z-50">
+              <div className={`absolute top-full right-0 mt-2 w-48 ${prefix}-bg-secondary ${prefix}-border-accent rounded-lg shadow-xl z-50`}>
                   <button
                     onClick={() => {
                       handleRegenerate()
                       setShowActionsMenu(false)
                     }}
                     disabled={isRegenerating || regenerationsRemaining <= 0}
-                    className="w-full px-4 py-3 text-left text-white/80 hover:bg-[#00FF99]/10 hover:text-white transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`w-full px-4 py-3 text-left ${prefix}-text-secondary hover:${prefix}-bg-accent hover:${prefix}-text-primary transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <span>🔄</span>
                     <span>Regenerate ({regenerationsRemaining}/5)</span>
                   </button>
                   
-                  {/* Export with submenu */}
                   <div className="relative">
                     <button
                       onClick={() => setShowExportMenu(!showExportMenu)}
-                      className="w-full px-4 py-3 text-left text-white/80 hover:bg-[#00FF99]/10 hover:text-white transition-all flex items-center gap-2 justify-between"
+                      className={`w-full px-4 py-3 text-left ${prefix}-text-secondary hover:${prefix}-bg-accent hover:${prefix}-text-primary transition-all flex items-center gap-2 justify-between`}
                     >
                       <div className="flex items-center gap-2">
                         <span>📥</span>
@@ -1627,38 +1967,36 @@ export default function StoryBiblePage() {
                     </button>
                     
                     {showExportMenu && (
-                      <div className="pl-8 pr-4 py-2 bg-[#0A0A0A] border-l-2 border-[#00FF99]/20">
+                      <div className={`pl-8 pr-4 py-2 ${prefix}-bg-primary border-l-2 ${prefix}-border-accent`}>
                         <button
                           onClick={() => {
                             exportAsJSON(storyBible)
                             setShowActionsMenu(false)
                             setShowExportMenu(false)
                           }}
-                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                          className={`w-full px-3 py-2 text-left ${prefix}-text-tertiary hover:${prefix}-text-primary text-sm flex items-center gap-2 rounded hover:${prefix}-bg-accent transition-all`}
                         >
                           <span>📄</span>
                           <span>JSON (Backup)</span>
                         </button>
-                        
                         <button
                           onClick={() => {
                             downloadMarkdown(storyBible)
                             setShowActionsMenu(false)
                             setShowExportMenu(false)
                           }}
-                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                          className={`w-full px-3 py-2 text-left ${prefix}-text-tertiary hover:${prefix}-text-primary text-sm flex items-center gap-2 rounded hover:${prefix}-bg-accent transition-all`}
                         >
                           <span>📝</span>
                           <span>Markdown</span>
                         </button>
-                        
                         <button
                           onClick={() => {
                             copyAsText(storyBible)
                             setShowActionsMenu(false)
                             setShowExportMenu(false)
                           }}
-                          className="w-full px-3 py-2 text-left text-white/70 hover:text-white text-sm flex items-center gap-2 rounded hover:bg-[#00FF99]/10 transition-all"
+                          className={`w-full px-3 py-2 text-left ${prefix}-text-tertiary hover:${prefix}-text-primary text-sm flex items-center gap-2 rounded hover:${prefix}-bg-accent transition-all`}
                         >
                           <span>📋</span>
                           <span>Copy as Text</span>
@@ -1666,808 +2004,342 @@ export default function StoryBiblePage() {
                       </div>
                     )}
                   </div>
-                  
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to delete this story bible? This cannot be undone.')) {
-                        // Delete logic here
-                      }
-                      setShowActionsMenu(false)
-                    }}
-                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 border-t border-[#00FF99]/10"
-                  >
-                    <span>🗑️</span>
-                    <span>Delete</span>
-                  </button>
                 </div>
               )}
             </div>
           </div>
-
-          {/* Right: Status & Metadata */}
-          <div className="flex items-center gap-2 sm:gap-3 text-sm flex-wrap justify-center sm:justify-end">
-            {/* Status Selector Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => user && setShowStatusDropdown(!showStatusDropdown)}
-                disabled={!user}
-                className={`px-3 py-1.5 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${
-                  storyBible?.status === 'complete' 
-                    ? 'bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40'
-                    : storyBible?.status === 'in-progress'
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/40'
-                } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={user ? "Click to change status" : "Login to change status"}
-              >
-                <span>{storyBible?.status === 'complete' ? '✓ Complete' : storyBible?.status === 'in-progress' ? '⚡ In Progress' : '📝 Draft'}</span>
-                {user && <span className="text-xs">▼</span>}
-              </button>
-              
-              {showStatusDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1A1A1A] border border-[#00FF99]/30 rounded-lg shadow-xl z-50">
-                  <button
-                    onClick={() => handleStatusChange('draft')}
-                    className="w-full px-4 py-3 text-left text-gray-400 hover:bg-gray-500/10 hover:text-gray-300 transition-all flex items-center gap-2"
-                  >
-                    <span>📝</span>
-                    <span>Draft</span>
-                    {storyBible?.status === 'draft' && <span className="ml-auto text-[#00FF99]">✓</span>}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleStatusChange('in-progress')}
-                    className="w-full px-4 py-3 text-left text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 transition-all flex items-center gap-2"
-                  >
-                    <span>⚡</span>
-                    <span>In Progress</span>
-                    {storyBible?.status === 'in-progress' && <span className="ml-auto text-[#00FF99]">✓</span>}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleStatusChange('complete')}
-                    className="w-full px-4 py-3 text-left text-[#00FF99] hover:bg-[#00FF99]/10 hover:text-[#00CC7A] transition-all flex items-center gap-2"
-                  >
-                    <span>✓</span>
-                    <span>Complete</span>
-                    {storyBible?.status === 'complete' && <span className="ml-auto text-[#00FF99]">✓</span>}
-                  </button>
                 </div>
+
+      {/* Split Panel Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar - Desktop: always visible, Mobile: overlay */}
+        <div className={`hidden md:block w-80 flex-shrink-0 ${showMobileSidebar ? 'block' : 'hidden'}`}>
+          {storyBible && (
+            <StoryBibleSidebar
+              activeSection={activeSection}
+              onSectionChange={setActiveSection}
+              storyBible={storyBible}
+              theme={theme}
+              onExport={exportStoryBible}
+              onImport={importStoryBible}
+              isLocked={isStoryBibleLocked}
+            />
               )}
             </div>
             
-            {/* Counts */}
-            <div className="text-white/60">
-              {storyBible?.mainCharacters?.length || 0} Characters • {storyBible?.narrativeArcs?.length || 0} Arcs
-            </div>
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <div className="md:hidden fixed inset-0 z-50 flex">
+            <div className="w-80 flex-shrink-0">
+              {storyBible && (
+                <StoryBibleSidebar
+                  activeSection={activeSection}
+                  onSectionChange={setActiveSection}
+                  storyBible={storyBible}
+                  theme={theme}
+                  isMobile={true}
+                  onMobileClose={() => setShowMobileSidebar(false)}
+                  onExport={exportStoryBible}
+                  onImport={importStoryBible}
+                  isLocked={isStoryBibleLocked}
+                />
+              )}
           </div>
-        </motion.div>
-
-        {/* Professional Navigation */}
-        <motion.div 
-          className="flex flex-col items-center mb-12 space-y-6"
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-        >
-          {/* Main Tabs - Core Content */}
-          <div className="space-y-4 w-full max-w-4xl">
-            {/* Core Content Tabs - Primary */}
-          <motion.div 
-            className="rebellious-card p-2 flex flex-wrap justify-center gap-2"
-            whileHover={{ scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-              {(['premise', 'overview', 'characters', 'arcs', 'world'] as const).map((tab, index) => (
-              <motion.button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`tab-button ${activeTab === tab ? 'tab-button-active' : ''}`}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.4 + index * 0.1, duration: 0.5 }}
-              >
-                  <span className="relative z-10 font-medium">
-                  {tab === 'premise' ? '🎯 Premise' : 
-                   tab === 'overview' ? '📖 Overview' :
-                   tab === 'characters' ? '👥 Characters' :
-                   tab === 'arcs' ? '📚 Story Arcs' :
-                   tab === 'world' ? '🌍 World' :
-                   (tab as string).charAt(0).toUpperCase() + (tab as string).slice(1)}
-                </span>
-                
-                {activeTab === tab && (
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-[#00FF99]/20 via-[#00CC7A]/20 to-[#00FF99]/20 rounded-xl"
-                    layoutId="activeTab"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            ))}
-          </motion.div>
-
-            {/* Your Choices Tab - Secondary (Metadata) */}
-          <motion.div 
-              className="flex justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.9, duration: 0.5 }}
-            >
-              <button
-                onClick={() => setActiveTab('choices')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
-                  activeTab === 'choices'
-                    ? 'bg-gray-500/20 text-gray-300 border-gray-500/40'
-                    : 'bg-gray-700/10 text-gray-500 border-gray-600/20 hover:bg-gray-600/20 hover:text-gray-400 hover:border-gray-500/30'
-                }`}
-                title="View your initial creative choices"
-              >
-                <span className="opacity-70">⚡ Your Choices</span>
-                <span className="ml-2 text-xs opacity-50">(Metadata)</span>
-              </button>
-            </motion.div>
-          </div>
-
-          {/* Advanced Analysis (Optional) */}
-          <motion.div 
-            className="flex flex-col items-center gap-3 mt-6"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 2, duration: 0.6 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="h-px w-16 bg-gradient-to-r from-transparent to-gray-600"></div>
-              <span className="text-gray-500 text-xs font-medium uppercase tracking-wider">Advanced Analysis (Optional)</span>
-              <div className="h-px w-16 bg-gradient-to-l from-transparent to-gray-600"></div>
+            <div 
+              className="flex-1 bg-black/50"
+              onClick={() => setShowMobileSidebar(false)}
+            />
             </div>
-            
-            <motion.button
-              onClick={() => setShowTechnicalModal(true)}
-              className="bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 text-[#00FF99] py-2.5 px-5 text-sm font-medium rounded-lg hover:bg-[#00FF99]/20 hover:shadow-lg transition-all"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="flex items-center gap-2">
-                <span>🔬</span>
-                <span>View Technical Analysis</span>
+        )}
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-6 md:p-8">
+            {/* Breadcrumb for current section */}
+            <div className={`flex items-center gap-2 text-sm mb-6 ${prefix}-text-secondary`}>
+              <span>📖 Story Bible</span>
+              <span>/</span>
+              <span className={`${prefix}-text-primary`}>
+                {activeSection === 'premise' ? '🎯 Premise' :
+                 activeSection === 'overview' ? '📖 Overview' :
+                 activeSection === 'characters' ? '👥 Characters' :
+                 activeSection === 'arcs' ? '📚 Story Arcs' :
+                 activeSection === 'world' ? '🌍 World' :
+                 activeSection === 'choices' ? '🔀 Choices' :
+                 activeSection === 'tension' ? '⚡ Tension' :
+                 activeSection === 'choice-arch' ? '🎯 Choice Architecture' :
+                 activeSection === 'living-world' ? '🌍 Living World' :
+                 activeSection === 'trope' ? '📖 Trope Analysis' :
+                 activeSection === 'cohesion' ? '🔗 Cohesion' :
+                 activeSection === 'dialogue' ? '🗣️ Dialogue' :
+                 activeSection === 'genre' ? '🎭 Genre' :
+                 activeSection === 'theme' ? '🎯 Theme' :
+                 activeSection === 'marketing' ? '📢 Marketing' : activeSection}
               </span>
-            </motion.button>
-            
-            {showTechnicalTabs && (
-              <motion.span 
-                className="text-[#00FF99] text-xs font-medium flex items-center gap-2"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
-                <span className="animate-pulse">✓</span>
-                Technical tabs active
-              </motion.span>
-            )}
-          </motion.div>
-        </motion.div>
+                    </div>
 
-          {/* Technical Tabs (when enabled) */}
-          {showTechnicalTabs && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-[#1e1e1e]/60 border border-[#00FF99]/30 rounded-lg p-1 flex flex-wrap"
-            >
-              {(['tension', 'choice-arch', 'living-world', 'trope', 'cohesion', 'dialogue', 'genre', 'theme'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-md transition-all text-sm ${
-                    activeTab === tab 
-                      ? 'bg-[#00FF99]/80 text-black font-medium' 
-                      : 'text-[#00FF99]/80 hover:text-[#00FF99] hover:bg-[#2a2a2a]'
-                  }`}
-                >
-                  {tab === 'tension' ? '⚡ Tension' :
-                   tab === 'choice-arch' ? '🎯 Choice' :
-                   tab === 'living-world' ? '🌍 Living World' :
-                   tab === 'trope' ? '📖 Trope' :
-                   tab === 'cohesion' ? '🔗 Cohesion' :
-                   tab === 'dialogue' ? '🗣️ Dialogue' :
-                   tab === 'genre' ? '🎭 Genre' :
-                   tab === 'theme' ? '🎯 Theme' : tab}
-                </button>
-              ))}
-            </motion.div>
-          )}
-
-        {/* Technical Tabs Modal */}
-        <AnimatePresence>
-          {showTechnicalModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setShowTechnicalModal(false)
-                }
-              }}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 max-w-lg w-full"
-              >
-                <h3 className="text-2xl font-bold text-[#00FF99] mb-4 font-medium cinematic-subheader">
-                  Advanced Analysis
-                </h3>
-                <p className="text-[#e7e7e7]/90 mb-6 leading-relaxed">
-                  Would you like to see the technical analysis tabs? These contain detailed production analysis including 
-                  tension escalation, choice architecture, trope analysis, and narrative cohesion that power 
-                  your story generation behind the scenes.
-                </p>
-                <div className="bg-[#2a2a2a] rounded-lg p-4 mb-6">
-                  <h4 className="font-bold text-[#00FF99] mb-2">Technical Tabs Include:</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">⚡</span>
-                      <span>Tension Analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🎯</span>
-                      <span>Choice Architecture</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🌍</span>
-                      <span>Living World</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">📖</span>
-                      <span>Trope Analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🔗</span>
-                      <span>Cohesion Analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🗣️</span>
-                      <span>Dialogue Strategy</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🎭</span>
-                      <span>Genre Analysis</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#00FF99]">🎯</span>
-                      <span>Theme Integration</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3 justify-end">
-                  <button
-                    onClick={() => setShowTechnicalModal(false)}
-                    className="px-4 py-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] transition-colors"
-                  >
-                    Not Now
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowTechnicalTabs(true)
-                      setShowTechnicalModal(false)
-                    }}
-                    className="px-6 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
-                  >
-                    Show Technical Tabs
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {/* Playbook Modal */}
+            <StoryBiblePlaybookModal 
+              isOpen={showPlaybook} 
+              onClose={() => setShowPlaybook(false)} 
+            />
 
         {/* Content */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeTab}
+            key={activeSection}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 shadow-lg mb-8"
+            className="space-y-8"
           >
-            {/* Premise Tab Content - NEW */}
-            {activeTab === 'premise' && storyBible.premise && (
+            {/* Premise Section */}
+            {activeSection === 'premise' && storyBible.premise && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                <div className="bg-[#1a1a1a] border border-[#00FF99] rounded-xl p-6">
-                  <h3 className="text-2xl font-bold text-[#00FF99] mb-4 flex items-center font-medium cinematic-subheader">
-                    Story Premise - The Foundation
-                  </h3>
-                  
-                  <div className="bg-[#2a2a2a] rounded-lg p-6 border-l-4 border-[#00FF99] mb-6">
-                    <h4 className="text-xl font-bold text-white mb-2">
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Premise</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    The foundational statement that drives your entire story forward.
+                  </p>
+                </div>
+                
+                <div className={`${prefix}-card ${prefix}-border rounded-lg p-6 border-l-4 ${prefix}-border-accent`}>
+                  <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>
                       "{getContentOrFallback(storyBible.premise, 'premiseStatement')}"
-                    </h4>
-                    <p className="text-[#e7e7e7]/70">
+                  </h3>
+                    <p className={`${prefix}-text-tertiary`}>
                       <strong>Egri's Equation:</strong> {getContentOrFallback(storyBible.premise, 'character')} + {getContentOrFallback(storyBible.premise, 'conflict')} → {getContentOrFallback(storyBible.premise, 'resolution')}
                     </p>
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <h4 className="text-lg font-bold text-[#00FF99]">Core Elements</h4>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary`}>Core Elements</h3>
                       <div className="space-y-3">
-                        <div className="bg-[#2a2a2a] rounded-lg p-4">
-                          <p className="text-sm text-[#e7e7e7]/70">Theme</p>
-                          <p className="font-bold text-white">{getContentOrFallback(storyBible.premise, 'theme')}</p>
+                      <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                        <p className={`text-sm ${prefix}-text-tertiary mb-1`}>Theme</p>
+                        <p className={`font-semibold ${prefix}-text-primary`}>{getContentOrFallback(storyBible.premise, 'theme')}</p>
                         </div>
-                        <div className="bg-[#2a2a2a] rounded-lg p-4">
-                          <p className="text-sm text-[#e7e7e7]/70">Premise Type</p>
-                          <p className="font-bold text-white">{getContentOrFallback(storyBible.premise, 'premiseType')}</p>
+                      <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                        <p className={`text-sm ${prefix}-text-tertiary mb-1`}>Premise Type</p>
+                        <p className={`font-semibold ${prefix}-text-primary`}>{getContentOrFallback(storyBible.premise, 'premiseType')}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-lg font-bold text-[#00FF99]">Story Function</h4>
-                      <p className="text-[#e7e7e7]/90 text-sm leading-relaxed">
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary`}>Story Function</h3>
+                      <p className={`${prefix}-text-secondary text-sm leading-relaxed`}>
                         Every character, scene, and user choice in this story serves to prove this central premise. 
                         This ensures narrative coherence and emotional satisfaction by building toward a logical conclusion.
                       </p>
                       
                       {storyBible.premiseValidation && (
-                        <div className={`rounded-lg p-4 ${
-                          storyBible.premiseValidation.strength === 'strong' ? 'bg-green-900/20 border border-green-500/30' :
-                          storyBible.premiseValidation.strength === 'moderate' ? 'bg-yellow-900/20 border border-yellow-500/30' :
-                          'bg-red-900/20 border border-red-500/30'
-                        }`}>
-                          <p className="text-sm font-bold">
+                      <div className={`${prefix}-card ${prefix}-border rounded-lg p-4 ${
+                        storyBible.premiseValidation.strength === 'strong' ? `${prefix}-border-accent` : ''
+                      }`}>
+                        <p className={`text-sm font-semibold ${prefix}-text-primary`}>
 Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? storyBible.premiseValidation.strength.toUpperCase() : getContentOrFallback(storyBible.premiseValidation, 'strength')}
                           </p>
                           {storyBible.premiseValidation.issues.length > 0 && (
-                            <p className="text-xs mt-1 opacity-70">
+                          <p className={`text-xs mt-1 ${prefix}-text-tertiary`}>
                               {storyBible.premiseValidation.issues.join(', ')}
                             </p>
                           )}
                         </div>
                       )}
-                    </div>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Professional Overview Tab */}
-            {activeTab === 'overview' && (
+            {/* Overview Section */}
+            {activeSection === 'overview' && (
               <motion.div 
-                className="space-y-8"
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
+                className="space-y-8"
               >
-                <motion.div
-                  className="rebellious-card"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2, duration: 0.6 }}
-                >
-                  <h2 className="text-3xl font-bold text-center mb-6 font-medium">
-                    ✨ YOUR PROFESSIONAL SERIES
-                  </h2>
-                  <p className="text-xl text-white/90 leading-relaxed text-center font-medium">
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Overview</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    A high-level summary and key statistics of your story.
+                  </p>
+                </div>
+                
+                {/* Hero Image */}
+                <StoryBibleImage
+                  imageAsset={storyBible.visualAssets?.heroImage}
+                  placeholderIcon="🎬"
+                  placeholderText="Generate a hero image for your series"
+                  onRegenerate={() => handleRegenerateImage('hero')}
+                  isGenerating={generatingImageFor?.type === 'hero'}
+                  aspectRatio="16:9"
+                  className="mb-8"
+                />
+                
+                <div>
+                  <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Series Overview</h3>
+                  <p className={`text-lg ${prefix}-text-secondary leading-relaxed`}>
 {typeof storyBible.seriesOverview === 'string' ? storyBible.seriesOverview : getContentOrFallback(storyBible, 'seriesOverview') || "A compelling series spanning multiple episodes, crafted to engage audiences and tell meaningful stories."}
                   </p>
-                </motion.div>
+                </div>
                 
                 {storyBible.potentialBranchingPaths && (
-                  <motion.div 
-                    className="rebellious-card"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.4, duration: 0.6 }}
-                  >
-                    <h3 className="text-xl font-semibold text-[#00FF99] mb-3 font-medium">Branching Paths</h3>
-                    <p className="text-white/90 font-medium">{storyBible.potentialBranchingPaths}</p>
-                  </motion.div>
+                  <div>
+                    <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Where the Story Could Go</h3>
+                    <p className={`${prefix}-text-secondary`}>{storyBible.potentialBranchingPaths}</p>
+                  </div>
                 )}
                 
-                {/* Professional Stats Grid */}
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.8 }}
-                >
-                  {[
-                    { value: storyBible.mainCharacters?.length || 0, label: "Rebel Characters", icon: "👥" },
-                    { value: storyBible.narrativeArcs?.length || 0, label: "Story Arcs", icon: "📚" },
-                    { value: storyBible.episodesGenerated || 0, label: "Episodes Forged", icon: "🔥" }
-                  ].map((stat, index) => (
-                    <motion.div
+                {/* Stats Grid */}
+                <div>
+                  <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Statistics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {(() => {
+                      // Calculate total episodes from all narrative arcs
+                      const totalEpisodes = storyBible.narrativeArcs?.reduce((sum: number, arc: any) => {
+                        return sum + (arc.episodes?.length || 10)
+                      }, 0) || 0
+                      
+                      return [
+                        { value: storyBible.mainCharacters?.length || 0, label: "Characters", icon: "👥" },
+                        { value: storyBible.narrativeArcs?.length || 0, label: "Story Arcs", icon: "📚" },
+                        { value: totalEpisodes, label: "Episodes", icon: "🎬" }
+                      ]
+                    })().map((stat, index) => (
+                      <div
                       key={index}
-                      className="rebellious-card text-center p-6"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.8 + index * 0.1, duration: 0.6 }}
-                      whileHover={{ scale: 1.05, y: -5 }}
-                    >
-                      <div className="text-5xl mb-3">
+                        className={`${prefix}-card ${prefix}-border text-center p-6 rounded-lg`}
+                      >
+                        <div className="text-4xl mb-3">
                         {stat.icon}
                     </div>
-                      <div className="text-4xl font-bold text-[#00FF99] mb-2 font-medium">
+                        <div className={`text-3xl font-bold ${prefix}-text-accent mb-2`}>
                         {stat.value}
                   </div>
-                      <div className="text-white/70 font-bold font-medium">{stat.label}</div>
-                    </motion.div>
+                        <div className={`${prefix}-text-secondary font-medium`}>{stat.label}</div>
+                      </div>
                   ))}
-                </motion.div>
+                  </div>
+                </div>
               </motion.div>
             )}
 
-            {/* Characters Tab - Enhanced for 3D Characters */}
-            {activeTab === 'characters' && (
+            {/* Characters Section */}
+            {activeSection === 'characters' && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
-                {/* Editing Hint */}
-                <div className="bg-[#2a2a2a]/50 border-l-4 border-[#00FF99] p-4 rounded-lg">
-                  <p className="text-[#e7e7e7]/90 text-sm">
-                    💡 <strong>Tip:</strong> Hover over any field to see an edit button (✏️). Add or remove characters as needed - no hardcoded limits!
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Characters</h2>
+                    <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                      Detailed profiles and psychological breakdowns of your cast.
                   </p>
                       </div>
-                  
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                    👥 Character Profiles
-                    {storyBible.characters3D && (
-                      <span className="ml-3 text-sm bg-[#00FF99] text-black px-2 py-1 rounded-lg">
-                        3D Psychology
-                      </span>
-                    )}
-                  </h3>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentCharacterIndex(Math.max(0, currentCharacterIndex - 1))}
-                      className="p-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] disabled:opacity-50"
-                      disabled={currentCharacterIndex === 0}
-                    >
-                      ←
-                    </button>
-                    <button
-                      onClick={() => setCurrentCharacterIndex(Math.min(storyBible.mainCharacters.length - 1, currentCharacterIndex + 1))}
-                      className="p-2 bg-[#2a2a2a] text-[#e7e7e7] rounded-lg hover:bg-[#36393f] disabled:opacity-50"
-                      disabled={currentCharacterIndex === storyBible.mainCharacters.length - 1}
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-
-                {storyBible.mainCharacters && storyBible.mainCharacters.length > 0 && (
-                  <div className="grid gap-6">
-                    {/* Character Navigation */}
-                    <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap gap-2 justify-center">
-                        {storyBible.mainCharacters.map((character: any, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentCharacterIndex(index)}
-                          className={`px-4 py-2 rounded-lg transition-colors ${
-                            currentCharacterIndex === index
-                              ? 'bg-[#00FF99] text-black font-bold'
-                              : 'bg-[#2a2a2a] text-[#e7e7e7] hover:bg-[#36393f]'
-                          }`}
-                        >
-                          {character.name}
-                          {character.premiseRole && (
-                            <span className="ml-2 text-xs opacity-70">
-                              ({character.premiseRole})
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                      </div>
-                      
-                      {/* CRUD Action Buttons */}
-                      <div className="flex gap-2 justify-center">
                         <button
                           onClick={addNewCharacter}
-                          className="px-4 py-2 bg-[#00FF99] text-black font-bold rounded-lg hover:bg-[#00CC7A] transition-colors flex items-center gap-2"
+                    className={`px-4 py-2 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2`}
                           title="Add new character"
                         >
                           ➕ Add Character
                         </button>
-                        {storyBible.mainCharacters.length > 1 && !isStoryBibleLocked && (
-                          <button
-                            onClick={() => deleteCharacter(currentCharacterIndex)}
-                            className="px-4 py-2 bg-red-500/80 text-white font-bold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-                            title="Delete current character"
-                          >
-                            🗑️ Delete
-                          </button>
-                        )}
-                      </div>
                     </div>
                     
-                    {/* Character Detail View */}
-                    {(() => {
-                      const character = storyBible.mainCharacters[currentCharacterIndex];
-                      const is3D = character.physiology && character.sociology && character.psychology;
-                      
-                      return (
+                {storyBible.mainCharacters && storyBible.mainCharacters.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {storyBible.mainCharacters.map((character: any, index: number) => (
                       <motion.div
-                        key={currentCharacterIndex}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className="bg-[#2a2a2a] rounded-xl p-6"
-                        >
-                          {/* Character Header */}
-                          <div className="mb-6">
-                            <div className="flex items-center gap-3">
-                              {editingField?.type === 'character' && editingField?.index === currentCharacterIndex && editingField?.field === 'name' ? (
-                                <div className="flex items-center gap-2 flex-1">
-                                  <input
-                                    type="text"
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    className="text-2xl font-bold bg-[#1a1a1a] border-2 border-[#00FF99] rounded-lg px-3 py-1 text-white flex-1"
-                                    autoFocus
-                                  />
-                                  <button onClick={saveEdit} className="bg-[#00FF99] text-black px-3 py-1 rounded-lg font-bold">✓</button>
-                                  <button onClick={cancelEditing} className="bg-red-500 text-white px-3 py-1 rounded-lg font-bold">✕</button>
-                                </div>
-                              ) : (
-                                <>
-                                  <h4 className="text-2xl font-bold text-white">{character.name}</h4>
-                                  <button
-                                    onClick={() => startEditing('character', 'name', character.name, currentCharacterIndex)}
-                                    className="text-white/50 hover:text-[#00FF99] transition-colors"
-                                    title="Edit character name"
-                                  >
-                                    ✏️
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                            {character.premiseFunction ? (
-                              <p className="text-[#00FF99] font-medium mt-2">{character.premiseFunction}</p>
-                            ) : (
-                              <p className="text-[#e7e7e7]/70 mt-2">{character.archetype || 'Character'}</p>
-                            )}
-                              </div>
-
-                          {is3D ? (
-                            /* 3D Character Display */
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {/* Physiology */}
-                              <CollapsibleSection
-                                title="Physiology"
-                                icon="🏃"
-                                isEmptyDefault={isSectionEmpty(character.physiology || {}, ['physicalTraits'])}
-                              >
-                                <div className="space-y-2">
-                                  {/* Editable Age */}
-                                  <div className="flex items-center gap-2 group">
-                                    <strong>Age:</strong>
-                                    {editingField?.type === 'character' && editingField?.index === currentCharacterIndex && editingField?.field === 'physiology.age' ? (
-                                      <div className="flex items-center gap-1 flex-1">
-                                        <input
-                                          value={editValue}
-                                          onChange={(e) => setEditValue(e.target.value)}
-                                          className="bg-[#2a2a2a] border border-[#00FF99] rounded px-2 py-1 text-white text-sm flex-1"
-                                          autoFocus
-                                        />
-                                        <button onClick={saveEdit} className="bg-[#00FF99] text-black px-2 py-1 rounded text-xs">✓</button>
-                                        <button onClick={cancelEditing} className="bg-red-500 text-white px-2 py-1 rounded text-xs">✕</button>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <span>{character.physiology.age}</span>
-                                        <button
-                                          onClick={() => startEditing('character', 'physiology.age', character.physiology.age, currentCharacterIndex)}
-                                          className="opacity-0 group-hover:opacity-100 text-white/50 hover:text-[#00FF99] transition-all text-xs ml-1"
-                                        >
-                                          ✏️
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Editable Gender */}
-                                  <div className="flex items-center gap-2 group">
-                                    <strong>Gender:</strong>
-                                    {editingField?.type === 'character' && editingField?.index === currentCharacterIndex && editingField?.field === 'physiology.gender' ? (
-                                      <div className="flex items-center gap-1 flex-1">
-                                        <input
-                                          value={editValue}
-                                          onChange={(e) => setEditValue(e.target.value)}
-                                          className="bg-[#2a2a2a] border border-[#00FF99] rounded px-2 py-1 text-white text-sm flex-1"
-                                          autoFocus
-                                        />
-                                        <button onClick={saveEdit} className="bg-[#00FF99] text-black px-2 py-1 rounded text-xs">✓</button>
-                                        <button onClick={cancelEditing} className="bg-red-500 text-white px-2 py-1 rounded text-xs">✕</button>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <span>{character.physiology.gender}</span>
-                                        <button
-                                          onClick={() => startEditing('character', 'physiology.gender', character.physiology.gender, currentCharacterIndex)}
-                                          className="opacity-0 group-hover:opacity-100 text-white/50 hover:text-[#00FF99] transition-all text-xs ml-1"
-                                        >
-                                          ✏️
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Editable Appearance */}
-                                  <div className="flex items-start gap-2 group">
-                                    <strong>Appearance:</strong>
-                                    {editingField?.type === 'character' && editingField?.index === currentCharacterIndex && editingField?.field === 'physiology.appearance' ? (
-                                      <div className="flex items-center gap-1 flex-1">
-                                        <textarea
-                                          value={editValue}
-                                          onChange={(e) => setEditValue(e.target.value)}
-                                          className="bg-[#2a2a2a] border border-[#00FF99] rounded px-2 py-1 text-white text-sm flex-1 min-h-[60px]"
-                                          autoFocus
-                                        />
-                                        <div className="flex flex-col gap-1">
-                                          <button onClick={saveEdit} className="bg-[#00FF99] text-black px-2 py-1 rounded text-xs">✓</button>
-                                          <button onClick={cancelEditing} className="bg-red-500 text-white px-2 py-1 rounded text-xs">✕</button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <span className="flex-1">{character.physiology.appearance}</span>
-                                        <button
-                                          onClick={() => startEditing('character', 'physiology.appearance', character.physiology.appearance, currentCharacterIndex)}
-                                          className="opacity-0 group-hover:opacity-100 text-white/50 hover:text-[#00FF99] transition-all text-xs"
-                                        >
-                                          ✏️
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Build, Health - similar pattern */}
-                                  <p><strong>Build:</strong> {character.physiology.build}</p>
-                                  <p><strong>Health:</strong> {character.physiology.health}</p>
-                                  {character.physiology.physicalTraits?.length > 0 && (
-                                    <p><strong>Traits:</strong> {character.physiology.physicalTraits.join(', ')}</p>
-                                  )}
-                            </div>
-                          </CollapsibleSection>
-
-                              {/* Sociology */}
-                              <CollapsibleSection
-                                title="Sociology"
-                                icon="🏛️"
-                                isEmptyDefault={isSectionEmpty(character.sociology || {})}
-                              >
-                                <div className="space-y-2 text-sm">
-                                  <p><strong>Class:</strong> {character.sociology.class}</p>
-                                  <p><strong>Occupation:</strong> {character.sociology.occupation}</p>
-                                  <p><strong>Education:</strong> {character.sociology.education}</p>
-                                  <p><strong>Home Life:</strong> {character.sociology.homeLife}</p>
-                                  <p><strong>Economic Status:</strong> {character.sociology.economicStatus}</p>
-                                  <p><strong>Community Standing:</strong> {character.sociology.communityStanding}</p>
-                                </div>
-                          </CollapsibleSection>
-                            
-                              {/* Psychology */}
-                              <CollapsibleSection
-                                title="Psychology"
-                                icon="🧠"
-                                isEmptyDefault={isSectionEmpty(character.psychology || {})}
-                                className="md:col-span-2 lg:col-span-1"
-                              >
-                                <div className="space-y-3">
-                                  <div className="bg-[#2a2a2a] rounded-lg p-3 border-l-4 border-green-400">
-                                    <p><strong>Core Value:</strong> {character.psychology.coreValue}</p>
-                                    <p><strong>Moral Standpoint:</strong> {character.psychology.moralStandpoint}</p>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-1 gap-2">
-                                    <div className="bg-[#2a2a2a] rounded-lg p-3 border-l-4 border-blue-400">
-                                      <p className="text-blue-400 font-bold text-xs mb-1">WANT (External Goal)</p>
-                                      <p>{character.psychology.want}</p>
-                                    </div>
-                                    <div className="bg-[#2a2a2a] rounded-lg p-3 border-l-4 border-purple-400">
-                                      <p className="text-purple-400 font-bold text-xs mb-1">NEED (Internal Lesson)</p>
-                                      <p>{character.psychology.need}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="bg-[#2a2a2a] rounded-lg p-3 border-l-4 border-red-400">
-                                    <p className="text-red-400 font-bold text-xs mb-1">PRIMARY FLAW</p>
-                                    <p>{character.psychology.primaryFlaw}</p>
-                                    <p className="text-xs mt-1 text-[#e7e7e7]/60">*Creates obstacles until growth occurs</p>
-                                  </div>
-                                  
-                                  <div className="space-y-1">
-                                    <p><strong>Temperament:</strong> {character.psychology.temperament?.join(', ') || 'Not specified'}</p>
-                                    <p><strong>Attitude:</strong> {character.psychology.attitude}</p>
-                                    <p><strong>IQ:</strong> {character.psychology.iq}</p>
-                                    <p><strong>Top Fear:</strong> {character.psychology.fears?.[0] || 'Unknown'}</p>
-                                  </div>
-                                </div>
-                              </CollapsibleSection>
-                            </div>
-                          ) : (
-                            /* Legacy Character Display */
-                            <div className="space-y-4">
-                              <div className="bg-[#1a1a1a] rounded-lg p-4">
-                                <h5 className="text-[#00FF99] font-bold mb-2">Character Overview</h5>
-                                <p className="text-[#e7e7e7]/90 mb-3">{character.description}</p>
-                                <p className="text-sm"><strong>Archetype:</strong> {character.archetype}</p>
-                                {character.arc && (
-                                  <p className="text-sm"><strong>Character Arc:</strong> {character.arc}</p>
-                                )}
-                              </div>
-                              </div>
-                            )}
-                            
-                          {/* Speech Pattern (if available) */}
-                          {character.speechPattern && (
-                            <div className="mt-6 bg-[#1a1a1a] rounded-lg p-4">
-                              <h5 className="text-[#00FF99] font-bold mb-3 flex items-center">
-                                🗣️ Speech Pattern
-                              </h5>
-                              <div className="grid md:grid-cols-3 gap-4 text-sm">
-                                <p><strong>Vocabulary:</strong> {character.speechPattern.vocabulary}</p>
-                                <p><strong>Rhythm:</strong> {character.speechPattern.rhythm}</p>
-                                <p><strong>Voice Notes:</strong> {character.speechPattern.voiceNotes}</p>
-                            </div>
-                          </div>
-                          )}
-
-                          {/* Living Narrative Info */}
-                          {character.arcIntroduction && (
-                            <div className="mt-6 bg-[#1a1a1a] rounded-lg p-4">
-                              <h5 className="text-[#00FF99] font-bold mb-3 flex items-center">
-                                📖 Living Narrative
-                              </h5>
-                              <div className="text-sm space-y-1">
-                                <p><strong>Introduces:</strong> Arc {character.arcIntroduction}</p>
-                                {character.arcDeparture && (
-                                  <p><strong>Departs:</strong> Arc {character.arcDeparture} ({character.departureReason})</p>
-                                )}
-                                <p className="text-[#e7e7e7]/70 mt-2">
-                                  This character's role evolves based on story needs and user choices.
-                                </p>
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        onClick={() => openCharacterModal(index)}
+                        className={`p-5 rounded-lg ${prefix}-card ${prefix}-border cursor-pointer hover:${prefix}-border-accent transition-all duration-200 hover:shadow-lg`}
+                      >
+                        {/* Character Image */}
+                        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                          {(() => {
+                            // Debug logging
+                            if (character.visualReference?.imageUrl) {
+                              console.log(`🖼️ [Character ${index}] Rendering with image:`, character.visualReference.imageUrl.substring(0, 60))
+                            } else {
+                              console.log(`🖼️ [Character ${index}] No visualReference or imageUrl`)
+                            }
+                            return (
+                              <StoryBibleImage
+                                imageAsset={character.visualReference}
+                                placeholderIcon="👤"
+                                placeholderText=""
+                                onRegenerate={() => handleRegenerateImage('character', index)}
+                                isGenerating={generatingImageFor?.type === 'character' && generatingImageFor?.index === index}
+                                aspectRatio="1:1"
+                                className="w-full"
+                              />
+                            )
+                          })()}
                         </div>
+                        
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/40 flex items-center justify-center text-xl font-bold text-[#10B981] flex-shrink-0">
+                            {getInitials(character.name)}
+                                </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
+                              {character.name}
+                            </h3>
+                            <p className={`text-xs ${prefix}-text-tertiary`}>
+                              {character.premiseFunction || character.archetype || character.premiseRole || 'Character'}
+                            </p>
                             </div>
-                          )}
+                              </div>
+                        <p className={`text-sm ${prefix}-text-secondary line-clamp-3`}>
+                          {getCharacterBriefDescription(character)}
+                        </p>
                       </motion.div>
-                      );
-                    })()}
-                  </div>
+                    ))}
+                                      </div>
+                                    ) : (
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-12 text-center`}>
+                    <div className={`text-4xl mb-4`}>👥</div>
+                    <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>No Characters Yet</h3>
+                    <p className={`${prefix}-text-secondary mb-6`}>
+                      Start building your cast by adding your first character.
+                    </p>
+                                        <button
+                      onClick={addNewCharacter}
+                      className={`px-6 py-3 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2 mx-auto`}
+                                        >
+                      ➕ Add Your First Character
+                                        </button>
+                                  </div>
                 )}
 
                 {/* Character Relationships (if available) */}
                 {storyBible.characterRelationships && storyBible.characterRelationships.length > 0 && (
-                  <div className="mt-8 bg-[#1a1a1a] rounded-xl p-6">
-                    <h4 className="text-[#00FF99] font-bold mb-4">🔗 Character Relationships</h4>
+                  <div className="mt-8">
+                    <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>🔗 Character Relationships</h3>
                     <div className="grid md:grid-cols-2 gap-4">
                       {storyBible.characterRelationships.map((rel: any, index: number) => (
-                        <div key={index} className="bg-[#2a2a2a] rounded-lg p-4">
-                          <h5 className="font-bold text-white mb-2">
+                        <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                          <h5 className={`font-semibold ${prefix}-text-primary mb-2`}>
                             {rel.character1} & {rel.character2}
                           </h5>
-                          <p className="text-sm text-[#e7e7e7]/90 mb-2">
-                            <strong>Type:</strong> {rel.relationshipType}
+                          <p className={`text-sm ${prefix}-text-secondary mb-2`}>
+                            <strong className={`${prefix}-text-primary`}>Type:</strong> {rel.relationshipType}
                           </p>
-                          <p className="text-sm text-[#e7e7e7]/90 mb-2">
-                            <strong>Dynamic:</strong> {rel.dynamic}
+                          <p className={`text-sm ${prefix}-text-secondary mb-2`}>
+                            <strong className={`${prefix}-text-primary`}>Dynamic:</strong> {rel.dynamic}
                           </p>
-                          <p className="text-xs text-[#00FF99]">
+                          <p className={`text-xs ${prefix}-text-accent`}>
                             <strong>Premise Relevance:</strong> {rel.premiseRelevance}
                           </p>
                   </div>
@@ -2478,11 +2350,21 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
               </motion.div>
             )}
 
-            {/* Arcs Tab */}
-            {activeTab === 'arcs' && (
+            {/* Arcs Section */}
+            {activeSection === 'arcs' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center justify-between">
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-[#00FF99]">Narrative Arcs</h2>
+                    <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Story Arcs</h2>
+                    <p className={`text-base ${prefix}-text-secondary`}>
+                      The structural progression and major plot points of your narrative.
+                    </p>
+                  </div>
+                  {!isStoryBibleLocked && (
                   <button
                     onClick={() => {
                       setAIEditConfig({
@@ -2497,19 +2379,23 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       })
                       setShowAIEditModal(true)
                     }}
-                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                      className={`px-4 py-2 bg-gradient-to-r from-[#10B981] to-[#059669] text-white font-semibold rounded-lg hover:from-[#059669] hover:to-[#047857] transition-all flex items-center gap-2 shadow-lg`}
                     title="Get AI assistance for arc ideas"
                   >
                     <span className="text-lg">✨</span>
-                    AI Assist
+                      <span className="hidden sm:inline">AI Assist</span>
                   </button>
+                  )}
                 </div>
                 
                 {/* Editing Hint */}
-                <div className="mb-6 bg-[#2a2a2a]/50 border-l-4 border-[#00FF99] p-4 rounded-lg">
-                  <p className="text-[#e7e7e7]/90 text-sm">
-                    💡 <strong>Tip:</strong> You can add or remove arcs to match your story's structure. Each arc can have any number of episodes! Use <strong>AI Assist</strong> for suggestions.
+                <div className={`${prefix}-card-secondary ${prefix}-border border-l-4 ${prefix === 'dark' ? 'border-yellow-400' : 'border-yellow-500'} p-4 rounded-lg`}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">💡</span>
+                  <p className={`${prefix}-text-secondary text-sm`}>
+                      <strong className={`${prefix}-text-primary`}>Tip:</strong> You can add or remove arcs to match your story's structure. Each arc can have any number of episodes! Use <strong className={`${prefix}-text-primary`}>AI Assist</strong> for suggestions.
                   </p>
+                  </div>
                 </div>
                 
                 {storyBible.narrativeArcs && storyBible.narrativeArcs.length > 0 ? (
@@ -2521,10 +2407,10 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                         <button
                           key={index}
                           onClick={() => setCurrentArcIndex(index)}
-                          className={`px-3 py-1.5 rounded-full transition-all ${
+                            className={`px-4 py-2 rounded-lg transition-all text-sm font-medium ${
                             currentArcIndex === index
-                              ? 'bg-[#00FF99] text-black font-medium'
-                              : 'bg-[#2a2a2a] text-[#e7e7e7]/80 hover:bg-[#36393f]'
+                                ? `${prefix}-bg-accent ${prefix}-text-accent font-semibold`
+                              : `${prefix}-bg-secondary ${prefix}-text-secondary hover:${prefix}-bg-tertiary`
                           }`}
                         >
                           Arc {index + 1}: {arc.title}
@@ -2536,7 +2422,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       <div className="flex gap-2">
                         <button
                           onClick={addNewArc}
-                          className="px-4 py-2 bg-[#00FF99] text-black font-bold rounded-lg hover:bg-[#00CC7A] transition-colors flex items-center gap-2"
+                          className={`px-4 py-2 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2`}
                           title="Add new arc"
                         >
                           ➕ Add Arc
@@ -2544,7 +2430,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                         {storyBible.narrativeArcs.length > 1 && !isStoryBibleLocked && (
                           <button
                             onClick={() => deleteArc(currentArcIndex)}
-                            className="px-4 py-2 bg-red-500/80 text-white font-bold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+                            className={`px-4 py-2 bg-red-500/80 ${prefix}-text-primary font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2`}
                             title="Delete current arc"
                           >
                             🗑️ Delete Arc
@@ -2563,14 +2449,30 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                         className="space-y-6"
                       >
                         {/* Arc Suggestion Notice */}
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-6">
-                          <p className="text-blue-200 text-sm">
-                            💡 <strong>Arc suggestions are starting points:</strong> These automated suggestions guide your story, 
+                        <div className={`${prefix}-card-secondary ${prefix}-border border-l-4 ${prefix === 'dark' ? 'border-blue-400' : 'border-blue-500'} rounded-lg p-4 mb-6`}>
+                          <div className="flex items-start gap-2">
+                            <span className="text-lg">💡</span>
+                            <p className={`${prefix}-text-secondary text-sm`}>
+                              <strong className={`${prefix}-text-primary`}>Arc suggestions are starting points:</strong> These automated suggestions guide your story, 
                             but you control the actual episodes. Use them for inspiration, then create episodes your way in the Episode Studio!
                           </p>
+                          </div>
                         </div>
 
-                        <div className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-6">
+                        <div className={`${prefix}-card ${prefix}-border rounded-lg p-6`}>
+                          {/* Arc Key Art */}
+                          <div className="mb-6">
+                            <StoryBibleImage
+                              imageAsset={storyBible.narrativeArcs[currentArcIndex].keyArt}
+                              placeholderIcon="📚"
+                              placeholderText="Generate key art for this arc"
+                              onRegenerate={() => handleRegenerateImage('arc', currentArcIndex)}
+                              isGenerating={generatingImageFor?.type === 'arc' && generatingImageFor?.index === currentArcIndex}
+                              aspectRatio="16:9"
+                              className="w-full"
+                            />
+                          </div>
+                          
                           <div className="flex items-center gap-3 mb-4">
                             {editingField?.type === 'arc' && editingField?.index === currentArcIndex && editingField?.field === 'title' ? (
                               <div className="flex items-center gap-2 flex-1">
@@ -2578,28 +2480,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                   type="text"
                                   value={editValue}
                                   onChange={(e) => setEditValue(e.target.value)}
-                                  className="text-2xl font-bold bg-[#1a1a1a] border-2 border-[#00FF99] rounded-lg px-3 py-2 text-[#00FF99] flex-1"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') saveEdit()
+                                    if (e.key === 'Escape') cancelEditing()
+                                  }}
+                                  className={`text-2xl font-bold ${prefix}-bg-secondary border-2 ${prefix}-border-accent rounded-lg px-3 py-2 ${prefix}-text-primary flex-1`}
                                   autoFocus
                                 />
-                                <button onClick={saveEdit} className="bg-[#00FF99] text-black px-3 py-2 rounded-lg font-bold">✓</button>
-                                <button onClick={cancelEditing} className="bg-red-500 text-white px-3 py-2 rounded-lg font-bold">✕</button>
+                                <button onClick={saveEdit} className={`${prefix}-btn-primary px-3 py-2 rounded-lg font-bold text-sm`}>✓</button>
+                                <button onClick={cancelEditing} className={`bg-red-500 ${prefix}-text-primary px-3 py-2 rounded-lg font-bold hover:bg-red-600 text-sm`}>✕</button>
                               </div>
                             ) : (
                               <>
-                                <h3 className="text-2xl font-bold text-[#00FF99]">
-                            {storyBible.narrativeArcs[currentArcIndex].title}
-                          </h3>
+                                <h3 className={`text-2xl font-bold ${prefix}-text-primary`}>
+                                  {storyBible.narrativeArcs[currentArcIndex].title}
+                                </h3>
+                                {!isStoryBibleLocked && (
                                 <button
                                   onClick={() => startEditing('arc', 'title', storyBible.narrativeArcs[currentArcIndex].title, currentArcIndex)}
-                                  className="text-white/50 hover:text-[#00FF99] transition-colors"
+                                  className={`${prefix}-text-tertiary hover:${prefix}-text-accent transition-colors`}
                                   title="Edit arc title"
                                 >
                                   ✏️
                                 </button>
+                                )}
                               </>
                             )}
                           </div>
-                          <p className="text-[#e7e7e7]/90 mb-6">
+                          <p className={`${prefix}-text-secondary mb-6 text-sm leading-relaxed`}>
                             {storyBible.narrativeArcs[currentArcIndex].summary}
                           </p>
                           
@@ -2608,36 +2516,38 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                            storyBible.narrativeArcs[currentArcIndex].episodes.length > 0 && (
                             <div>
                               <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-lg font-semibold text-[#00FF99]">Episodes</h4>
+                                <h4 className={`text-lg font-semibold ${prefix}-text-primary`}>Episodes</h4>
+                                {!isStoryBibleLocked && (
                                 <button
                                   onClick={() => addEpisodeToArc(currentArcIndex)}
-                                  className="px-3 py-1 bg-[#00FF99] text-black text-sm font-bold rounded-lg hover:bg-[#00CC7A] transition-colors"
+                                    className={`px-3 py-1.5 ${prefix}-btn-primary text-sm font-semibold rounded-lg transition-colors flex items-center gap-2`}
                                   title="Add episode to this arc"
                                 >
                                   ➕ Add Episode
                                 </button>
+                                )}
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {storyBible.narrativeArcs[currentArcIndex].episodes.map((episode: any, episodeIndex: number) => (
                                   <div 
                                     key={episodeIndex}
-                                    className="bg-[#1e1e1e] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF9940] transition-colors relative group"
+                                    className={`${prefix}-card ${prefix}-border rounded-lg p-4 hover:${prefix}-border-accent transition-all relative group`}
                                   >
                                     <div className="flex justify-between items-center mb-2">
-                                      <h5 className="font-medium text-[#00FF99]">Episode {episode.number}</h5>
+                                      <h5 className={`font-semibold ${prefix}-text-primary`}>Episode {episode.number || episodeIndex + 1}</h5>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-xs text-[#e7e7e7]/50">{`${currentArcIndex * 10 + episodeIndex + 1}/60`}</span>
+                                        <span className={`text-xs ${prefix}-text-tertiary`}>{`${currentArcIndex * 10 + episodeIndex + 1}/60`}</span>
                                         {storyBible.narrativeArcs[currentArcIndex].episodes.length > 1 && !isStoryBibleLocked && (
                                           <button
                                             onClick={() => deleteEpisodeFromArc(currentArcIndex, episodeIndex)}
-                                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-all text-xs px-1 py-0.5 bg-red-500/10 rounded"
+                                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-all text-xs px-1.5 py-0.5 bg-red-500/10 rounded"
                                             title="Delete episode"
                                           >
                                             🗑️
                                           </button>
-                                      )}
-                                    </div>
+                                        )}
                                       </div>
+                                    </div>
                                     <div className="flex items-center gap-2 mb-2">
                                       {editingField?.type === 'episode' && editingField?.index === `${currentArcIndex}-${episodeIndex}` && editingField?.field === 'title' ? (
                                         <div className="flex items-center gap-2 flex-1">
@@ -2645,26 +2555,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                             type="text"
                                             value={editValue}
                                             onChange={(e) => setEditValue(e.target.value)}
-                                            className="text-sm font-medium bg-[#2a2a2a] border border-[#00FF99] rounded px-2 py-1 text-white flex-1"
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') saveEdit()
+                                              if (e.key === 'Escape') cancelEditing()
+                                            }}
+                                            className={`text-sm font-medium ${prefix}-bg-secondary border ${prefix}-border-accent rounded px-2 py-1 ${prefix}-text-primary flex-1`}
                                             autoFocus
                                           />
-                                          <button onClick={saveEdit} className="bg-[#00FF99] text-black px-2 py-1 rounded text-xs font-bold">✓</button>
-                                          <button onClick={cancelEditing} className="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">✕</button>
+                                          <button onClick={saveEdit} className={`${prefix}-btn-primary px-2 py-1 rounded text-xs font-bold`}>✓</button>
+                                          <button onClick={cancelEditing} className={`bg-red-500 ${prefix}-text-primary px-2 py-1 rounded text-xs font-bold hover:bg-red-600`}>✕</button>
                                         </div>
                                       ) : (
                                         <>
-                                          <h6 className="font-medium flex-1">{episode.title}</h6>
+                                          <h6 className={`font-medium flex-1 ${prefix}-text-primary`}>{episode.title || `Episode ${episode.number || episodeIndex + 1}`}</h6>
+                                          {!isStoryBibleLocked && (
                                           <button
-                                            onClick={() => startEditing('episode', 'title', episode.title, `${currentArcIndex}-${episodeIndex}` as string)}
-                                            className="text-white/30 hover:text-[#00FF99] transition-colors text-xs"
+                                              onClick={() => startEditing('episode', 'title', episode.title || '', `${currentArcIndex}-${episodeIndex}` as string)}
+                                              className={`opacity-0 group-hover:opacity-100 ${prefix}-text-tertiary hover:${prefix}-text-accent transition-all text-xs`}
                                             title="Edit episode title"
                                           >
                                             ✏️
                                           </button>
+                                          )}
                                         </>
                                       )}
                                     </div>
-                                    <p className="text-sm text-[#e7e7e7]/70">{episode.summary}</p>
+                                    {episode.summary && (
+                                      <p className={`text-sm ${prefix}-text-secondary mt-2`}>{episode.summary}</p>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -2675,18 +2593,39 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-[#e7e7e7]/50">
-                    No narrative arc information available
-                  </div>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-12 text-center`}>
+                    <div className={`text-4xl mb-4`}>📚</div>
+                    <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>No Story Arcs Yet</h3>
+                    <p className={`${prefix}-text-secondary mb-6`}>
+                      Start building your narrative structure by adding your first arc.
+                    </p>
+                    {!isStoryBibleLocked && (
+                      <button
+                        onClick={addNewArc}
+                        className={`px-6 py-3 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2 mx-auto`}
+                      >
+                        ➕ Add Your First Arc
+                      </button>
                 )}
               </div>
+                )}
+              </motion.div>
             )}
 
-            {/* World Building Tab */}
-            {activeTab === 'world' && (
+            {/* World Section */}
+            {activeSection === 'world' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="flex items-center justify-between">
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-[#00FF99]">World Building</h2>
+                    <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>World</h2>
+                    <p className={`text-base ${prefix}-text-secondary`}>
+                      The rules, history, and geography of your story universe.
+                    </p>
+                  </div>
                   <button
                     onClick={() => {
                       setAIEditConfig({
@@ -2701,7 +2640,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       })
                       setShowAIEditModal(true)
                     }}
-                    className="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    className={`px-4 py-2 bg-[#10B981] text-white font-bold rounded-lg hover:bg-[#059669] transition-colors flex items-center gap-2`}
                     title="Get AI assistance for world building"
                   >
                     <span className="text-lg">✨</span>
@@ -2710,43 +2649,49 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 </div>
                 
                 {/* Editing Hint */}
-                <div className="mb-6 bg-[#2a2a2a]/50 border-l-4 border-[#00FF99] p-4 rounded-lg">
-                  <p className="text-[#e7e7e7]/90 text-sm">
+                <div className={`${prefix}-card ${prefix}-border border-l-4 ${prefix}-border-accent p-4 rounded-lg`}>
+                  <p className={`${prefix}-text-secondary text-sm`}>
                     💡 <strong>Tip:</strong> You can add or remove world elements like locations, factions, and rules. Use <strong>AI Assist</strong> for creative suggestions!
                   </p>
                 </div>
                 
                 {storyBible.worldBuilding ? (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-3">Setting</h3>
-                        <p className="text-[#e7e7e7]/90 bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-3`}>Setting</h3>
+                        <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
+                          <p className={`${prefix}-text-secondary`}>
                         {getContentOrFallback(storyBible.worldBuilding, 'setting')}
                         </p>
+                        </div>
                       </div>
                     
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-3">Rules of the World</h3>
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-3`}>Rules of the World</h3>
                         {Array.isArray(storyBible.worldBuilding.rules) ? (
-                          <ul className="list-disc pl-6 text-[#e7e7e7]/90 bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f] space-y-1">
+                          <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
+                            <ul className={`list-disc pl-6 ${prefix}-text-secondary space-y-1`}>
                             {storyBible.worldBuilding.rules.map((r: string, i: number) => (
                               <li key={i}>{r}</li>
                             ))}
                           </ul>
+                          </div>
                         ) : (
-                          <p className="text-[#e7e7e7]/90 bg-[#2a2a2a] p-4 rounded-lg border border-[#36393f]">
+                          <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
+                            <p className={`${prefix}-text-secondary`}>
                             {getContentOrFallback(storyBible.worldBuilding, 'rules')}
                           </p>
+                          </div>
                         )}
                       </div>
                     
                     {storyBible.worldBuilding.locations && storyBible.worldBuilding.locations.length > 0 && (
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xl font-semibold text-[#00FF99]">Key Locations</h3>
+                          <h3 className={`text-xl font-semibold ${prefix}-text-primary`}>Key Locations</h3>
                           <button
                             onClick={() => addWorldElement('locations')}
-                            className="px-3 py-1 bg-[#00FF99] text-black font-bold text-sm rounded-lg hover:bg-[#00CC7A] transition-colors"
+                            className={`px-3 py-1 ${prefix}-btn-primary font-semibold text-sm rounded-lg transition-colors`}
                             title="Add new location"
                           >
                             ➕ Add Location
@@ -2756,10 +2701,23 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                           {storyBible.worldBuilding.locations.map((location: any, index: number) => (
                             <div 
                               key={index}
-                              className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 space-y-2 relative group"
+                              className={`${prefix}-card ${prefix}-border rounded-lg p-4 space-y-2 relative group`}
                             >
+                              {/* Location Concept Art */}
+                              <div className="mb-3">
+                                <StoryBibleImage
+                                  imageAsset={location.conceptArt}
+                                  placeholderIcon="🌍"
+                                  placeholderText="Generate concept art for this location"
+                                  onRegenerate={() => handleRegenerateImage('location', index)}
+                                  isGenerating={generatingImageFor?.type === 'location' && generatingImageFor?.index === index}
+                                  aspectRatio="16:9"
+                                  className="w-full"
+                                />
+                              </div>
+                              
                               <div className="flex items-center justify-between">
-                                <h4 className="font-medium text-[#00FF99]">{location.name}</h4>
+                                <h4 className={`font-medium ${prefix}-text-primary`}>{location.name}</h4>
                                 {!isStoryBibleLocked && (
                                   <button
                                     onClick={() => deleteWorldElement('locations', index)}
@@ -2770,28 +2728,28 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                   </button>
                                 )}
                                 {location.type && (
-                                  <span className="text-xs px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#36393f] text-[#e7e7e7]/70">
+                                  <span className={`text-xs px-2 py-0.5 rounded ${prefix}-bg-secondary border ${prefix}-border ${prefix}-text-tertiary`}>
                                     {location.type}
                                   </span>
                                 )}
                               </div>
                               {location.significance && (
-                                <p className="text-xs text-[#e7e7e7]/60">{location.significance}</p>
+                                <p className={`text-xs ${prefix}-text-tertiary`}>{location.significance}</p>
                               )}
                               {location.description && (
-                                <p className="text-sm text-[#e7e7e7]/80">{location.description}</p>
+                                <p className={`text-sm ${prefix}-text-secondary`}>{location.description}</p>
                               )}
                               {Array.isArray(location.recurringEvents) && location.recurringEvents.length > 0 && (
-                                <div className="text-xs text-[#e7e7e7]/70">
-                                  <span className="font-semibold text-[#00FF99]">Recurring Events:</span>
+                                <div className={`text-xs ${prefix}-text-tertiary`}>
+                                  <span className={`font-semibold ${prefix}-text-accent`}>Recurring Events:</span>
                                   <ul className="list-disc pl-5 mt-1 space-y-0.5">
                                     {location.recurringEvents.map((e: string, i: number) => <li key={i}>{e}</li>)}
                                   </ul>
                                 </div>
                               )}
                               {Array.isArray(location.conflicts) && location.conflicts.length > 0 && (
-                                <div className="text-xs text-[#e7e7e7]/70">
-                                  <span className="font-semibold text-[#00FF99]">Conflicts:</span>
+                                <div className={`text-xs ${prefix}-text-tertiary`}>
+                                  <span className={`font-semibold ${prefix}-text-accent`}>Conflicts:</span>
                                   <ul className="list-disc pl-5 mt-1 space-y-0.5">
                                     {location.conflicts.map((c: string, i: number) => <li key={i}>{c}</li>)}
                                   </ul>
@@ -2804,41 +2762,62 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-[#e7e7e7]/50">
+                  <div className={`text-center py-8 ${prefix}-text-tertiary`}>
                     No world building information available
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
 
-            {/* Choices Tab */}
-            {activeTab === 'choices' && (
+            {/* Marketing Section */}
+            {activeSection === 'marketing' && (
+              <MarketingSection 
+                storyBible={storyBible} 
+                theme={theme}
+                onUpdate={async (updatedBible) => {
+                  setStoryBible(updatedBible)
+                  await saveStoryBibleData(updatedBible)
+                }}
+              />
+            )}
+
+            {/* Choices Section */}
+            {activeSection === 'choices' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
               <div>
-                <h2 className="text-2xl font-bold text-[#00FF99] mb-6">Your Story Journey</h2>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Choices</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    A chronological log of the choices made at the end of each episode, showing the branching path your story has taken.
+                  </p>
+                </div>
                 
                 {storyBible.episodesGenerated && storyBible.episodesGenerated > 0 ? (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {/* Progress Overview */}
-                    <div className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-6">
-                      <h3 className="text-xl font-semibold text-[#00FF99] mb-4">Story Progress</h3>
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-6`}>
+                      <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Story Progress</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="text-center p-4 bg-[#1e1e1e] rounded-lg">
-                          <div className="text-2xl font-bold text-[#00FF99] mb-1">
+                        <div className={`text-center p-4 ${prefix}-card-secondary rounded-lg`}>
+                          <div className={`text-2xl font-bold ${prefix}-text-accent mb-1`}>
                             {storyBible.episodesGenerated}
                           </div>
-                          <div className="text-sm text-[#e7e7e7]/70">Episodes Generated</div>
+                          <div className={`text-sm ${prefix}-text-tertiary`}>Episodes Generated</div>
                         </div>
-                        <div className="text-center p-4 bg-[#1e1e1e] rounded-lg">
-                          <div className="text-2xl font-bold text-[#00FF99] mb-1">
+                        <div className={`text-center p-4 ${prefix}-card-secondary rounded-lg`}>
+                          <div className={`text-2xl font-bold ${prefix}-text-accent mb-1`}>
                             {storyBible.fanChoices?.length || 0}
                           </div>
-                          <div className="text-sm text-[#e7e7e7]/70">Choices Made</div>
+                          <div className={`text-sm ${prefix}-text-tertiary`}>Choices Made</div>
                         </div>
-                        <div className="text-center p-4 bg-[#1e1e1e] rounded-lg">
-                          <div className="text-2xl font-bold text-[#00FF99] mb-1">
+                        <div className={`text-center p-4 ${prefix}-card-secondary rounded-lg`}>
+                          <div className={`text-2xl font-bold ${prefix}-text-accent mb-1`}>
                             {(storyBible.newCharacters?.length || 0) + (storyBible.newLocations?.length || 0)}
                           </div>
-                          <div className="text-sm text-[#e7e7e7]/70">New Elements Added</div>
+                          <div className={`text-sm ${prefix}-text-tertiary`}>New Elements Added</div>
                         </div>
                       </div>
                     </div>
@@ -2846,16 +2825,16 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     {/* Fan Choices */}
                     {storyBible.fanChoices && storyBible.fanChoices.length > 0 && (
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-4">Your Decisions</h3>
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Your Decisions</h3>
                         <div className="space-y-4">
                           {storyBible.fanChoices.map((choice: any, index: number) => (
-                            <div key={index} className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4">
+                            <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                               <div className="flex justify-between items-start mb-2">
-                                <span className="text-sm font-medium text-[#00FF99]">Episode {choice.episode}</span>
-                                <span className="text-xs text-[#e7e7e7]/50">Your Choice</span>
+                                <span className={`text-sm font-medium ${prefix}-text-accent`}>Episode {choice.episode}</span>
+                                <span className={`text-xs ${prefix}-text-tertiary`}>Your Choice</span>
                               </div>
-                              <p className="text-[#e7e7e7]/90 mb-2">{choice.choice}</p>
-                              <p className="text-sm text-[#e7e7e7]/70 italic">{choice.impact}</p>
+                              <p className={`${prefix}-text-secondary mb-2`}>{choice.choice}</p>
+                              <p className={`text-sm ${prefix}-text-tertiary italic`}>{choice.impact}</p>
                             </div>
                           ))}
                         </div>
@@ -2865,15 +2844,15 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     {/* New Characters */}
                     {storyBible.newCharacters && storyBible.newCharacters.length > 0 && (
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-4">Characters Introduced Through Your Journey</h3>
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Characters Introduced Through Your Journey</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {storyBible.newCharacters.map((character: any, index: number) => (
-                            <div key={index} className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4">
+                            <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                               <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium text-[#00FF99]">{character.name}</h4>
-                                <span className="text-xs text-[#e7e7e7]/50">Episode {character.introducedInEpisode}</span>
+                                <h4 className={`font-medium ${prefix}-text-primary`}>{character.name}</h4>
+                                <span className={`text-xs ${prefix}-text-tertiary`}>Episode {character.introducedInEpisode}</span>
                               </div>
-                              <p className="text-sm text-[#e7e7e7]/80">{character.description}</p>
+                              <p className={`text-sm ${prefix}-text-secondary`}>{character.description}</p>
                             </div>
                           ))}
                         </div>
@@ -2883,15 +2862,15 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     {/* New Locations */}
                     {storyBible.newLocations && storyBible.newLocations.length > 0 && (
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-4">New Locations Discovered</h3>
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>New Locations Discovered</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {storyBible.newLocations.map((location: any, index: number) => (
-                            <div key={index} className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4">
+                            <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                               <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-medium text-[#00FF99]">{location.name}</h4>
-                                <span className="text-xs text-[#e7e7e7]/50">Episode {location.introducedInEpisode}</span>
+                                <h4 className={`font-medium ${prefix}-text-primary`}>{location.name}</h4>
+                                <span className={`text-xs ${prefix}-text-tertiary`}>Episode {location.introducedInEpisode}</span>
                               </div>
-                              <p className="text-sm text-[#e7e7e7]/80">{location.description}</p>
+                              <p className={`text-sm ${prefix}-text-secondary`}>{location.description}</p>
                             </div>
                           ))}
                         </div>
@@ -2901,23 +2880,23 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     {/* Story Evolution */}
                     {storyBible.storyEvolution && storyBible.storyEvolution.length > 0 && (
                       <div>
-                        <h3 className="text-xl font-semibold text-[#00FF99] mb-4">Story Evolution</h3>
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Story Evolution</h3>
                         <div className="space-y-4">
                           {storyBible.storyEvolution.map((evolution: any, index: number) => (
-                            <div key={index} className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4">
+                            <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                               <div className="flex justify-between items-start mb-2">
-                                <span className="text-sm font-medium text-[#00FF99]">Episode {evolution.episode}</span>
+                                <span className={`text-sm font-medium ${prefix}-text-accent`}>Episode {evolution.episode}</span>
                                 <span className={`text-xs px-2 py-1 rounded-full ${
                                   evolution.type === 'callback' 
                                     ? 'bg-blue-500/20 text-blue-300' 
-                                    : 'bg-purple-500/20 text-purple-300'
+                                    : 'bg-[#10B981]/20 text-[#10B981]'
                                 }`}>
                                   {evolution.type === 'callback' ? 'Callback' : 'Foreshadowing'}
                                 </span>
                               </div>
                               <div className="space-y-1">
                                 {evolution.elements.map((element: string, elemIndex: number) => (
-                                  <p key={elemIndex} className="text-sm text-[#e7e7e7]/80">• {element}</p>
+                                  <p key={elemIndex} className={`text-sm ${prefix}-text-secondary`}>• {element}</p>
                                 ))}
                               </div>
                             </div>
@@ -2928,429 +2907,388 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <div className="text-[#e7e7e7]/50 mb-4">No episodes generated yet</div>
-                    <p className="text-sm text-[#e7e7e7]/70">
+                    <div className={`${prefix}-text-tertiary mb-4`}>No episodes generated yet</div>
+                    <p className={`text-sm ${prefix}-text-tertiary`}>
                       Start generating episodes to see how your choices shape the story!
                     </p>
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
 
-            {/* Technical Tabs Content */}
-            {/* Tension Analysis Tab */}
-            {activeTab === 'tension' && storyBible.tensionStrategy && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  ⚡ Tension Escalation Analysis
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
+            {/* Technical Sections */}
+            {/* Tension Section */}
+            {activeSection === 'tension' && storyBible.tensionStrategy && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Tension</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Analysis of the story's tension strategy, including rising action, climax points, and character stakes.
+                  </p>
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Tension Curve</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tensionStrategy, 'tensionCurve')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Tension Curve</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'tensionCurve')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Climax Points</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tensionStrategy, 'climaxPoints')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Climax Points</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'climaxPoints')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Release Moments</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tensionStrategy, 'releaseMoments')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Release Moments</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'releaseMoments')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Escalation Techniques</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tensionStrategy, 'escalationTechniques')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Escalation Techniques</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'escalationTechniques')}</p>
                   </div>
                 </div>
-                <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                  <h3 className="text-[#00FF99] font-bold mb-3">Emotional Beats</h3>
-                  <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tensionStrategy, 'emotionalBeats')}</p>
+                <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                  <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Emotional Beats</h3>
+                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'emotionalBeats')}</p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Choice Architecture Tab */}
-            {activeTab === 'choice-arch' && storyBible.choiceArchitecture && (
+            {/* Choice Architecture Section */}
+            {activeSection === 'choice-arch' && storyBible.choiceArchitecture && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Choice Architecture</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Examines the design of user choices within the narrative, ensuring they are meaningful, impactful, and lead to distinct branching paths.
+                  </p>
+                </div>
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🎯 Choice Architecture Analysis
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
-                <div className="space-y-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Key Decisions</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.choiceArchitecture, 'keyDecisions')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Key Decisions</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'keyDecisions')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Moral Choices</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.choiceArchitecture, 'moralChoices')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Moral Choices</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'moralChoices')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Consequence Mapping</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.choiceArchitecture, 'consequenceMapping')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Consequence Mapping</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'consequenceMapping')}</p>
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                      <h3 className="text-[#00FF99] font-bold mb-3">Character Growth</h3>
-                      <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.choiceArchitecture, 'characterGrowth')}</p>
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                      <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Growth</h3>
+                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'characterGrowth')}</p>
                     </div>
-                    <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                      <h3 className="text-[#00FF99] font-bold mb-3">Thematic Choices</h3>
-                      <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.choiceArchitecture, 'thematicChoices')}</p>
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                      <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Thematic Choices</h3>
+                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'thematicChoices')}</p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Living World Tab */}
-            {activeTab === 'living-world' && storyBible.livingWorldDynamics && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🌍 Living World Dynamics
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
+            {/* Living World Section */}
+            {activeSection === 'living-world' && storyBible.livingWorldDynamics && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Living World</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Details how the world reacts to player choices and story events, ensuring a dynamic and evolving narrative environment.
+                  </p>
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Background Events</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.livingWorldDynamics, 'backgroundEvents')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Background Events</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'backgroundEvents')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Social Dynamics</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.livingWorldDynamics, 'socialDynamics')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Social Dynamics</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'socialDynamics')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Economic Factors</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.livingWorldDynamics, 'economicFactors')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Economic Factors</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'economicFactors')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Political Undercurrents</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.livingWorldDynamics, 'politicalUndercurrents')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Political Undercurrents</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'politicalUndercurrents')}</p>
                   </div>
                 </div>
-                <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                  <h3 className="text-[#00FF99] font-bold mb-3">Cultural Shifts</h3>
-                  <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.livingWorldDynamics, 'culturalShifts')}</p>
+                <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                  <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Cultural Shifts</h3>
+                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'culturalShifts')}</p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Trope Analysis Tab */}
-            {activeTab === 'trope' && storyBible.tropeAnalysis && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  📖 Trope Analysis
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
+            {/* Trope Analysis Section */}
+            {activeSection === 'trope' && storyBible.tropeAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Trope Analysis</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Identifies and analyzes the use of common narrative tropes, ensuring they are either subverted, played straight, or deconstructed effectively.
+                  </p>
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Genre Tropes Used</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tropeAnalysis, 'genreTropes')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Genre Tropes Used</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'genreTropes')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Subverted Tropes</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tropeAnalysis, 'subvertedTropes')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Subverted Tropes</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'subvertedTropes')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Original Elements</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tropeAnalysis, 'originalElements')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Original Elements</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'originalElements')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Audience Expectations</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tropeAnalysis, 'audienceExpectations')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Audience Expectations</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'audienceExpectations')}</p>
                   </div>
                 </div>
-                <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                  <h3 className="text-[#00FF99] font-bold mb-3">Innovative Twists</h3>
-                  <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.tropeAnalysis, 'innovativeTwists')}</p>
+                <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                  <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Innovative Twists</h3>
+                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'innovativeTwists')}</p>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Cohesion Analysis Tab */}
-            {activeTab === 'cohesion' && storyBible.cohesionAnalysis && (
+            {/* Cohesion Analysis Section */}
+            {activeSection === 'cohesion' && storyBible.cohesionAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Cohesion</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Evaluates the consistency and logical flow of the narrative, ensuring all plot threads, character motivations, and world rules remain coherent.
+                  </p>
+                </div>
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🔗 Cohesion Analysis
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
-                <div className="space-y-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Narrative Cohesion</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.cohesionAnalysis, 'narrativeCohesion')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Narrative Cohesion</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'narrativeCohesion')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Thematic Continuity</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.cohesionAnalysis, 'thematicContinuity')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Thematic Continuity</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'thematicContinuity')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Character Arcs</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.cohesionAnalysis, 'characterArcs')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Arcs</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'characterArcs')}</p>
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                      <h3 className="text-[#00FF99] font-bold mb-3">Plot Consistency</h3>
-                      <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.cohesionAnalysis, 'plotConsistency')}</p>
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                      <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Plot Consistency</h3>
+                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'plotConsistency')}</p>
                     </div>
-                    <div className="bg-[#1a1a1a] border border-[#00FF99]/30 rounded-lg p-4">
-                      <h3 className="text-[#00FF99] font-bold mb-3">Emotional Journey</h3>
-                      <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.cohesionAnalysis, 'emotionalJourney')}</p>
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                      <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Emotional Journey</h3>
+                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'emotionalJourney')}</p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Dialogue Strategy Tab */}
-            {activeTab === 'dialogue' && storyBible.dialogueStrategy && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🗣️ Dialogue Strategy
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
+            {/* Dialogue Strategy Section */}
+            {activeSection === 'dialogue' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Dialogue</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Outlines the stylistic approach to dialogue, including character voices, pacing, language, and subtext.
+                  </p>
+                </div>
+                
+                {/* Dialogue Language Setting - Prominent Display */}
+                <div className={`${prefix}-card ${prefix}-border rounded-lg p-6 border-l-4 ${prefix}-border-accent mb-6`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={`text-xl font-bold ${prefix}-text-primary flex items-center gap-2`}>
+                      🗣️ Dialogue Language
+                    </h3>
+                    {!isStoryBibleLocked && (
+                      <select
+                        value={storyBible.dialogueLanguage || 'english'}
+                        onChange={(e) => {
+                          const updatedBible = { ...storyBible, dialogueLanguage: e.target.value }
+                          setStoryBible(updatedBible)
+                          saveStoryBibleData(updatedBible)
+                        }}
+                        className={`px-4 py-2 ${prefix}-bg-primary ${prefix}-text-primary ${prefix}-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#10B981]/40`}
+                      >
+                        <option value="english">English</option>
+                        <option value="tagalog">Taglish (Tagalog-English)</option>
+                        <option value="thai">Thai (ภาษาไทย)</option>
+                        <option value="spanish">Spanish (Español)</option>
+                        <option value="korean">Korean (한국어)</option>
+                        <option value="japanese">Japanese (日本語)</option>
+                        <option value="french">French (Français)</option>
+                        <option value="chinese">Chinese (中文)</option>
+                      </select>
+                    )}
+                  </div>
+                  <p className={`${prefix}-text-secondary mb-2`}>
+                    {storyBible.dialogueLanguage === 'tagalog' && 
+                      '🇵🇭 All dialogue will be generated in authentic Taglish (Tagalog-English code-switching) with Filipino cultural expressions and values.'}
+                    {storyBible.dialogueLanguage === 'thai' && 
+                      '🇹🇭 All dialogue will be generated in Thai script with appropriate politeness particles and cultural context.'}
+                    {storyBible.dialogueLanguage === 'spanish' && 
+                      '🇪🇸 All dialogue will be generated in Spanish with natural conversational flow and cultural nuances.'}
+                    {storyBible.dialogueLanguage === 'korean' && 
+                      '🇰🇷 All dialogue will be generated in Korean script with appropriate speech levels and honorifics.'}
+                    {storyBible.dialogueLanguage === 'japanese' && 
+                      '🇯🇵 All dialogue will be generated in Japanese with appropriate politeness levels and cultural expressions.'}
+                    {storyBible.dialogueLanguage === 'french' && 
+                      '🇫🇷 All dialogue will be generated in French with appropriate formality and cultural nuances.'}
+                    {storyBible.dialogueLanguage === 'chinese' && 
+                      '🇨🇳 All dialogue will be generated in Mandarin Chinese characters with cultural context.'}
+                    {(!storyBible.dialogueLanguage || storyBible.dialogueLanguage === 'english') && 
+                      '🇺🇸 All dialogue will be generated in English (default).'}
+                  </p>
+                  <p className={`text-sm ${prefix}-text-tertiary italic`}>
+                    Note: Narrative prose and scene descriptions remain in English for readability. Only character dialogue uses the selected language.
+                  </p>
+                </div>
+                
+                {storyBible.dialogueStrategy && (
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Character Voice</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.dialogueStrategy, 'characterVoice')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Voice</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'characterVoice')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Conflict Dialogue</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.dialogueStrategy, 'conflictDialogue')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Conflict Dialogue</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'conflictDialogue')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Subtext</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.dialogueStrategy, 'subtext')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Subtext</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'subtext')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Speech Patterns</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.dialogueStrategy, 'speechPatterns')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Speech Patterns</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'speechPatterns')}</p>
                   </div>
                 </div>
-              </div>
+                )}
+              </motion.div>
             )}
 
-            {/* Genre Enhancement Tab */}
-            {activeTab === 'genre' && storyBible.genreEnhancement && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🎭 Genre Enhancement
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
+            {/* Genre Enhancement Section */}
+            {activeSection === 'genre' && storyBible.genreEnhancement && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Genre</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Analyzes and suggests ways to enhance the story's adherence to or subversion of its primary genre conventions.
+                  </p>
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Visual Style</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.genreEnhancement, 'visualStyle')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Visual Style</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'visualStyle')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Pacing</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.genreEnhancement, 'pacing')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Pacing</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'pacing')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Tropes</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.genreEnhancement, 'tropes')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Tropes</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'tropes')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Audience Expectations</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.genreEnhancement, 'audienceExpectations')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Audience Expectations</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'audienceExpectations')}</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
 
-            {/* Theme Integration Tab */}
-            {activeTab === 'theme' && storyBible.themeIntegration && (
+            {/* Theme Integration Section */}
+            {activeSection === 'theme' && storyBible.themeIntegration && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className={`text-3xl font-bold ${prefix}-text-primary mb-2`}>Theme</h2>
+                  <p className={`text-base ${prefix}-text-secondary mb-8`}>
+                    Details how the central themes are woven into the narrative, characters, and choices, ensuring a consistent and impactful thematic message.
+                  </p>
+                </div>
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-[#00FF99] flex items-center">
-                  🎯 Theme Integration
-                  <span className="ml-3 text-sm bg-[#00FF99]/20 text-[#00FF99] px-2 py-1 rounded-lg border border-[#00FF99]/30">
-                    Auto-Generated
-                  </span>
-                </h2>
-                <div className="space-y-6">
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Character Integration</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.themeIntegration, 'characterIntegration')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Integration</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'characterIntegration')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Plot Integration</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.themeIntegration, 'plotIntegration')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Plot Integration</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'plotIntegration')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Symbolic Elements</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.themeIntegration, 'symbolicElements')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Symbolic Elements</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'symbolicElements')}</p>
                   </div>
-                  <div className="bg-[#2a2a2a] rounded-lg p-4">
-                    <h3 className="text-[#00FF99] font-bold mb-3">Resolution Strategy</h3>
-                    <p className="text-[#e7e7e7]/90">{getContentOrFallback(storyBible.themeIntegration, 'resolutionStrategy')}</p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                    <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Resolution Strategy</h3>
+                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'resolutionStrategy')}</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
           </motion.div>
         </AnimatePresence>
-
-        {/* Professional Call-to-Action */}
-        <motion.div 
-          className="text-center space-y-8 mb-16"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
-        >
-          {/* Motivational Text */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="rebellious-card p-8 max-w-3xl mx-auto"
-          >
-            <h3 className="text-2xl md:text-3xl font-bold font-medium mb-4">
-              ✨ YOUR SERIES AWAITS
-            </h3>
-            <p className="text-lg text-white/90 font-medium">
-              The foundation is set. Now <span className="text-[#00FF99] font-bold">launch your series</span> and bring your creative vision to life.
-            </p>
-          </motion.div>
-          
-          {/* Action Buttons */}
-          <motion.div 
-            className="flex flex-col items-center gap-4"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.6 }}
-          >
-            <motion.button
-              onClick={async () => {
-                if (!storyBible) {
-                  console.error('No story bible to save')
-                  return
-                }
-                
-                // Save story bible before navigating
-                console.log('💾 Saving story bible before navigating to workspace...')
-                const savedBible = await saveStoryBibleData(storyBible)
-                
-                // Navigate to workspace with story bible ID
-                const bibleId = savedBible?.id || storyBible.id
-                console.log('✅ Navigating to workspace with ID:', bibleId)
-                router.push(`/workspace?id=${bibleId}`)
-              }}
-              className="bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-10 py-4 text-xl font-bold rounded-lg hover:shadow-lg transition-all"
-              whileHover={{ 
-                scale: 1.05, 
-                y: -3,
-                boxShadow: "0 15px 40px rgba(214, 40, 40, 0.4)"
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="relative z-10 font-medium">LET'S WRITE THE STORY</span>
-            </motion.button>
-          </motion.div>
-          
-          {/* Auto-Generation Notice */}
-          <motion.div 
-            className="pt-8 pb-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.4, duration: 0.6 }}
-          >
-            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3 max-w-2xl mx-auto">
-              <p className="text-orange-200 text-sm text-center">
-                ⚠️ <strong>Auto-generated content may not be perfect!</strong> Use the ✏️ buttons to edit names, titles, or descriptions. 
-                Not happy with the results? You have <strong>{regenerationsRemaining} regeneration{regenerationsRemaining !== 1 ? 's' : ''}</strong> remaining.
-              </p>
             </div>
-          </motion.div>
-
-          {/* Import/Export Section */}
-          <motion.div 
-            className="pt-4 pb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 0.6 }}
-          >
-            <div className="bg-gradient-to-r from-black/40 via-black/60 to-black/40 backdrop-blur-sm border border-[#00FF99]/20 rounded-2xl p-6 shadow-2xl">
-              <h3 className="text-xl font-bold text-center mb-6 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] bg-clip-text text-transparent">
-                Story Bible Management
-              </h3>
-              
-              <div className="flex justify-center gap-4 flex-wrap">
-                <motion.button
-                  onClick={exportStoryBible}
-                  className="group relative bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-8 py-4 rounded-xl font-bold hover:shadow-2xl hover:shadow-[#00FF99]/25 transition-all duration-300 flex items-center gap-3 overflow-hidden"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  title="Export as JSON backup"
-                >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  />
-                  <span className="text-xl">💾</span>
-                  <span className="relative z-10">Export Story Bible</span>
-                </motion.button>
-                
-                <motion.label 
-                  className="group relative bg-gradient-to-r from-[#00CC7A] to-[#00FF99] text-black px-8 py-4 rounded-xl font-bold hover:shadow-2xl hover:shadow-[#00CC7A]/25 transition-all duration-300 flex items-center gap-3 cursor-pointer overflow-hidden"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  />
-                  <span className="text-xl">📥</span>
-                  <span className="relative z-10">Import Story Bible</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={importStoryBible}
-                    className="hidden"
-                  />
-                </motion.label>
               </div>
-              
-              <p className="text-center text-white/60 text-sm mt-4">
-                Backup your story bible or import from previous sessions
-              </p>
             </div>
-          </motion.div>
-
-          {/* Professional Footer */}
-          <motion.div 
-            className="pt-8 text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.6, duration: 0.6 }}
-          >
-            <p className="text-white/50 text-sm font-medium">
-              No gatekeepers • No committees • <span className="text-[#00FF99]">60% ownership guaranteed</span>
-            </p>
-          </motion.div>
-        </motion.div>
-      </div>
+      
       {/* Share Modal */}
       {user && storyBible && (
         <ShareStoryBibleModal
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
           storyBible={storyBible}
+          ownerId={user.id}
+          ownerName={user.displayName || user.email || 'Unknown User'}
+        />
+      )}
+
+      {/* Investor Share Modal */}
+      {user && storyBible && storyBible.id && (
+        <ShareInvestorMaterialsModal
+          isOpen={showInvestorShareModal}
+          onClose={() => setShowInvestorShareModal(false)}
+          storyBibleId={storyBible.id}
+          arcIndex={selectedArcIndex}
           ownerId={user.id}
           ownerName={user.displayName || user.email || 'Unknown User'}
         />
@@ -3363,6 +3301,33 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
         onComplete={handleWizardComplete}
         storyBible={storyBible}
       />
+
+      {/* Character Detail Modal */}
+      {selectedCharacterIndex !== null && storyBible?.mainCharacters?.[selectedCharacterIndex] && (
+        <CharacterDetailModal
+          isOpen={showCharacterModal}
+          onClose={() => {
+            setShowCharacterModal(false)
+            setSelectedCharacterIndex(null)
+          }}
+          character={storyBible.mainCharacters[selectedCharacterIndex]}
+          characterIndex={selectedCharacterIndex}
+          onSave={handleCharacterSave}
+          onDelete={() => {
+            if (confirm(`Are you sure you want to delete "${storyBible.mainCharacters[selectedCharacterIndex].name}"? This cannot be undone.`)) {
+              deleteCharacter(selectedCharacterIndex)
+            }
+          }}
+          isLocked={isStoryBibleLocked}
+          theme={theme}
+          editingField={editingField}
+          editValue={editValue}
+          onStartEditing={startEditing}
+          onSaveEdit={saveEdit}
+          onCancelEditing={cancelEditing}
+          onEditValueChange={setEditValue}
+        />
+      )}
 
       {/* AI Edit Modal */}
       {aiEditConfig && (
@@ -3390,6 +3355,18 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
           onSkip={() => setHasSkippedLogin(true)}
         />
       )}
-    </motion.div>
+
+      {/* Generate Images Modal */}
+      {user && storyBible && storyBible.id && (
+        <GenerateImagesModal
+          isOpen={showGenerateImagesModal}
+          onClose={() => setShowGenerateImagesModal(false)}
+          storyBibleId={storyBible.id}
+          userId={user.id}
+          storyBible={storyBible}
+          onComplete={handleGenerateImagesComplete}
+        />
+      )}
+    </div>
   )
 } 

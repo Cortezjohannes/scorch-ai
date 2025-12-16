@@ -136,19 +136,26 @@ export default function SpectacularLoadingScreen({
           if (data.progress && data.progress.engines) {
             // Update each engine with real progress data
             data.progress.engines.forEach((engineData: any) => {
+              // Try to find engine by exact ID match first, then by partial match
               const engine = loadingState.activeEngines.find(e => 
-                e.id.includes(engineData.engineId) || engineData.engineId.includes(e.id)
+                e.id === engineData.engineId || 
+                e.id.includes(engineData.engineId) || 
+                engineData.engineId.includes(e.id) ||
+                e.name.toLowerCase().includes(engineData.name?.toLowerCase() || '') ||
+                engineData.name?.toLowerCase().includes(e.name.toLowerCase() || '')
               )
               
               if (engine) {
                 orchestrator.updateEngineProgress(
                   engine.id,
                   engineData.progress || 0,
-                  engineData.status || 'Processing...'
+                  engineData.message || engineData.status || 'Processing...'
                 )
+              } else {
+                // If engine not found, log for debugging
+                console.log('⚠️ Engine not found in orchestrator:', engineData.engineId, engineData.name)
               }
             })
-            
           }
           
           // Check if generation is complete
@@ -158,6 +165,7 @@ export default function SpectacularLoadingScreen({
             loadingState.activeEngines.forEach(engine => {
               orchestrator.updateEngineProgress(engine.id, 100, 'Complete')
             })
+            orchestrator.updateOverallProgress(100)
           }
         }
       } catch (error) {
@@ -202,6 +210,22 @@ export default function SpectacularLoadingScreen({
         {/* Main Loading Interface */}
         <div className="relative z-10 w-full max-w-6xl p-6 space-y-8">
           
+          {/* Generation Time Warning Banner - Only for Story Bible */}
+          {processType === 'storyBible' && !isComplete && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-gradient-to-r from-[#FF6B00]/20 via-[#D62828]/20 to-[#FF6B00]/20 border border-[#e2c376]/40 rounded-xl backdrop-blur-sm"
+            >
+              <div className="flex items-center justify-center space-x-3 text-center">
+                <span className="text-2xl">⏱️</span>
+                <p className="text-white/90 elegant-fire text-sm md:text-base">
+                  <span className="font-bold text-[#e2c376]">Generation time can take 10+ minutes.</span> Please keep this page open and be patient while our AI engines craft your story bible.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Revolutionary Header Section */}
           <motion.div
             initial={{ y: -50, opacity: 0 }}

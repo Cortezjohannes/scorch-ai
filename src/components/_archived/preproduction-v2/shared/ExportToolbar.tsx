@@ -92,7 +92,7 @@ export const ExportToolbar: React.FC<ExportToolbarProps> = ({
             transition-all flex items-center gap-2
             ${disabled 
               ? 'opacity-50 cursor-not-allowed' 
-              : 'hover:border-[#00FF99] hover:bg-[#00FF99]/10'
+              : 'hover:border-[#10B981] hover:bg-[#10B981]/10'
             }
           `}
           style={{

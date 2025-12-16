@@ -44,6 +44,14 @@ export interface ScriptBreakdownCharacter {
   name: string
   lineCount: number
   importance: 'lead' | 'supporting' | 'background'
+  entranceBeat?: string
+  exitBeat?: string
+  emotionalBeat?: string
+  goal?: string
+  conflict?: string
+  stakes?: string
+  continuityNotes?: string
+  returningFromPrevScene?: boolean
 }
 
 export interface ScriptBreakdownProp {
@@ -51,6 +59,10 @@ export interface ScriptBreakdownProp {
   importance: 'hero' | 'secondary' | 'background'
   source: 'buy' | 'rent' | 'borrow' | 'actor-owned'
   estimatedCost: number
+  isCriticalForStory?: boolean
+  reusabilityAcrossScenes?: number[]
+  sourcingNotes?: string
+  rentDays?: number
 }
 
 export interface ScriptBreakdownScene {
@@ -64,6 +76,41 @@ export interface ScriptBreakdownScene {
   props: ScriptBreakdownProp[]
   specialRequirements: string[]
   budgetImpact: number // dollars
+  budgetDetails?: {
+    locationCost?: number
+    propCost?: number
+    extrasCost?: number
+    specialEqCost?: number
+    contingency?: number
+    savingsTips?: string[]
+    assumptions?: string[]
+  }
+  logistics?: {
+    nightShoot?: boolean
+    stunts?: boolean
+    vfx?: boolean
+    crowdSize?: number
+    vehicle?: string
+    childActor?: boolean
+    animal?: boolean
+    fxMakeup?: boolean
+    companyMoveRequired?: boolean
+    weatherRisk?: string
+    timePressure?: 'low' | 'medium' | 'high'
+  }
+  coverage?: {
+    suggestedSetupCount?: number
+    complexity?: 'simple' | 'moderate' | 'complex'
+    blockingNotes?: string
+    continuityRisks?: string[]
+    altLocation?: string
+  }
+  continuity?: {
+    keyPropsCarried?: string[]
+    wardrobeNotes?: string
+    reusabilityAcrossScenes?: number[]
+  }
+  warnings?: string[]
   status: StatusType
   notes: string
   comments: Comment[]
@@ -80,6 +127,52 @@ export interface ScriptBreakdownData {
   scenes: ScriptBreakdownScene[]
   lastUpdated: number
   updatedBy: string
+  schemaVersion?: string
+  warnings?: string[]
+}
+
+// ============================================================================
+// TAB 1B: SCRIPT ANALYSIS (NEW)
+// ============================================================================
+
+export interface ScriptAnalysisScene {
+  sceneNumber: number
+  sceneTitle: string
+  location: string
+  timeOfDay: 'DAY' | 'NIGHT' | 'SUNRISE' | 'SUNSET' | 'MAGIC_HOUR'
+  summary: string
+  relevanceToPlot: string
+  characterArcsAffected: string[]
+  emotionalTone: string
+  pacingRole: 'setup' | 'complication' | 'climax' | 'denouement' | 'bridge'
+  stakesSummary: string
+  foreshadowingOrCallBacks: string[]
+  openQuestions: string[]
+  continuityDependencies: string[]
+  keyPropsAndSymbols: string[]
+  themeTieIn: string
+  audienceTakeaway: string
+  marketingHook?: string
+}
+
+export interface ScriptAnalysisData {
+  episodeNumber: number
+  episodeTitle: string
+  synopsis?: string
+  scenes: ScriptAnalysisScene[]
+  beatSheet?: string[]
+  arcProgressions?: Array<{
+    character: string
+    arc: string
+    keyMoments: string[]
+  }>
+  themesHeatmap?: Array<{
+    theme: string
+    scenes: number[]
+  }>
+  lastUpdated: number
+  updatedBy: string
+  schemaVersion?: string
 }
 
 // ============================================================================
@@ -94,6 +187,7 @@ export interface SceneReference {
   estimatedDuration: number // minutes
   priority: 'must-have' | 'nice-to-have' | 'optional'
   location?: string
+  timeOfDay?: string
 }
 
 // Cast reference with availability
@@ -128,6 +222,14 @@ export interface ShootingDay {
   actualWrapTime?: string // HH:MM (filled after shoot)
   setupNotes?: string // Camera/lighting setup details
   comments: Comment[]
+  // Location metadata from Locations tab
+  locationId?: string // canonicalLocationId from ArcLocationGroup
+  venueId?: string // selectedSuggestionId
+  venueName?: string // from selected ShootingLocationSuggestion
+  venueAddress?: string // from selected suggestion
+  permitRequired?: boolean
+  insuranceRequired?: boolean
+  locationCost?: number // dayRate + permitCost + depositAmount
 }
 
 export interface ShootingScheduleData {
@@ -164,6 +266,15 @@ export interface Shot {
   notes: string
   status: 'planned' | 'got-it' | 'need-pickup' | 'cut'
   shootDay?: number
+  actorInstructions?: string // Performance and emotional beats
+  cameraCrewInstructions?: string // Camera team setup and execution notes
+  lightingSetup?: string // Key/fill/rim, motivation, gear
+  audioRequirements?: string // Dialogue cues, mic needs, ambience to capture
+  continuityNotes?: string // Wardrobe/props/positioning continuity
+  blockingDescription?: string // Text blocking reference for actors
+  storyboardFrameId?: string // Reference to storyboard frame for this shot
+  setupGroup?: string // Grouping label for batching setups
+  estimatedSetupTime?: number // Minutes to prep this shot/setup
   comments: Comment[]
 }
 
@@ -233,6 +344,28 @@ export interface BudgetTrackerData {
   categories: BudgetCategory[]
   lastUpdated: number
   updatedBy: string
+  fundDeploymentRequests?: FundDeploymentRequest[]
+  totalRequested?: number
+  totalApproved?: number
+}
+
+export interface FundDeploymentRequest {
+  id: string
+  requestedAmount: number
+  requestedDate: string // YYYY-MM-DD
+  purpose: string
+  breakdown: Array<{
+    category: string
+    amount: number
+    description?: string
+    justification?: string
+  }>
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  submittedAt?: number
+  approvedAt?: number
+  rejectedAt?: number
+  comments: Comment[]
+  notes?: string
 }
 
 // ============================================================================
@@ -247,32 +380,143 @@ export interface LocationPermit {
   notes: string
 }
 
+export interface LocationScoutingReport {
+  technical: {
+    powerAccess: boolean
+    powerOutlets: number
+    maxPowerLoad?: string // e.g., "100A", "15kW"
+    lighting: 'excellent' | 'good' | 'adequate' | 'poor' | 'requires-setup'
+    naturalLight: boolean
+    acoustics: 'quiet' | 'moderate' | 'noisy'
+    noiseIssues: string[]
+    cellSignal: 'excellent' | 'good' | 'fair' | 'poor'
+    wifiAvailable: boolean
+  }
+  logistics: {
+    parkingAvailable: boolean
+  parkingSpaces?: number
+    parkingCost?: number
+    parkingNotes?: string
+    loadingAccess: 'easy' | 'moderate' | 'difficult'
+    elevatorAccess: boolean
+    stairsOnly: boolean
+    restroomAccess: boolean
+    restroomCount?: number
+    nearbyFood: boolean
+    nearbyFoodOptions?: string[]
+  }
+  space: {
+    squareFootage?: number
+    ceilingHeight?: number // feet
+    floorType?: string
+    wallColor?: string
+    windowCount?: number
+    spaceFlexibility: 'high' | 'moderate' | 'limited'
+    furnitureIncluded: boolean
+    canRedecorate: boolean
+  }
+  permits: {
+    permitRequired: boolean
+    permitType?: string
+    permitCost?: number
+    permitProcessingDays?: number
+    permitContactInfo?: string
+    restrictedHours?: string
+    maxCrewSize?: number
+    insuranceAmount?: string
+    securityRequired: boolean
+    securityCost?: number
+  }
+  restrictions: {
+    noiseRestrictions: boolean
+    timeRestrictions: string[]
+    equipmentRestrictions: string[]
+    otherRestrictions: string[]
+  }
+  scoutNotes: string
+  scoutedBy?: string
+  scoutedDate?: number
+  recommendationLevel: 'highly-recommended' | 'recommended' | 'acceptable' | 'not-recommended'
+  weather?: {
+    weatherDependent: boolean
+    rainBackupPlan?: string
+    shadedAreas: boolean
+    directSunIssues?: string
+  }
+}
+
+// Scene reference for arc-level locations
+export interface LocationSceneReference {
+  episodeNumber: number
+  sceneNumber: number
+}
+
 export interface Location {
   id: string
   name: string
   address: string
+  type?: 'interior' | 'exterior' | 'both'
+  scenes: LocationSceneReference[] // Episode-scene pairs using this location (arc-level)
+  scenesLegacy?: number[] // Legacy support for episode-level locations (for migration)
+  requirements?: string[]
+  
+  // Legacy fields (kept for backward compatibility)
   contactPerson?: string
   contactPhone?: string
   contactEmail?: string
-  scenes: number[] // Scene numbers using this location
-  permitInfo: LocationPermit
-  availableDays: string[] // YYYY-MM-DD
+  permitInfo?: LocationPermit
+  availableDays?: string[] // YYYY-MM-DD
   availableHours?: string // e.g., "9am-5pm"
-  powerAccess: boolean
-  parkingAvailable: boolean
-  restroomAccess: boolean
-  weatherConsiderations: string
+  weatherConsiderations?: string
   backupLocation?: string
-  photos: string[] // URLs or file paths
-  cost: number // Rental/fee
-  status: 'scouted' | 'confirmed' | 'booked'
-  crewNotes: string
-  comments: Comment[]
+  crewNotes?: string
+  
+  // Enhanced contact information
+  contact?: string
+  phone?: string
+  email?: string
+  
+  // Enhanced sourcing metadata
+  sourcing?: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'other'
+  sourcingUrl?: string // Link to Airbnb listing, etc.
+  listingId?: string // External platform listing ID
+  
+  // Financial
+  cost: number // Daily rental/fee
+  permitCost?: number // Separate permit cost
+  insuranceRequired?: boolean
+  depositAmount?: number
+  
+  // Availability & booking
+  status: 'scouted' | 'contacted' | 'quoted' | 'booked' | 'confirmed'
+  secured?: boolean
+  availability?: string[] // Date strings
+  bookingReference?: string
+  
+  // Full scouting report (supports both new simplified and legacy formats)
+  scoutingReport?: LocationScoutingReport
+  
+  // Legacy fields (kept for backward compatibility)
+  powerAccess?: boolean
+  parkingAvailable?: boolean
+  restroomAccess?: boolean
+  
+  // Metadata
+  photos?: string[] // URLs or file paths (legacy)
+  imageUrls?: string[] // Photos/videos (new)
+  notes?: string
+  comments?: Comment[]
+  
+  // Location reuse tracking
+  recurringLocationKey?: string // Normalized key for matching (e.g., "jasons_apartment")
+  originalEpisode?: number // First episode this location was used
+  reusedFromLocationId?: string // If reused, reference to original location
 }
 
 export interface LocationOption {
   id: string
-  sceneNumbers: number[]  // Which scenes can use this location
+  sceneNumbers: number[]  // Scene numbers (within episode) - for backward compatibility
+  sceneReferences?: LocationSceneReference[]  // Episode-scene pairs (for arc-level)
   name: string
   description: string
   type: 'interior' | 'exterior' | 'both'
@@ -287,16 +531,28 @@ export interface LocationOption {
     permitCost?: number
     notes: string
   }
-  sourcing: 'free' | 'rental' | 'borrow' | 'owned' | 'public-space'
+  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'other'
+  sourcingPlatform?: string // Platform suggestion text
   address?: string  // Example/generic address
+  scoutingReport?: LocationScoutingReport // Supports both simplified and legacy formats
   status: 'suggested' | 'selected' | 'rejected'
   selected: boolean  // User has selected this option
+  
+  // Location reuse tracking
+  reusedFromEpisode?: number // If this is a reused location, which episode it came from
+  reusedFromLocationId?: string // Reference to original location
+  isReuse?: boolean // Flag for UI display
 }
 
 export interface LocationOptionsData {
-  episodeNumber: number
-  episodeTitle: string
+  // Episode-level (legacy)
+  episodeNumber?: number
+  episodeTitle?: string
+  // Arc-level
+  arcIndex?: number
+  episodeNumbers?: number[]
   sceneRequirements: {
+    episodeNumber: number  // Episode this scene belongs to (required for arc-level)
     sceneNumber: number
     sceneTitle: string
     locationType: 'INT' | 'EXT'
@@ -305,15 +561,157 @@ export interface LocationOptionsData {
   }[]
   lastUpdated: number
   generated: true
+  locationPreference?: 'story-based' | 'user-based' // New: Choose location source
 }
 
 export interface LocationsData {
-  episodeNumber: number
-  episodeTitle: string
+  // Episode-level (legacy - for backward compatibility)
+  episodeNumber?: number
+  episodeTitle?: string
+  // Arc-level
+  arcIndex?: number
+  episodeNumbers?: number[]
   totalLocations: number
   locations: Location[]
   lastUpdated: number
   updatedBy: string
+}
+
+// Series-wide location usage tracking
+export interface SeriesLocationUsage {
+  locationId: string
+  locationName: string
+  locationAddress: string
+  baseLocation: Location
+  episodesUsed: Array<{
+    episodeNumber: number
+    episodeTitle: string
+    sceneNumbers: number[]
+    sceneCount: number
+    shootDays: number[]
+  }>
+  totalRentalCost: number
+  costPerEpisode: number
+  savingsFromReuse: number
+  totalScenes: number
+  totalEpisodes: number
+  totalShootDays: number
+  firstUsedEpisode: number
+  lastUsedEpisode: number
+}
+
+// ============================================================================
+// ARC-LEVEL LOCATION GENERATION TYPES
+// ============================================================================
+
+// Sub-location within a parent location group
+export interface SubLocation {
+  id: string
+  name: string // e.g., "Loft", "Kitchen"
+  fullName: string // e.g., "Greenlit HQ - Loft"
+  type: 'interior' | 'exterior' | 'both'
+  sceneReferences: LocationSceneReference[] // Which episodes/scenes use this sub-location
+  totalScenes: number
+}
+
+// Real-world shooting location suggestion
+export interface ShootingLocationSuggestion {
+  id: string
+  venueName: string // e.g., "Los Angeles Public Library"
+  venueType: string // e.g., "Public Space", "Office Building"
+  address: string
+  estimatedCost: number
+  pros: string[]
+  cons: string[]
+  logistics: {
+    parking: boolean
+    power: boolean
+    restrooms: boolean
+    permitRequired: boolean
+    permitCost?: number
+    notes: string
+  }
+  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'rental' | 'specific-venue' | 'other'
+  searchGuidance?: string // e.g., "Search Peerspace for 'modern loft' in LA"
+  specificVenueUrl?: string // If suggesting actual venue
+  isPreferred: boolean // User selection
+  permitCost?: number
+  insuranceRequired?: boolean
+  depositAmount?: number
+  costBreakdown?: {
+    dayRate: number
+    permitCost?: number
+    insuranceRequired?: boolean
+    depositAmount?: number
+    notes?: string
+  }
+}
+
+// Episode usage for a location group
+export interface EpisodeUsage {
+  episodeNumber: number
+  episodeTitle: string
+  sceneNumbers: number[]
+  sceneCount: number
+  subLocationIds: string[] // Which sub-locations are used in this episode
+}
+
+// Arc-level location group with sub-locations and shooting suggestions
+export interface ArcLocationGroup {
+  id: string
+  parentLocationName: string // e.g., "Greenlit HQ"
+  type: 'interior' | 'exterior' | 'both'
+  subLocations: SubLocation[] // e.g., "Loft", "Kitchen", etc.
+  shootingLocationSuggestions: ShootingLocationSuggestion[] // 2-3 real-world venue options
+  episodeUsage: EpisodeUsage[] // Which episodes use this location
+  totalScenes: number
+  totalEpisodes: number
+  storyBibleReference?: string // Link to story bible location name
+  firstUsedEpisode: number
+  lastUsedEpisode: number
+  // Optional fields for rebuilt flow
+  canonicalLocationId?: string
+  confidence?: number
+  episodesUsed?: number[]
+  scenesUsed?: number[]
+  timeOfDay?: string[]
+  selectedSuggestionId?: string
+  costEstimate?: {
+    dayRate: number
+    permitCost?: number
+    insuranceRequired?: boolean
+    depositAmount?: number
+    total?: number
+  }
+  status?: 'scouted' | 'contacted' | 'quoted' | 'booked' | 'confirmed'
+  notes?: string
+  aiProvider?: 'azure' | 'gemini'
+  aiModel?: string
+  generationError?: string
+}
+
+// Arc-level locations data structure
+export interface ArcLocationsData {
+  arcIndex: number
+  episodeNumbers: number[]
+  locationGroups: ArcLocationGroup[]
+  totalLocations: number
+  lastUpdated: number
+  generated: boolean
+  generatedBy?: string
+  costRollup?: {
+    perLocation: Array<{
+      locationId: string
+      parentLocationName: string
+      selectedSuggestionId?: string
+      dayRate: number
+      permitCost?: number
+      insuranceRequired?: boolean
+      depositAmount?: number
+      total: number
+    }>
+    arcTotal: number
+  }
 }
 
 // ============================================================================
@@ -348,6 +746,21 @@ export interface PropsWardrobeData {
   props: PropItem[]
   wardrobe: PropItem[]
   questionnaireAnswers?: Record<string, any> // Answers to contextual questionnaire
+  lastUpdated: number
+  updatedBy: string
+}
+
+// Arc-level props/wardrobe data
+export interface ArcPropsWardrobeData {
+  arcTitle: string
+  arcIndex: number
+  episodeNumbers: number[]
+  totalItems: number
+  obtainedItems: number
+  totalCost: number
+  props: PropItem[]
+  wardrobe: PropItem[]
+  questionnaireAnswers?: Record<string, any>
   lastUpdated: number
   updatedBy: string
 }
@@ -424,6 +837,40 @@ export interface CharacterCastingProfile {
   castingNotes: string
   priority: 'lead' | 'supporting' | 'extra'
   scenes: number[] // Scene numbers character appears in
+  characterArc?: {
+    keyBeats: string[]
+    emotionalJourney: string
+  }
+  keyScenes?: Array<{
+    sceneNumber: number
+    episodeNumber: number
+    dialogue: string
+    context: string
+  }>
+  relationships?: Array<{
+    characterName: string
+    relationshipType: string
+    chemistryRequired: boolean
+  }>
+  backstory?: string
+  screenTimeMetrics?: {
+    totalScenes: number
+    totalLines: number
+    estimatedMinutes: number
+  }
+  objectives?: {
+    superObjective: string
+    sceneObjectives: string[]
+  }
+  voiceRequirements?: {
+    style: string
+    accent?: string
+    vocalQuality: string
+  }
+  castingPriority?: {
+    level: 'critical' | 'high' | 'medium'
+    deadline?: string
+  }
 }
 
 export interface CastMember {
@@ -486,12 +933,14 @@ export interface StoryboardFrame {
   sceneNumber: number
   frameImage?: string // AI-generated or uploaded sketch
   imagePrompt?: string // For AI regeneration
+  scriptContext?: string // NEW: Actual script action/dialogue for this specific frame
   cameraAngle: string
   cameraMovement: string
   dialogueSnippet: string
   lightingNotes: string
   propsInFrame: string[]
   referenceImages: string[]
+  referenceVideos?: string[] // AI-generated reference videos (VEO 3)
   status: 'draft' | 'revised' | 'final'
   notes: string
   comments: Comment[]
@@ -503,6 +952,16 @@ export interface StoryboardScene {
   frames: StoryboardFrame[]
 }
 
+export interface StoryboardArtStyle {
+  name: string // e.g., "Cinematic Sketch", "Realistic", "Animated"
+  description: string // Detailed style description
+  colorTreatment: string // e.g., "black and white", "muted colors", "vibrant"
+  renderingStyle: string // e.g., "sketch", "photorealistic", "illustrated"
+  lineWeight: string // e.g., "bold", "fine", "variable"
+  shadingStyle: string // e.g., "crosshatch", "soft gradient", "flat"
+  referenceStyle: string // e.g., "film noir", "anime", "documentary"
+}
+
 export interface StoryboardsData {
   episodeNumber: number
   episodeTitle: string
@@ -511,6 +970,7 @@ export interface StoryboardsData {
   scenes: StoryboardScene[]
   lastUpdated: number
   updatedBy: string
+  artStyle?: StoryboardArtStyle // Unified art style for all storyboard images
 }
 
 // ============================================================================
@@ -617,25 +1077,18 @@ export interface RehearsalScheduleData {
 // MASTER PRE-PRODUCTION DATA
 // ============================================================================
 
-export interface PreProductionData {
+// Base interface with common fields
+interface BasePreProductionData {
   id: string // Firestore document ID
   userId: string
   storyBibleId: string
-  episodeNumber: number
-  episodeTitle: string
   
   // Tab data
-  scriptBreakdown?: ScriptBreakdownData
   shootingSchedule?: ShootingScheduleData
-  shotList?: ShotListData
   budget?: BudgetTrackerData
-  locations?: LocationsData
-  propsWardrobe?: PropsWardrobeData
   equipment?: EquipmentData
   casting?: CastingData
-  storyboards?: StoryboardsData
   permits?: PermitsData | PermitsContractsData // Support both formats
-  rehearsal?: RehearsalScheduleData
   
   // Metadata
   createdAt: number
@@ -644,6 +1097,99 @@ export interface PreProductionData {
   generationStatus: 'not-started' | 'generating' | 'completed' | 'error'
   generationProgress?: number // 0-100
 }
+
+// Episode marketing data
+export interface EpisodeMarketingData {
+  episodeNumber: number
+  marketingHooks: string[]
+  viralPotentialScenes: Array<{
+    sceneNumber: number
+    timestamp: string
+    hook: string
+    platform: string
+    suggestedCaption?: string
+    suggestedHashtags?: string[]
+  }>
+  platformContent: {
+    tiktok?: { captions: string[]; hashtags: string[] }
+    instagram?: { captions: string[]; hashtags: string[] }
+    youtube?: { captions: string[]; hashtags: string[] }
+  }
+  readyToUsePosts: Array<{
+    platform: string
+    caption: string
+    hashtags: string[]
+  }>
+  thumbnail?: {
+    imageUrl: string
+    prompt: string
+    generatedAt: string
+    source: 'gemini' | 'azure' | 'mock'
+    promptVersion?: string
+    frameId?: string // Reference to storyboard frame if selected from existing
+    sceneNumber?: number
+  }
+}
+
+// Episode-specific pre-production data
+export interface EpisodePreProductionData extends BasePreProductionData {
+  type: 'episode'
+  episodeNumber: number
+  episodeTitle: string
+  
+  // Episode-specific tab data
+  scriptBreakdown?: ScriptBreakdownData
+  scriptAnalysis?: ScriptAnalysisData
+  shotList?: ShotListData
+  locations?: LocationsData  // Optional - locations now managed at arc level
+  propsWardrobe?: PropsWardrobeData
+  storyboards?: StoryboardsData
+  rehearsal?: RehearsalScheduleData
+  scripts?: any // Episode scripts
+  marketing?: EpisodeMarketingData
+}
+
+// Arc marketing data
+export interface ArcMarketingData {
+  arcIndex: number
+  arcTitle: string
+  marketingStrategy: {
+    primaryApproach: string
+    targetAudience: {
+      primary: string[]
+      secondary: string[]
+    }
+    keySellingPoints: string[]
+    uniqueValueProposition: string
+  }
+  crossEpisodeThemes: string[]
+  arcLaunchStrategy: {
+    preLaunch: string[]
+    launch: string[]
+    postLaunch: string[]
+  }
+  platformStrategies: {
+    tiktok?: { contentFormat: string; postingSchedule: string; hashtagStrategy: string[] }
+    instagram?: { contentFormat: string; gridAesthetic: string; broadcastChannelStrategy: string }
+    youtube?: { contentFormat: string; seoTitleStrategy: string; relatedVideoStrategy: string }
+  }
+}
+
+// Arc-specific pre-production data
+export interface ArcPreProductionData extends BasePreProductionData {
+  type: 'arc'
+  arcIndex: number
+  arcTitle: string
+  episodeNumbers: number[]
+  propsWardrobe?: ArcPropsWardrobeData
+  
+  // Arc-specific tab data
+  locations?: LocationsData  // Arc-level locations for all episodes
+  marketing?: ArcMarketingData
+}
+
+// Union type for pre-production data
+export type PreProductionData = EpisodePreProductionData | ArcPreProductionData
 
 // ============================================================================
 // GENERATION CONTEXT
@@ -663,4 +1209,121 @@ export interface PreProductionGenerationContext {
     ownedEquipment?: string[]
     availableCrew?: string[]
   }
+}
+
+// ============================================================================
+// GREENLIT FUND REQUEST
+// ============================================================================
+
+export interface EpisodeBudgetBreakdown {
+  episodeNumber: number
+  episodeTitle: string
+  sceneCount: number
+  totalBudget: number
+  baseBudget: number
+  optionalBudget: number
+  locationCosts: number
+  equipmentCosts: number
+  propsWardrobeCosts: number
+}
+
+export interface CastSummary {
+  totalConfirmed: number
+  totalPending: number
+  leads: Array<{
+    characterName: string
+    actorName?: string
+    status: string
+  }>
+  supporting: Array<{
+    characterName: string
+    actorName?: string
+    status: string
+  }>
+}
+
+export interface LocationSummary {
+  totalLocations: number
+  uniqueLocations: number
+  totalCost: number
+  reuseSavings: number
+  keyLocations: Array<{
+    name: string
+    address: string
+    episodesUsed: number[]
+    cost: number
+  }>
+}
+
+export interface EquipmentSummary {
+  totalItems: number
+  totalRentalCost: number
+  categories: {
+    camera: number
+    lens: number
+    lighting: number
+    audio: number
+    grip: number
+    other: number
+  }
+}
+
+export interface StoryBibleHighlights {
+  premise: string
+  theme: string
+  genre: string
+  tone: string
+  setting: string
+  targetAudience: string
+}
+
+export interface CharacterArc {
+  characterName: string
+  arcDescription: string
+  keyMoments: string[]
+}
+
+export interface ProductionTimeline {
+  estimatedShootStart: string // YYYY-MM-DD
+  estimatedShootEnd: string // YYYY-MM-DD
+  estimatedPostProduction: string // YYYY-MM-DD
+  estimatedDistribution: string // YYYY-MM-DD
+  deadline: string // "2-3 weeks from funding approval"
+  totalShootDays: number
+}
+
+export interface FundRequestSummary {
+  seriesTitle: string
+  genre: string
+  arcIndex: number
+  arcTitle: string
+  episodeCount: number
+  totalBudget: number
+  episodeBreakdowns: EpisodeBudgetBreakdown[]
+  castSummary: CastSummary
+  locationSummary: LocationSummary
+  equipmentSummary: EquipmentSummary
+  storyBibleHighlights: StoryBibleHighlights
+  characterArcs: CharacterArc[]
+  productionTimeline: ProductionTimeline
+  createdAt: number
+  userId: string
+  userName: string
+  userEmail?: string
+  userPhone?: string
+}
+
+export interface FundRequestRecord {
+  id: string // Firestore document ID
+  requestId: string // Token for read-only view access
+  arcPreProductionId: string
+  storyBibleId: string
+  userId: string
+  summary: FundRequestSummary
+  readOnlyViewUrl: string
+  status: 'pending' | 'reviewed' | 'approved' | 'rejected'
+  createdAt: number
+  reviewedAt?: number
+  reviewedBy?: string
+  notes?: string
 }

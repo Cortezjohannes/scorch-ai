@@ -1,0 +1,51 @@
+========================================================
+ACTOR MATERIALS GENERATION - BUG FIXED ✅
+========================================================
+
+ISSUE:
+❌ Episode data was empty object - generation failed with 400 error
+❌ Error: "Episode data is empty object"
+
+ROOT CAUSE:
+🐛 Wrong function call signature for getEpisodeRangeForArc
+   - Was calling: getEpisodeRangeForArc(user.id, storyBibleId, arcIndex)
+   - Should be: getEpisodeRangeForArc(storyBible, arcIndex)
+   
+   The function expects the storyBible OBJECT, not userId/storyBibleId!
+
+FIXES APPLIED:
+✅ Corrected getEpisodeRangeForArc function call
+✅ Added comprehensive debugging logs:
+   - Shows how many episodes loaded
+   - Shows which episode numbers needed
+   - Shows which episodes found/missing
+   - Shows pre-prod data status
+✅ Added validation check before API call
+✅ Improved error messages with helpful tips
+✅ Enhanced error display UI with icon and guidance
+
+DEBUGGING OUTPUT NOW INCLUDES:
+📚 Loading episodes for story bible
+📚 All episodes loaded: X episodes
+📋 Episode numbers for arc: [1, 2, 3...]
+📖 Episode 1: Found/Missing
+✅ Pre-prod data loaded for episode X
+📊 Final episode data: X episodes
+📊 Final pre-prod data: X episodes
+
+ERROR HANDLING:
+✅ Checks if episodes exist before making API call
+✅ Throws clear error: "No episodes found for arc X. Please generate episodes first."
+✅ Shows helpful tip: "Make sure all episodes for this arc are generated in Episode Studio"
+✅ Beautiful error UI with warning icon and guidance
+
+FILE MODIFIED:
+✅ /src/app/actor-materials/arc/[arcIndex]/page.tsx
+
+TESTING:
+1. Try generating actor materials again
+2. Check console for detailed logs
+3. If episodes missing, generate them first in Episode Studio
+4. Then retry actor materials generation
+
+The issue should now be fixed! 🎭

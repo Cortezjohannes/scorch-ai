@@ -9,6 +9,8 @@ interface CollapsibleSectionProps {
   children: React.ReactNode
   isEmptyDefault?: boolean
   className?: string
+  theme?: 'light' | 'dark'
+  isLocked?: boolean
 }
 
 /**
@@ -20,30 +22,33 @@ export default function CollapsibleSection({
   icon,
   children,
   isEmptyDefault = false,
-  className = ''
+  className = '',
+  theme = 'dark',
+  isLocked = false
 }: CollapsibleSectionProps) {
   const [isExpanded, setIsExpanded] = useState(!isEmptyDefault)
+  const prefix = theme === 'dark' ? 'dark' : 'light'
 
   return (
-    <div className={`bg-[#1a1a1a] rounded-lg overflow-hidden ${className}`}>
+    <div className={`${prefix}-card ${prefix}-border rounded-lg overflow-hidden ${className}`}>
       {/* Header - Always Visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-[#242424] transition-colors group"
+        className={`w-full flex items-center justify-between px-6 py-4 ${prefix}-bg-secondary hover:${prefix}-bg-tertiary transition-colors group`}
       >
-        <div className="flex items-center gap-2">
-          {icon && <span className="text-lg">{icon}</span>}
-          <h5 className="text-[#00FF99] font-bold">{title}</h5>
+        <div className="flex items-center gap-3">
+          {icon && <span className="text-xl">{icon}</span>}
+          <h5 className={`${prefix}-text-primary font-semibold text-lg`}>{title}</h5>
           {isEmptyDefault && !isExpanded && (
-            <span className="text-xs text-white/40 ml-2">(click to expand)</span>
+            <span className={`text-xs ${prefix}-text-tertiary ml-2`}>(click to expand)</span>
           )}
         </div>
         <motion.span
           animate={{ rotate: isExpanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
-          className="text-white/60 group-hover:text-white/80 transition-colors"
+          className={`${prefix}-text-tertiary group-hover:${prefix}-text-secondary transition-colors`}
         >
-          ▼
+          {isExpanded ? '▼' : '▶'}
         </motion.span>
       </button>
 
@@ -57,7 +62,7 @@ export default function CollapsibleSection({
             transition={{ duration: 0.3, ease: [0.4, 0.0, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className="p-4 pt-0 space-y-2 text-sm">
+            <div className="p-6 space-y-4 text-sm">
               {children}
             </div>
           </motion.div>

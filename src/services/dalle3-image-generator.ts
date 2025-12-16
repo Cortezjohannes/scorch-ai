@@ -1,7 +1,20 @@
 /**
  * 🎨 DALL-E 3 Image Generation Service
- * Generates character headshots and casting visuals using Azure DALL-E 3
+ * 
+ * @deprecated This service is DEPRECATED. Use Gemini (Nano Banana Pro) instead.
+ * 
+ * For image generation, use:
+ * - generateImageWithStorage() from '@/services/image-generation-with-storage'
+ * - generateImageWithGemini() from '@/services/gemini-image-generator'
+ * 
+ * Azure DALL-E URLs are temporary and expire. Gemini with Firebase Storage
+ * provides persistent image URLs that work across devices.
  */
+
+console.warn(
+  '⚠️ DEPRECATED: dalle3-image-generator.ts is deprecated. ' +
+  'Use generateImageWithStorage() from image-generation-with-storage.ts instead.'
+);
 
 interface DallE3ImageRequest {
   prompt: string;

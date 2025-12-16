@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import PageSkeleton from '@/components/loaders/PageSkeleton'
+import AnimatedBackground from '@/components/AnimatedBackground'
+import GlobalThemeToggle from '@/components/navigation/GlobalThemeToggle'
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -17,12 +20,28 @@ export default function ProjectsPage() {
   
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!user) {
+      // Check both useAuth hook and Firebase auth directly (fallback for cross-device issues)
+      let userIdToUse = user?.id
+      if (!userIdToUse && typeof window !== 'undefined') {
+        try {
+          const { auth } = await import('@/lib/firebase')
+          const currentUser = auth.currentUser
+          if (currentUser) {
+            userIdToUse = currentUser.uid
+            console.log('🔍 Projects: useAuth returned null, but Firebase auth.currentUser exists:', userIdToUse)
+          }
+        } catch (authError) {
+          console.error('❌ Error checking Firebase auth in projects:', authError)
+        }
+      }
+
+      if (!userIdToUse) {
+        setLoading(false)
       return
     }
     
       try {
-        const projectsRef = collection(db, 'users', user.id, 'projects')
+        const projectsRef = collection(db, 'users', userIdToUse, 'projects')
         const q = query(projectsRef, orderBy('createdAt', 'desc'))
         const projectsSnap = await getDocs(q)
 
@@ -67,24 +86,25 @@ export default function ProjectsPage() {
   // Handle loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <motion.div 
-          className="w-16 h-16 border-4 border-t-[#e2c376] border-r-[#e2c37650] border-b-[#e2c37630] border-l-[#e2c37620] rounded-full"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-        />
+      <div className="min-h-screen p-6">
+        <PageSkeleton variant="projects" />
       </div>
     )
   }
   
   return (
     <motion.div 
-      className="min-h-screen p-6 max-w-7xl mx-auto"
+      className="min-h-screen p-6 max-w-7xl mx-auto relative"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
       style={{ fontFamily: 'League Spartan, sans-serif' }}
     >
+      <AnimatedBackground variant="particles" intensity="low" page="projects" />
+      {/* Theme Toggle - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <GlobalThemeToggle />
+      </div>
       {/* Revolutionary Header */}
       <motion.div 
         className="mb-12 text-center"

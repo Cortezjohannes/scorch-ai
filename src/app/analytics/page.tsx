@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect, Suspense } from 'react'
 
 interface Metric {

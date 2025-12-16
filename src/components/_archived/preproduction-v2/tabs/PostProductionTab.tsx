@@ -28,7 +28,7 @@ export const PostProductionTab: React.FC<PostProductionTabProps> = ({ data }) =>
           <div className="p-6 md:p-8 space-y-6">
             {currentEpisode.guide.colorGrading && currentEpisode.guide.colorGrading.length > 0 && (
               <div>
-                <h4 className="font-semibold text-[#00FF99] mb-3">Color Grading Notes</h4>
+                <h4 className="font-semibold text-[#10B981] mb-3">Color Grading Notes</h4>
                 <div className="space-y-2">
                   {currentEpisode.guide.colorGrading.map((note, idx) => (
                     <div key={idx} className="p-3 rounded-lg border text-sm" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)' }}>
@@ -41,11 +41,11 @@ export const PostProductionTab: React.FC<PostProductionTabProps> = ({ data }) =>
             
             {currentEpisode.guide.vfx && currentEpisode.guide.vfx.length > 0 && (
               <div>
-                <h4 className="font-semibold text-[#00FF99] mb-3">VFX Requirements</h4>
+                <h4 className="font-semibold text-[#10B981] mb-3">VFX Requirements</h4>
                 <div className="space-y-2">
                   {currentEpisode.guide.vfx.map((vfx, idx) => (
                     <div key={idx} className="p-3 rounded-lg border text-sm" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border-color)' }}>
-                      <span className="font-medium">Scene {vfx.sceneNumber}:</span> {vfx.description} <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FF99]/10 text-[#00FF99]">{vfx.complexity}</span>
+                      <span className="font-medium">Scene {vfx.sceneNumber}:</span> {vfx.description} <span className="text-xs px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981]">{vfx.complexity}</span>
                     </div>
                   ))}
                 </div>

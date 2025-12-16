@@ -1,8 +1,19 @@
 /**
  * 🖼️ Imagen 3 Backup Image Generation Service
- * Backup image generation using Google's Imagen 3 model
- * Used when DALL-E 3 is unavailable or rate limited
+ * 
+ * @deprecated This service is DEPRECATED. Use Gemini (Nano Banana Pro) instead.
+ * 
+ * For image generation, use:
+ * - generateImageWithStorage() from '@/services/image-generation-with-storage'
+ * - generateImageWithGemini() from '@/services/gemini-image-generator'
+ * 
+ * Gemini with Firebase Storage provides persistent image URLs that work across devices.
  */
+
+console.warn(
+  '⚠️ DEPRECATED: imagen3-backup-generator.ts is deprecated. ' +
+  'Use generateImageWithStorage() from image-generation-with-storage.ts instead.'
+);
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 

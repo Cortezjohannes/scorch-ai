@@ -2,19 +2,25 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/components/ui/ClientMotion'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import { getEpisodesForStoryBible, hasLocalEpisodes, Episode, findRecoverableEpisodes } from '@/services/episode-service'
 import { hasPreProductionV2 } from '@/services/preproduction-v2-service'
 import { getStoryBible } from '@/services/story-bible-service'
+import { canUnlockArcPreProduction, getEpisodeRangeForArc, getEpisodePreProduction } from '@/services/preproduction-firestore'
 import GuestModeWarning from '@/components/GuestModeWarning'
 import EpisodeRecoveryPrompt from '@/components/EpisodeRecoveryPrompt'
+import EpisodeGenerationSuite from '@/components/workspace/EpisodeGenerationSuite'
 
 export default function WorkspacePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading: authLoading } = useAuth()
+  
+  const { theme } = useTheme()
+  const prefix = theme === 'dark' ? 'dark' : 'light'
   const [storyBible, setStoryBible] = useState<any>(null)
   const [currentStoryBibleId, setCurrentStoryBibleId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -26,6 +32,13 @@ export default function WorkspacePage() {
   // Episode recovery state
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false)
   const [recoverableEpisodes, setRecoverableEpisodes] = useState<number[]>([])
+  
+  // Generation suite modal state
+  const [showGenerationSuite, setShowGenerationSuite] = useState(false)
+  
+  // Production assistant state
+  const [arcUnlockStatuses, setArcUnlockStatuses] = useState<Record<number, any>>({})
+  const [checkingArcStatuses, setCheckingArcStatuses] = useState(false)
   
   // Effect to set client-side flag
   useEffect(() => {
@@ -103,12 +116,27 @@ export default function WorkspacePage() {
         // Check for story bible ID in URL params
         const storyBibleId = searchParams.get('id')
         
-        if (storyBibleId && user) {
+        // Check both useAuth hook and Firebase auth directly (fallback for cross-device issues)
+        let userIdToUse = user?.id
+        if (!userIdToUse && typeof window !== 'undefined') {
+          try {
+            const { auth } = await import('@/lib/firebase')
+            const currentUser = auth.currentUser
+            if (currentUser) {
+              userIdToUse = currentUser.uid
+              console.log('🔍 Workspace: useAuth returned null, but Firebase auth.currentUser exists:', userIdToUse)
+            }
+          } catch (authError) {
+            console.error('❌ Error checking Firebase auth in workspace:', authError)
+          }
+        }
+        
+        if (storyBibleId && userIdToUse) {
           // Load specific story bible from Firestore
           console.log('🔍 Loading story bible from Firestore with ID:', storyBibleId)
-          console.log(`👤 Authenticated as: ${user.email}`)
+          console.log(`👤 Authenticated as: ${userIdToUse}`)
           try {
-            const firestoreBible = await getStoryBible(storyBibleId, user.id)
+            const firestoreBible = await getStoryBible(storyBibleId, userIdToUse)
             if (firestoreBible) {
               setStoryBible(firestoreBible)
               console.log('✅ Story bible loaded from Firestore')
@@ -122,7 +150,7 @@ export default function WorkspacePage() {
           }
         } else {
           // No ID specified or not authenticated, load from localStorage (legacy/guest behavior)
-          if (!user && storyBibleId) {
+          if (!userIdToUse && storyBibleId) {
             console.log('📂 Guest mode: Loading from localStorage')
           } else if (!storyBibleId) {
             console.log('📂 No ID specified, loading from localStorage')
@@ -172,15 +200,32 @@ export default function WorkspacePage() {
         const episodes = await getEpisodesForStoryBible(currentStoryBibleId, user?.id)
         setGeneratedEpisodes(episodes)
         
-        // Check pre-production V2 status for all episodes
+        // Check episode pre-production status (new system)
         const preProductionFlags: Record<number, boolean> = {}
-        for (const epNum of Object.keys(episodes)) {
-          const hasPreProd = await hasPreProductionV2(
-            currentStoryBibleId, 
-            `episode_${epNum}`,  // V2 uses ID format: episode_{number}
-            user?.id
-          )
-          preProductionFlags[Number(epNum)] = hasPreProd
+        if (user?.id) {
+          for (const epNum of Object.keys(episodes)) {
+            try {
+              const episodePreProd = await getEpisodePreProduction(
+                user.id,
+                currentStoryBibleId,
+                Number(epNum)
+              )
+              preProductionFlags[Number(epNum)] = !!episodePreProd
+            } catch (error) {
+              console.error(`Error checking pre-production for episode ${epNum}:`, error)
+              preProductionFlags[Number(epNum)] = false
+            }
+          }
+        } else {
+          // Fallback to V2 check for guest mode
+          for (const epNum of Object.keys(episodes)) {
+            const hasPreProd = await hasPreProductionV2(
+              currentStoryBibleId, 
+              `episode_${epNum}`,
+              user?.id
+            )
+            preProductionFlags[Number(epNum)] = hasPreProd
+          }
         }
         setPreProductionStatus(preProductionFlags)
         
@@ -210,6 +255,40 @@ export default function WorkspacePage() {
       setCurrentEpisodeNumber(getCurrentEpisode())
     }
   }, [generatedEpisodes, storyBible])
+
+  // Check arc unlock statuses when episodes and pre-production status changes
+  useEffect(() => {
+    const checkArcStatuses = async () => {
+      if (!storyBible?.narrativeArcs || !currentStoryBibleId || !user?.id || checkingArcStatuses) return
+      
+      setCheckingArcStatuses(true)
+      
+      try {
+        const statuses: Record<number, any> = {}
+        
+        for (let i = 0; i < storyBible.narrativeArcs.length; i++) {
+          const status = await canUnlockArcPreProduction(
+            user.id,
+            currentStoryBibleId,
+            i,
+            generatedEpisodes
+          )
+          statuses[i] = status
+        }
+        
+        setArcUnlockStatuses(statuses)
+      } catch (error) {
+        console.error('Error checking arc unlock statuses:', error)
+      } finally {
+        setCheckingArcStatuses(false)
+      }
+    }
+    
+    // Only check if we have episodes and pre-production status loaded
+    if (Object.keys(generatedEpisodes).length > 0 && Object.keys(preProductionStatus).length > 0) {
+      checkArcStatuses()
+    }
+  }, [generatedEpisodes, preProductionStatus, storyBible, currentStoryBibleId, user?.id, checkingArcStatuses])
   
   // Handle starting an episode
   const handleStartEpisode = (episodeNumber: number) => {
@@ -217,7 +296,34 @@ export default function WorkspacePage() {
       console.error('No story bible ID available')
       return
     }
-    router.push(`/episode-studio/${episodeNumber}?storyBibleId=${currentStoryBibleId}`)
+    setShowGenerationSuite(true)
+  }
+  
+  // Get previous episode choice
+  const getPreviousEpisodeChoice = (): string | undefined => {
+    try {
+      const savedChoices = localStorage.getItem('greenlit-user-choices') || 
+                          localStorage.getItem('scorched-user-choices') || 
+                          localStorage.getItem('reeled-user-choices')
+      
+      if (savedChoices) {
+        const choices = JSON.parse(savedChoices)
+        const previousEpisodeChoice = choices.find((choice: any) => 
+          choice.episodeNumber === currentEpisodeNumber - 1
+        )
+        return previousEpisodeChoice?.choiceText
+      }
+    } catch (err) {
+      console.error('Error loading previous choices:', err)
+    }
+    return undefined
+  }
+  
+  // Handle episode generation complete
+  const handleEpisodeGenerationComplete = () => {
+    setShowGenerationSuite(false)
+    // Reload episodes to show the new one
+    window.location.reload()
   }
   
   // Handle continuing to next episode
@@ -227,13 +333,19 @@ export default function WorkspacePage() {
       return
     }
     const nextEpisode = getCurrentEpisode()
-    router.push(`/episode-studio/${nextEpisode}?storyBibleId=${currentStoryBibleId}`)
+    setCurrentEpisodeNumber(nextEpisode)
+    setShowGenerationSuite(true)
   }
   
   // Handle starting pre-production for an episode
   const handleStartPreProduction = (episodeNumber: number) => {
     try {
-      console.log(`🎬 Starting pre-production for episode ${episodeNumber}`)
+      console.log(`🎬 Starting episode pre-production for episode ${episodeNumber}`)
+      
+      if (!currentStoryBibleId) {
+        console.error('No story bible ID available')
+        return
+      }
       
       // Get episode data from state (works for both Firestore and localStorage)
       const episode = generatedEpisodes[episodeNumber]
@@ -246,28 +358,11 @@ export default function WorkspacePage() {
       
       console.log('✅ Episode data found:', episode)
       
-      // Store data for pre-production page
-      const preProductionData = {
-        episodeNumber,
-        episode,
-        storyBible,
-        mode: 'beast' // Default mode
-      }
-      
-      localStorage.setItem('greenlit-preproduction-episode-data', JSON.stringify(preProductionData))
-      
-      // Navigate to pre-production V2 with episode parameter and story bible ID
-      if (!currentStoryBibleId) {
-        console.error('No story bible ID available')
-        alert('Story bible ID not found. Please reload the page.')
-        return
-      }
-      
       // Get episode title
-      const episodeTitle = episode.title || `Episode ${episodeNumber}`
+      const episodeTitle = getEpisodeTitle(episodeNumber)
       
-      console.log(`🚀 Navigating to pre-production for episode ${episodeNumber}: "${episodeTitle}", story bible: ${currentStoryBibleId}`)
-      router.push(`/preproduction?storyBibleId=${currentStoryBibleId}&episodeNumber=${episodeNumber}&episodeTitle=${encodeURIComponent(episodeTitle)}&autoGenerate=true`)
+      // Navigate to new episode pre-production route
+      router.push(`/preproduction/episode/${episodeNumber}?storyBibleId=${currentStoryBibleId}&episodeTitle=${encodeURIComponent(episodeTitle)}`)
     } catch (error) {
       console.error('Error preparing pre-production:', error)
       alert(`Error starting pre-production: ${error}`)
@@ -290,11 +385,21 @@ export default function WorkspacePage() {
       return
     }
     
-    // Get episode title from generatedEpisodes object
-    const episode = generatedEpisodes[episodeNumber]
-    const episodeTitle = episode?.title || `Episode ${episodeNumber}`
+    // Get episode title
+    const episodeTitle = getEpisodeTitle(episodeNumber)
     
-    router.push(`/preproduction?storyBibleId=${currentStoryBibleId}&episodeNumber=${episodeNumber}&episodeTitle=${encodeURIComponent(episodeTitle)}`)
+    // Navigate to new episode pre-production route
+    router.push(`/preproduction/episode/${episodeNumber}?storyBibleId=${currentStoryBibleId}&episodeTitle=${encodeURIComponent(episodeTitle)}`)
+  }
+
+  // Handle opening production assistant
+  const handleOpenArcPreProduction = (arcIndex: number) => {
+    if (!currentStoryBibleId) {
+      console.error('No story bible ID available')
+      return
+    }
+    
+    router.push(`/preproduction/arc/${arcIndex}?storyBibleId=${currentStoryBibleId}`)
   }
   
   // Handle clear episodes
@@ -481,7 +586,7 @@ export default function WorkspacePage() {
           transition={{ duration: 0.5 }}
         >
           <motion.div 
-            className="w-20 h-20 border-4 border-t-[#00FF99] border-r-[#00FF9950] border-b-[#00FF9930] border-l-[#00FF9920] rounded-full"
+            className="w-20 h-20 border-4 border-t-[#10B981] border-r-[#10B98150] border-b-[#10B98130] border-l-[#10B98120] rounded-full"
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
           />
@@ -498,7 +603,7 @@ export default function WorkspacePage() {
         <h2 className="text-xl text-[#e7e7e7]">Story Bible not found</h2>
         <p className="text-[#e7e7e7]/70 mt-2">You need to create a story bible first.</p>
         <button 
-          className="mt-6 px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors"
+          className="mt-6 px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
           onClick={() => router.push('/')}
         >
           Create Story Bible
@@ -520,7 +625,7 @@ export default function WorkspacePage() {
 
   return (
     <motion.div 
-      className="min-h-screen p-4 sm:p-6 md:p-8 relative"
+      className={`min-h-screen p-4 sm:p-6 md:p-8 relative ${prefix}-bg-primary`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
@@ -531,6 +636,25 @@ export default function WorkspacePage() {
       <div className="max-w-7xl mx-auto">
         {/* Guest Mode Warning */}
         <GuestModeWarning />
+        
+        {/* Breadcrumb Navigation */}
+        {currentStoryBibleId && (
+          <motion.div
+            className="mb-6 flex items-center gap-2 text-sm"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <button
+              onClick={() => router.push(`/dashboard?id=${currentStoryBibleId}`)}
+              className={`${prefix}-text-secondary hover:${prefix}-text-primary transition-colors`}
+            >
+              Dashboard
+            </button>
+            <span className={prefix + '-text-tertiary'}>/</span>
+            <span className={prefix + '-text-primary'}>Workspace</span>
+          </motion.div>
+        )}
         
         {/* Header */}
         <motion.div
@@ -569,14 +693,14 @@ export default function WorkspacePage() {
             {storyBible.seriesTitle || "YOUR SERIES"}
           </motion.h1>
 
-          <p className="text-sm md:text-base text-white/70 max-w-2xl mx-auto">
+          <p className={`text-sm md:text-base ${prefix}-text-secondary max-w-2xl mx-auto`}>
             Production Command Center
           </p>
           
           {/* Stats */}
           <div className="flex flex-wrap justify-center gap-4 mt-6">
-            <div className="px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg">
-              <span className="text-[#00FF99] font-bold text-sm">
+            <div className={`px-4 py-2 ${prefix}-bg-accent border ${prefix}-border rounded-lg`}>
+              <span className={`${prefix}-text-accent font-bold text-sm`} style={{ color: '#10B981' }}>
                 {completedEpisodes}/{totalEpisodes} Episodes Completed
               </span>
             </div>
@@ -586,12 +710,10 @@ export default function WorkspacePage() {
               return (
                 <div className={`px-4 py-2 border rounded-lg ${
                   readyForPreProd > 0 
-                    ? 'bg-[#00FF99]/10 border-[#00FF99]/30 animate-pulse' 
-                    : 'bg-green-500/10 border-green-500/30'
+                    ? `${prefix}-bg-accent ${prefix}-border animate-pulse` 
+                    : `${prefix}-bg-accent ${prefix}-border`
                 }`}>
-                  <span className={`font-bold text-sm ${
-                    readyForPreProd > 0 ? 'text-[#00FF99]' : 'text-green-400'
-                  }`}>
+                  <span className={`font-bold text-sm ${prefix}-text-accent`} style={{ color: '#10B981' }}>
                     🎬 {completedPreProd}/{completedEpisodes} Pre-Production
                     {readyForPreProd > 0 && ` (+${readyForPreProd} ready)`}
                   </span>
@@ -599,14 +721,14 @@ export default function WorkspacePage() {
               )
             })()}
             {storyBible.mainCharacters && (
-              <div className="px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg">
-                <span className="text-[#00FF99] font-bold text-sm">
+              <div className={`px-4 py-2 ${prefix}-bg-accent border ${prefix}-border rounded-lg`}>
+                <span className={`${prefix}-text-accent font-bold text-sm`} style={{ color: '#10B981' }}>
                   {storyBible.mainCharacters.length} Characters
                 </span>
               </div>
             )}
-            <div className="px-4 py-2 bg-[#00FF99]/10 border border-[#00FF99]/30 rounded-lg">
-              <span className="text-[#00FF99] font-bold text-sm">
+            <div className={`px-4 py-2 ${prefix}-bg-accent border ${prefix}-border rounded-lg`}>
+              <span className={`${prefix}-text-accent font-bold text-sm`} style={{ color: '#10B981' }}>
                 Current Arc: {currentArcInfo.arcIndex + 1}/{storyBible.narrativeArcs?.length || 6}
               </span>
             </div>
@@ -622,33 +744,33 @@ export default function WorkspacePage() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252628] border border-[#36393f] rounded-xl p-6 md:p-8 h-full">
+            <div className={`${prefix}-card border ${prefix}-border rounded-xl p-6 md:p-8 h-full`}>
               <div className="flex items-start justify-between mb-4">
               <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs px-3 py-1 rounded-full bg-[#00FF99]/20 text-[#00FF99] border border-[#00FF99]/40">
+                    <span className={`text-xs px-3 py-1 rounded-full ${prefix}-bg-accent ${prefix}-border`} style={{ color: '#10B981' }}>
                       {isCurrentEpisodeGenerated ? 'Completed' : 'Next Episode'}
                     </span>
                     {currentStatus === 'pre-production-done' && (
-                      <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/40">
+                      <span className={`text-xs px-3 py-1 rounded-full ${prefix}-bg-accent ${prefix}-border`} style={{ color: '#10B981' }}>
                         Pre-Production ✓
                       </span>
                     )}
                   </div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                  <h2 className={`text-2xl md:text-3xl font-bold ${prefix}-text-primary mb-1`}>
                     Episode {currentEpisodeNumber}
                   </h2>
-                  <p className="text-[#00FF99] text-sm font-medium">
+                  <p className={`${prefix}-text-accent text-sm font-medium`} style={{ color: '#10B981' }}>
                     {currentArcInfo.arcTitle} • Episode {currentArcInfo.episodeInArc} of {currentArcInfo.totalInArc}
                 </p>
               </div>
             </div>
             
-              <h3 className="text-xl font-semibold text-white mb-3">
+              <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-3`}>
                 {getEpisodeTitle(currentEpisodeNumber)}
               </h3>
               
-              <p className="text-[#e7e7e7]/80 text-sm mb-4 leading-relaxed line-clamp-3">
+              <p className={`${prefix}-text-secondary text-sm mb-4 leading-relaxed line-clamp-3`}>
                 {getEpisodeSynopsis(currentEpisodeNumber)}
               </p>
 
@@ -666,7 +788,7 @@ export default function WorkspacePage() {
                         whileHover={{ scale: 1.1, y: -2 }}
                         transition={{ type: "spring", stiffness: 300 }}
                       >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border-2 border-[#00FF99]/40 flex items-center justify-center text-sm font-bold text-[#00FF99] hover:border-[#00FF99] transition-colors">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border-2 border-[#10B981]/40 flex items-center justify-center text-sm font-bold text-[#10B981] hover:border-[#10B981] transition-colors">
                           {getCharacterInitials(character.name)}
               </div>
                         {/* Tooltip */}
@@ -683,7 +805,7 @@ export default function WorkspacePage() {
               <div className="mb-6 p-3 bg-[#2a2a2a]/30 rounded-lg border border-[#36393f]/50">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-[#e7e7e7]/60 font-medium">Arc Progress</span>
-                  <span className="text-xs text-[#00FF99] font-bold">
+                  <span className="text-xs text-[#10B981] font-bold">
                     {Math.round((getArcProgressDots(currentArcInfo.arcIndex).filter(d => d.isCompleted).length / getArcProgressDots(currentArcInfo.arcIndex).length) * 100)}%
                   </span>
                 </div>
@@ -693,9 +815,9 @@ export default function WorkspacePage() {
                       key={idx}
                       className={`h-2 flex-1 rounded-full transition-all ${
                         dot.isCurrent 
-                          ? 'bg-[#00FF99] ring-2 ring-[#00FF99]/30' 
+                          ? 'bg-[#10B981] ring-2 ring-[#10B981]/30' 
                           : dot.isCompleted 
-                            ? 'bg-[#00FF99]/60' 
+                            ? 'bg-[#10B981]/60' 
                             : 'bg-[#36393f]'
                       }`}
                       initial={{ scaleX: 0 }}
@@ -722,7 +844,7 @@ export default function WorkspacePage() {
                   </div>
                   <div>
                     <div className="text-xs text-[#e7e7e7]/50 mb-1">Status</div>
-                    <div className="text-lg font-bold text-[#00FF99]">
+                    <div className="text-lg font-bold text-[#10B981]">
                       Complete
                     </div>
                   </div>
@@ -735,7 +857,7 @@ export default function WorkspacePage() {
                       <motion.button
                     onClick={() => handleStartEpisode(currentEpisodeNumber)}
                     disabled={!isEpisodeAccessible(currentEpisodeNumber)}
-                    className="flex-1 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-6 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-gradient-to-r from-[#10B981] to-[#059669] text-black px-6 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                   >
@@ -745,7 +867,7 @@ export default function WorkspacePage() {
                   <>
                     <motion.button
                       onClick={handleContinueToNextEpisode}
-                      className="flex-1 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black px-6 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all"
+                      className="flex-1 bg-gradient-to-r from-[#10B981] to-[#059669] text-black px-6 py-4 rounded-lg font-bold text-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all"
                       whileHover={{ scale: 1.02, y: -2 }}
                       whileTap={{ scale: 0.98 }}
                     >
@@ -755,7 +877,7 @@ export default function WorkspacePage() {
                     {currentStatus === 'pre-production-ready' && (
                       <motion.button
                         onClick={() => handleStartPreProduction(currentEpisodeNumber)}
-                        className="flex-1 bg-[#36393f] border-2 border-[#00FF99] text-[#00FF99] px-6 py-4 rounded-lg font-bold text-lg hover:bg-[#00FF99]/10 transition-all"
+                        className="flex-1 bg-[#36393f] border-2 border-[#10B981] text-[#10B981] px-6 py-4 rounded-lg font-bold text-lg hover:bg-[#10B981]/10 transition-all"
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                       >
@@ -802,7 +924,7 @@ export default function WorkspacePage() {
                   if (readyForPreProd.length > 0) {
                     return (
                       <motion.div
-                        className="mt-4 p-4 bg-gradient-to-r from-[#00FF99]/10 to-[#00CC7A]/10 border border-[#00FF99]/30 rounded-lg"
+                        className="mt-4 p-4 bg-gradient-to-r from-[#10B981]/10 to-[#059669]/10 border border-[#10B981]/30 rounded-lg"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.5 }}
@@ -810,7 +932,7 @@ export default function WorkspacePage() {
                         <div className="flex items-start gap-3">
                           <span className="text-2xl">💡</span>
                           <div className="flex-1">
-                            <p className="text-[#00FF99] font-bold text-sm mb-1">
+                            <p className="text-[#10B981] font-bold text-sm mb-1">
                               {readyForPreProd.length} episode{readyForPreProd.length !== 1 ? 's' : ''} ready for pre-production!
                             </p>
                             <p className="text-[#e7e7e7]/70 text-xs mb-3">
@@ -821,7 +943,7 @@ export default function WorkspacePage() {
                                 <motion.button
                                   key={epNum}
                                   onClick={() => handleStartPreProduction(epNum)}
-                                  className="px-3 py-1.5 bg-[#00FF99]/20 border border-[#00FF99]/40 text-[#00FF99] text-xs rounded-lg hover:bg-[#00FF99]/30 transition-all font-medium"
+                                  className="px-3 py-1.5 bg-[#10B981]/20 border border-[#10B981]/40 text-[#10B981] text-xs rounded-lg hover:bg-[#10B981]/30 transition-all font-medium"
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
                                 >
@@ -872,14 +994,14 @@ export default function WorkspacePage() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            <div className="bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6 h-full">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center justify-between">
+            <div className={`${prefix}-card border ${prefix}-border rounded-xl p-6 h-full`}>
+              <h3 className={`text-lg font-bold ${prefix}-text-primary mb-4 flex items-center justify-between`}>
                 <span>Completed Episodes</span>
-                <span className="text-sm font-normal text-[#00FF99]">{completedEpisodes}</span>
+                <span className={`text-sm font-normal ${prefix}-text-accent`} style={{ color: '#10B981' }}>{completedEpisodes}</span>
               </h3>
 
               {completedEpisodesList.length === 0 ? (
-                <div className="text-center py-8 text-[#e7e7e7]/50">
+                <div className={`text-center py-8 ${prefix}-text-tertiary`}>
                   <p className="text-sm">No episodes completed yet.</p>
                   <p className="text-xs mt-2">Start writing your first episode!</p>
                                   </div>
@@ -893,29 +1015,30 @@ export default function WorkspacePage() {
                     return (
                       <motion.div
                         key={episodeNum}
-                        className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF99]/40 transition-all"
+                        className={`${prefix}-card-secondary border ${prefix}-border rounded-lg p-4 hover:${prefix}-border transition-all`}
+                        style={{ borderColor: hasPreProduction ? 'rgba(0, 255, 153, 0.4)' : undefined }}
                         whileHover={{ scale: 1.02 }}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs px-2 py-0.5 rounded bg-[#00FF99] text-black font-bold">
+                              <span className={`text-xs px-2 py-0.5 rounded ${prefix}-btn-primary font-bold`}>
                                 EP {episodeNum}
                               </span>
                               {hasPreProduction && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                                <span className={`text-xs px-2 py-0.5 rounded ${prefix}-bg-accent ${prefix}-text-accent`} style={{ color: '#10B981' }}>
                                   ✓
                                 </span>
                               )}
                             </div>
-                            <h4 className="font-semibold text-white text-sm line-clamp-1">
+                            <h4 className={`font-semibold ${prefix}-text-primary text-sm line-clamp-1`}>
                               {episode.episodeTitle || episode.title || `Episode ${episodeNum}`}
                             </h4>
-                            <p className="text-xs text-[#e7e7e7]/60 mt-1">
+                            <p className={`text-xs ${prefix}-text-secondary mt-1`}>
                               {arcInfo.arcTitle}
                             </p>
                             {/* Scene count and timestamp */}
-                            <div className="flex items-center gap-3 mt-2 text-xs text-[#e7e7e7]/40">
+                            <div className={`flex items-center gap-3 mt-2 text-xs ${prefix}-text-tertiary`}>
                               {episode.scenes && (
                                 <span className="flex items-center gap-1">
                                   🎬 {episode.scenes.length} scene{episode.scenes.length !== 1 ? 's' : ''}
@@ -933,7 +1056,7 @@ export default function WorkspacePage() {
                         <div className="flex gap-2 mt-3">
                           <motion.button
                             onClick={() => handleViewEpisode(episodeNum)}
-                            className="flex-1 px-3 py-2 bg-[#36393f] text-[#e7e7e7] text-xs rounded hover:bg-[#4a4a4a] transition-colors font-medium"
+                            className={`flex-1 px-3 py-2 ${prefix}-bg-secondary ${prefix}-text-secondary text-xs rounded hover:${prefix}-bg-secondary/80 transition-colors font-medium`}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                           >
@@ -942,7 +1065,8 @@ export default function WorkspacePage() {
                           {!hasPreProduction ? (
                             <motion.button
                               onClick={() => handleStartPreProduction(episodeNum)}
-                              className="flex-1 px-3 py-2 bg-gradient-to-r from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/50 text-[#00FF99] text-xs rounded hover:from-[#00FF99]/30 hover:to-[#00CC7A]/30 hover:border-[#00FF99] transition-all font-bold"
+                              className={`flex-1 px-3 py-2 ${prefix}-bg-accent border ${prefix}-border text-xs rounded hover:${prefix}-bg-accent/50 transition-all font-bold`}
+                              style={{ color: '#10B981' }}
                               whileHover={{ scale: 1.05, y: -1 }}
                               whileTap={{ scale: 0.95 }}
                             >
@@ -951,7 +1075,8 @@ export default function WorkspacePage() {
                           ) : (
                             <motion.button
                               onClick={() => handleViewPreProduction(episodeNum)}
-                              className="flex-1 px-3 py-2 bg-green-500/20 border border-green-500/40 text-green-400 text-xs rounded hover:bg-green-500/30 transition-colors font-medium"
+                              className={`flex-1 px-3 py-2 ${prefix}-bg-accent border ${prefix}-border text-xs rounded hover:${prefix}-bg-accent/50 transition-colors font-medium`}
+                              style={{ color: '#10B981' }}
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
                             >
@@ -971,7 +1096,7 @@ export default function WorkspacePage() {
                 <div className="space-y-2">
             <button
               onClick={() => router.push('/story-bible')}
-                    className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] text-[#e7e7e7] text-sm rounded-lg hover:border-[#00FF99]/40 hover:text-[#00FF99] transition-all text-left"
+                    className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#36393f] text-[#e7e7e7] text-sm rounded-lg hover:border-[#10B981]/40 hover:text-[#10B981] transition-all text-left"
             >
                     📖 Story Bible
             </button>
@@ -1002,13 +1127,13 @@ export default function WorkspacePage() {
         >
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-bold text-white">Series Progress</h3>
-            <span className="text-sm text-[#00FF99]">
+            <span className="text-sm text-[#10B981]">
               {Math.round((completedEpisodes / totalEpisodes) * 100)}%
             </span>
           </div>
-          <div className="h-3 bg-[#2a2a2a] rounded-full overflow-hidden border border-[#00FF99]/30">
+          <div className="h-3 bg-[#2a2a2a] rounded-full overflow-hidden border border-[#10B981]/30">
             <motion.div
-              className="h-full bg-gradient-to-r from-[#00FF99] via-[#00CC7A] to-[#00FF99]"
+              className="h-full bg-gradient-to-r from-[#10B981] via-[#059669] to-[#10B981]"
               initial={{ width: 0 }}
               animate={{ width: `${(completedEpisodes / totalEpisodes) * 100}%` }}
               transition={{ delay: 0.6, duration: 1, ease: "easeOut" }}
@@ -1019,6 +1144,156 @@ export default function WorkspacePage() {
             <span>Episode {totalEpisodes}</span>
           </div>
         </motion.div>
+
+        {/* Production Assistant Section */}
+        {storyBible?.narrativeArcs && storyBible.narrativeArcs.length > 0 && (
+          <motion.div
+            className="mt-6 bg-[#1a1a1a] border border-[#36393f] rounded-xl p-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#e7e7e7] flex items-center gap-2">
+                <span>🎭</span>
+                Production Assistant
+              </h3>
+              {checkingArcStatuses && (
+                <div className="flex items-center gap-2 text-xs text-[#e7e7e7]/50">
+                  <div className="w-3 h-3 border-2 border-[#10B981] border-t-transparent rounded-full animate-spin" />
+                  <span>Checking...</span>
+                </div>
+              )}
+            </div>
+            
+            <p className="text-sm text-[#e7e7e7]/70 mb-4">
+              Coordinate casting, scheduling, budget, and equipment across all episodes in each arc.
+            </p>
+
+            <div className="space-y-3">
+              {storyBible.narrativeArcs.map((arc: any, arcIndex: number) => {
+                const unlockStatus = arcUnlockStatuses[arcIndex]
+                const episodeRange = getEpisodeRangeForArc(storyBible, arcIndex)
+                const completedInArc = episodeRange.filter(ep => generatedEpisodes[ep]).length
+                const totalInArc = episodeRange.length
+                const hasEpisodePreProd = episodeRange.filter(ep => preProductionStatus[ep]).length
+                
+                const canUnlock = unlockStatus?.canUnlock || false
+                const missingEpisodes = unlockStatus?.missingEpisodes || []
+                const missingEpisodePreProd = unlockStatus?.missingEpisodePreProd || []
+                
+                return (
+                  <motion.div
+                    key={arcIndex}
+                    className={`bg-[#2a2a2a] rounded-lg border-2 p-4 ${
+                      canUnlock 
+                        ? 'border-[#10B981]/50 hover:border-[#10B981] cursor-pointer' 
+                        : 'border-[#36393f] opacity-70'
+                    } transition-all`}
+                    whileHover={canUnlock ? { scale: 1.02 } : {}}
+                    onClick={canUnlock ? () => handleOpenArcPreProduction(arcIndex) : undefined}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-base font-bold text-[#e7e7e7]">
+                            {arc.title || `Arc ${arcIndex + 1}`}
+                          </h4>
+                          {canUnlock && (
+                            <span className="px-2 py-0.5 bg-[#10B981]/20 text-[#10B981] rounded text-xs font-medium border border-[#10B981]/40">
+                              ✓ Ready
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-xs text-[#e7e7e7]/70 mb-3">
+                          <span>
+                            {completedInArc} / {totalInArc} episodes generated
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {hasEpisodePreProd} / {totalInArc} with episode pre-prod
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mb-3">
+                          <div className="w-full bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-[#10B981] to-[#059669] transition-all duration-500"
+                              style={{ width: `${(completedInArc / totalInArc) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Unlock Status Messages */}
+                        {!canUnlock && (
+                          <div className="space-y-1">
+                            {missingEpisodes.length > 0 && (
+                              <p className="text-xs text-yellow-400">
+                                🔒 Missing episodes: {missingEpisodes.join(', ')}
+                              </p>
+                            )}
+                            {missingEpisodePreProd.length > 0 && (
+                              <p className="text-xs text-orange-400">
+                                📋 Complete episode pre-prod for: {missingEpisodePreProd.join(', ')}
+                              </p>
+                            )}
+                            {missingEpisodes.length === 0 && missingEpisodePreProd.length === 0 && (
+                              <p className="text-xs text-[#e7e7e7]/50">
+                                Complete all episodes and their pre-production to unlock
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {canUnlock && (
+                          <p className="text-xs text-[#10B981] font-medium">
+                            ✓ Ready for production assistant! Click to open.
+                          </p>
+                        )}
+                      </div>
+                      
+                      {canUnlock && (
+                        <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenArcPreProduction(arcIndex)
+                          }}
+                            className="px-4 py-2 bg-[#10B981] text-black rounded-lg font-bold hover:bg-[#059669] transition-colors text-sm"
+                        >
+                          Open →
+                        </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const currentStoryBibleId = storyBible?.id || searchParams.get('id') || searchParams.get('storyBibleId')
+                              if (currentStoryBibleId) {
+                                router.push(`/actor-materials/arc/${arcIndex}?storyBibleId=${currentStoryBibleId}`)
+                              }
+                            }}
+                            className="px-4 py-2 bg-[#e2c376] text-black rounded-lg font-bold hover:bg-[#f0d995] transition-colors text-sm"
+                            title="Actor Preparation Materials"
+                          >
+                            🎭 Materials
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+
+            {/* Help Text */}
+            <div className="mt-4 p-3 bg-[#1a1a1a] rounded-lg border border-[#36393f]">
+              <p className="text-xs text-[#e7e7e7]/60">
+                <span className="font-medium text-[#10B981]">💡 Tip:</span> Production assistant becomes available once all episodes in an arc are generated and have completed their episode pre-production. This allows you to coordinate casting, scheduling, and budgeting across the entire arc.
+              </p>
+            </div>
+          </motion.div>
+        )}
       </div>
       
       {/* Episode Recovery Modal */}
@@ -1034,6 +1309,19 @@ export default function WorkspacePage() {
             // Reload episodes after recovery
             window.location.reload()
           }}
+        />
+      )}
+      
+      {/* Episode Generation Suite Modal */}
+      {storyBible && currentStoryBibleId && (
+        <EpisodeGenerationSuite
+          isOpen={showGenerationSuite}
+          onClose={() => setShowGenerationSuite(false)}
+          episodeNumber={currentEpisodeNumber}
+          storyBible={storyBible}
+          storyBibleId={currentStoryBibleId}
+          previousChoice={getPreviousEpisodeChoice()}
+          onComplete={handleEpisodeGenerationComplete}
         />
       )}
     </motion.div>

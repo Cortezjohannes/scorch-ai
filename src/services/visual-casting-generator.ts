@@ -1,12 +1,43 @@
 /**
  * 🎭 Visual Casting Generator Service
  * Orchestrates AI image and video generation for casting characters
- * Combines DALL-E 3, VEO 3, and Imagen 3 services
+ * Uses Gemini (Nano Banana - fast model) for casting images and VEO 3 for videos
+ * 
+ * All images are automatically uploaded to Firebase Storage for persistence.
  */
 
-import { dalle3ImageGenerator, CastingImageRequest, DallE3ImageResponse } from './dalle3-image-generator';
+import { generateImageWithStorage } from './image-generation-with-storage';
 import { veo3VideoGenerator, VEO3VideoRequest, VEO3VideoResponse } from './veo3-video-generator';
-import { imagen3BackupGenerator, CastingImageBackupRequest, Imagen3ImageResponse } from './imagen3-backup-generator';
+
+// Legacy types for backward compatibility
+interface DallE3ImageResponse {
+  imageUrl: string;
+  revisedPrompt?: string;
+  success: boolean;
+  error?: string;
+  metadata?: {
+    size: string;
+    quality: string;
+    style: string;
+    generationTime: number;
+  };
+}
+
+interface Imagen3ImageResponse {
+  imageUrl: string;
+  success: boolean;
+  error?: string;
+}
+
+interface CastingImageRequest {
+  characterName: string;
+  characterDescription: string;
+  physicalTraits: string;
+  ageRange: string;
+  ethnicity?: string;
+  style?: 'headshot' | 'full_body' | 'action_shot' | 'character_study';
+  mood?: 'professional' | 'candid' | 'dramatic' | 'natural';
+}
 
 interface CastingVisualRequest {
   character: {
@@ -28,6 +59,7 @@ interface CastingVisualRequest {
     imageMoods?: Array<'professional' | 'candid' | 'dramatic' | 'natural'>;
   };
   episodeId: string;
+  userId: string; // Required for Firebase Storage upload
   priority?: 'low' | 'medium' | 'high';
 }
 
@@ -226,7 +258,9 @@ export class VisualCastingGenerator {
   }
   
   /**
-   * Generate character images using primary and backup services
+   * Generate character images using Gemini (Nano Banana Pro)
+   * Images are automatically uploaded to Firebase Storage
+   * Uses parallel batching for multiple images
    */
   private async generateCharacterImages(request: CastingVisualRequest): Promise<{
     primary: DallE3ImageResponse[];
@@ -235,81 +269,229 @@ export class VisualCastingGenerator {
   }> {
     const errors: string[] = [];
     const primaryImages: DallE3ImageResponse[] = [];
-    const backupImages: Imagen3ImageResponse[] = [];
+    const backupImages: Imagen3ImageResponse[] = []; // Not used anymore, kept for compatibility
     
     const imageCount = request.visualOptions.imageCount || 2;
     const imageStyles = request.visualOptions.imageStyles || ['headshot', 'character_study'];
     const imageMoods = request.visualOptions.imageMoods || ['professional', 'natural'];
     
-    // Create image requests
-    const imageRequests: CastingImageRequest[] = [];
-    for (let i = 0; i < imageCount; i++) {
-      imageRequests.push({
+    // If only generating 1 image, do it sequentially (no need for parallel)
+    if (imageCount === 1) {
+      const style = imageStyles[0];
+      const mood = imageMoods[0];
+      
+      const prompt = this.buildCharacterPrompt({
         characterName: request.character.name,
         characterDescription: request.character.description,
         physicalTraits: request.character.physicalTraits,
         ageRange: request.character.ageRange,
         ethnicity: request.character.ethnicity,
-        style: imageStyles[i % imageStyles.length],
-        mood: imageMoods[i % imageMoods.length]
+        style,
+        mood
+      });
+      
+      try {
+        console.log(`🎨 [Casting] Generating ${style} image for ${request.character.name}...`);
+        
+        // 🎯 Use NANO BANANA (fast) for casting images
+        const result = await generateImageWithStorage(prompt, {
+          userId: request.userId,
+          context: 'character',
+          aspectRatio: style === 'full_body' ? '9:16' : '1:1',
+          quality: 'hd',
+          style: 'natural',
+          model: 'nano-banana' // Fast model for casting
+        });
+        
+        primaryImages.push({
+          imageUrl: result.imageUrl,
+          success: result.success,
+          error: result.error,
+          metadata: result.metadata ? {
+            size: result.metadata.aspectRatio === '9:16' ? '1024x1792' : '1024x1024',
+            quality: 'hd',
+            style: 'natural',
+            generationTime: result.metadata.generationTime
+          } : undefined
+        });
+        
+        if (!result.success) {
+          errors.push(`Gemini failed for ${style}: ${result.error}`);
+        } else {
+          console.log(`✅ [Casting] ${style} image generated and saved to Storage`);
+        }
+      } catch (error) {
+        errors.push(`Gemini generation error for ${style}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        primaryImages.push({
+          imageUrl: '',
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
+      return {
+        primary: primaryImages,
+        backup: backupImages,
+        errors
+      };
+    }
+    
+    // For multiple images, use parallel generation
+    const { generateImagesInParallel } = await import('@/services/parallel-image-generator');
+    type ParallelTask<T> = { id: string; execute: () => Promise<T>; priority?: number };
+    
+    const tasks: ParallelTask<DallE3ImageResponse> = [];
+    
+    for (let i = 0; i < imageCount; i++) {
+      const style = imageStyles[i % imageStyles.length];
+      const mood = imageMoods[i % imageMoods.length];
+      
+      const prompt = this.buildCharacterPrompt({
+        characterName: request.character.name,
+        characterDescription: request.character.description,
+        physicalTraits: request.character.physicalTraits,
+        ageRange: request.character.ageRange,
+        ethnicity: request.character.ethnicity,
+        style,
+        mood
+      });
+      
+      tasks.push({
+        id: `${request.character.name}-${style}-${i}`,
+        execute: async () => {
+          console.log(`🎨 [Casting] Generating ${style} image for ${request.character.name}...`);
+          
+          // 🎯 Use NANO BANANA (fast) for casting images
+          const result = await generateImageWithStorage(prompt, {
+            userId: request.userId,
+            context: 'character',
+            aspectRatio: style === 'full_body' ? '9:16' : '1:1',
+            quality: 'hd',
+            style: 'natural',
+            model: 'nano-banana' // Fast model for casting
+          });
+          
+          const imageResponse: DallE3ImageResponse = {
+            imageUrl: result.imageUrl,
+            success: result.success,
+            error: result.error,
+            metadata: result.metadata ? {
+              size: result.metadata.aspectRatio === '9:16' ? '1024x1792' : '1024x1024',
+              quality: 'hd',
+              style: 'natural',
+              generationTime: result.metadata.generationTime
+            } : undefined
+          };
+          
+          if (!result.success) {
+            throw new Error(`Gemini failed for ${style}: ${result.error}`);
+          } else {
+            console.log(`✅ [Casting] ${style} image generated and saved to Storage`);
+          }
+          
+          return imageResponse;
+        },
+        onError: (error) => {
+          errors.push(`Gemini generation error for ${style}: ${error.message}`);
+          primaryImages.push({
+            imageUrl: '',
+            success: false,
+            error: error.message
+          });
+        }
       });
     }
     
-    // Try DALL-E 3 primary generation
-    try {
-      for (const imageRequest of imageRequests) {
-        const result = await dalle3ImageGenerator.generateCharacterHeadshot(imageRequest);
-        primaryImages.push(result);
-        
-        if (!result.success) {
-          errors.push(`DALL-E 3 failed for ${imageRequest.style}: ${result.error}`);
-        }
-        
-        // Small delay between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    } catch (error) {
-      errors.push(`DALL-E 3 service error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    // Execute in parallel with batching
+    const parallelResult = await generateImagesInParallel(tasks, {
+      rateLimitRPM: 20,
+      sequentialCount: 3,
+      batchSize: 12
+    });
     
-    // Use Imagen 3 backup if primary failed or as additional options
-    const failedPrimary = primaryImages.filter(img => !img.success).length;
-    if (failedPrimary > 0) {
-      console.log(`🖼️ Using Imagen 3 backup for ${failedPrimary} failed images...`);
-      
-      try {
-        // Convert to backup request format
-        const backupRequests: CastingImageBackupRequest[] = imageRequests.slice(0, failedPrimary).map(req => ({
-          characterName: req.characterName,
-          characterDescription: req.characterDescription,
-          physicalTraits: req.physicalTraits,
-          ageRange: req.ageRange,
-          ethnicity: req.ethnicity,
-          style: req.style,
-          mood: req.mood
-        }));
-        
-        for (const backupRequest of backupRequests) {
-          const result = await imagen3BackupGenerator.generateCharacterHeadshot(backupRequest);
-          backupImages.push(result);
-          
-          if (!result.success) {
-            errors.push(`Imagen 3 backup failed for ${backupRequest.style}: ${result.error}`);
-          }
-          
-          // Delay between backup requests
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-      } catch (error) {
-        errors.push(`Imagen 3 backup service error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Process results
+    for (const taskResult of parallelResult.results) {
+      if (taskResult.success && taskResult.result) {
+        primaryImages.push(taskResult.result);
+      } else if (taskResult.error) {
+        errors.push(taskResult.error);
+        primaryImages.push({
+          imageUrl: '',
+          success: false,
+          error: taskResult.error
+        });
       }
     }
     
     return {
       primary: primaryImages,
-      backup: backupImages,
+      backup: backupImages, // Empty, kept for backward compatibility
       errors
     };
+  }
+  
+  /**
+   * Build a detailed prompt for character image generation
+   */
+  private buildCharacterPrompt(request: CastingImageRequest): string {
+    const {
+      characterName,
+      characterDescription,
+      physicalTraits,
+      ageRange,
+      ethnicity,
+      style = 'headshot',
+      mood = 'professional'
+    } = request;
+    
+    let prompt = '';
+    
+    // Base character description
+    if (style === 'headshot') {
+      prompt = `Professional casting headshot of a ${ageRange} year old`;
+    } else if (style === 'full_body') {
+      prompt = `Full body character portrait of a ${ageRange} year old`;
+    } else if (style === 'action_shot') {
+      prompt = `Dynamic action shot of a ${ageRange} year old`;
+    } else {
+      prompt = `Character study portrait of a ${ageRange} year old`;
+    }
+    
+    // Add ethnicity if specified
+    if (ethnicity) {
+      prompt += ` ${ethnicity}`;
+    }
+    
+    // Add physical traits
+    prompt += ` person with ${physicalTraits}`;
+    
+    // Add character context
+    if (characterDescription) {
+      prompt += `. Character context: ${characterDescription}`;
+    }
+    
+    // Add style specifics
+    if (style === 'headshot') {
+      prompt += '. Professional headshot style, clean background, good lighting, casting photo quality';
+    } else if (style === 'full_body') {
+      prompt += '. Full body shot, neutral pose, clean background';
+    } else if (style === 'action_shot') {
+      prompt += '. Dynamic pose showing character in action, cinematic lighting';
+    }
+    
+    // Add mood specifics
+    if (mood === 'professional') {
+      prompt += '. Professional photography, high quality, studio lighting';
+    } else if (mood === 'dramatic') {
+      prompt += '. Dramatic lighting, intense expression, cinematic quality';
+    } else if (mood === 'natural') {
+      prompt += '. Natural lighting, relaxed expression, candid feel';
+    }
+    
+    // Technical specifications
+    prompt += '. High resolution, photorealistic, detailed, professional quality';
+    
+    return prompt;
   }
   
   /**
@@ -341,20 +523,10 @@ export class VisualCastingGenerator {
    * Get service status and availability
    */
   async getServiceStatus() {
-    const status = {
-      dalle3: { available: true, service: 'DALL-E 3 (Primary)' },
-      veo3: { available: true, service: 'VEO 3 (Video)' },
-      imagen3: { available: false, service: 'Imagen 3 (Backup)' }
+    return {
+      gemini: { available: true, service: 'Gemini Nano Banana Pro (Images)' },
+      veo3: { available: true, service: 'VEO 3 (Video)' }
     };
-    
-    try {
-      // Check Imagen 3 availability
-      status.imagen3.available = await imagen3BackupGenerator.isAvailable();
-    } catch (error) {
-      status.imagen3.available = false;
-    }
-    
-    return status;
   }
   
   /**

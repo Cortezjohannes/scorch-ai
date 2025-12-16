@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect } from 'react'
 import FAQ from '@/components/FAQ'
 import Navigation from '@/components/Navigation'
@@ -41,13 +41,13 @@ export default function CriteriaPage() {
         initial={{ y: 0 }}
         animate={{ y: isScrolled ? -100 : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#00FF99]/20"
+        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#10B981]/20"
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/greenlitailogo.png" alt="Greenlit" className="h-10 w-auto" />
-              <span className="text-[#00FF99] font-bold text-2xl">Greenlit</span>
+              <span className="text-[#10B981] font-bold text-2xl">Greenlit</span>
             </div>
             <Navigation />
           </div>
@@ -77,7 +77,7 @@ export default function CriteriaPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <button className="bg-[#00FF99] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#00CC7A] transition-colors">
+            <button className="bg-[#10B981] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#059669] transition-colors">
               Apply Now →
             </button>
           </motion.div>
@@ -96,9 +96,9 @@ export default function CriteriaPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Chops (The Talent)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Chops (The Talent)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed mb-4">
                 Demonstrated acting ability. We look at reels, IMDb/Backstage credits, training, and raw talent.
               </p>
@@ -108,9 +108,9 @@ export default function CriteriaPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Clout (The Audience)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Clout (The Audience)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed mb-4">
                 An existing, mobilized fanbase. Crucially: We prioritize engagement rate over raw follower count. A mobilized niche audience is powerful.
               </p>
@@ -120,9 +120,9 @@ export default function CriteriaPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Creativity (The Vision)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Creativity (The Vision)</h3>
               <p className="text-[#E7E7E7]/80 leading-relaxed mb-4">
                 A clear, compelling vision for your series. Are you ready to think like a Showrunner?
               </p>
@@ -138,13 +138,13 @@ export default function CriteriaPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="bg-gradient-to-r from-[#00FF99]/10 to-[#00FF99]/5 border-2 border-[#00FF99] rounded-2xl p-12 text-center"
+            className="bg-gradient-to-r from-[#10B981]/10 to-[#10B981]/5 border-2 border-[#10B981] rounded-2xl p-12 text-center"
           >
-            <h2 className="text-4xl md:text-6xl font-bold text-[#00FF99] mb-8">
+            <h2 className="text-4xl md:text-6xl font-bold text-[#10B981] mb-8">
               The Rule of Two
             </h2>
             <p className="text-xl md:text-2xl text-[#E7E7E7]/90 max-w-4xl mx-auto">
-              To qualify for the Accelerator (Tiers 1 & 2), you need a strong foundation in at least <span className="text-[#00FF99] font-bold">TWO</span> of the Three C's. We don't expect everyone to have it all on Day 1.
+              To qualify for the Accelerator (Tiers 1 & 2), you need a strong foundation in at least <span className="text-[#10B981] font-bold">TWO</span> of the Three C's. We don't expect everyone to have it all on Day 1.
             </p>
           </motion.div>
         </div>
@@ -167,7 +167,7 @@ export default function CriteriaPage() {
               transition={{ duration: 0.6 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 1
               </div>
               <h3 className="text-xl font-bold mb-2">The Digital Filter</h3>
@@ -181,7 +181,7 @@ export default function CriteriaPage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 2
               </div>
               <h3 className="text-xl font-bold mb-2">The Vetting</h3>
@@ -195,7 +195,7 @@ export default function CriteriaPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 3
               </div>
               <h3 className="text-xl font-bold mb-2">The Pitch Session</h3>
@@ -209,7 +209,7 @@ export default function CriteriaPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-center"
             >
-              <div className="bg-[#00FF99] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+              <div className="bg-[#10B981] text-black w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                 4
               </div>
               <h3 className="text-xl font-bold mb-2">The Decision & Onboarding</h3>
@@ -230,22 +230,22 @@ export default function CriteriaPage() {
             We score applicants 1-5 across the Four Pillars. This score determines your placement in the ecosystem (The Studio Partners, Accelerator Producers, Talent Roster, or Development Slate).
           </p>
           
-          <div className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-8">
+          <div className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-8">
             <div className="grid md:grid-cols-4 gap-8">
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Chops</h3>
+                <h3 className="text-2xl font-bold text-[#10B981] mb-4">Chops</h3>
                 <p className="text-[#E7E7E7]/80">Demonstrated acting ability through reels, credits, and professional experience.</p>
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Clout</h3>
+                <h3 className="text-2xl font-bold text-[#10B981] mb-4">Clout</h3>
                 <p className="text-[#E7E7E7]/80">An existing fanbase and proven audience engagement across platforms.</p>
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Creativity</h3>
+                <h3 className="text-2xl font-bold text-[#10B981] mb-4">Creativity</h3>
                 <p className="text-[#E7E7E7]/80">A clear, compelling vision for the series you want to produce.</p>
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Chemistry</h3>
+                <h3 className="text-2xl font-bold text-[#10B981] mb-4">Chemistry</h3>
                 <p className="text-[#E7E7E7]/80">The ability to collaborate and work effectively with others.</p>
               </div>
             </div>
@@ -270,18 +270,18 @@ export default function CriteriaPage() {
             </p>
             
             <div className="grid md:grid-cols-3 gap-8 mt-12">
-              <div className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8">
-                <h3 className="text-xl font-bold text-[#00FF99] mb-4">High Clout + High Chops</h3>
+              <div className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8">
+                <h3 className="text-xl font-bold text-[#10B981] mb-4">High Clout + High Chops</h3>
                 <p className="text-[#E7E7E7]/80">Perfect match for immediate production</p>
               </div>
               
-              <div className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8">
-                <h3 className="text-xl font-bold text-[#00FF99] mb-4">High Clout + High Creativity</h3>
+              <div className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8">
+                <h3 className="text-xl font-bold text-[#10B981] mb-4">High Clout + High Creativity</h3>
                 <p className="text-[#E7E7E7]/80">We'll help you cast the perfect actors</p>
               </div>
               
-              <div className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8">
-                <h3 className="text-xl font-bold text-[#00FF99] mb-4">High Chops + High Creativity</h3>
+              <div className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8">
+                <h3 className="text-xl font-bold text-[#10B981] mb-4">High Chops + High Creativity</h3>
                 <p className="text-[#E7E7E7]/80">We'll connect you with engaged audiences</p>
               </div>
             </div>

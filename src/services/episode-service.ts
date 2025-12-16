@@ -40,8 +40,15 @@ function generateEpisodeId(storyBibleId: string, episodeNumber: number): string 
 
 /**
  * Helper function to load episodes from localStorage
+ * Server-safe: Returns empty object if called on server (no localStorage available)
  */
 function loadFromLocalStorage(storyBibleId: string): Record<number, Episode> {
+  // Server-side check: localStorage doesn't exist on server
+  if (typeof window === 'undefined') {
+    console.log('⚠️ loadFromLocalStorage called on server - returning empty object')
+    return {}
+  }
+  
   const stored = localStorage.getItem(LOCALSTORAGE_KEY) ||
                  localStorage.getItem('scorched-episodes') ||
                  localStorage.getItem('reeled-episodes')
@@ -84,6 +91,20 @@ export async function saveEpisode(
     throw new Error('storyBibleId is required to save an episode')
   }
 
+  // If userId not provided, try to get it from Firebase auth directly (cross-device fix)
+  let finalUserId = userId
+  if (!finalUserId && typeof window !== 'undefined') {
+    try {
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        finalUserId = currentUser.uid
+        console.log('🔍 saveEpisode: userId not provided, using auth.currentUser:', finalUserId)
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not check Firebase auth in saveEpisode:', error)
+    }
+  }
+
   const now = new Date().toISOString()
   
   const updatedEpisode: Episode = {
@@ -97,23 +118,23 @@ export async function saveEpisode(
     editCount: episode.editCount || 0,
     generatedAt: episode.generatedAt || now,
     lastModified: now,
-    ownerId: userId,
+    ownerId: finalUserId,
   } as Episode
 
-  if (userId) {
+  if (finalUserId) {
     // AUTHENTICATED: Firestore ONLY - no localStorage backup
     try {
       // Check if user is actually authenticated
       const currentUser = auth.currentUser
       console.log('🔐 Firestore save attempt:', {
-        userId,
+        userId: finalUserId,
         currentAuthUser: currentUser?.uid,
         isAuthenticated: !!currentUser,
         storyBibleId,
         episodeId: updatedEpisode.id,
         episodeNumber: updatedEpisode.episodeNumber,
         documentStoryBibleId: updatedEpisode.storyBibleId,
-        path: `users/${userId}/storyBibles/${storyBibleId}/episodes/${updatedEpisode.id}`
+        path: `users/${finalUserId}/storyBibles/${storyBibleId}/episodes/${updatedEpisode.id}`
       })
       
       if (!currentUser) {
@@ -122,11 +143,11 @@ export async function saveEpisode(
         throw new Error('AUTH_EXPIRED:Your session has expired. Please sign in again to continue.')
       }
       
-      if (currentUser.uid !== userId) {
-        throw new Error(`Auth mismatch: currentUser.uid (${currentUser.uid}) !== userId (${userId})`)
+      if (currentUser.uid !== finalUserId) {
+        throw new Error(`Auth mismatch: currentUser.uid (${currentUser.uid}) !== userId (${finalUserId})`)
       }
       
-      const docRef = doc(db, 'users', userId, 'storyBibles', storyBibleId, 'episodes', updatedEpisode.id)
+      const docRef = doc(db, 'users', finalUserId, 'storyBibles', storyBibleId, 'episodes', updatedEpisode.id)
       
       // Sanitize data to remove undefined values and convert timestamps
       const sanitizeData = (obj: any): any => {
@@ -196,10 +217,25 @@ export async function getEpisodesForStoryBible(
     return {}
   }
 
-  if (userId) {
+  // If userId not provided, try to get it from Firebase auth directly (cross-device fix)
+  let finalUserId = userId
+  if (!finalUserId && typeof window !== 'undefined') {
+    try {
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        finalUserId = currentUser.uid
+        console.log('🔍 getEpisodesForStoryBible: userId not provided, using auth.currentUser:', finalUserId)
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not check Firebase auth in getEpisodesForStoryBible:', error)
+    }
+  }
+
+  if (finalUserId) {
     // AUTHENTICATED: Try Firestore first, fallback to localStorage
     try {
-      const episodesRef = collection(db, 'users', userId, 'storyBibles', storyBibleId, 'episodes')
+      console.log('📖 Loading episodes from Firestore:', { storyBibleId, userId: finalUserId })
+      const episodesRef = collection(db, 'users', finalUserId, 'storyBibles', storyBibleId, 'episodes')
       const q = query(episodesRef, orderBy('episodeNumber', 'asc'))
       const snapshot = await getDocs(q)
       

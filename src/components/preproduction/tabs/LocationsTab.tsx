@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { PreProductionData, Location, LocationOptionsData, LocationOption } from '@/types/preproduction'
+import type { PreProductionData, Location, LocationOptionsData, LocationOption, LocationsData } from '@/types/preproduction'
 import { EditableField } from '../shared/EditableField'
 import { StatusBadge } from '../shared/StatusBadge'
 import { CollaborativeNotes } from '../shared/CollaborativeNotes'
+import { LocationGenerationProgressOverlay } from '../shared/LocationGenerationProgressOverlay'
 import { getStoryBible } from '@/services/story-bible-service'
 
 interface LocationsTabProps {
@@ -26,31 +27,64 @@ export function LocationsTab({
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [locationOptions, setLocationOptions] = useState<LocationOptionsData | null>(null)
+  const [generationProgress, setGenerationProgress] = useState<{
+    currentScene: number
+    totalScenes: number
+    currentSceneTitle: string
+    completedScenes: number
+  } | null>(null)
+  const [locationPreference, setLocationPreference] = useState<'story-based' | 'user-based'>('story-based')
   
-  const locationsData = preProductionData.locations || {
-    locations: [],
-    lastUpdated: Date.now()
+  // Detect context
+  const isArcContext = preProductionData.type === 'arc'
+  const isEpisodeContext = preProductionData.type === 'episode'
+  
+  // Normalize locations data - handle both old and new structure (episode only)
+  const episodeLocations = isEpisodeContext ? preProductionData.locations : undefined
+  const locationsData = (episodeLocations || {}) as Partial<LocationsData> & { selectedLocations?: Location[], pendingOptions?: any }
+  const locations: Location[] = (() => {
+    if (!isEpisodeContext) return []
+    if (Array.isArray(locationsData.locations)) return locationsData.locations
+    if (Array.isArray(locationsData.selectedLocations)) return locationsData.selectedLocations
+    return []
+  })()
+  
+  // Create normalized locations data object
+  const normalizedLocationsData: Partial<LocationsData> & { selectedLocations?: Location[], pendingOptions?: any } = {
+    locations,
+    pendingOptions: locationsData.pendingOptions,
+    selectedLocations: locationsData.selectedLocations || locations,
+    lastUpdated: locationsData.lastUpdated || Date.now(),
+    episodeNumber: isEpisodeContext ? locationsData.episodeNumber : undefined,
+    episodeTitle: isEpisodeContext ? locationsData.episodeTitle : undefined,
+    totalLocations: locations.length,
+    updatedBy: locationsData.updatedBy || currentUserId
   }
 
-  const breakdownData = preProductionData.scriptBreakdown
+  const breakdownData = isEpisodeContext ? preProductionData.scriptBreakdown : undefined
   const scriptsData = (preProductionData as any).scripts
 
   // Rehydrate pending options from Firestore (if present)
   useEffect(() => {
+    if (!isEpisodeContext) return
     const pending = (preProductionData.locations as any)?.pendingOptions
     if (pending && !locationOptions) {
       setLocationOptions(pending as LocationOptionsData)
+      // Restore location preference if saved
+      if (pending.locationPreference) {
+        setLocationPreference(pending.locationPreference)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preProductionData.locations])
+  }, [isEpisodeContext, isEpisodeContext ? preProductionData.locations : undefined])
 
   const handleLocationUpdate = async (locationId: string, updates: Partial<Location>) => {
-    const updatedLocations = locationsData.locations.map(loc =>
+    const updatedLocations = locations.map(loc =>
       loc.id === locationId ? { ...loc, ...updates } : loc
     )
     
     await onUpdate('locations', {
-      ...locationsData,
+      ...normalizedLocationsData,
       locations: updatedLocations,
       lastUpdated: Date.now()
     })
@@ -67,7 +101,7 @@ export function LocationsTab({
       contact: '',
       phone: '',
       notes: '',
-      status: 'scouting',
+      status: 'scouted',
       secured: false,
       cost: 0,
       availability: [],
@@ -76,15 +110,15 @@ export function LocationsTab({
     }
     
     await onUpdate('locations', {
-      ...locationsData,
-      locations: [...locationsData.locations, newLocation],
+      ...normalizedLocationsData,
+      locations: [...locations, newLocation],
       lastUpdated: Date.now()
     })
   }
 
   const handleAddComment = async (locationId: string, content: string) => {
-    const location = locationsData.locations.find(l => l.id === locationId)
-    if (!location) return
+    const location = locations.find(l => l.id === locationId)
+    if (!location) return Promise.resolve()
 
     const newComment = {
       id: `comment_${Date.now()}`,
@@ -94,14 +128,14 @@ export function LocationsTab({
       timestamp: Date.now()
     }
 
-    const updatedLocations = locationsData.locations.map(loc =>
+    const updatedLocations = locations.map(loc =>
       loc.id === locationId
         ? { ...loc, comments: [...(loc.comments || []), newComment] }
         : loc
     )
 
     await onUpdate('locations', {
-      ...locationsData,
+      ...normalizedLocationsData,
       locations: updatedLocations,
       lastUpdated: Date.now()
     })
@@ -158,86 +192,235 @@ export function LocationsTab({
         console.log('⚠️ No casting data - locations will be based on story setting only')
       }
 
-      // 3. Call API
-      console.log('🤖 Calling location generation API...')
-      const response = await fetch('/api/generate/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preProductionId: (preProductionData as any).id,
-          storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
-          userId: currentUserId,
-          breakdownData: breakdownData,
-          scriptData: scriptsData.fullScript,
-          storyBibleData: storyBible,
-          castingData: castingData || undefined // Pass casting data if available
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || errorData.error || 'Failed to generate location options')
+      // 2c. Fetch previous episodes' locations for reuse
+      if (!isEpisodeContext) {
+        setGenerationError('Location generation is only available for episode pre-production')
+        setIsGenerating(false)
+        return
+      }
+      
+      const { getEpisodePreProduction } = await import('@/services/preproduction-firestore')
+      const previousEpisodeLocations: Location[] = []
+      const currentEpisodeNumber = preProductionData.episodeNumber
+      
+      if (currentEpisodeNumber > 1) {
+        console.log(`📚 Fetching previous episodes (1-${currentEpisodeNumber - 1}) for location reuse...`)
+        for (let epNum = 1; epNum < currentEpisodeNumber; epNum++) {
+          try {
+            const previousEpPreProd = await getEpisodePreProduction(
+              currentUserId,
+              preProductionData.storyBibleId,
+              epNum
+            )
+            
+            if (previousEpPreProd?.locations?.locations) {
+              const epLocations = previousEpPreProd.locations.locations
+              if (Array.isArray(epLocations) && epLocations.length > 0) {
+                previousEpisodeLocations.push(...epLocations)
+                console.log(`  ✅ Episode ${epNum}: Found ${epLocations.length} locations`)
+              }
+            }
+          } catch (error) {
+            console.warn(`  ⚠️ Could not fetch Episode ${epNum}:`, error)
+            // Continue with other episodes
+          }
+        }
+        
+        if (previousEpisodeLocations.length > 0) {
+          console.log(`✅ Found ${previousEpisodeLocations.length} previous location(s) for potential reuse`)
+        } else {
+          console.log('⚠️ No previous episodes with locations found')
+        }
+      } else {
+        console.log('ℹ️  First episode - no previous locations to check')
       }
 
-      const result = await response.json()
+      // 2d. Extract story bible locations
+      const storyBibleLocations = storyBible?.worldBuilding?.locations || []
+      if (storyBibleLocations.length > 0) {
+        console.log(`📖 Found ${storyBibleLocations.length} story bible location(s) for reference`)
+      }
 
-      console.log('✅ Location options generated successfully!')
-      console.log('  Options:', result.locations.sceneRequirements.reduce((sum: number, req: any) => sum + req.options.length, 0))
+      // 3. Extract scene requirements
+      const sceneRequirements = breakdownData.scenes || []
+      const totalScenes = sceneRequirements.length
 
-      // 4. Store options (user selects which to keep)
-      setLocationOptions(result.locations)
+      if (totalScenes === 0) {
+        throw new Error('No scenes found in script breakdown')
+      }
+
+      // Initialize progress
+      setGenerationProgress({
+        currentScene: 1,
+        totalScenes,
+        currentSceneTitle: sceneRequirements[0]?.sceneTitle || `Scene ${sceneRequirements[0]?.sceneNumber || 1}`,
+        completedScenes: 0
+      })
+
+      // 4. Generate locations for each scene sequentially
+      const allSceneRequirements = []
+      let cancelled = false
+
+      for (let i = 0; i < sceneRequirements.length; i++) {
+        if (cancelled) break
+
+        const scene = sceneRequirements[i]
+        
+        // Update progress
+        setGenerationProgress({
+          currentScene: i + 1,
+          totalScenes,
+          currentSceneTitle: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
+          completedScenes: i
+        })
+
+        console.log(`\n🎬 Generating locations for Scene ${scene.sceneNumber}: ${scene.sceneTitle}`)
+
+        // Generate locations for this scene
+        const response = await fetch('/api/generate/locations/scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sceneRequirement: {
+              sceneNumber: scene.sceneNumber,
+              sceneTitle: scene.sceneTitle,
+              locationType: scene.location?.toUpperCase().includes('INT') ? 'INT' : 'EXT',
+              timeOfDay: scene.timeOfDay || 'DAY',
+              sceneDescription: scene.sceneTitle || `Scene ${scene.sceneNumber}`,
+              characterCount: scene.characters?.length || 0,
+              specialRequirements: scene.specialRequirements || []
+            },
+            scriptData: scriptsData.fullScript,
+            storyBibleData: storyBible,
+            castingData: castingData || undefined,
+            episodeNumber: isEpisodeContext ? preProductionData.episodeNumber : undefined,
+            episodeTitle: isEpisodeContext ? (scriptsData.fullScript.title || `Episode ${preProductionData.episodeNumber}`) : undefined,
+            locationPreference: locationPreference,
+            previousEpisodeLocations: previousEpisodeLocations,
+            storyBibleLocations: storyBibleLocations
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(`Failed to generate locations for Scene ${scene.sceneNumber}: ${errorData.details || errorData.error || 'Unknown error'}`)
+        }
+
+        const result = await response.json()
+        
+        allSceneRequirements.push({
+          sceneNumber: scene.sceneNumber,
+          sceneTitle: scene.sceneTitle,
+          locationType: (scene.location?.toUpperCase().includes('INT') ? 'INT' : 'EXT') as 'INT' | 'EXT',
+          timeOfDay: scene.timeOfDay || 'DAY',
+          options: result.locationOptions || []
+        })
+
+        console.log(`✅ Scene ${scene.sceneNumber} completed: ${result.locationOptions?.length || 0} options generated`)
+      }
+
+      // Combine all scene requirements
+      const locationOptionsData: LocationOptionsData = {
+        episodeNumber: preProductionData.episodeNumber,
+        episodeTitle: scriptsData.fullScript.title || `Episode ${preProductionData.episodeNumber}`,
+        sceneRequirements: allSceneRequirements,
+        lastUpdated: Date.now(),
+        generated: true,
+        locationPreference: locationPreference
+      }
+
+      console.log('✅ All scenes completed!')
+      console.log('  Total scene requirements:', allSceneRequirements.length)
+      console.log('  Total options:', allSceneRequirements.reduce((sum: number, req: any) => sum + (req.options?.length || 0), 0))
+
+      // 5. Store options (user selects which to keep)
+      setLocationOptions(locationOptionsData)
+      setGenerationProgress(null)
+      
       // Persist pending options so they survive tab switches
       await onUpdate('locations', {
-        ...locationsData,
-        pendingOptions: result.locations,
+        ...normalizedLocationsData,
+        pendingOptions: locationOptionsData,
         lastUpdated: Date.now()
       })
 
     } catch (error: any) {
       console.error('❌ Error generating location options:', error)
       setGenerationError(error.message || 'Failed to generate location options. Please try again.')
-      // Attempt redirect to Scripts tab on failure
-      try {
-        const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[]
-        const scriptsBtn = buttons.find(b => b.textContent?.toLowerCase().includes('scripts'))
-        scriptsBtn?.click()
-      } catch {}
+      setGenerationProgress(null)
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  // Handle cancel generation
+  const handleCancelGeneration = () => {
+    setIsGenerating(false)
+    setGenerationProgress(null)
+    setGenerationError('Generation cancelled by user')
   }
 
   // Save selected locations
   const handleSaveSelectedLocations = async () => {
     if (!locationOptions) return
 
+    // Import normalizeLocationName for generating recurringLocationKey
+    const { normalizeLocationName } = await import('@/services/location-matcher')
+
     // Convert selected LocationOptions to Location[] format
-    const selectedLocations: Location[] = locationOptions.sceneRequirements
-      .flatMap(req => 
-        req.options
-          .filter(opt => opt.selected)
-          .map(opt => ({
-            id: opt.id,
-            name: opt.name,
-            address: opt.address || '',
-            contactPerson: '',
-            contactPhone: '',
-            contactEmail: '',
-            scenes: req.sceneNumber,
-            permitInfo: {
-              required: opt.logistics.permitRequired,
-              cost: opt.logistics.permitCost || 0,
-              status: opt.logistics.permitRequired ? 'pending' : 'not-needed',
-              notes: opt.logistics.notes
-            },
-            status: 'scouted' as const,
-            secured: false,
-            cost: opt.estimatedCost || 0,
-            availability: [],
-            imageUrls: [],
-            comments: []
-          }))
+    const selectedLocations: Location[] = (locationOptions?.sceneRequirements || [])
+      .flatMap((req: any) => 
+        (req.options || [])
+          .filter((opt: LocationOption) => opt.selected)
+          .map((opt: LocationOption) => {
+            const recurringKey = normalizeLocationName(req.sceneTitle)
+            const isReuse = opt.isReuse || false
+            
+            return {
+              id: opt.id,
+              name: opt.name,
+              address: opt.address || '',
+              type: opt.type || 'interior',
+              scenes: Array.isArray(req.sceneNumber) ? req.sceneNumber : [req.sceneNumber],
+              requirements: [],
+              contact: '',
+              phone: '',
+              email: '',
+              sourcing: opt.sourcing || 'other',
+              sourcingUrl: opt.sourcingPlatform ? (opt.sourcingPlatform.includes('Airbnb') ? 'https://airbnb.com' : 
+                                                     opt.sourcingPlatform.includes('Peerspace') ? 'https://peerspace.com' :
+                                                     opt.sourcingPlatform.includes('Giggster') ? 'https://giggster.com' : undefined) : undefined,
+              permitCost: opt.logistics.permitCost,
+              insuranceRequired: false,
+              status: 'scouted' as const,
+              secured: false,
+              cost: opt.estimatedCost || 0,
+              scoutingReport: opt.scoutingReport,
+              availability: [],
+              imageUrls: [],
+              notes: '',
+              comments: [],
+              // Location reuse tracking
+              recurringLocationKey: recurringKey,
+              originalEpisode: isReuse ? undefined : (isEpisodeContext ? preProductionData.episodeNumber : undefined), // Only set if not a reuse
+              reusedFromLocationId: isReuse ? opt.reusedFromLocationId : undefined,
+              // Legacy fields for backward compatibility
+              contactPerson: '',
+              contactPhone: '',
+              contactEmail: '',
+              permitInfo: {
+                required: opt.logistics.permitRequired,
+                cost: opt.logistics.permitCost || 0,
+                status: opt.logistics.permitRequired ? 'pending' : 'not-needed',
+                notes: opt.logistics.notes,
+                expirationDate: undefined
+              },
+              availableDays: [],
+              powerAccess: opt.logistics.powerAccess,
+              parkingAvailable: opt.logistics.parkingAvailable,
+              restroomAccess: opt.logistics.restroomAccess
+            }
+          })
       )
 
     if (selectedLocations.length === 0) {
@@ -246,8 +429,8 @@ export function LocationsTab({
     }
 
     await onUpdate('locations', {
-      ...locationsData,
-      locations: [...locationsData.locations, ...selectedLocations],
+      ...normalizedLocationsData,
+      locations: [...locations, ...selectedLocations],
       pendingOptions: null,
       lastUpdated: Date.now()
     })
@@ -262,11 +445,11 @@ export function LocationsTab({
 
     const updated = { 
       ...locationOptions,
-      sceneRequirements: locationOptions.sceneRequirements.map((req, idx) => 
+      sceneRequirements: (locationOptions?.sceneRequirements || []).map((req: any, idx: number) => 
         idx === reqIndex
           ? {
               ...req,
-              options: req.options.map((opt, optIdx) =>
+              options: (req.options || []).map((opt: any, optIdx: number) =>
                 optIdx === optIndex
                   ? { ...opt, selected: !opt.selected }
                   : opt
@@ -287,8 +470,8 @@ export function LocationsTab({
     // Auto-save: upsert selected options into finalized locations, remove deselected ones sourced from options
     try {
       const selectedOptionIds = new Set<string>()
-      const selectedFromOptions = updated.sceneRequirements.flatMap(req =>
-        req.options.filter(o => o.selected).map(o => {
+      const selectedFromOptions = updated.sceneRequirements.flatMap((req: any) =>
+        req.options.filter((o: any) => o.selected).map((o: any) => {
           selectedOptionIds.add(o.id)
           const loc: Location = {
             id: o.id,
@@ -321,7 +504,7 @@ export function LocationsTab({
         })
       )
 
-      const existing = locationsData.locations || []
+      const existing = locations
       const nonOptionLocations = existing.filter(l => !(l.crewNotes || '').startsWith('source:option:'))
       const existingOptionLocations = existing.filter(l => (l.crewNotes || '').startsWith('source:option:'))
 
@@ -348,27 +531,37 @@ export function LocationsTab({
     } catch {}
   }
 
-  // Stats
-  const totalLocations = locationsData.locations.length
-  const securedCount = locationsData.locations.filter(l => l.secured).length
-  const totalCost = locationsData.locations.reduce((sum, l) => sum + (l.cost || 0), 0)
+  // Stats - locations array is already defined at top
+  const totalLocations = locations?.length || 0
+  const securedCount = (locations || []).filter((l: Location) => (l as any).secured).length
+  const totalCost = (locations || []).reduce((sum: number, l: Location) => sum + ((l as any).cost || 0), 0)
 
   const handleCancelSelection = async () => {
     setLocationOptions(null)
-    await onUpdate('locations', {
-      ...locationsData,
-      pendingOptions: null,
-      lastUpdated: Date.now()
-    })
+      await onUpdate('locations', {
+        ...normalizedLocationsData,
+        pendingOptions: null,
+        lastUpdated: Date.now()
+      })
   }
 
   return (
     <div className="space-y-6">
+      {/* Progress Overlay */}
+      <LocationGenerationProgressOverlay
+        isVisible={generationProgress !== null}
+        currentScene={generationProgress?.currentScene || 1}
+        totalScenes={generationProgress?.totalScenes || 1}
+        currentSceneTitle={generationProgress?.currentSceneTitle || ''}
+        completedScenes={generationProgress?.completedScenes || 0}
+        onCancel={handleCancelGeneration}
+      />
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
           <div className="text-sm text-[#e7e7e7]/70 mb-1">Total Locations</div>
-          <div className="text-2xl font-bold text-[#00FF99]">{totalLocations}</div>
+          <div className="text-2xl font-bold text-[#10B981]">{totalLocations}</div>
         </div>
         
         <div className="bg-[#2a2a2a] rounded-lg p-4 border border-[#36393f]">
@@ -390,42 +583,90 @@ export function LocationsTab({
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'grid' ? 'bg-[#00FF99] text-black' : 'bg-[#2a2a2a] text-[#e7e7e7]/70'
-            }`}
-          >
-            Grid View
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'list' ? 'bg-[#00FF99] text-black' : 'bg-[#2a2a2a] text-[#e7e7e7]/70'
-            }`}
-          >
-            List View
-          </button>
-        </div>
+      <div className="space-y-4">
+        {/* Location Preference Toggle */}
+        {breakdownData && scriptsData?.fullScript && (
+          <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-[#e7e7e7] mb-2 block">
+                  Location Source
+                </label>
+                <p className="text-xs text-[#e7e7e7]/60 mb-3">
+                  Choose whether to generate locations based on story setting or your/cast location
+                </p>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setLocationPreference('story-based')}
+                    disabled={isGenerating}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      locationPreference === 'story-based'
+                        ? 'bg-[#10B981] text-black shadow-lg'
+                        : 'bg-[#2a2a2a] text-[#e7e7e7]/70 hover:bg-[#36393f]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    📍 Story Setting
+                    <span className="block text-xs mt-1 opacity-80">
+                      {locationPreference === 'story-based' && '(Default - matches story location)'}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setLocationPreference('user-based')}
+                    disabled={isGenerating}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      locationPreference === 'user-based'
+                        ? 'bg-[#10B981] text-black shadow-lg'
+                        : 'bg-[#2a2a2a] text-[#e7e7e7]/70 hover:bg-[#36393f]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    👤 User/Cast Location
+                    <span className="block text-xs mt-1 opacity-80">
+                      {locationPreference === 'user-based' && '(Practical - uses your/cast location)'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="flex items-center gap-3">
-          {breakdownData && scriptsData?.fullScript && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleGenerateLocations}
-              disabled={isGenerating}
-              className="px-4 py-2 bg-[#00FF99]/10 text-[#00FF99] border border-[#00FF99]/30 rounded-lg hover:bg-[#00FF99]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'grid' ? 'bg-[#10B981] text-black' : 'bg-[#2a2a2a] text-[#e7e7e7]/70'
+              }`}
             >
-              {isGenerating ? '🔄 Generating...' : '🔄 Regenerate Options'}
+              Grid View
             </button>
-          )}
-          <button
-            onClick={handleAddLocation}
-            className="px-4 py-2 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors"
-          >
-            + Add Location
-          </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'list' ? 'bg-[#10B981] text-black' : 'bg-[#2a2a2a] text-[#e7e7e7]/70'
+              }`}
+            >
+              List View
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {breakdownData && scriptsData?.fullScript && (
+              <button
+                onClick={handleGenerateLocations}
+                disabled={isGenerating}
+                className="px-4 py-2 bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 rounded-lg hover:bg-[#10B981]/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGenerating ? '🔄 Generating...' : locationOptions ? '🔄 Regenerate Options' : '✨ Generate Location Options'}
+              </button>
+            )}
+            <button
+              onClick={handleAddLocation}
+              className="px-4 py-2 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors"
+            >
+              + Add Location
+            </button>
+          </div>
         </div>
       </div>
 
@@ -448,9 +689,9 @@ export function LocationsTab({
               </button>
               <button
                 onClick={handleSaveSelectedLocations}
-                className="px-4 py-2 bg-[#00FF99] text-black rounded-lg hover:bg-[#00CC7A] transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-[#10B981] text-black rounded-lg hover:bg-[#059669] transition-colors text-sm font-medium"
               >
-                Save Selected ({locationOptions.sceneRequirements.reduce((sum, req) => sum + req.options.filter(o => o.selected).length, 0)})
+                Save Selected ({locationOptions?.sceneRequirements?.reduce((sum: number, req: any) => sum + (req.options?.filter((o: any) => o.selected).length || 0), 0) || 0})
               </button>
             </div>
           </div>
@@ -461,7 +702,7 @@ export function LocationsTab({
             </div>
           )}
 
-          {locationOptions.sceneRequirements.map((req, reqIndex) => (
+          {locationOptions?.sceneRequirements?.map((req: any, reqIndex: number) => (
             <div key={req.sceneNumber} className="bg-[#2a2a2a] rounded-lg border border-[#36393f] p-6">
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-[#e7e7e7]">
@@ -473,7 +714,7 @@ export function LocationsTab({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {req.options.map((opt, optIndex) => (
+                {(req.options || []).map((opt: any, optIndex: number) => (
                   <LocationOptionCard
                     key={opt.id}
                     option={opt}
@@ -488,7 +729,7 @@ export function LocationsTab({
       )}
 
       {/* Empty State / Generation UI */}
-      {!locationOptions && locationsData.locations.length === 0 ? (
+      {!locationOptions && (!locations || locations.length === 0) ? (
         <div className="text-center py-16 bg-[#2a2a2a] rounded-lg border border-[#36393f]">
           <div className="text-6xl mb-4">📍</div>
           <h3 className="text-xl font-bold text-[#e7e7e7] mb-2">No Locations Added</h3>
@@ -517,7 +758,7 @@ export function LocationsTab({
               <button
                 onClick={handleGenerateLocations}
                 disabled={isGenerating}
-                className="px-6 py-3 bg-[#00FF99] text-black rounded-lg font-medium hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? '🔄 Generating Options...' : '✨ Generate Location Options'}
               </button>
@@ -547,7 +788,7 @@ export function LocationsTab({
               exit={{ opacity: 0 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
             >
-              {locationsData.locations.map((location) => (
+              {locations.map((location) => (
                 <LocationCard
                   key={location.id}
                   location={location}
@@ -568,7 +809,7 @@ export function LocationsTab({
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              {locationsData.locations.map((location) => (
+              {locations.map((location) => (
                 <LocationListItem
                   key={location.id}
                   location={location}
@@ -581,6 +822,207 @@ export function LocationsTab({
             </motion.div>
           )}
         </AnimatePresence>
+      )}
+    </div>
+  )
+}
+
+// Sourcing Section Component
+function SourcingSection({ location }: { location: Location }) {
+  if (!location.sourcing) return null
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#36393f]">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#e7e7e7]/50">Source:</span>
+          <span className="text-xs font-medium text-[#e7e7e7] capitalize">
+            {location.sourcing.replace('-', ' ')}
+          </span>
+        </div>
+        
+        {location.sourcingUrl && (
+          <a 
+            href={location.sourcingUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-[#10B981] hover:text-[#059669] transition-colors flex items-center gap-1"
+          >
+            View on {
+              location.sourcing === 'airbnb' ? 'Airbnb' : 
+              location.sourcing === 'peerspace' ? 'Peerspace' : 
+              location.sourcing === 'giggster' ? 'Giggster' : 
+              'Platform'
+            } →
+          </a>
+        )}
+      </div>
+      
+      {location.listingId && (
+        <div className="flex items-center gap-2 text-xs text-[#e7e7e7]/50">
+          <span>Listing ID:</span>
+          <code className="px-1.5 py-0.5 bg-[#1a1a1a] rounded text-[#e7e7e7]/70 font-mono">
+            {location.listingId}
+          </code>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Scouting Report Card Component
+function ScoutingReportCard({ location }: { location: Location }) {
+  const [expanded, setExpanded] = React.useState(false)
+  const report = location.scoutingReport
+
+  if (!report) return null
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#36393f]">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between text-sm font-medium text-[#e7e7e7] hover:text-[#10B981] transition-colors"
+      >
+        <span>Full Scouting Report</span>
+        <span className="text-xs">{expanded ? '▼' : '▶'}</span>
+      </button>
+      
+      {expanded && (
+        <div className="mt-3 space-y-4 text-sm">
+          {/* Technical Section */}
+          {report.technical && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3">
+              <h5 className="text-xs font-semibold text-[#e7e7e7] mb-2">Technical Specifications</h5>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-[#e7e7e7]/50">Power Access:</span>
+                  <span className="ml-2 text-[#e7e7e7]">{report.technical.powerAccess ? 'Yes' : 'No'}</span>
+                </div>
+                {report.technical.powerOutlets > 0 && (
+                  <div>
+                    <span className="text-[#e7e7e7]/50">Outlets:</span>
+                    <span className="ml-2 text-[#e7e7e7]">{report.technical.powerOutlets}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-[#e7e7e7]/50">Lighting:</span>
+                  <span className="ml-2 text-[#e7e7e7] capitalize">{report.technical.lighting}</span>
+                </div>
+                <div>
+                  <span className="text-[#e7e7e7]/50">Acoustics:</span>
+                  <span className="ml-2 text-[#e7e7e7] capitalize">{report.technical.acoustics}</span>
+                </div>
+                {report.technical.noiseIssues && report.technical.noiseIssues.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-[#e7e7e7]/50">Noise Issues:</span>
+                    <span className="ml-2 text-[#e7e7e7]">{report.technical.noiseIssues.join(', ')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Logistics Section */}
+          {report.logistics && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3">
+              <h5 className="text-xs font-semibold text-[#e7e7e7] mb-2">Logistics</h5>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-[#e7e7e7]/50">Parking:</span>
+                  <span className="ml-2 text-[#e7e7e7]">
+                    {report.logistics.parkingAvailable ? 
+                      `${report.logistics.parkingSpaces || 'Yes'}${report.logistics.parkingCost ? ` ($${report.logistics.parkingCost})` : ''}` : 
+                      'No'
+                    }
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#e7e7e7]/50">Loading:</span>
+                  <span className="ml-2 text-[#e7e7e7] capitalize">{report.logistics.loadingAccess}</span>
+                </div>
+                <div>
+                  <span className="text-[#e7e7e7]/50">Restrooms:</span>
+                  <span className="ml-2 text-[#e7e7e7]">
+                    {report.logistics.restroomAccess ? 
+                      `${report.logistics.restroomCount || 'Yes'}` : 
+                      'No'
+                    }
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#e7e7e7]/50">Nearby Food:</span>
+                  <span className="ml-2 text-[#e7e7e7]">{report.logistics.nearbyFood ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Permits Section */}
+          {report.permits && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3">
+              <h5 className="text-xs font-semibold text-[#e7e7e7] mb-2">Permits & Regulations</h5>
+              <div className="space-y-1 text-xs">
+                <div>
+                  <span className="text-[#e7e7e7]/50">Permit Required:</span>
+                  <span className="ml-2 text-[#e7e7e7]">{report.permits.permitRequired ? 'Yes' : 'No'}</span>
+                </div>
+                {report.permits.permitRequired && (
+                  <>
+                    {report.permits.permitType && (
+                      <div>
+                        <span className="text-[#e7e7e7]/50">Type:</span>
+                        <span className="ml-2 text-[#e7e7e7]">{report.permits.permitType}</span>
+                      </div>
+                    )}
+                    {report.permits.permitCost !== undefined && (
+                      <div>
+                        <span className="text-[#e7e7e7]/50">Cost:</span>
+                        <span className="ml-2 text-[#e7e7e7]">${report.permits.permitCost}</span>
+                      </div>
+                    )}
+                    {report.permits.permitProcessingDays && (
+                      <div>
+                        <span className="text-[#e7e7e7]/50">Processing:</span>
+                        <span className="ml-2 text-[#e7e7e7]">{report.permits.permitProcessingDays} days</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Restrictions Section */}
+          {report.restrictions && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3">
+              <h5 className="text-xs font-semibold text-[#e7e7e7] mb-2">Restrictions</h5>
+              <ul className="space-y-1 text-xs text-[#e7e7e7]/70 list-disc list-inside">
+                {report.restrictions.timeRestrictions.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+                {report.restrictions.equipmentRestrictions.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+                {report.restrictions.otherRestrictions.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {/* Scout Notes */}
+          {report.scoutNotes && (
+            <div className="bg-[#1a1a1a] rounded-lg p-3">
+              <h5 className="text-xs font-semibold text-[#e7e7e7] mb-2">Scout Notes</h5>
+              <p className="text-xs text-[#e7e7e7]/70">{report.scoutNotes}</p>
+              {report.scoutedBy && report.scoutedDate && (
+                <p className="text-xs text-[#e7e7e7]/50 mt-2">
+                  Scouted by {report.scoutedBy} on {new Date(report.scoutedDate).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -608,7 +1050,7 @@ function LocationCard({
     <motion.div
       layout
       className={`bg-[#2a2a2a] rounded-lg border transition-colors ${
-        isSelected ? 'border-[#00FF99]' : 'border-[#36393f]'
+        isSelected ? 'border-[#10B981]' : 'border-[#36393f]'
       }`}
     >
       {/* Image/Icon */}
@@ -625,8 +1067,8 @@ function LocationCard({
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <EditableField
-            value={location.name}
-            onSave={(value) => onUpdate({ name: value })}
+            value={String(location.name ?? '') as string}
+            onSave={(value) => onUpdate({ name: String(value) })}
             className="text-lg font-bold text-[#e7e7e7]"
           />
           <div className="flex items-center gap-2">
@@ -641,8 +1083,8 @@ function LocationCard({
 
         {/* Address */}
         <EditableField
-          value={location.address}
-          onSave={(value) => onUpdate({ address: value })}
+          value={String(location.address ?? '') as string}
+          onSave={(value) => onUpdate({ address: String(value) })}
           placeholder="Add address..."
           className="text-sm text-[#e7e7e7]/70"
         />
@@ -666,9 +1108,9 @@ function LocationCard({
             <span className="text-[#e7e7e7]/50">$</span>
             <EditableField
               value={location.cost?.toString() || '0'}
-              onSave={(value) => onUpdate({ cost: parseFloat(value) || 0 })}
+              onSave={(value) => onUpdate({ cost: typeof value === 'number' ? value : parseFloat(String(value)) || 0 })}
               type="number"
-              className="text-[#00FF99] font-medium"
+              className="text-[#10B981] font-medium"
             />
           </div>
         </div>
@@ -676,12 +1118,12 @@ function LocationCard({
         {/* Scenes */}
         {location.scenes && location.scenes.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {location.scenes.map((scene, idx) => (
+            {location.scenes.map((scene: number | string, idx: number) => (
               <span
                 key={idx}
                 className="px-2 py-1 bg-[#1a1a1a] rounded text-xs text-[#e7e7e7]/70"
               >
-                Scene {scene}
+                Scene {typeof scene === 'string' ? scene : String(scene)}
               </span>
             ))}
           </div>
@@ -690,7 +1132,7 @@ function LocationCard({
         {/* Expand/Collapse */}
         <button
           onClick={onSelect}
-          className="w-full py-2 text-sm text-[#00FF99] hover:text-[#00CC7A] transition-colors"
+          className="w-full py-2 text-sm text-[#10B981] hover:text-[#059669] transition-colors"
         >
           {isSelected ? '▲ Show Less' : '▼ Show More'}
         </button>
@@ -704,18 +1146,24 @@ function LocationCard({
               exit={{ height: 0, opacity: 0 }}
               className="space-y-3 pt-3 border-t border-[#36393f]"
             >
+              {/* Sourcing Section */}
+              <SourcingSection location={location} />
+
+              {/* Scouting Report */}
+              <ScoutingReportCard location={location} />
+
               {/* Contact */}
               <div className="space-y-1">
                 <div className="text-xs text-[#e7e7e7]/50">Contact</div>
                 <EditableField
-                  value={location.contact}
-                  onSave={(value) => onUpdate({ contact: value })}
+                  value={String(location.contact ?? '') as string}
+                  onSave={(value) => onUpdate({ contact: String(value) })}
                   placeholder="Contact name..."
                   className="text-sm text-[#e7e7e7]"
                 />
                 <EditableField
-                  value={location.phone}
-                  onSave={(value) => onUpdate({ phone: value })}
+                  value={String(location.phone ?? '') as string}
+                  onSave={(value) => onUpdate({ phone: String(value) })}
                   placeholder="Phone number..."
                   className="text-sm text-[#e7e7e7]"
                 />
@@ -725,8 +1173,8 @@ function LocationCard({
               <div className="space-y-1">
                 <div className="text-xs text-[#e7e7e7]/50">Notes</div>
                 <EditableField
-                  value={location.notes}
-                  onSave={(value) => onUpdate({ notes: value })}
+                  value={String(location.notes ?? '') as string}
+                  onSave={(value) => onUpdate({ notes: String(value) })}
                   placeholder="Add notes..."
                   multiline
                   className="text-sm text-[#e7e7e7]"
@@ -736,7 +1184,7 @@ function LocationCard({
               {/* Comments */}
               <CollaborativeNotes
                 comments={location.comments || []}
-                onAddComment={onAddComment}
+                onAddComment={async (content: string) => await onAddComment(content)}
                 currentUserId={currentUserId}
                 currentUserName={currentUserName}
               />
@@ -764,7 +1212,7 @@ function LocationOptionCard({
     <motion.div
       layout
       className={`bg-[#1a1a1a] rounded-lg border transition-all cursor-pointer ${
-        isSelected ? 'border-[#00FF99] ring-2 ring-[#00FF99]/20' : 'border-[#36393f] hover:border-[#4a4a4a]'
+        isSelected ? 'border-[#10B981] ring-2 ring-[#10B981]/20' : 'border-[#36393f] hover:border-[#4a4a4a]'
       }`}
       onClick={onToggle}
     >
@@ -776,10 +1224,17 @@ function LocationOptionCard({
             checked={isSelected}
             onChange={() => {}}
             onClick={(e) => e.stopPropagation()}
-            className="mt-1 w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#00FF99] focus:ring-[#00FF99]"
+            className="mt-1 w-4 h-4 rounded border-[#36393f] bg-[#2a2a2a] text-[#10B981] focus:ring-[#10B981]"
           />
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-[#e7e7e7] text-base">{option.name}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-[#e7e7e7] text-base">{option.name}</h4>
+              {option.isReuse && option.reusedFromEpisode && (
+                <span className="px-2 py-0.5 bg-[#10B981]/20 text-[#10B981] text-xs font-medium rounded border border-[#10B981]/30">
+                  ♻️ Reused from Ep {option.reusedFromEpisode}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-[#e7e7e7]/70 mt-1">{option.description}</p>
           </div>
         </div>
@@ -789,7 +1244,7 @@ function LocationOptionCard({
           <div className="flex items-center gap-2">
             <span className={`text-xl font-bold ${
               option.estimatedCost === 0 ? 'text-green-400' : 
-              option.estimatedCost < 150 ? 'text-[#00FF99]' : 
+              option.estimatedCost < 150 ? 'text-[#10B981]' : 
               'text-yellow-400'
             }`}>
               ${option.estimatedCost}
@@ -801,8 +1256,8 @@ function LocationOptionCard({
             </span>
           </div>
           <span className={`px-2 py-1 rounded text-xs font-medium ${
-            option.sourcing === 'free' ? 'bg-green-500/20 text-green-400' :
-            option.sourcing === 'borrow' ? 'bg-blue-500/20 text-blue-400' :
+            option.sourcing === 'actor-owned' || option.sourcing === 'public-space' ? 'bg-green-500/20 text-green-400' :
+            option.sourcing === 'rental' || option.sourcing === 'airbnb' || option.sourcing === 'peerspace' || option.sourcing === 'giggster' ? 'bg-blue-500/20 text-blue-400' :
             'bg-yellow-500/20 text-yellow-400'
           }`}>
             {option.sourcing}
@@ -839,7 +1294,7 @@ function LocationOptionCard({
             e.stopPropagation()
             setIsExpanded(!isExpanded)
           }}
-          className="w-full py-2 text-sm text-[#00FF99] hover:text-[#00CC7A] transition-colors"
+          className="w-full py-2 text-sm text-[#10B981] hover:text-[#059669] transition-colors"
         >
           {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
         </button>
@@ -935,8 +1390,8 @@ function LocationListItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1">
             <EditableField
-              value={location.name}
-              onSave={(value) => onUpdate({ name: value })}
+              value={String(location.name ?? '') as string}
+              onSave={(value) => onUpdate({ name: String(value) })}
               className="text-lg font-bold text-[#e7e7e7]"
             />
             <StatusBadge status={location.status} />
@@ -952,7 +1407,7 @@ function LocationListItem({
         <div className="flex items-center gap-4">
           <div className="text-right">
             <div className="text-sm text-[#e7e7e7]/50">Cost</div>
-            <div className="text-lg font-bold text-[#00FF99]">${location.cost?.toLocaleString() || 0}</div>
+            <div className="text-lg font-bold text-[#10B981]">${location.cost?.toLocaleString() || 0}</div>
           </div>
           
           <button
@@ -977,8 +1432,8 @@ function LocationListItem({
               <div>
                 <div className="text-xs text-[#e7e7e7]/50 mb-1">Contact</div>
                 <EditableField
-                  value={location.contact}
-                  onSave={(value) => onUpdate({ contact: value })}
+                  value={String(location.contact ?? '') as string}
+                  onSave={(value) => onUpdate({ contact: String(value) })}
                   placeholder="Contact name..."
                   className="text-sm text-[#e7e7e7]"
                 />
@@ -987,8 +1442,8 @@ function LocationListItem({
               <div>
                 <div className="text-xs text-[#e7e7e7]/50 mb-1">Phone</div>
                 <EditableField
-                  value={location.phone}
-                  onSave={(value) => onUpdate({ phone: value })}
+                  value={String(location.phone ?? '') as string}
+                  onSave={(value) => onUpdate({ phone: String(value) })}
                   placeholder="Phone number..."
                   className="text-sm text-[#e7e7e7]"
                 />
@@ -997,7 +1452,7 @@ function LocationListItem({
 
             <CollaborativeNotes
               comments={location.comments || []}
-              onAddComment={onAddComment}
+              onAddComment={async (content: string) => await onAddComment(content)}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
             />

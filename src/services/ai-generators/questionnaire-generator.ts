@@ -2,7 +2,7 @@
  * Questionnaire Generator - AI Service
  * Generates contextual questions based on episode/script/breakdown for Props/Wardrobe and Equipment generation
  * 
- * Uses EngineAIRouter with Gemini 2.5 Pro for contextual understanding
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for contextual understanding
  * 
  * Standards:
  * - Generate project-specific questions tailored to script content
@@ -34,6 +34,8 @@ interface QuestionnaireGenerationParams {
   episodeNumber: number
   episodeTitle: string
   questionnaireType: 'props-wardrobe' | 'equipment' | 'both'
+  isArcContext?: boolean
+  episodeNumbers?: number[]
 }
 
 export interface QuestionnaireQuestion {
@@ -62,17 +64,18 @@ export interface Questionnaire {
  * Generate contextual questionnaire for Props/Wardrobe and/or Equipment
  */
 export async function generateQuestionnaire(params: QuestionnaireGenerationParams): Promise<Questionnaire> {
-  const { scriptData, breakdownData, storyBible, castingData, episodeNumber, episodeTitle, questionnaireType } = params
+  const { scriptData, breakdownData, storyBible, castingData, episodeNumber, episodeTitle, questionnaireType, isArcContext, episodeNumbers } = params
 
   console.log('❓ Generating questionnaire for', questionnaireType)
   console.log('📋 Analyzing', breakdownData.scenes.length, 'scenes')
+  console.log('  Context:', isArcContext ? `ARC (${episodeNumbers?.length || 0} episodes)` : `EPISODE ${episodeNumber}`)
 
   // Build AI prompts
   const systemPrompt = buildSystemPrompt()
-  const userPrompt = buildUserPrompt(scriptData, breakdownData, storyBible, castingData, episodeTitle, questionnaireType)
+  const userPrompt = buildUserPrompt(scriptData, breakdownData, storyBible, castingData, episodeTitle, questionnaireType, isArcContext, episodeNumbers)
 
   try {
-    // Use EngineAIRouter with Gemini 2.5 Pro (analytical + contextual understanding)
+    // Use EngineAIRouter with Gemini 3 Pro Preview (analytical + contextual understanding)
     console.log('🤖 Calling AI for questionnaire generation...')
     const response = await EngineAIRouter.generateContent({
       prompt: userPrompt,
@@ -86,7 +89,7 @@ export async function generateQuestionnaire(params: QuestionnaireGenerationParam
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
     
     // Parse AI response into structured questionnaire
-    const questionnaire = parseQuestionnaire(response.content, questionnaireType, episodeNumber, episodeTitle)
+    const questionnaire = parseQuestionnaire(response.content, questionnaireType, episodeNumber, episodeTitle, isArcContext)
     
     console.log('✅ Questionnaire generated:', questionnaire.categories.length, 'categories')
     console.log('  Total questions:', questionnaire.categories.reduce((sum, cat) => sum + cat.questions.length, 0))
@@ -155,22 +158,46 @@ function buildUserPrompt(
   storyBible: any,
   castingData: CastingData | undefined,
   episodeTitle: string,
-  questionnaireType: 'props-wardrobe' | 'equipment' | 'both'
+  questionnaireType: 'props-wardrobe' | 'equipment' | 'both',
+  isArcContext?: boolean,
+  episodeNumbers?: number[]
 ): string {
-  let prompt = `Generate a contextual questionnaire for ${questionnaireType === 'both' ? 'Props/Wardrobe and Equipment' : questionnaireType === 'props-wardrobe' ? 'Props/Wardrobe' : 'Equipment'} generation for this ${episodeTitle} episode.\n\n`
+  const contextLabel = isArcContext ? `arc (${episodeNumbers?.length || 0} episodes)` : `episode`
+  const contextName = isArcContext ? episodeTitle : episodeTitle
+  let prompt = `Generate a contextual questionnaire for ${questionnaireType === 'both' ? 'Props/Wardrobe and Equipment' : questionnaireType === 'props-wardrobe' ? 'Props/Wardrobe' : 'Equipment'} generation for this ${contextName} ${contextLabel}.\n\n`
 
-  // Story context
+  // Story context (CORE DATA)
   prompt += `**STORY CONTEXT:**\n`
   prompt += `Series: ${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}\n`
+  if (storyBible?.seriesOverview) {
+    prompt += `Series Overview: ${storyBible.seriesOverview}\n`
+  }
   prompt += `Genre: ${storyBible?.genre || 'Drama'}\n`
   prompt += `Setting: ${storyBible?.setting || storyBible?.location || 'Urban'}\n`
+  if (storyBible?.worldBuilding?.setting) {
+    prompt += `World Setting: ${storyBible.worldBuilding.setting}\n`
+  }
+  if (storyBible?.worldBuilding?.rules) {
+    prompt += `World Rules: ${typeof storyBible.worldBuilding.rules === 'string' ? storyBible.worldBuilding.rules.substring(0, 150) : ''}\n`
+  }
   prompt += `Production Budget: $1k-$20k TOTAL for entire series (32 episodes)\n`
   prompt += `Episode Runtime: ~5 minutes\n\n`
 
-  // Episode context
-  prompt += `**EPISODE:** ${episodeTitle}\n`
-  prompt += `Scenes: ${breakdownData.scenes.length}\n`
-  prompt += `Characters: ${breakdownData.totalCharacters || 0}\n\n`
+  // Episode/Arc context
+  if (isArcContext) {
+    prompt += `**ARC:** ${episodeTitle}\n`
+    prompt += `Episodes: ${episodeNumbers?.length || 0}\n`
+    prompt += `Total Scenes: ${breakdownData.scenes.length} (across all episodes)\n`
+    // Aggregate unique characters from all scenes
+    const uniqueCharacters = new Set(breakdownData.scenes.flatMap(s => s.characters?.map((c: any) => c.name) || []))
+    prompt += `Total Characters: ${uniqueCharacters.size} (across all episodes)\n\n`
+  } else {
+    prompt += `**EPISODE:** ${episodeTitle}\n`
+    prompt += `Scenes: ${breakdownData.scenes.length}\n`
+    // Calculate unique characters from scenes
+    const uniqueCharacters = new Set(breakdownData.scenes.flatMap(s => s.characters?.map((c: any) => c.name) || []))
+    prompt += `Characters: ${uniqueCharacters.size}\n\n`
+  }
 
   // Script breakdown highlights
   prompt += `**SCRIPT BREAKDOWN HIGHLIGHTS:**\n`
@@ -211,14 +238,24 @@ function buildUserPrompt(
 
   // Task description
   prompt += `**TASK:**\n`
-  prompt += `Generate 8-12 contextual questions that will help generate accurate ${questionnaireType === 'both' ? 'props/wardrobe and equipment' : questionnaireType} breakdowns.\n\n`
-  
-  prompt += `Questions should:\n`
-  prompt += `1. Be specific to THIS script's needs (not generic)\n`
-  prompt += `2. Identify cost-saving opportunities (owned equipment, cast-owned props)\n`
-  prompt += `3. Gather information about existing resources\n`
-  prompt += `4. Consider micro-budget constraints\n`
-  prompt += `5. Cover all relevant categories\n\n`
+  if (isArcContext) {
+    prompt += `Generate 8-12 contextual questions that will help generate accurate ${questionnaireType === 'both' ? 'props/wardrobe and equipment' : questionnaireType} breakdowns for the ENTIRE ARC (all ${episodeNumbers?.length || 0} episodes).\n\n`
+    prompt += `Questions should:\n`
+    prompt += `1. Be specific to THIS ARC's needs across all episodes (not generic)\n`
+    prompt += `2. Identify cost-saving opportunities for the entire arc (owned equipment, cast-owned props)\n`
+    prompt += `3. Gather information about existing resources for the whole series\n`
+    prompt += `4. Consider micro-budget constraints for the entire arc\n`
+    prompt += `5. Cover all relevant categories for arc-wide production\n`
+    prompt += `6. Ask about resources that will be shared across multiple episodes\n\n`
+  } else {
+    prompt += `Generate 8-12 contextual questions that will help generate accurate ${questionnaireType === 'both' ? 'props/wardrobe and equipment' : questionnaireType} breakdowns.\n\n`
+    prompt += `Questions should:\n`
+    prompt += `1. Be specific to THIS script's needs (not generic)\n`
+    prompt += `2. Identify cost-saving opportunities (owned equipment, cast-owned props)\n`
+    prompt += `3. Gather information about existing resources\n`
+    prompt += `4. Consider micro-budget constraints\n`
+    prompt += `5. Cover all relevant categories\n\n`
+  }
 
   prompt += `**OUTPUT FORMAT:**\n\n`
   prompt += `Return a JSON object with this structure:\n`
@@ -261,7 +298,8 @@ function parseQuestionnaire(
   aiResponse: string,
   questionnaireType: 'props-wardrobe' | 'equipment' | 'both',
   episodeNumber: number,
-  episodeTitle: string
+  episodeTitle: string,
+  isArcContext?: boolean
 ): Questionnaire {
   try {
     // Clean AI output (remove markdown code blocks if present)

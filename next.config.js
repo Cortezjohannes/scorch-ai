@@ -9,11 +9,36 @@ const nextConfig = {
     domains: [
       'dalleproduse.blob.core.windows.net',
       'oaidalleapiprodscus.blob.core.windows.net',
-      'images.unsplash.com'
+      'images.unsplash.com',
+      'storage.googleapis.com',
+      'firebasestorage.googleapis.com',
+      'greenlitai.firebasestorage.app'
+    ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.firebasestorage.app',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'greenlitai.firebasestorage.app',
+        pathname: '/**',
+      },
     ],
   },
   env: {
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    // Note: GEMINI_API_KEY removed - server-side only, accessed via process.env at runtime
     UNSPLASH_ACCESS_KEY: process.env.UNSPLASH_ACCESS_KEY,
     UNSPLASH_SECRET_KEY: process.env.UNSPLASH_SECRET_KEY,
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -31,6 +56,14 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Configure to skip static generation for problematic routes
+  // This prevents Next.js from trying to prerender pages that use framer-motion
+  generateBuildId: async () => {
+    return 'build-' + Date.now()
+  },
+  // Skip static optimization to avoid prerendering errors
+  // Pages with 'use client' and dynamic = 'force-dynamic' should not be prerendered
+  skipTrailingSlashRedirect: true,
   // For pages using useSearchParams
   experimental: {
     serverComponentsExternalPackages: [
@@ -39,6 +72,7 @@ const nextConfig = {
       'node-fetch',
       'uuid',
       'firebase',
+      'firebase-admin',
       'worker_threads',
       'fs',
       'path',
@@ -46,10 +80,13 @@ const nextConfig = {
       'util',
       'http',
       'https',
+      'http2',
       'stream',
       'zlib',
       'events',
-      '@google/generative-ai'
+      '@google/generative-ai',
+      'framer-motion',
+      'motion-dom'
     ],
     missingSuspenseWithCSRBailout: false
   },
@@ -123,7 +160,9 @@ const nextConfig = {
         stream: require.resolve('stream-browserify'),
         buffer: require.resolve('buffer'),
         process: require.resolve('process/browser'),
-        worker_threads: false
+        worker_threads: false,
+        http2: false,
+        'firebase-admin': false
       };
       
       // Fix for GoogleGenerativeAI package in the browser - remove null-loader to fix build

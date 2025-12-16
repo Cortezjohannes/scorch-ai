@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from '@/components/ui/ClientMotion';
 import { useProject, MarketingGuide } from '@/context/ProjectContext';
 
 export default function MarketingPage() {

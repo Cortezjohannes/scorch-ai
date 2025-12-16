@@ -125,7 +125,7 @@ export function ScriptsTab({
         <button 
           onClick={handleGenerateScript}
           disabled={isGenerating}
-          className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
             <span className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export function ScriptsTab({
               onClick={() => setViewMode('script')}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                 viewMode === 'script' 
-                  ? 'bg-[#00FF99] text-black' 
+                  ? 'bg-[#10B981] text-black' 
                   : 'text-[#e7e7e7] hover:bg-[#36393f]'
               }`}
             >
@@ -172,7 +172,7 @@ export function ScriptsTab({
               onClick={() => setViewMode('breakdown')}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                 viewMode === 'breakdown' 
-                  ? 'bg-[#00FF99] text-black' 
+                  ? 'bg-[#10B981] text-black' 
                   : 'text-[#e7e7e7] hover:bg-[#36393f]'
               }`}
             >

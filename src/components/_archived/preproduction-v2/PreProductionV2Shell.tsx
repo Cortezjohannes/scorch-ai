@@ -179,10 +179,10 @@ export const PreProductionV2Shell: React.FC<PreProductionV2ShellProps> = ({
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     flex-shrink-0 px-4 py-4 text-sm font-medium transition-all relative
-                    ${isActive ? 'text-[#00FF99]' : 'opacity-70 hover:opacity-100'}
+                    ${isActive ? 'text-[#10B981]' : 'opacity-70 hover:opacity-100'}
                   `}
                   style={{
-                    borderBottom: isActive ? '2px solid #00FF99' : '2px solid transparent'
+                    borderBottom: isActive ? '2px solid #10B981' : '2px solid transparent'
                   }}
                 >
                   <div className="flex items-center gap-2">

@@ -2310,3 +2310,667 @@ html {
         display: none;
     }
 }
+
+/* ============================================
+   LIGHT MODE STYLES
+   ============================================ */
+
+/* CSS Variables for Light Mode */
+:root {
+    --light-gold-primary: #C9A961;
+    --light-gold-secondary: #B8944F;
+    --light-gold-accent: #F5E6D3;
+    --light-gold-hover: #A67C3D;
+    --light-text-primary: #1A1A1A;
+    --light-text-secondary: #4A5568;
+    --light-text-tertiary: #718096;
+    --light-bg-white: #FFFFFF;
+    --light-bg-off-white: #F2F3F5;
+    --light-border: #E2E8F0;
+}
+
+/* Light Mode Base Styles */
+body.light-mode {
+    background-color: var(--light-bg-white);
+    color: var(--light-text-primary);
+}
+
+/* Comprehensive Green to Gold Replacement in Light Mode */
+/* Remove all green glows and replace with subtle gold accents */
+body.light-mode * {
+    /* Remove green text shadows by default */
+}
+
+body.light-mode .header-brand-text,
+body.light-mode .uprising-link {
+    text-shadow: 0 0 8px rgba(201, 169, 97, 0.2) !important;
+}
+
+/* Ensure no green colors leak through */
+body.light-mode .main-header {
+    border-bottom-color: rgba(201, 169, 97, 0.15) !important;
+}
+
+/* Light Mode Header */
+body.light-mode .main-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--light-border);
+}
+
+body.light-mode .main-header {
+    border-bottom-color: rgba(201, 169, 97, 0.2) !important;
+}
+
+body.light-mode .header-brand-text {
+    color: var(--light-gold-primary) !important;
+    text-shadow: 0 0 10px rgba(201, 169, 97, 0.3) !important;
+}
+
+body.light-mode .header-logo-img {
+    filter: drop-shadow(0 0 15px rgba(201, 169, 97, 0.4)) !important;
+}
+
+body.light-mode .header-logo:hover .header-logo-img {
+    filter: drop-shadow(0 0 25px rgba(201, 169, 97, 0.7)) !important;
+}
+
+body.light-mode .nav-link {
+    color: var(--light-text-secondary);
+}
+
+body.light-mode .nav-link:hover {
+    color: var(--light-text-primary) !important;
+    background: rgba(201, 169, 97, 0.1) !important;
+}
+
+body.light-mode .nav-link::before {
+    background: rgba(201, 169, 97, 0.1) !important;
+}
+
+body.light-mode .uprising-link::before {
+    background: conic-gradient(from 0deg, var(--light-gold-primary), var(--light-gold-secondary), var(--light-gold-primary), var(--light-gold-secondary), var(--light-gold-primary)) !important;
+}
+
+body.light-mode .uprising-link {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .faq-link {
+    color: var(--light-text-secondary);
+    border: 1px solid var(--light-border);
+}
+
+body.light-mode .faq-link:hover {
+    color: var(--light-text-primary);
+    border-color: var(--light-gold-primary);
+}
+
+body.light-mode .login-button {
+    background-color: var(--light-gold-primary);
+    color: var(--light-bg-white);
+}
+
+body.light-mode .login-button:hover {
+    background-color: var(--light-gold-hover);
+}
+
+/* Light Mode Hero Section */
+body.light-mode .hero-section {
+    background-color: var(--light-bg-white) !important;
+    position: relative !important;
+}
+
+body.light-mode .hero-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .hero-content {
+    position: relative;
+    z-index: 10;
+}
+
+body.light-mode .hero-headline {
+    color: var(--light-text-primary) !important;
+    background: linear-gradient(135deg, var(--light-text-primary) 0%, var(--light-gold-primary) 50%, var(--light-text-primary) 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1), 0 0 30px rgba(201, 169, 97, 0.3) !important;
+}
+
+body.light-mode .hero-subheadline {
+    color: var(--light-text-secondary) !important;
+    font-weight: 400 !important;
+}
+
+body.light-mode .micro-copy {
+    color: var(--light-text-tertiary) !important;
+    font-size: 0.9rem !important;
+}
+
+body.light-mode .cta-primary,
+body.light-mode .glow-effect {
+    background: linear-gradient(135deg, var(--light-gold-primary), var(--light-gold-secondary)) !important;
+    color: var(--light-bg-white) !important;
+    border: none !important;
+}
+
+body.light-mode .cta-primary:hover,
+body.light-mode .glow-effect:hover {
+    background: linear-gradient(135deg, var(--light-gold-hover), var(--light-gold-primary)) !important;
+    box-shadow: 0 8px 25px rgba(201, 169, 97, 0.3) !important;
+}
+
+body.light-mode .glow-effect::before {
+    background: linear-gradient(135deg, var(--light-gold-primary), var(--light-gold-secondary)) !important;
+}
+
+body.light-mode .cta-secondary {
+    background: transparent !important;
+    border: 2px solid var(--light-gold-primary) !important;
+    color: var(--light-gold-primary) !important;
+}
+
+body.light-mode .cta-secondary:hover {
+    background: var(--light-gold-primary) !important;
+    color: var(--light-bg-white) !important;
+    box-shadow: 0 4px 15px rgba(201, 169, 97, 0.2) !important;
+}
+
+/* Light Mode Parallax Dividers */
+body.light-mode .parallax-divider {
+    background-color: var(--light-bg-off-white) !important;
+    position: relative !important;
+}
+
+body.light-mode .parallax-divider::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.6) !important;
+    z-index: 1;
+}
+
+body.light-mode .parallax-content {
+    position: relative;
+    z-index: 2;
+}
+
+body.light-mode .parallax-text {
+    color: var(--light-text-primary) !important;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Light Mode Comparison Section */
+body.light-mode .comparison-section {
+    background-color: var(--light-bg-white) !important;
+}
+
+body.light-mode .comparison-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .section-headline {
+    color: var(--light-text-primary) !important;
+    text-shadow: none !important;
+}
+
+body.light-mode .comparison-column {
+    background-color: var(--light-bg-off-white) !important;
+    border: 2px solid var(--light-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.light-mode .comparison-column:hover {
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+body.light-mode .comparison-column.greenlit-way {
+    border-color: var(--light-gold-primary) !important;
+    background-color: var(--light-bg-white) !important;
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.2) !important;
+}
+
+body.light-mode .comparison-column h3 {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .comparison-list li {
+    color: var(--light-text-secondary);
+    border-bottom: 1px solid var(--light-border);
+}
+
+body.light-mode .old-system .comparison-list li::before {
+    color: #718096;
+}
+
+body.light-mode .greenlit-way .comparison-list li::before {
+    color: var(--light-gold-primary);
+}
+
+/* Light Mode Stories Carousel Section */
+body.light-mode .stories-carousel-section {
+    background-color: var(--light-bg-off-white) !important;
+}
+
+body.light-mode .stories-carousel-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .stories-content h2 {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .stories-content p {
+    color: var(--light-text-secondary);
+}
+
+body.light-mode .stories-text .highlight {
+    color: var(--light-gold-primary);
+}
+
+body.light-mode .carousel-slide {
+    background-color: var(--light-bg-white) !important;
+    border: 1px solid var(--light-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.light-mode .carousel-slide:hover {
+    border-color: var(--light-gold-primary) !important;
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.2) !important;
+    transform: translateY(-4px) !important;
+}
+
+/* Light Mode Producer Program Section */
+body.light-mode .producer-program-section {
+    background-color: var(--light-bg-white) !important;
+}
+
+body.light-mode .producer-program-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .producer-content h2,
+body.light-mode .producer-content h3,
+body.light-mode .producer-content h4 {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .producer-content p {
+    color: var(--light-text-secondary);
+}
+
+body.light-mode .criteria-card {
+    background-color: var(--light-bg-off-white) !important;
+    border: 1px solid var(--light-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.light-mode .criteria-card:hover {
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.15) !important;
+    border-color: var(--light-gold-primary) !important;
+    transform: translateY(-2px) !important;
+}
+
+body.light-mode .criteria-card h4 {
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode .criteria-card p {
+    color: var(--light-text-secondary) !important;
+}
+
+/* Light Mode How It Works Section */
+body.light-mode .how-it-works-section {
+    background-color: var(--light-bg-off-white) !important;
+}
+
+body.light-mode .how-it-works-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .pipeline-steps {
+    background-color: var(--light-bg-white);
+}
+
+body.light-mode .pipeline-step {
+    background-color: var(--light-bg-off-white) !important;
+    border: 1px solid var(--light-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.light-mode .pipeline-step:hover {
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.15) !important;
+    border-color: var(--light-gold-primary) !important;
+    transform: translateY(-2px) !important;
+}
+
+body.light-mode .pipeline-step h3 {
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode .pipeline-step p {
+    color: var(--light-text-secondary) !important;
+}
+
+/* Light Mode Development Slate Section */
+body.light-mode .development-slate-section {
+    background-color: var(--light-bg-white) !important;
+}
+
+body.light-mode .development-slate-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .development-content h2,
+body.light-mode .development-content h4 {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .development-content p {
+    color: var(--light-text-secondary);
+}
+
+body.light-mode .development-feature {
+    background-color: var(--light-bg-off-white) !important;
+    border: 1px solid var(--light-border) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+body.light-mode .development-feature:hover {
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.15) !important;
+    border-color: var(--light-gold-primary) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Light Mode Final CTA Section */
+body.light-mode .final-cta-section {
+    background-color: var(--light-bg-off-white) !important;
+}
+
+body.light-mode .final-cta-section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+body.light-mode .final-cta-content h2 {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .final-cta-content p {
+    color: var(--light-text-secondary);
+}
+
+/* Light Mode FAQ Modal */
+body.light-mode .faq-modal {
+    background-color: var(--light-bg-white) !important;
+    border: 1px solid var(--light-border) !important;
+}
+
+body.light-mode .faq-modal-header {
+    border-bottom: 1px solid var(--light-border) !important;
+}
+
+body.light-mode .faq-modal-title {
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode .faq-close-btn {
+    color: var(--light-text-secondary) !important;
+}
+
+body.light-mode .faq-close-btn:hover {
+    color: var(--light-text-primary) !important;
+    background: rgba(201, 169, 97, 0.1) !important;
+}
+
+body.light-mode .faq-question {
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode .faq-answer {
+    color: var(--light-text-secondary) !important;
+}
+
+body.light-mode .faq-item {
+    border-bottom: 1px solid var(--light-border) !important;
+}
+
+body.light-mode .faq-modal-body {
+    scrollbar-color: rgba(201, 169, 97, 0.3) transparent !important;
+}
+
+body.light-mode .faq-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(201, 169, 97, 0.3) !important;
+}
+
+/* Light Mode Mobile Menu */
+body.light-mode .mobile-menu {
+    background-color: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+}
+
+body.light-mode .mobile-nav-link {
+    color: var(--light-text-primary);
+    border-bottom: 1px solid var(--light-border);
+}
+
+body.light-mode .mobile-nav-link:hover {
+    background-color: var(--light-gold-accent);
+    color: var(--light-gold-hover);
+}
+
+body.light-mode .mobile-menu-button {
+    color: var(--light-text-primary);
+}
+
+body.light-mode .hamburger-icon {
+    background-color: var(--light-text-primary);
+}
+
+/* Light Mode General Text Elements */
+body.light-mode h1:not(.hero-headline),
+body.light-mode h2:not(.section-headline),
+body.light-mode h3,
+body.light-mode h4 {
+    color: var(--light-text-primary) !important;
+    text-shadow: none !important;
+}
+
+body.light-mode p {
+    color: var(--light-text-secondary) !important;
+}
+
+/* Remove any green glows or shadows */
+body.light-mode * {
+    box-shadow: none !important;
+}
+
+/* Reapply elegant shadows only where needed */
+body.light-mode .comparison-column,
+body.light-mode .carousel-slide,
+body.light-mode .criteria-card,
+body.light-mode .pipeline-step,
+body.light-mode .development-feature {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-mode .faq-modal {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light-mode a {
+    color: var(--light-gold-primary);
+}
+
+body.light-mode a:hover {
+    color: var(--light-gold-hover);
+}
+
+/* Light Mode Buttons - Replace all green with gold */
+body.light-mode button:not(.theme-toggle-btn):not(.cta-primary):not(.cta-secondary):not(.glow-effect) {
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode button:hover:not(.theme-toggle-btn) {
+    border-color: var(--light-gold-primary) !important;
+}
+
+/* Replace green in all button backgrounds and borders */
+body.light-mode button[style*="#00FF99"],
+body.light-mode button[style*="#00CC77"] {
+    background: var(--light-gold-primary) !important;
+}
+
+/* Light Mode Links - Replace green with gold */
+body.light-mode a {
+    color: var(--light-gold-primary) !important;
+}
+
+body.light-mode a:hover {
+    color: var(--light-gold-hover) !important;
+}
+
+body.light-mode a:visited {
+    color: var(--light-gold-secondary) !important;
+}
+
+/* Light Mode Borders - Replace green borders with gold */
+body.light-mode [style*="border.*#00FF99"],
+body.light-mode [style*="border.*rgba(0, 255, 153"] {
+    border-color: var(--light-gold-primary) !important;
+}
+
+/* Theme Toggle Button */
+.theme-toggle-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--light-gold-primary), var(--light-gold-secondary));
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: var(--light-bg-white);
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(201, 169, 97, 0.4), 0 0 0 0 rgba(201, 169, 97, 0.4);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.theme-toggle-btn:hover {
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 6px 24px rgba(201, 169, 97, 0.5), 0 0 0 4px rgba(201, 169, 97, 0.1);
+    background: linear-gradient(135deg, var(--light-gold-hover), var(--light-gold-primary));
+}
+
+.theme-toggle-btn:active {
+    transform: scale(0.95) translateY(0);
+}
+
+/* Dark mode toggle button (when in dark mode) */
+body:not(.light-mode) .theme-toggle-btn {
+    background: linear-gradient(135deg, #00FF99, #00CC77);
+    border-color: rgba(0, 255, 153, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 255, 153, 0.4), 0 0 0 0 rgba(0, 255, 153, 0.4);
+}
+
+body:not(.light-mode) .theme-toggle-btn:hover {
+    background: linear-gradient(135deg, #00CC77, #00FF99);
+    box-shadow: 0 6px 24px rgba(0, 255, 153, 0.5), 0 0 0 4px rgba(0, 255, 153, 0.1);
+}
+
+/* Light Mode Video Overlay */
+body.light-mode .video-overlay {
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Light Mode Section Backgrounds - Ensure no green remnants */
+body.light-mode section::before {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+}
+
+/* Light Mode Carousel Navigation */
+body.light-mode .carousel-nav-btn {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid var(--light-border) !important;
+    color: var(--light-text-primary) !important;
+}
+
+body.light-mode .carousel-nav-btn:hover {
+    background: var(--light-gold-primary) !important;
+    color: var(--light-bg-white) !important;
+    border-color: var(--light-gold-primary) !important;
+}
+
+/* Light Mode Particles - make them more subtle */
+body.light-mode .particle {
+    background-color: var(--light-gold-primary) !important;
+    opacity: 0.15 !important;
+    box-shadow: 0 0 10px rgba(201, 169, 97, 0.3) !important;
+}
+
+/* Light Mode Geometric Shapes */
+body.light-mode .geometric-shape {
+    border-color: var(--light-gold-accent) !important;
+    opacity: 0.25 !important;
+    background: rgba(201, 169, 97, 0.05) !important;
+}
+
+/* Light Mode Container */
+body.light-mode .container {
+    color: var(--light-text-secondary);
+}
+
+/* Light Mode All Headings */
+body.light-mode h1:not(.hero-headline),
+body.light-mode h2:not(.section-headline),
+body.light-mode h3,
+body.light-mode h4,
+body.light-mode h5,
+body.light-mode h6 {
+    color: var(--light-text-primary);
+}
+
+/* Light Mode Lists */
+body.light-mode ul,
+body.light-mode ol {
+    color: var(--light-text-secondary);
+}
+
+body.light-mode li {
+    color: var(--light-text-secondary);
+}
+
+/* Light Mode Code/Pre elements if any */
+body.light-mode code,
+body.light-mode pre {
+    background-color: var(--light-bg-off-white);
+    color: var(--light-text-primary);
+    border: 1px solid var(--light-border);
+}
+
+/* Responsive Theme Toggle */
+@media (max-width: 768px) {
+    .theme-toggle-btn {
+        width: 48px;
+        height: 48px;
+        bottom: 20px;
+        right: 20px;
+        font-size: 20px;
+    }
+}

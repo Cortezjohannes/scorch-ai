@@ -94,7 +94,7 @@ export default function GenerationErrorModal({
                   onClose()
                   onRetry()
                 }}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#00FF99] to-[#00CC7A] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#00FF99]/20 transition-all"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all"
               >
                 Try Again
               </button>

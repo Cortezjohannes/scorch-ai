@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { useState, useEffect } from 'react'
 import FAQ from '@/components/FAQ'
 import Navigation from '@/components/Navigation'
@@ -41,13 +41,13 @@ export default function FundPage() {
         initial={{ y: 0 }}
         animate={{ y: isScrolled ? -100 : 0 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#00FF99]/20"
+        className="fixed top-0 left-0 right-0 z-50 bg-[#121212]/90 backdrop-blur-md border-b border-[#10B981]/20"
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img src="/greenlitailogo.png" alt="Greenlit" className="h-10 w-auto" />
-              <span className="text-[#00FF99] font-bold text-2xl">Greenlit</span>
+              <span className="text-[#10B981] font-bold text-2xl">Greenlit</span>
             </div>
             <Navigation />
           </div>
@@ -77,7 +77,7 @@ export default function FundPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <button className="bg-[#00FF99] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#00CC7A] transition-colors">
+            <button className="bg-[#10B981] text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#059669] transition-colors">
               Apply Now →
             </button>
           </motion.div>
@@ -99,9 +99,9 @@ export default function FundPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Studio Partners: Pilot Grants (Up to $20,000)</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Studio Partners: Pilot Grants (Up to $20,000)</h3>
               <p className="text-[#E7E7E7]/80 mb-4">
                 <strong>Eligibility:</strong> Studio Partners (Score 18+)
               </p>
@@ -117,9 +117,9 @@ export default function FundPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">Accelerator Producers: Strategic Micro-Grants</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">Accelerator Producers: Strategic Micro-Grants</h3>
               <p className="text-[#E7E7E7]/80 mb-4">
                 <strong>Eligibility:</strong> Accelerator Producers (Score 15-17)
               </p>
@@ -145,9 +145,9 @@ export default function FundPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="bg-[#1a1a1a] border border-[#00FF99]/20 rounded-xl p-12 text-center"
+            className="bg-[#1a1a1a] border border-[#10B981]/20 rounded-xl p-12 text-center"
           >
-            <h3 className="text-2xl font-bold text-[#00FF99] mb-6">Eligibility Requirements</h3>
+            <h3 className="text-2xl font-bold text-[#10B981] mb-6">Eligibility Requirements</h3>
             <p className="text-xl text-[#E7E7E7]/80 leading-relaxed max-w-3xl mx-auto">
               Must be accepted into the Tier 1 (Funded Producer) level. Selection is based on the strength of the pitch, the execution plan, and the clear need for funding to achieve the vision.
             </p>
@@ -164,7 +164,7 @@ export default function FundPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-6xl font-bold text-[#00FF99] mb-8">
+            <h2 className="text-4xl md:text-6xl font-bold text-[#10B981] mb-8">
               Creator-First Terms
             </h2>
           </motion.div>
@@ -174,9 +174,9 @@ export default function FundPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8 text-center"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8 text-center"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">The Grant</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">The Grant</h3>
               <p className="text-[#E7E7E7]/80">
                 This is a grant, not a loan.
               </p>
@@ -186,9 +186,9 @@ export default function FundPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8 text-center"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8 text-center"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">The Equity</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">The Equity</h3>
               <p className="text-[#E7E7E7]/80">
                 We do not take extra equity beyond the standard 70/30 revenue share.
               </p>
@@ -198,9 +198,9 @@ export default function FundPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-[#121212] border border-[#00FF99]/20 rounded-xl p-8 text-center"
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl p-8 text-center"
             >
-              <h3 className="text-2xl font-bold text-[#00FF99] mb-4">The Control</h3>
+              <h3 className="text-2xl font-bold text-[#10B981] mb-4">The Control</h3>
               <p className="text-[#E7E7E7]/80">
                 We do not impose creative control.
               </p>

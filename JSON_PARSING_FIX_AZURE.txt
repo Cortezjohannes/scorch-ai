@@ -1,0 +1,60 @@
+========================================================
+JSON PARSING FIX FOR AZURE GPT ✅
+========================================================
+
+ISSUE:
+❌ "Expected property name or '}' in JSON at position 1"
+❌ Azure GPT responses wrapped in markdown code blocks
+❌ JSON extraction failing because response format different from Gemini
+
+ROOT CAUSE:
+🐛 Azure GPT often returns JSON wrapped in ```json ... ``` blocks
+🐛 Old regex pattern didn't handle markdown formatting
+🐛 Position 1 error suggests response starts with newline or markdown
+
+FIXES APPLIED:
+✅ Strip markdown code blocks (```json and ```)
+✅ Better JSON extraction using first { and last }
+✅ Improved error logging with response previews
+✅ Two-level error recovery with better diagnostics
+
+HOW IT WORKS NOW:
+
+1. CLEAN RESPONSE:
+   - Trim whitespace
+   - Remove ```json or ``` markdown blocks
+   - Handle both opening and closing code fences
+
+2. EXTRACT JSON:
+   - Find first { character
+   - Find last } character
+   - Extract substring between them
+   - More reliable than regex matching
+
+3. PARSE WITH RECOVERY:
+   - First attempt: Direct parse
+   - If fails: Log error with context
+   - Second attempt: Remove control characters
+   - If still fails: Return minimal structure
+
+4. BETTER LOGGING:
+   - Shows response preview on error
+   - Shows JSON preview on parse error
+   - Shows error position context
+   - Helps debug what Azure GPT actually returned
+
+CHANGES IN ALL 3 FUNCTIONS:
+✅ generateCoreMaterials() - Fixed JSON extraction
+✅ generateRelationshipMaterials() - Fixed JSON extraction
+✅ generatePracticeMaterials() - Fixed JSON extraction
+
+FILES MODIFIED:
+✅ /src/services/ai-generators/actor-materials-generator.ts
+
+RESULT:
+✨ Handles Azure GPT's markdown-wrapped JSON responses
+✨ More robust JSON extraction
+✨ Better error messages for debugging
+✨ Graceful fallback if parsing fails
+
+The JSON parsing should now work correctly with Azure GPT! 🎭

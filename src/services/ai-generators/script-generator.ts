@@ -2,7 +2,7 @@
  * Script Generator - AI Service
  * Generates industry-standard Hollywood-quality screenplays for 5-minute episodes
  * 
- * Uses actual EngineAIRouter with Gemini 2.5 Pro
+ * Uses actual EngineAIRouter with Gemini 3 Pro Preview
  * 
  * Standards:
  * - 1 page = 1 minute of screen time (target: 5 pages for 5-minute episodes)
@@ -60,7 +60,7 @@ export async function generateScript(params: ScriptGenerationParams): Promise<Ge
   const userPrompt = buildUserPrompt(params)
 
   try {
-    // Use actual EngineAIRouter with Gemini 2.5 Pro
+    // Use actual EngineAIRouter with Gemini 3 Pro Preview
     const response = await EngineAIRouter.generateContent({
       prompt: userPrompt,
       systemPrompt: systemPrompt,
@@ -139,10 +139,87 @@ function buildSystemPrompt(): string {
 6. **TONE AND STYLE:**
    - Match the tone of the episode EXACTLY
    - Use the same genre conventions as the episode
-   - Maintain character voice consistency with the episode
+   - Maintain character voice consistency with the episode (use dialogue strategy from story bible)
    - Keep the same emotional beats as the episode
+   - Apply visual style and genre conventions from story bible when describing actions
+   - Weave in thematic elements naturally through visual/action descriptions
+
+7. **USE STORY BIBLE CONTEXT:**
+   - DIALOGUE STRATEGY: Match character voices and speech patterns defined in story bible
+   - WORLD BUILDING: Incorporate setting atmosphere and details when describing locations
+   - GENRE ENHANCEMENT: Apply visual style guidance when writing action descriptions
+   - THEME INTEGRATION: Subtly weave thematic symbols into visual descriptions
+   - Remember: Use these to ENHANCE what's in the episode, NOT to add new story elements
 
 **REMEMBER:** You are adapting, NOT creating. If it's not in the episode, it doesn't go in the script. Period.`
+}
+
+/**
+ * Get dialogue language instructions for script generation
+ */
+function getScriptLanguageInstructions(language: string): string {
+  const languageMap: Record<string, string> = {
+    'tagalog': `
+**DIALOGUE LANGUAGE: TAGLISH (Tagalog-English Code-Switching)**
+CRITICAL: All character dialogue MUST be written in authentic Taglish.
+- Characters naturally switch between Tagalog and English mid-sentence
+- Use Filipino expressions: "Ano ba 'yan!", "Sige na!", "Hay nako!", "Grabe!"
+- Mix English with Tagalog emotional expressions
+- Use honorifics: Ate, Kuya, Tito, Tita, Ma, Pa
+- Example dialogue: "Wait lang, I need to think about this muna." / "Bakit mo ginawa 'yun?"
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Taglish.
+`,
+    'thai': `
+**DIALOGUE LANGUAGE: THAI (ภาษาไทย)**
+CRITICAL: All character dialogue MUST be written in Thai script.
+- Use appropriate politeness particles: ครับ, ค่ะ, นะ
+- Include Thai cultural expressions naturally
+- Example: "ทำไมเธอถึงทำแบบนั้นล่ะ?" / "ฉันไม่เข้าใจเลย..."
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Thai script.
+`,
+    'spanish': `
+**DIALOGUE LANGUAGE: SPANISH (Español)**
+CRITICAL: All character dialogue MUST be written in Spanish.
+- Write natural, conversational Spanish
+- Use appropriate formality (tú vs usted)
+- Example: "¿Por qué hiciste eso? No lo entiendo." / "¡Ay, Dios mío!"
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Spanish.
+`,
+    'korean': `
+**DIALOGUE LANGUAGE: KOREAN (한국어)**
+CRITICAL: All character dialogue MUST be written in Korean script.
+- Use appropriate speech levels (존댓말/반말)
+- Include appropriate honorifics
+- Example: "왜 그랬어? 이해가 안 돼." / "잠깐만, 내 얘기 좀 들어봐."
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Korean script.
+`,
+    'japanese': `
+**DIALOGUE LANGUAGE: JAPANESE (日本語)**
+CRITICAL: All character dialogue MUST be written in Japanese.
+- Use appropriate politeness levels (敬語/タメ語)
+- Include proper honorifics (-san, -kun, -chan, -sama)
+- Example: "どうしてそんなことをしたの？" / "ちょっと待って、話を聞いて。"
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Japanese script.
+`,
+    'french': `
+**DIALOGUE LANGUAGE: FRENCH (Français)**
+CRITICAL: All character dialogue MUST be written in French.
+- Write natural, conversational French
+- Use appropriate formality (tu vs vous)
+- Example: "Pourquoi tu as fait ça?" / "Mon Dieu... Qu'est-ce qu'on va faire?"
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in French.
+`,
+    'chinese': `
+**DIALOGUE LANGUAGE: CHINESE (中文)**
+CRITICAL: All character dialogue MUST be written in Mandarin Chinese.
+- Write dialogue in Chinese characters
+- Include appropriate cultural expressions
+- Example: "你为什么要这样做？" / "等一下，听我说。"
+ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Chinese characters.
+`
+  }
+  
+  return languageMap[language] || ''
 }
 
 /**
@@ -151,15 +228,88 @@ function buildSystemPrompt(): string {
 function buildUserPrompt(params: ScriptGenerationParams): string {
   const { episode, storyBible, existingPreProductionData } = params
   
+  // Get dialogue language setting
+  const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
+  const languageInstructions = getScriptLanguageInstructions(dialogueLanguage)
+  
   let prompt = `Generate a professional, industry-standard screenplay for this 5-minute episode.\n\n`
+  
+  // Add language instructions prominently if not English
+  if (languageInstructions) {
+    prompt += languageInstructions + `\n`
+  }
   
   // Series context
   prompt += `**SERIES INFORMATION:**\n`
-  prompt += `Title: ${storyBible.title || 'Untitled Series'}\n`
+  prompt += `Title: ${storyBible.title || storyBible.seriesTitle || 'Untitled Series'}\n`
   prompt += `Genre: ${storyBible.genre || 'Drama'}\n`
   if (storyBible.tone) prompt += `Tone: ${storyBible.tone}\n`
   if (storyBible.logline) prompt += `Series Logline: ${storyBible.logline}\n`
+  if (dialogueLanguage !== 'english') prompt += `Dialogue Language: ${dialogueLanguage.toUpperCase()}\n`
   prompt += `\n`
+  
+  // Add CRITICAL world rules and key locations  
+  if (storyBible.worldBuilding) {
+    prompt += `**WORLD/SETTING CONTEXT:**\n`
+    if (typeof storyBible.worldBuilding === 'string') {
+      prompt += `${storyBible.worldBuilding.substring(0, 500)}\n\n`
+    } else {
+      if (storyBible.worldBuilding.setting) prompt += `${storyBible.worldBuilding.setting}\n`
+      if (storyBible.worldBuilding.rules) {
+        prompt += `\nWorld Rules (maintain these):\n`
+        if (typeof storyBible.worldBuilding.rules === 'string') {
+          prompt += `${storyBible.worldBuilding.rules}\n`
+        } else if (Array.isArray(storyBible.worldBuilding.rules)) {
+          prompt += storyBible.worldBuilding.rules.map((r: string) => `- ${r}`).join('\n') + '\n'
+        }
+      }
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        prompt += `\nKey Locations:\n`
+        storyBible.worldBuilding.locations.slice(0, 5).forEach((loc: any) => {
+          prompt += `- ${loc.name}: ${loc.description || ''}`
+          if (loc.atmosphere) prompt += ` (Atmosphere: ${loc.atmosphere})`
+          prompt += `\n`
+        })
+      }
+      prompt += `\n`
+    }
+  }
+  
+  // Add technical tabs for better adaptation context
+  if (storyBible.dialogueStrategy) {
+    prompt += `**DIALOGUE STYLE GUIDE:**\n`
+    const dialogue = storyBible.dialogueStrategy
+    if (dialogue.rawContent) {
+      prompt += `${dialogue.rawContent}\n\n`
+    } else {
+      if (dialogue.characterVoice) prompt += `Character Voice: ${dialogue.characterVoice}\n`
+      if (dialogue.speechPatterns) prompt += `Speech Patterns: ${dialogue.speechPatterns}\n`
+      if (dialogue.subtext) prompt += `Subtext: ${dialogue.subtext}\n`
+      prompt += `\n`
+    }
+  }
+  
+  if (storyBible.genreEnhancement) {
+    prompt += `**GENRE & VISUAL STYLE:**\n`
+    const genre = storyBible.genreEnhancement
+    if (genre.rawContent) {
+      prompt += `${genre.rawContent}\n\n`
+    } else {
+      if (genre.visualStyle) prompt += `Visual Style: ${genre.visualStyle}\n`
+      if (genre.pacing) prompt += `Pacing: ${genre.pacing}\n`
+      prompt += `\n`
+    }
+  }
+  
+  if (storyBible.themeIntegration) {
+    prompt += `**THEME INTEGRATION:**\n`
+    const theme = storyBible.themeIntegration
+    if (theme.rawContent) {
+      prompt += `${theme.rawContent.substring(0, 300)}\n\n`
+    } else {
+      if (theme.symbolicElements) prompt += `Symbolic Elements: ${theme.symbolicElements}\n\n`
+    }
+  }
   
   // Episode content (PRIORITY #1)
   prompt += `**EPISODE ${episode.episodeNumber}: ${episode.title || 'Untitled'}\n\n`
@@ -294,10 +444,17 @@ function buildUserPrompt(params: ScriptGenerationParams): string {
   prompt += `❌ DO NOT INVENT: Backstories, motivations, or subplots not in the episode\n\n`
   prompt += `✅ DO EXPAND: Sparse dialogue into natural speech (same meaning)\n`
   prompt += `✅ DO ADD: Cinematic action descriptions that visualize what's already there\n`
-  prompt += `✅ DO FORMAT: Properly with slugs, parentheticals, and transitions\n\n`
+  prompt += `✅ DO FORMAT: Properly with slugs, parentheticals, and transitions\n`
+  if (dialogueLanguage !== 'english') {
+    prompt += `✅ DO WRITE: ALL dialogue in ${dialogueLanguage.toUpperCase()} (action lines stay in English)\n`
+  }
+  prompt += `\n`
   prompt += `YOU ARE ADAPTING, NOT CREATING. THE EPISODE IS EVERYTHING.\n`
-  prompt += `If you add even ONE element not in the episode, you have FAILED.\n\n`
-  prompt += `Output ONLY the screenplay starting with "FADE IN:" and ending with "THE END". No introduction, no notes, no explanation.`
+  prompt += `If you add even ONE element not in the episode, you have FAILED.\n`
+  if (dialogueLanguage !== 'english') {
+    prompt += `\n🗣️ DIALOGUE LANGUAGE REMINDER: Write all character dialogue in ${dialogueLanguage.toUpperCase()}!\n`
+  }
+  prompt += `\nOutput ONLY the screenplay starting with "FADE IN:" and ending with "THE END". No introduction, no notes, no explanation.`
   
   return prompt
 }
@@ -363,6 +520,7 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
   const pages: ScriptPage[] = []
   let currentPage: ScriptPage = { pageNumber: 1, elements: [] }
   let sceneCount = 0
+  let currentSceneNumber = 0 // Track current scene for all elements
   const characterSet = new Set<string>()
   
   let isInDialogue = false // Track if we're currently in a dialogue block
@@ -373,7 +531,11 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
     
     // Skip empty lines but preserve them in structure and exit dialogue mode
     if (!trimmedLine) {
-      currentPage.elements.push({ type: 'action', content: '' })
+      currentPage.elements.push({ 
+        type: 'action', 
+        content: '',
+        metadata: currentSceneNumber > 0 ? { sceneNumber: currentSceneNumber } : undefined
+      })
       isInDialogue = false // Empty line ends dialogue
       continue
     }
@@ -381,6 +543,7 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
     // Detect slug line (scene heading)
     if (/^(INT\.|EXT\.|INT\/EXT\.)/i.test(trimmedLine)) {
       sceneCount++
+      currentSceneNumber = sceneCount // Update current scene for subsequent elements
       currentPage.elements.push({
         type: 'slug',
         content: trimmedLine.toUpperCase(),
@@ -427,7 +590,10 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
         currentPage.elements.push({
           type: 'character',
           content: trimmedLine,
-          metadata: { characterName: trimmedLine }
+          metadata: { 
+            characterName: trimmedLine,
+            sceneNumber: currentSceneNumber > 0 ? currentSceneNumber : undefined
+          }
         })
         isInDialogue = true // Next lines will be dialogue
         continue
@@ -436,7 +602,11 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
     
     // Detect parenthetical
     if (trimmedLine.startsWith('(') && trimmedLine.endsWith(')')) {
-      currentPage.elements.push({ type: 'parenthetical', content: trimmedLine })
+      currentPage.elements.push({ 
+        type: 'parenthetical', 
+        content: trimmedLine,
+        metadata: currentSceneNumber > 0 ? { sceneNumber: currentSceneNumber } : undefined
+      })
       // Stay in dialogue mode after parenthetical
       continue
     }
@@ -453,20 +623,37 @@ function parseScriptIntoStructure(scriptText: string, episode: Episode): Generat
     // If we're in dialogue mode and this line is not a special format, treat as dialogue
     if (isInDialogue && !isAllCaps) {
       // Multi-line dialogue: append to existing dialogue or create new dialogue element
+      const dialogueMetadata = currentSceneNumber > 0 ? { sceneNumber: currentSceneNumber } : undefined
       if (lastElement && (lastElement.type === 'dialogue' || lastElement.type === 'parenthetical')) {
         // Check if we should append or create new element
         // If last was dialogue and this continues, create new dialogue line
-        currentPage.elements.push({ type: 'dialogue', content: trimmedLine })
+        currentPage.elements.push({ 
+          type: 'dialogue', 
+          content: trimmedLine,
+          metadata: dialogueMetadata
+        })
       } else if (lastElement && lastElement.type === 'character') {
         // First dialogue line after character
-        currentPage.elements.push({ type: 'dialogue', content: trimmedLine })
+        currentPage.elements.push({ 
+          type: 'dialogue', 
+          content: trimmedLine,
+          metadata: dialogueMetadata
+        })
       } else {
         // Shouldn't happen, but fallback to dialogue
-        currentPage.elements.push({ type: 'dialogue', content: trimmedLine })
+        currentPage.elements.push({ 
+          type: 'dialogue', 
+          content: trimmedLine,
+          metadata: dialogueMetadata
+        })
       }
     } else {
       // Action line
-      currentPage.elements.push({ type: 'action', content: trimmedLine })
+      currentPage.elements.push({ 
+        type: 'action', 
+        content: trimmedLine,
+        metadata: currentSceneNumber > 0 ? { sceneNumber: currentSceneNumber } : undefined
+      })
       isInDialogue = false // Action ends dialogue mode
     }
   }

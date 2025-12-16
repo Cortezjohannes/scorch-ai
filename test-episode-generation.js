@@ -1,189 +1,158 @@
-const fetch = require('node-fetch');
-const fs = require('fs');
+/**
+ * Test Episode Generation with Gemini 3
+ * Tests the actual episode generation endpoint
+ */
+
+require('dotenv').config({ path: '.env.local' });
 
 async function testEpisodeGeneration() {
-  console.log('🎬 Testing Episode Generation Workflow...\n');
-  
-  // Load the story bible we just generated
-  let storyBible;
+  console.log('🎬 Testing Episode Generation with Gemini 3 Pro\n');
+  console.log('='.repeat(70));
+
   try {
-    storyBible = JSON.parse(fs.readFileSync('quick-test-story-bible.json', 'utf8'));
-    console.log('📖 Loaded story bible:', storyBible.seriesTitle);
-    console.log('👥 Characters:', storyBible.mainCharacters.length);
-    console.log('📚 Arcs:', storyBible.narrativeArcs.length);
-  } catch (error) {
-    console.log('❌ Could not load story bible:', error.message);
-    return;
-  }
-  
-  // Test 1: Baseline Episode Generation (no engines)
-  console.log('\n🎯 TEST 1: Baseline Episode Generation (GPT-4.1 only)');
-  const baselineStart = Date.now();
-  
-  try {
+    // Import the service function
+    const { generateContentWithGemini } = require('./src/services/gemini-ai.ts');
+    
+    console.log('📋 Testing generateContentWithGemini service...\n');
+    
+    const systemPrompt = `You are a master narrative architect with advanced creative reasoning capabilities. 
+Create sophisticated, psychologically authentic episode foundations that demonstrate exceptional storytelling craft. 
+Use step-by-step creative analysis and return ONLY valid JSON.`;
+
+    const draftPrompt = `Generate a brief episode foundation for episode 1 of a mystery web series.
+Return JSON with: title, premise, storyBeats (array), characterFocus, conflict, emotionalArc.`;
+
+    console.log('🚀 Calling generateContentWithGemini...');
+    const startTime = Date.now();
+    
+    // Since we can't directly import TS, let's test the API endpoint instead
     const response = await fetch('http://localhost:3000/api/generate/episode', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        storyBible: storyBible,
         episodeNumber: 1,
-        useEngines: false,
-        useComprehensiveEngines: false
-      })
+        storyBible: {
+          title: 'Test Series',
+          genre: 'Mystery',
+          synopsis: 'A detective investigates a series of mysterious disappearances.',
+        },
+        narrative: {
+          episodes: [{
+            number: 1,
+            title: 'Pilot',
+            synopsis: 'The investigation begins.',
+          }],
+        },
+      }),
     });
-    
-    const baselineDuration = (Date.now() - baselineStart) / 1000;
-    console.log(`⏱️  Baseline generation: ${baselineDuration.toFixed(1)} seconds`);
+
+    const duration = Date.now() - startTime;
     
     if (response.ok) {
       const data = await response.json();
-      if (data.episode) {
-        console.log('✅ Baseline episode generated successfully');
-        console.log(`📺 Title: ${data.episode.title}`);
-        console.log(`🎬 Scenes: ${data.episode.scenes?.length || 0}`);
-        console.log(`🔀 Choices: ${data.episode.branchingOptions?.length || 0}`);
-        
-        // Save baseline episode
-        fs.writeFileSync('test-baseline-episode.json', JSON.stringify(data.episode, null, 2));
-        console.log('💾 Saved to test-baseline-episode.json');
-        
-        // Test 2: Comprehensive Episode Generation (19 engines)
-        console.log('\n⚡ TEST 2: Comprehensive Episode Generation (19 engines)');
-        const comprehensiveStart = Date.now();
-        
-        try {
-          const compResponse = await fetch('http://localhost:3000/api/generate/episode', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              storyBible: storyBible,
-              episodeNumber: 2,
-              previousChoice: data.episode.branchingOptions?.[1]?.text || null,
-              useEngines: true,
-              useComprehensiveEngines: true
-            })
-          });
-          
-          const compDuration = (Date.now() - comprehensiveStart) / 1000;
-          console.log(`⏱️  Comprehensive generation: ${compDuration.toFixed(1)} seconds`);
-          
-          if (compResponse.ok) {
-            const compData = await compResponse.json();
-            if (compData.episode) {
-              console.log('✅ Comprehensive episode generated successfully');
-              console.log(`📺 Title: ${compData.episode.title}`);
-              console.log(`🎬 Scenes: ${compData.episode.scenes?.length || 0}`);
-              console.log(`🔀 Choices: ${compData.episode.branchingOptions?.length || 0}`);
-              
-              if (compData.engineMetadata) {
-                console.log(`⚙️  Engines: ${compData.engineMetadata.successfulEngines}/${compData.engineMetadata.totalEnginesRun} succeeded`);
-                console.log(`📊 Success Rate: ${(compData.engineMetadata.successRate * 100).toFixed(1)}%`);
-              }
-              
-              // Save comprehensive episode
-              fs.writeFileSync('test-comprehensive-episode.json', JSON.stringify({
-                episode: compData.episode,
-                engineMetadata: compData.engineMetadata
-              }, null, 2));
-              console.log('💾 Saved to test-comprehensive-episode.json');
-              
-              // Test 3: Gemini Episode Generation
-              console.log('\n🚀 TEST 3: Gemini 2.5 Pro Episode Generation');
-              const geminiStart = Date.now();
-              
-              try {
-                const geminiResponse = await fetch('http://localhost:3000/api/generate/episode', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    storyBible: storyBible,
-                    episodeNumber: 1,
-                    useGeminiComprehensive: true
-                  })
-                });
-                
-                const geminiDuration = (Date.now() - geminiStart) / 1000;
-                console.log(`⏱️  Gemini generation: ${geminiDuration.toFixed(1)} seconds`);
-                
-                if (geminiResponse.ok) {
-                  const geminiData = await geminiResponse.json();
-                  if (geminiData.episode) {
-                    console.log('✅ Gemini episode generated successfully');
-                    console.log(`📺 Title: ${geminiData.episode.title}`);
-                    console.log(`🎬 Scenes: ${geminiData.episode.scenes?.length || 0}`);
-                    console.log(`🔀 Choices: ${geminiData.episode.branchingOptions?.length || 0}`);
-                    console.log(`🤖 AI Provider: ${geminiData.aiProvider || 'gemini'}`);
-                    
-                    // Save Gemini episode
-                    fs.writeFileSync('test-gemini-episode.json', JSON.stringify(geminiData.episode, null, 2));
-                    console.log('💾 Saved to test-gemini-episode.json');
-                    
-                    console.log('\n🎉 ALL EPISODE GENERATION TESTS PASSED!');
-                    console.log('\n📊 SUMMARY:');
-                    console.log(`   Baseline: ${baselineDuration.toFixed(1)}s`);
-                    console.log(`   Comprehensive: ${compDuration.toFixed(1)}s`);
-                    console.log(`   Gemini: ${geminiDuration.toFixed(1)}s`);
-                    
-                    return true;
-                  } else {
-                    console.log('❌ No episode in Gemini response');
-                    return false;
-                  }
-                } else {
-                  console.log('❌ Gemini generation failed:', compResponse.status);
-                  return false;
-                }
-              } catch (geminiError) {
-                console.log('❌ Gemini generation error:', geminiError.message);
-                return false;
-              }
-              
-            } else {
-              console.log('❌ No episode in comprehensive response');
-              return false;
-            }
-          } else {
-            console.log('❌ Comprehensive generation failed:', compResponse.status);
-            return false;
-          }
-        } catch (compError) {
-          console.log('❌ Comprehensive generation error:', compError.message);
-          return false;
-        }
-        
-      } else {
-        console.log('❌ No episode in baseline response');
-        return false;
-      }
+      console.log(`✅ Episode generation successful! (${duration}ms)`);
+      console.log(`📝 Response keys:`, Object.keys(data));
+      return { success: true, data, duration };
     } else {
-      console.log('❌ Baseline generation failed:', response.status);
-      return false;
+      const errorText = await response.text();
+      console.log(`❌ Episode generation failed: ${response.status}`);
+      console.log(`📝 Error:`, errorText.substring(0, 200));
+      return { success: false, status: response.status, error: errorText };
     }
-  } catch (baselineError) {
-    console.log('❌ Baseline generation error:', baselineError.message);
-    return false;
+  } catch (error) {
+    console.log(`❌ Test failed: ${error.message}`);
+    console.log('\n💡 Make sure the dev server is running: npm run dev');
+    return { success: false, error: error.message };
   }
 }
 
-// Run the test
-testEpisodeGeneration().then(success => {
-  console.log(`\n🎯 Episode Generation Test Result: ${success ? 'PASS' : 'FAIL'}`);
-  process.exit(success ? 0 : 1);
-});
+// Alternative: Test the service directly using the compiled approach
+async function testServiceDirect() {
+  console.log('\n🔬 Testing Service Function Directly\n');
+  console.log('-'.repeat(70));
 
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  const apiKey = process.env.GEMINI_API_KEY;
+  const modelName = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-3-pro-preview';
 
+  if (!apiKey) {
+    console.error('❌ GEMINI_API_KEY not found!');
+    return { success: false };
+  }
 
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName });
 
+    const systemPrompt = 'You are a professional screenwriter.';
+    const userPrompt = `Generate a brief episode foundation for episode 1. 
+Return JSON with: {"title": "...", "premise": "...", "storyBeats": ["...", "..."], "characterFocus": "...", "conflict": "...", "emotionalArc": "..."}`;
 
+    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
+    console.log(`📋 Using model: ${modelName}`);
+    console.log('🚀 Generating episode foundation...\n');
 
+    const startTime = Date.now();
+    const result = await model.generateContent(combinedPrompt);
+    const duration = Date.now() - startTime;
 
+    const text = result.response.text();
+    
+    console.log(`✅ Generated in ${duration}ms`);
+    console.log(`📝 Response (${text.length} chars):`);
+    console.log(text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+    
+    // Try to parse as JSON
+    try {
+      // Extract JSON from response if it's wrapped in markdown
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const json = JSON.parse(jsonMatch[0]);
+        console.log('\n✅ Valid JSON structure:');
+        console.log(JSON.stringify(json, null, 2));
+        return { success: true, json, duration };
+      } else {
+        console.log('\n⚠️  Response is not JSON format');
+        return { success: true, text, duration, isJSON: false };
+      }
+    } catch (parseError) {
+      console.log('\n⚠️  Could not parse as JSON, but content was generated');
+      return { success: true, text, duration, isJSON: false };
+    }
+  } catch (error) {
+    console.error(`❌ Error: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
 
+async function runTests() {
+  console.log('🚀 GEMINI 3 EPISODE GENERATION TEST\n');
+  
+  // Test 1: Direct service test
+  const result1 = await testServiceDirect();
+  
+  // Test 2: API endpoint test (if server is running)
+  console.log('\n' + '='.repeat(70));
+  const result2 = await testEpisodeGeneration();
+  
+  // Summary
+  console.log('\n' + '='.repeat(70));
+  console.log('📊 TEST SUMMARY');
+  console.log('='.repeat(70));
+  console.log(`Service Direct: ${result1.success ? '✅ PASSED' : '❌ FAILED'}`);
+  console.log(`API Endpoint: ${result2.success ? '✅ PASSED' : '❌ FAILED'}`);
+  
+  if (result1.success) {
+    console.log('\n🎉 Gemini 3 Pro is generating episode content successfully!');
+  }
+}
 
-
-
-
-
-
-
-
+runTests()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });

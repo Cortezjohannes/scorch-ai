@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 // Helper function to provide detailed progress information
@@ -61,6 +61,39 @@ export default function GenerationProgressOverlay({
   totalSteps,
   currentStepIndex
 }: GenerationProgressOverlayProps) {
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+
+  // Reset timer when overlay becomes visible
+  useEffect(() => {
+    if (isVisible && !startTime) {
+      setStartTime(Date.now())
+      setElapsedTime(0)
+    } else if (!isVisible) {
+      setStartTime(null)
+      setElapsedTime(0)
+    }
+  }, [isVisible, startTime])
+
+  // Update elapsed time every second
+  useEffect(() => {
+    if (!isVisible || !startTime) return
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000) // seconds
+      setElapsedTime(elapsed)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isVisible, startTime])
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
   if (!isVisible) return null
   
   const formattedProgress = Math.min(Math.max(Math.round(progress), 0), 100)
@@ -82,7 +115,10 @@ export default function GenerationProgressOverlay({
           <div className="mb-8">
             <div className="flex justify-between items-center mb-2">
               <span className="text-[#e7e7e7]/70">Overall Progress</span>
-              <span className="text-[#e2c376] font-medium">{formattedProgress}%</span>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-[#e2c376]/70 font-mono">{formatTime(elapsedTime)}</span>
+                <span className="text-[#e2c376] font-medium">{formattedProgress}%</span>
+              </div>
             </div>
             <div className="w-full h-4 bg-[#2a2a2a] rounded-full overflow-hidden">
               <motion.div 

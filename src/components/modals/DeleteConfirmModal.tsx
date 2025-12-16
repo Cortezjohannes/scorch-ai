@@ -69,7 +69,7 @@ export default function DeleteConfirmModal({
             <div className="flex gap-3">
               <button
                 onClick={onCancel}
-                className="flex-1 px-6 py-3 bg-[#00FF99]/10 border border-[#00FF99]/30 text-[#00FF99] font-medium rounded-lg hover:bg-[#00FF99]/20 transition-all"
+                className="flex-1 px-6 py-3 bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981] font-medium rounded-lg hover:bg-[#10B981]/20 transition-all"
               >
                 {cancelText}
               </button>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import type { PreProductionData, ShotListData, Shot, ShotListScene } from '@/types/preproduction'
+import type { PreProductionData, EpisodePreProductionData, ShotListData, Shot, ShotListScene } from '@/types/preproduction'
 import { StatusBadge } from '../shared/StatusBadge'
 import { CollaborativeNotes } from '../shared/CollaborativeNotes'
 import { EditableField } from '../shared/EditableField'
@@ -25,13 +25,15 @@ export function ShotListTab({
   const router = useRouter()
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set([0]))
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'narrative' | 'efficiency'>('narrative')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
-  const shotListData = preProductionData.shotList
+  const episodeData = preProductionData as EpisodePreProductionData
+  const shotListData = episodeData.shotList
 
-  const breakdownData = preProductionData.scriptBreakdown
-  const scriptsData = (preProductionData as any).scripts
-  const storyboardsData = preProductionData.storyboards
+  const breakdownData = episodeData.scriptBreakdown
+  const scriptsData = (episodeData as any).scripts
+  const storyboardsData = episodeData.storyboards
 
   const handleGenerateShotList = async () => {
     setIsGenerating(true)
@@ -60,7 +62,7 @@ export function ShotListTab({
       if (!scriptsData?.fullScript) {
         setGenerationError('Please generate script first. Go to Scripts tab and generate a script.')
         setIsGenerating(false)
-        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=scripts')
+        router.push('/preproduction?storyBibleId=' + episodeData.storyBibleId + '&episodeNumber=' + episodeData.episodeNumber + '&episodeTitle=' + encodeURIComponent(episodeData.episodeTitle || '') + '&tab=scripts')
         return
       }
       console.log('✅ Script data found')
@@ -74,7 +76,7 @@ export function ShotListTab({
 
       // 2. Fetch story bible
       console.log('📖 Fetching story bible...')
-      const storyBible = await getStoryBible(preProductionData.storyBibleId, currentUserId)
+      const storyBible = await getStoryBible(episodeData.storyBibleId, currentUserId)
 
       if (!storyBible) {
         throw new Error('Story bible not found')
@@ -90,9 +92,9 @@ export function ShotListTab({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          preProductionId: preProductionData.id,
-          storyBibleId: preProductionData.storyBibleId,
-          episodeNumber: preProductionData.episodeNumber,
+          preProductionId: episodeData.id,
+          storyBibleId: episodeData.storyBibleId,
+          episodeNumber: episodeData.episodeNumber,
           userId: currentUserId,
           breakdownData,
           scriptData: scriptsData.fullScript,
@@ -148,9 +150,9 @@ export function ShotListTab({
       setGenerationError(error.message || 'Failed to generate shot list')
       
       if (error.message?.includes('breakdown') || error.message?.includes('Script breakdown')) {
-        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=breakdown')
+        router.push('/preproduction?storyBibleId=' + episodeData.storyBibleId + '&episodeNumber=' + episodeData.episodeNumber + '&episodeTitle=' + encodeURIComponent(episodeData.episodeTitle || '') + '&tab=breakdown')
       } else if (error.message?.includes('script') || error.message?.includes('Script')) {
-        router.push('/preproduction?storyBibleId=' + preProductionData.storyBibleId + '&episodeNumber=' + preProductionData.episodeNumber + '&episodeTitle=' + encodeURIComponent(preProductionData.episodeTitle || '') + '&tab=scripts')
+        router.push('/preproduction?storyBibleId=' + episodeData.storyBibleId + '&episodeNumber=' + episodeData.episodeNumber + '&episodeTitle=' + encodeURIComponent(episodeData.episodeTitle || '') + '&tab=scripts')
       }
     } finally {
       setIsGenerating(false)
@@ -193,7 +195,7 @@ export function ShotListTab({
         <button
           onClick={handleGenerateShotList}
           disabled={isGenerating || !hasBreakdown || !hasScript}
-          className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating ? '🔄 Generating...' : '✨ Generate Shot List'}
         </button>
@@ -247,7 +249,7 @@ export function ShotListTab({
     })
   }
 
-  const handleAddComment = async (sceneIndex: number, shotIndex: number, commentContent: string) => {
+  const handleAddComment = async (sceneIndex: number, shotIndex: number, commentContent: string, mentions?: string[]) => {
     const shot = shotListData.scenes[sceneIndex].shots[shotIndex]
     const newComment = {
       id: `comment-${Date.now()}`,
@@ -284,12 +286,25 @@ export function ShotListTab({
       : scene.shots.filter(shot => shot.status === filterStatus)
   })).filter(scene => scene.shots.length > 0)
 
+  const getSortedShots = (shots: Shot[]) => {
+    if (viewMode === 'narrative') return shots
+    return [...shots].sort((a, b) => {
+      const groupA = a.setupGroup || ''
+      const groupB = b.setupGroup || ''
+      if (groupA !== groupB) return groupA.localeCompare(groupB)
+      const lensA = a.lensRecommendation || ''
+      const lensB = b.lensRecommendation || ''
+      if (lensA !== lensB) return lensA.localeCompare(lensB)
+      return (a.cameraAngle || '').localeCompare(b.cameraAngle || '')
+    })
+  }
+
   const completionPercent = (shotListData.completedShots / shotListData.totalShots) * 100
 
   return (
     <div className="space-y-6">
       {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <ShotListStatCard
           icon="🎬"
           label="Total Shots"
@@ -301,7 +316,7 @@ export function ShotListTab({
           label="Completed"
           value={shotListData.completedShots}
           subtitle={`${completionPercent.toFixed(0)}% done`}
-          color="#00FF99"
+          color="#10B981"
         />
         <ShotListStatCard
           icon="📋"
@@ -316,13 +331,19 @@ export function ShotListTab({
           value={`${calculateAverageDuration(shotListData)}s`}
           subtitle="Per shot"
         />
+        <ShotListStatCard
+          icon="🛠️"
+          label="Est. Setup Time"
+          value={`${calculateTotalSetupMinutes(shotListData)}m`}
+          subtitle={viewMode === 'efficiency' ? 'Optimizing setups' : 'Switch to efficiency view'}
+        />
       </div>
 
       {/* Progress Bar */}
       <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-[#e7e7e7]">Shot Progress</h3>
-          <span className="text-2xl font-bold text-[#00FF99]">
+          <span className="text-2xl font-bold text-[#10B981]">
             {completionPercent.toFixed(0)}%
           </span>
         </div>
@@ -331,7 +352,7 @@ export function ShotListTab({
             initial={{ width: 0 }}
             animate={{ width: `${completionPercent}%` }}
             transition={{ duration: 1, ease: 'easeOut' }}
-            className="h-full bg-[#00FF99] rounded-full"
+            className="h-full bg-[#10B981] rounded-full"
           />
         </div>
         <div className="flex justify-between mt-2 text-sm text-[#e7e7e7]/50">
@@ -341,8 +362,8 @@ export function ShotListTab({
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-xl font-bold text-[#e7e7e7]">
             Production Shot List
           </h2>
@@ -354,7 +375,7 @@ export function ShotListTab({
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] text-sm focus:outline-none focus:border-[#00FF99]"
+            className="px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] text-sm focus:outline-none focus:border-[#10B981]"
           >
             <option value="all">All Shots</option>
             <option value="planned">Planned</option>
@@ -362,13 +383,29 @@ export function ShotListTab({
             <option value="need-pickup">Need Pickup</option>
             <option value="cut">Cut</option>
           </select>
+
+          {/* View toggle */}
+          <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#36393f] rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('narrative')}
+              className={`px-3 py-1 text-xs rounded-md ${viewMode === 'narrative' ? 'bg-[#10B981] text-black' : 'text-[#e7e7e7]/70'}`}
+            >
+              Narrative Order
+            </button>
+            <button
+              onClick={() => setViewMode('efficiency')}
+              className={`px-3 py-1 text-xs rounded-md ${viewMode === 'efficiency' ? 'bg-[#10B981] text-black' : 'text-[#e7e7e7]/70'}`}
+            >
+              Efficiency Order
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={handleGenerateShotList}
             disabled={isGenerating}
-            className="px-4 py-2 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
             {isGenerating ? '🔄 Generating...' : '🔄 Regenerate'}
           </button>
@@ -393,26 +430,22 @@ export function ShotListTab({
         </div>
       )}
 
-      {/* Shot List */}
+      {/* Shot List Cards */}
       <div className="space-y-4">
-        {filteredScenes.map((scene, sceneIdx) => {
+        {filteredScenes.map((scene) => {
           const actualSceneIndex = shotListData.scenes.findIndex(s => s.sceneNumber === scene.sceneNumber)
-          const isExpanded = expandedScenes.has(scene.sceneNumber)
-          
+          const sceneShots = getSortedShots(scene.shots)
           return (
             <SceneSection
               key={scene.sceneNumber}
-              scene={scene}
-              isExpanded={isExpanded}
+              scene={{ ...scene, shots: sceneShots }}
+              isExpanded={expandedScenes.has(scene.sceneNumber)}
               onToggle={() => toggleScene(scene.sceneNumber)}
-              onShotUpdate={(shotIndex, field, value) => 
-                handleShotUpdate(actualSceneIndex, shotIndex, field, value)
-              }
-              onAddComment={(shotIndex, comment) => 
-                handleAddComment(actualSceneIndex, shotIndex, comment)
-              }
+              onShotUpdate={(shotIndex, field, value) => handleShotUpdate(actualSceneIndex, shotIndex, field, value)}
+              onAddComment={(shotIndex, comment, mentions) => handleAddComment(actualSceneIndex, shotIndex, comment, mentions)}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
+              storyboardsData={storyboardsData}
             />
           )
         })}
@@ -428,6 +461,13 @@ function calculateAverageDuration(data: ShotListData): number {
     0
   )
   return Math.round(totalDuration / data.totalShots)
+}
+
+function calculateTotalSetupMinutes(data: ShotListData): number {
+  return data.scenes.reduce(
+    (sum, scene) => sum + scene.shots.reduce((s, shot) => s + (shot.estimatedSetupTime || 0), 0),
+    0
+  )
 }
 
 // Shot List Stat Card
@@ -476,17 +516,24 @@ function SceneSection({
   onShotUpdate,
   onAddComment,
   currentUserId,
-  currentUserName
+  currentUserName,
+  storyboardsData
 }: {
   scene: ShotListScene
   isExpanded: boolean
   onToggle: () => void
   onShotUpdate: (shotIndex: number, field: string, value: any) => void
-  onAddComment: (shotIndex: number, comment: string) => void
+  onAddComment: (shotIndex: number, comment: string, mentions?: string[]) => Promise<void>
   currentUserId: string
   currentUserName: string
+  storyboardsData: any
 }) {
   const completionPercent = (scene.completedShots / scene.totalShots) * 100
+  const getStoryboardFrame = (shot: Shot) => {
+    return storyboardsData?.scenes
+      ?.find((s: any) => s.sceneNumber === scene.sceneNumber)
+      ?.frames?.find((f: any) => (shot.storyboardFrameId ? f.id === shot.storyboardFrameId : f.shotNumber === shot.shotNumber))
+  }
 
   return (
     <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg overflow-hidden">
@@ -496,7 +543,7 @@ function SceneSection({
         className="w-full p-4 flex items-center justify-between hover:bg-[#2a2a2a]/50 transition-colors"
       >
         <div className="flex items-center gap-4">
-          <div className="text-2xl font-bold text-[#00FF99]">
+          <div className="text-2xl font-bold text-[#10B981]">
             Scene {scene.sceneNumber}
           </div>
           <div>
@@ -514,7 +561,7 @@ function SceneSection({
             <div className="text-sm text-[#e7e7e7]">
               {scene.completedShots} / {scene.totalShots} shots
             </div>
-            <div className="text-xs text-[#00FF99]">
+            <div className="text-xs text-[#10B981]">
               {completionPercent.toFixed(0)}% complete
             </div>
           </div>
@@ -539,9 +586,10 @@ function SceneSection({
                   key={shot.id}
                   shot={shot}
                   onUpdate={(field, value) => onShotUpdate(idx, field, value)}
-                  onAddComment={(comment) => onAddComment(idx, comment)}
+                  onAddComment={async (comment, mentions) => await onAddComment(idx, comment, mentions)}
                   currentUserId={currentUserId}
                   currentUserName={currentUserName}
+                  storyboardFrame={getStoryboardFrame(shot)}
                 />
               ))}
             </div>
@@ -558,21 +606,24 @@ function ShotItem({
   onUpdate,
   onAddComment,
   currentUserId,
-  currentUserName
+  currentUserName,
+  storyboardFrame
 }: {
   shot: Shot
   onUpdate: (field: string, value: any) => void
-  onAddComment: (comment: string) => void
+  onAddComment: (comment: string, mentions?: string[]) => Promise<void>
   currentUserId: string
   currentUserName: string
+  storyboardFrame?: any
 }) {
-  const [isEditing, setIsEditing] = useState(false)
-
+  const [isImageOpen, setIsImageOpen] = useState(false)
   const priorityColors = {
-    'must-have': '#00FF99',
+    'must-have': '#10B981',
     'nice-to-have': '#60A5FA',
     'optional': '#9CA3AF'
   }
+
+  const setupLabel = shot.setupGroup || `${shot.cameraAngle} • ${shot.cameraMovement}`
 
   return (
     <motion.div
@@ -583,102 +634,29 @@ function ShotItem({
       }`}
       style={{ borderLeftColor: priorityColors[shot.priority] }}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Shot Number & Description */}
-        <div className="lg:col-span-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <div className="text-xl font-bold text-[#00FF99]">
-                {shot.shotNumber}
-              </div>
-              <div className="text-xs text-[#e7e7e7]/40 mt-1">
-                {shot.durationEstimate}s
-              </div>
+      <div className="grid grid-cols-1 gap-4">
+        {/* Overview row */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div>
+              <div className="text-xl font-bold text-[#10B981]">{shot.shotNumber}</div>
+              <div className="text-xs text-[#e7e7e7]/60">{shot.durationEstimate}s</div>
             </div>
-            <div className="flex-1">
-              <EditableField
-                value={shot.description}
-                onSave={(value) => onUpdate('description', value)}
-                type="textarea"
-                rows={2}
-                placeholder="Shot description..."
-              />
+            <div className="px-3 py-1 bg-[#1a1a1a] border border-[#36393f] rounded-md text-xs text-[#e7e7e7]">
+              {setupLabel}
             </div>
-          </div>
-        </div>
-
-        {/* Camera Setup */}
-        <div className="lg:col-span-3">
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-[#e7e7e7]/50">📷</span>
-              <select
-                value={shot.cameraAngle}
-                onChange={(e) => onUpdate('cameraAngle', e.target.value)}
-                className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs focus:outline-none focus:border-[#00FF99]"
-              >
-                <option value="wide">Wide</option>
-                <option value="medium">Medium</option>
-                <option value="close-up">Close-up</option>
-                <option value="extreme-close-up">Extreme Close-up</option>
-                <option value="over-shoulder">Over Shoulder</option>
-                <option value="pov">POV</option>
-                <option value="dutch">Dutch Angle</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[#e7e7e7]/50">🎥</span>
-              <select
-                value={shot.cameraMovement}
-                onChange={(e) => onUpdate('cameraMovement', e.target.value)}
-                className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs focus:outline-none focus:border-[#00FF99]"
-              >
-                <option value="static">Static</option>
-                <option value="pan">Pan</option>
-                <option value="tilt">Tilt</option>
-                <option value="dolly">Dolly</option>
-                <option value="tracking">Tracking</option>
-                <option value="handheld">Handheld</option>
-                <option value="steadicam">Steadicam</option>
-                <option value="crane">Crane</option>
-              </select>
-            </div>
-            {shot.lensRecommendation && (
-              <div className="flex items-center gap-2">
-                <span className="text-[#e7e7e7]/50">🔍</span>
-                <EditableField
-                  value={shot.lensRecommendation}
-                  onSave={(value) => onUpdate('lensRecommendation', value)}
-                  type="text"
-                  placeholder="Lens..."
-                  className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
-                />
-              </div>
-            )}
-            {shot.fpsCameraFrameRate && (
-              <div className="flex items-center gap-2">
-                <span className="text-[#e7e7e7]/50">⚡</span>
-                <EditableField
-                  value={shot.fpsCameraFrameRate.toString()}
-                  onSave={(value) => onUpdate('fpsCameraFrameRate', parseInt(value) || undefined)}
-                  type="text"
-                  placeholder="FPS..."
-                  className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
-                />
-                <span className="text-[#e7e7e7]/50 text-xs">fps</span>
+            {shot.estimatedSetupTime !== undefined && (
+              <div className="text-xs text-[#e7e7e7]/60">
+                Setup ~{shot.estimatedSetupTime}m
               </div>
             )}
           </div>
-        </div>
-
-        {/* Priority & Status */}
-        <div className="lg:col-span-2">
-          <div className="space-y-2">
-            <div className="text-xs text-[#e7e7e7]/50">Priority:</div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-[#e7e7e7]/50">Priority</div>
             <select
               value={shot.priority}
               onChange={(e) => onUpdate('priority', e.target.value)}
-              className="w-full px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-xs font-medium"
+              className="px-2 py-1 bg-[#1a1a1a] border border-[#36393f] rounded text-xs font-medium"
               style={{ color: priorityColors[shot.priority] }}
             >
               <option value="must-have">Must-Have</option>
@@ -698,16 +676,150 @@ function ShotItem({
           </div>
         </div>
 
-        {/* Notes & Comments */}
-        <div className="lg:col-span-3 flex items-start justify-between gap-2">
-          {shot.notes && (
-            <div className="flex-1 text-xs text-[#e7e7e7]/70 italic">
-              "{shot.notes}"
+        {/* Description */}
+        <EditableField
+          value={shot.description}
+          onSave={(value) => onUpdate('description', value)}
+          type="textarea"
+          rows={2}
+          placeholder="Shot coverage description..."
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Camera & crew */}
+          <div className="space-y-2 bg-[#1a1a1a] border border-[#36393f] rounded-lg p-3">
+            <div className="text-xs text-[#e7e7e7]/60 uppercase">Camera</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#e7e7e7]/50">📷</span>
+              <select
+                value={shot.cameraAngle}
+                onChange={(e) => onUpdate('cameraAngle', e.target.value)}
+                className="flex-1 px-2 py-1 bg-[#0f0f0f] border border-[#36393f] rounded text-[#e7e7e7] text-xs focus:outline-none focus:border-[#10B981]"
+              >
+                <option value="wide">Wide</option>
+                <option value="medium">Medium</option>
+                <option value="close-up">Close-up</option>
+                <option value="extreme-close-up">Extreme Close-up</option>
+                <option value="over-shoulder">Over Shoulder</option>
+                <option value="pov">POV</option>
+                <option value="dutch">Dutch Angle</option>
+              </select>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <span className="text-[#e7e7e7]/50">🎥</span>
+              <select
+                value={shot.cameraMovement}
+                onChange={(e) => onUpdate('cameraMovement', e.target.value)}
+                className="flex-1 px-2 py-1 bg-[#0f0f0f] border border-[#36393f] rounded text-[#e7e7e7] text-xs focus:outline-none focus:border-[#10B981]"
+              >
+                <option value="static">Static</option>
+                <option value="pan">Pan</option>
+                <option value="tilt">Tilt</option>
+                <option value="dolly">Dolly</option>
+                <option value="tracking">Tracking</option>
+                <option value="handheld">Handheld</option>
+                <option value="steadicam">Steadicam</option>
+                <option value="crane">Crane</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#e7e7e7]/50">🔍</span>
+              <EditableField
+                value={shot.lensRecommendation || ''}
+                onSave={(value) => onUpdate('lensRecommendation', value)}
+                type="text"
+                placeholder="Lens..."
+                className="flex-1 px-2 py-1 bg-[#0f0f0f] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#e7e7e7]/50">⚡</span>
+              <EditableField
+                value={shot.fpsCameraFrameRate ? shot.fpsCameraFrameRate.toString() : ''}
+                onSave={(value) => onUpdate('fpsCameraFrameRate', parseInt(String(value)) || undefined)}
+                type="text"
+                placeholder="FPS (default 24)"
+                className="flex-1 px-2 py-1 bg-[#0f0f0f] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
+              />
+            </div>
+            <div className="text-xs text-[#e7e7e7]/60 uppercase">Camera crew instructions</div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.cameraCrewInstructions || 'AI-generated: camera crew instructions will appear after generation.'}
+            </div>
+          </div>
+
+          {/* Actor / blocking / continuity */}
+          <div className="space-y-2 bg-[#1a1a1a] border border-[#36393f] rounded-lg p-3">
+            <div className="text-xs text-[#e7e7e7]/60 uppercase">Actors & Continuity</div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.actorInstructions || 'AI-generated: actor performance/eyeline notes will appear after generation.'}
+            </div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.blockingDescription || 'AI-generated: blocking description will appear after generation.'}
+            </div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.continuityNotes || 'AI-generated: continuity (wardrobe/props/positions) will appear after generation.'}
+            </div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.lightingSetup || 'AI-generated: lighting setup/motivation will appear after generation.'}
+            </div>
+          </div>
+
+          {/* Audio / storyboard / notes */}
+          <div className="space-y-2 bg-[#1a1a1a] border border-[#36393f] rounded-lg p-3">
+            <div className="text-xs text-[#e7e7e7]/60 uppercase">Audio & References</div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.audioRequirements || 'AI-generated: audio needs (boom/lav, wild lines, ambience) will appear after generation.'}
+            </div>
+            <div className="text-sm text-[#e7e7e7] bg-[#0f0f0f] border border-[#36393f] rounded p-2 min-h-[52px]">
+              {shot.notes || 'AI-generated production notes will appear after generation.'}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-[#e7e7e7]/60">Estimated setup (min)</div>
+              <EditableField
+                value={shot.estimatedSetupTime?.toString() || ''}
+                onSave={(value) => onUpdate('estimatedSetupTime', parseInt(String(value)) || 0)}
+                type="text"
+                placeholder="5"
+                className="w-20 px-2 py-1 bg-[#0f0f0f] border border-[#36393f] rounded text-[#e7e7e7] text-xs"
+              />
+            </div>
+            {storyboardFrame?.frameImage && (
+              <>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsImageOpen(true)}
+                    className="w-20 h-14 rounded border border-[#36393f] overflow-hidden block hover:ring-2 hover:ring-[#10B981]"
+                  >
+                    <img src={storyboardFrame.frameImage} className="w-full h-full object-cover" alt="Storyboard" />
+                  </button>
+                  <div className="flex-1 text-xs text-[#e7e7e7]/70">
+                    Storyboard {storyboardFrame.id || storyboardFrame.shotNumber}
+                  </div>
+                </div>
+                {isImageOpen && (
+                  <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setIsImageOpen(false)}>
+                    <div className="max-w-5xl max-h-[90vh] relative">
+                      <button
+                        onClick={() => setIsImageOpen(false)}
+                        className="absolute -top-10 right-0 text-white bg-black/60 px-3 py-1 rounded"
+                      >
+                        Close
+                      </button>
+                      <img src={storyboardFrame.frameImage} className="w-full h-full object-contain rounded" alt="Storyboard Full" />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Comments */}
+        <div className="flex items-start justify-between gap-2">
           <CollaborativeNotes
             comments={shot.comments || []}
-            onAddComment={onAddComment}
+            onAddComment={async (content, mentions) => await onAddComment(content, mentions)}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
           />

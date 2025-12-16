@@ -37,7 +37,7 @@ export function ShootingScheduleTab({
         <p className="text-[#e7e7e7]/70 mb-6 max-w-md mx-auto">
           Create a shooting schedule to plan your 3-week production timeline and organize scenes efficiently.
         </p>
-        <button className="px-6 py-3 bg-[#00FF99] text-black font-medium rounded-lg hover:bg-[#00CC7A] transition-colors">
+        <button className="px-6 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors">
           Create Schedule
         </button>
       </div>
@@ -108,7 +108,7 @@ export function ShootingScheduleTab({
           label="Completed"
           value={completedDays}
           subtitle={`${((completedDays / totalShootDays) * 100).toFixed(0)}% done`}
-          color="#00FF99"
+          color="#10B981"
         />
         <ScheduleStatCard
           icon="📋"
@@ -155,7 +155,7 @@ export function ShootingScheduleTab({
             onClick={() => setViewMode('calendar')}
             className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
               viewMode === 'calendar' 
-                ? 'bg-[#00FF99] text-black' 
+                ? 'bg-[#10B981] text-black' 
                 : 'text-[#e7e7e7] hover:bg-[#36393f]'
             }`}
           >
@@ -165,7 +165,7 @@ export function ShootingScheduleTab({
             onClick={() => setViewMode('list')}
             className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
               viewMode === 'list' 
-                ? 'bg-[#00FF99] text-black' 
+                ? 'bg-[#10B981] text-black' 
                 : 'text-[#e7e7e7] hover:bg-[#36393f]'
             }`}
           >
@@ -336,14 +336,14 @@ function DayCard({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className={`bg-[#1a1a1a] border-2 rounded-lg p-4 cursor-pointer transition-all ${
-        isExpanded ? 'border-[#00FF99]' : 'border-[#36393f] hover:border-[#00FF99]/50'
+        isExpanded ? 'border-[#10B981]' : 'border-[#36393f] hover:border-[#10B981]/50'
       }`}
       onClick={() => setIsExpanded(!isExpanded)}
     >
       {/* Day Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <div className="text-lg font-bold text-[#00FF99]">Day {day.dayNumber}</div>
+          <div className="text-lg font-bold text-[#10B981]">Day {day.dayNumber}</div>
           {day.date && (
             <div className="text-xs text-[#e7e7e7]/50">{formatDate(day.date)}</div>
           )}
@@ -383,7 +383,7 @@ function DayCard({
                 {day.scenes.map((sceneNum) => (
                   <span
                     key={sceneNum}
-                    className="px-2 py-1 bg-[#2a2a2a] text-[#00FF99] text-xs rounded font-medium"
+                    className="px-2 py-1 bg-[#2a2a2a] text-[#10B981] text-xs rounded font-medium"
                   >
                     #{sceneNum}
                   </span>
@@ -456,11 +456,11 @@ function DayListItem({
   }
 
   return (
-    <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4 hover:border-[#00FF99]/50 transition-colors">
+    <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-4 hover:border-[#10B981]/50 transition-colors">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Day Info */}
         <div className="lg:col-span-2">
-          <div className="text-2xl font-bold text-[#00FF99]">Day {day.dayNumber}</div>
+          <div className="text-2xl font-bold text-[#10B981]">Day {day.dayNumber}</div>
           {day.date && (
             <div className="text-sm text-[#e7e7e7]/50">{formatDate(day.date)}</div>
           )}
@@ -494,7 +494,7 @@ function DayListItem({
             {day.scenes.map((sceneNum) => (
               <span
                 key={sceneNum}
-                className="px-2 py-0.5 bg-[#2a2a2a] text-[#00FF99] text-xs rounded font-medium"
+                className="px-2 py-0.5 bg-[#2a2a2a] text-[#10B981] text-xs rounded font-medium"
               >
                 #{sceneNum}
               </span>

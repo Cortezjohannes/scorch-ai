@@ -25,7 +25,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'In Progress'
   },
   'completed': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '●',
     label: 'Completed'
@@ -56,7 +56,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Confirmed'
   },
   'paid': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '✓',
     label: 'Paid'
@@ -75,7 +75,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Sourced'
   },
   'obtained': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '✓',
     label: 'Obtained'
@@ -94,7 +94,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Scheduled'
   },
   'shot': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '🎬',
     label: 'Shot'
@@ -132,7 +132,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Scouted'
   },
   'booked': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '✓',
     label: 'Booked'
@@ -145,7 +145,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Planned'
   },
   'got-it': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '✓',
     label: 'Got It'
@@ -189,7 +189,7 @@ const STATUS_CONFIGS: Record<string, { color: string; bg: string; icon: string; 
     label: 'Revised'
   },
   'final': {
-    color: '#00FF99',
+    color: '#10B981',
     bg: '#064E3B',
     icon: '✓',
     label: 'Final'

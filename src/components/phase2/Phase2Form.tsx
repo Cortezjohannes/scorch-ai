@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion } from '@/components/ui/ClientMotion'
 import { VisualDevelopment } from './VisualDevelopment'
 import { ProductionPlanning } from './ProductionPlanning'
 import { TechnicalPreproduction } from './TechnicalPreproduction'

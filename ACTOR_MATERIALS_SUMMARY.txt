@@ -1,0 +1,38 @@
+===============================================
+ACTOR MATERIALS GENERATOR - REBUILD COMPLETE ✅
+===============================================
+
+REQUIREMENTS MET:
+✅ Limited to <20 AI calls (uses only 10 for 5 characters)
+✅ Fast generation (~40 seconds for 5 characters)
+✅ High quality materials (using Gemini 3 Pro)
+✅ Loading modal with clear visual feedback
+
+KEY FEATURES:
+• 2 AI calls per character (highly efficient)
+• Comprehensive materials: study guides, GOTE analysis, scene breakdowns, 
+  performance refs, practice materials, on-set prep
+• Beautiful animated loading modal with progress tracking
+• Acting technique selector (Stanislavski, Meisner, Method, etc.)
+• Graceful error handling
+
+FILES CREATED/MODIFIED:
+✅ /src/services/ai-generators/actor-materials-generator.ts
+✅ /src/components/actor-materials/ActorMaterialsGenerationModal.tsx
+✅ /src/app/actor-materials/arc/[arcIndex]/page.tsx
+✅ ACTOR_MATERIALS_REBUILD.md (detailed documentation)
+
+HOW TO TEST:
+1. Go to Dashboard
+2. Click "Actor Materials" card
+3. Select an arc (must have all episodes complete)
+4. Click "Generate Materials"
+5. Watch loading modal animate
+6. View comprehensive materials
+
+GENERATION FLOW:
+User clicks "Generate" → Loading modal appears immediately → API generates 
+materials (2 calls per character) → Materials saved to Firestore → Viewer 
+displays materials with all sections
+
+Ready to use! 🎭

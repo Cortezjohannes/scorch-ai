@@ -37,7 +37,7 @@ export const ContentHeader: React.FC<ContentHeaderProps> = ({
       <div className="text-center mb-6">
         {icon && (
           <div className="inline-block mb-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#00FF99]/20 to-[#00CC7A]/20 border border-[#00FF99]/30">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/30">
               <span className="text-3xl">{icon}</span>
             </div>
           </div>
@@ -58,7 +58,7 @@ export const ContentHeader: React.FC<ContentHeaderProps> = ({
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="text-center p-4 rounded-xl border transition-all hover:border-[#00FF99]/50"
+              className="text-center p-4 rounded-xl border transition-all hover:border-[#10B981]/50"
               style={{
                 backgroundColor: 'var(--card-bg)',
                 borderColor: 'var(--border-color)'
@@ -67,7 +67,7 @@ export const ContentHeader: React.FC<ContentHeaderProps> = ({
               {stat.icon && (
                 <div className="text-2xl mb-2">{stat.icon}</div>
               )}
-              <div className="text-2xl font-bold text-[#00FF99] mb-1">
+              <div className="text-2xl font-bold text-[#10B981] mb-1">
                 {stat.value}
               </div>
               <div className="text-sm font-medium opacity-80">
