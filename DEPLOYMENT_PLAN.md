@@ -132,9 +132,10 @@ gcloud services enable \
 ### Option A: Using Secret Manager (Recommended)
 ```bash
 # Store Gemini API Key
-echo -n "AIzaSyAvLsvx7Dm-cUZfhE1ikVp7t1jT1iCxJ_c" | gcloud secrets create GEMINI_API_KEY \
+# Store Gemini API Key in Secret Manager (replace YOUR_ACTUAL_KEY with your real key)
+echo -n "YOUR_ACTUAL_KEY" | gcloud secrets create GEMINI_API_KEY \
   --data-file=- --replication-policy="automatic" || \
-echo -n "AIzaSyAvLsvx7Dm-cUZfhE1ikVp7t1jT1iCxJ_c" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
+echo -n "YOUR_ACTUAL_KEY" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
 
 # Store Azure OpenAI credentials
 echo -n "$AZURE_OPENAI_API_KEY" | gcloud secrets create AZURE_OPENAI_API_KEY \

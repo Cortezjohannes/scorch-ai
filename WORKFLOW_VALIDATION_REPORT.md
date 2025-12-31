@@ -24,7 +24,7 @@ This report documents a comprehensive validation of the Reeled AI platform's ent
 ## 🔧 ENVIRONMENT & CONFIGURATION
 
 ### ✅ API Keys - PASS
-- **Gemini API Key:** ✅ Configured (`AIzaSyAvLsvx7Dm-cUZfhE1ikVp7t1jT1iCxJ_c`)
+- **Gemini API Key:** ✅ Configured (stored in Secret Manager)
 - **Azure OpenAI API Key:** ✅ Configured
 - **Azure OpenAI Endpoint:** ✅ Configured (`https://reeled-ai-alpha.openai.azure.com/`)
 
