@@ -12,13 +12,14 @@ import ShareInvestorMaterialsModal from '@/components/share/ShareInvestorMateria
 import AuthStatusModal from '@/components/auth/AuthStatusModal'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { saveStoryBible as saveStoryBibleToFirestore, getStoryBible as getStoryBibleFromFirestore, StoryBibleStatus } from '@/services/story-bible-service'
+import { saveStoryBible as saveStoryBibleToFirestore, getStoryBible as getStoryBibleFromFirestore, StoryBibleStatus, extendSeriesWithArc } from '@/services/story-bible-service'
 import { updateStoryBibleFields, updateLockStatus } from '@/services/story-bible-firestore'
 import { versionControl } from '@/services/version-control'
 import { storyBibleLock } from '@/services/story-bible-lock'
 import { exportAsJSON, copyAsText, downloadMarkdown } from '@/utils/export-story-bible'
 import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
-import CharacterCreationWizard from '@/components/modals/CharacterCreationWizard'
+import CharacterCreatorModal from '@/components/modals/CharacterCreatorModal'
+import CharacterUpgradeModal from '@/components/character-creator/CharacterUpgradeModal'
 import AIEditModal from '@/components/modals/AIEditModal'
 import StoryBibleSidebar, { StoryBibleSection } from '@/components/story-bible/StoryBibleSidebar'
 import CharacterDetailModal from '@/components/story-bible/CharacterDetailModal'
@@ -76,6 +77,8 @@ export default function StoryBiblePage() {
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [hasSkippedLogin, setHasSkippedLogin] = useState(false)
   const [storyBibleStatus, setStoryBibleStatus] = useState<StoryBibleStatus>('draft')
+  const [showCharacterUpgradeModal, setShowCharacterUpgradeModal] = useState(false)
+  const [characterToUpgrade, setCharacterToUpgrade] = useState<any>(null)
   
   // Story Bible lock state (locked after first episode)
   const [isStoryBibleLocked, setIsStoryBibleLocked] = useState(false)
@@ -133,6 +136,11 @@ export default function StoryBiblePage() {
       
       // Update local state with the saved bible (which now has an ID)
       setStoryBible(savedBible)
+      
+      // Dispatch custom event to notify ChatWidget to reload
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('storyBibleUpdated'))
+      }
       
       console.log('✅ Story bible saved with ID:', savedBible.id)
       
@@ -730,12 +738,18 @@ export default function StoryBiblePage() {
 
     // Update narrative arcs with actual episode content and choice consequences  
     if (updatedBible.narrativeArcs && episodes.length > 0) {
+      // Calculate episode ranges dynamically based on actual arc episode counts
+      let runningEpisodeCount = 0
       updatedBible.narrativeArcs = updatedBible.narrativeArcs.map((arc: any, arcIndex: number) => {
-        const arcStartEpisode = arcIndex * 10 + 1
-        const arcEndEpisode = arcIndex * 10 + 10
+        const arcEpisodeCount = arc.episodes?.length || 8
+        const arcStartEpisode = runningEpisodeCount + 1
+        const arcEndEpisode = runningEpisodeCount + arcEpisodeCount
         const arcEpisodes = episodes.filter(ep => 
           ep.episodeNumber >= arcStartEpisode && ep.episodeNumber <= arcEndEpisode
         )
+        
+        // Update running count for next arc
+        runningEpisodeCount += arcEpisodeCount
 
         if (arcEpisodes.length > 0) {
           // Update arc summary based on actual episode content
@@ -749,7 +763,9 @@ export default function StoryBiblePage() {
 
           // Update episodes with actual generated content
           const updatedEpisodes = arc.episodes ? arc.episodes.map((episodeInfo: any) => {
-            const actualEpisode = arcEpisodes.find(ep => ep.episodeNumber === (arcIndex * 10 + episodeInfo.number))
+            // Calculate the actual episode number based on arc start and episode index
+            const episodeNumberInSeries = arcStartEpisode + (episodeInfo.number - 1)
+            const actualEpisode = arcEpisodes.find(ep => ep.episodeNumber === episodeNumberInSeries)
             if (actualEpisode) {
               return {
                 ...episodeInfo,
@@ -947,19 +963,301 @@ export default function StoryBiblePage() {
   // CHARACTER CRUD FUNCTIONS
   // ========================================
   
-  // Handler for completing character creation wizard
+  // Handler for completing character creator
   const handleWizardComplete = async (character: any) => {
     if (!storyBible) return
-    
+
+    console.log('🎭 [WIZARD COMPLETE] Received character from creator:', {
+      name: character.name,
+      hasDetailed: !!character.detailed,
+      hasBalanced: !!character.balanced,
+      detailedKeys: character.detailed ? Object.keys(character.detailed) : [],
+      balancedKeys: character.balanced ? Object.keys(character.balanced) : [],
+      physiologyPreview: character.detailed?.fullPhysiology ? {
+        age: character.detailed.fullPhysiology.age,
+        gender: character.detailed.fullPhysiology.gender,
+        appearance: character.detailed.fullPhysiology.appearance?.substring(0, 50)
+      } : character.balanced?.physiology ? {
+        age: character.balanced.physiology.age,
+        gender: character.balanced.physiology.gender,
+        appearance: character.balanced.physiology.appearance?.substring(0, 50)
+      } : null
+    })
+
+    // Convert unified character to old format for backward compatibility
+    const oldFormatCharacter = convertUnifiedToOldFormat(character)
+
+    console.log('🎭 [WIZARD COMPLETE] Converted character structure:', {
+      name: oldFormatCharacter.name,
+      hasPhysiology: !!oldFormatCharacter.physiology,
+      hasSociology: !!oldFormatCharacter.sociology,
+      hasPsychology: !!oldFormatCharacter.psychology,
+      physiologyKeys: oldFormatCharacter.physiology ? Object.keys(oldFormatCharacter.physiology) : [],
+      sociologyKeys: oldFormatCharacter.sociology ? Object.keys(oldFormatCharacter.sociology) : [],
+      psychologyKeys: oldFormatCharacter.psychology ? Object.keys(oldFormatCharacter.psychology) : [],
+      physiologyAge: oldFormatCharacter.physiology?.age,
+      physiologyGender: oldFormatCharacter.physiology?.gender,
+      physiologyAppearance: oldFormatCharacter.physiology?.appearance?.substring(0, 50),
+      sociologyOccupation: oldFormatCharacter.sociology?.occupation || oldFormatCharacter.sociology?.profession?.occupation,
+      psychologyWant: typeof oldFormatCharacter.psychology?.want === 'string' 
+        ? oldFormatCharacter.psychology.want.substring(0, 50)
+        : oldFormatCharacter.psychology?.want?.consciousGoal?.substring(0, 50)
+    })
+
     const updatedCharacters = [...(storyBible.mainCharacters || [])]
-    updatedCharacters.push(character)
+    updatedCharacters.push(oldFormatCharacter)
+
+    const updatedBible = { ...storyBible, mainCharacters: updatedCharacters }
     
+    console.log('💾 [WIZARD COMPLETE] Saving to Firestore, character count:', updatedCharacters.length)
+    
+    setStoryBible(updatedBible)
+    await saveStoryBibleData(updatedBible)
+
+    console.log('✅ [WIZARD COMPLETE] Character saved successfully')
+
+    setCurrentCharacterIndex(updatedCharacters.length - 1)
+    setShowCharacterWizard(false)
+  }
+
+  // Handler for character upgrade
+  const handleCharacterUpgrade = async (upgradedCharacter: any) => {
+    if (!storyBible || !characterToUpgrade) return
+
+    // Convert upgraded unified character to old format
+    const oldFormatCharacter = convertUnifiedToOldFormat(upgradedCharacter)
+
+    const updatedCharacters = [...(storyBible.mainCharacters || [])]
+    const characterIndex = updatedCharacters.findIndex(c => c.id === characterToUpgrade.id)
+    if (characterIndex !== -1) {
+      updatedCharacters[characterIndex] = oldFormatCharacter
+    }
+
     const updatedBible = { ...storyBible, mainCharacters: updatedCharacters }
     setStoryBible(updatedBible)
     await saveStoryBibleData(updatedBible)
-    
-    setCurrentCharacterIndex(updatedCharacters.length - 1)
-    setShowCharacterWizard(false)
+
+    setCharacterToUpgrade(null)
+    setShowCharacterUpgradeModal(false)
+  }
+
+  // Handler to open upgrade modal
+  const handleOpenUpgradeModal = (character: any) => {
+    setCharacterToUpgrade(character)
+    setShowCharacterUpgradeModal(true)
+  }
+
+  // Convert unified character format to old format
+  const convertUnifiedToOldFormat = (unified: any) => {
+    console.log('🔄 [CONVERT] Converting UnifiedCharacter to old format:', {
+      hasDetailed: !!unified.detailed,
+      hasBalanced: !!unified.balanced,
+      hasDetailedPhysiology: !!unified.detailed?.fullPhysiology,
+      hasDetailedSociology: !!unified.detailed?.fullSociology,
+      hasDetailedPsychology: !!unified.detailed?.fullPsychology,
+      hasBalancedPhysiology: !!unified.balanced?.physiology,
+      hasBalancedPsychology: !!unified.balanced?.psychology
+    })
+
+    const oldCharacter: any = {
+      id: unified.id,
+      name: unified.name,
+      archetype: unified.basic?.archetype,
+      premiseFunction: unified.basic?.premiseFunction,
+      premiseRole: unified.role,
+      role: unified.role,
+      description: unified.basic?.description
+    }
+
+    // PRIORITIZE detailed data (most complete), but merge with balanced if detailed doesn't exist
+    if (unified.detailed) {
+      // Use detailed data (most complete)
+      // Flatten nested structures to match UI expectations
+      const fullPhysiology = unified.detailed.fullPhysiology || unified.balanced?.physiology || {}
+      oldCharacter.physiology = {
+        ...fullPhysiology,
+        // Ensure age is a string if it's a number (UI expects string)
+        age: fullPhysiology.age !== undefined ? String(fullPhysiology.age) : undefined
+      }
+
+      // Flatten sociology structure - UI expects flat fields, not nested
+      const fullSociology = unified.detailed.fullSociology || {}
+      // Extract occupation - check multiple possible locations
+      const occupation = fullSociology.occupation || 
+                        fullSociology.profession?.occupation || 
+                        (typeof fullSociology.profession === 'string' ? fullSociology.profession : '') ||
+                        ''
+      // Extract class - check multiple possible locations
+      const classValue = fullSociology.class || 
+                        fullSociology.socialClass?.economic || 
+                        (typeof fullSociology.socialClass === 'string' ? fullSociology.socialClass : '') ||
+                        ''
+      
+      oldCharacter.sociology = {
+        ...fullSociology,
+        // CRITICAL: Explicitly set occupation and class to ensure they're present
+        occupation: occupation,
+        class: classValue,
+        // Keep education as-is (can be string or object)
+        education: fullSociology.education || {},
+        // Flatten other nested fields
+        homeLife: fullSociology.homeLife || '',
+        economicStatus: fullSociology.economicStatus || fullSociology.socialClass?.economic || '',
+        communityStanding: fullSociology.communityStanding || ''
+      }
+      
+      // Log for debugging
+      console.log('🔍 [CONVERT] Sociology extraction:', {
+        hasFullSociology: !!fullSociology,
+        occupation: occupation,
+        class: classValue,
+        professionObject: fullSociology.profession,
+        socialClassObject: fullSociology.socialClass
+      })
+
+      // Psychology structure - ensure all required fields are mapped
+      const fullPsychology = unified.detailed.fullPsychology || unified.balanced?.psychology || {}
+      const balancedPsychology = unified.balanced?.psychology || {}
+      
+      // Log want/need extraction for debugging
+      console.log('🔍 [CONVERT] Extracting want/need:', {
+        fullPsychologyWant: fullPsychology.want,
+        fullPsychologyNeed: fullPsychology.need,
+        balancedPsychologyWant: balancedPsychology.want,
+        balancedPsychologyNeed: balancedPsychology.need,
+        wantType: typeof (fullPsychology.want || balancedPsychology.want),
+        needType: typeof (fullPsychology.need || balancedPsychology.need)
+      })
+      
+      oldCharacter.psychology = {
+        ...fullPsychology,
+        // Ensure coreValue, moralStandpoint, primaryFlaw, temperament, attitude, iq are present
+        coreValue: fullPsychology.coreValue,
+        moralStandpoint: fullPsychology.moralStandpoint,
+        // CRITICAL: Explicitly include want and need - prioritize fullPsychology, fallback to balancedPsychology
+        want: fullPsychology.want || balancedPsychology.want,
+        need: fullPsychology.need || balancedPsychology.need,
+        primaryFlaw: fullPsychology.primaryFlaw,
+        temperament: Array.isArray(fullPsychology.temperament) ? fullPsychology.temperament : [],
+        attitude: fullPsychology.attitude,
+        iq: fullPsychology.iq,
+        // Ensure fears is an array (UI uses fears[0] for "Top Fear")
+        // Check multiple possible locations: fears, keyFears, vulnerabilities.fears
+        fears: Array.isArray(fullPsychology.fears) ? fullPsychology.fears : 
+               (Array.isArray(fullPsychology.keyFears) ? fullPsychology.keyFears : 
+               (Array.isArray(fullPsychology.vulnerabilities?.fears) ? fullPsychology.vulnerabilities.fears : []))
+      }
+      oldCharacter.characterEvolution = unified.detailed.characterEvolution || []
+      oldCharacter.relationships = unified.detailed.relationships || []
+    } else if (unified.balanced) {
+      // Use balanced data if detailed doesn't exist
+      oldCharacter.physiology = {
+        ...(unified.balanced.physiology || {}),
+        age: unified.balanced.physiology?.age !== undefined ? String(unified.balanced.physiology.age) : undefined
+      }
+      // Psychology - ensure all required fields are mapped
+      const balancedPsychology = unified.balanced.psychology || {}
+      oldCharacter.psychology = {
+        ...balancedPsychology,
+        // Ensure coreValue, moralStandpoint, primaryFlaw, temperament, attitude, iq are present
+        coreValue: balancedPsychology.coreValue,
+        moralStandpoint: balancedPsychology.moralStandpoint,
+        // CRITICAL: Explicitly include want and need - handle both string and object formats
+        want: balancedPsychology.want || (typeof balancedPsychology.want === 'object' ? balancedPsychology.want : undefined),
+        need: balancedPsychology.need || (typeof balancedPsychology.need === 'object' ? balancedPsychology.need : undefined),
+        primaryFlaw: balancedPsychology.primaryFlaw,
+        temperament: Array.isArray(balancedPsychology.temperament) ? balancedPsychology.temperament : [],
+        attitude: balancedPsychology.attitude,
+        iq: balancedPsychology.iq,
+        // Ensure fears is an array (UI uses fears[0] for "Top Fear")
+        // Check multiple possible locations: fears, keyFears, vulnerabilities.fears
+        fears: Array.isArray(balancedPsychology.fears) ? balancedPsychology.fears : 
+               (Array.isArray(balancedPsychology.keyFears) ? balancedPsychology.keyFears : 
+               (Array.isArray(balancedPsychology.vulnerabilities?.fears) ? balancedPsychology.vulnerabilities.fears : []))
+      }
+      // NOTE: Balanced mode doesn't have sociology in balanced object, but we generate full 3D characters
+      // So detailed.fullSociology should exist. If not, create empty object so UI knows it exists
+      const fullSociology = unified.detailed?.fullSociology || {}
+      // Extract occupation - check multiple possible locations
+      const occupation = fullSociology.occupation || 
+                        fullSociology.profession?.occupation || 
+                        (typeof fullSociology.profession === 'string' ? fullSociology.profession : '') ||
+                        ''
+      // Extract class - check multiple possible locations
+      const classValue = fullSociology.class || 
+                        fullSociology.socialClass?.economic || 
+                        (typeof fullSociology.socialClass === 'string' ? fullSociology.socialClass : '') ||
+                        ''
+      
+      oldCharacter.sociology = {
+        ...fullSociology,
+        // CRITICAL: Explicitly set occupation and class to ensure they're present
+        occupation: occupation,
+        class: classValue,
+        education: fullSociology.education || {},
+        homeLife: fullSociology.homeLife || '',
+        economicStatus: fullSociology.economicStatus || fullSociology.socialClass?.economic || '',
+        communityStanding: fullSociology.communityStanding || ''
+      }
+    } else {
+      // Fallback: create empty objects for all three dimensions
+      oldCharacter.physiology = {}
+      oldCharacter.sociology = {}
+      oldCharacter.psychology = {}
+    }
+
+    // Always include backstory and voice from balanced if available
+    if (unified.balanced?.backstory) {
+      oldCharacter.backstory = unified.balanced.backstory
+      oldCharacter.arc = unified.balanced.backstory
+    }
+    if (unified.balanced?.voiceProfile) {
+      oldCharacter.voiceProfile = unified.balanced.voiceProfile
+      oldCharacter.speechPattern = unified.balanced.voiceProfile
+    }
+
+    // CRITICAL: Ensure all three dimensions exist for 3D character display
+    if (!oldCharacter.physiology) {
+      console.warn('⚠️ [CONVERT] No physiology found, creating empty object')
+      oldCharacter.physiology = {}
+    }
+    if (!oldCharacter.sociology) {
+      console.warn('⚠️ [CONVERT] No sociology found, creating empty object')
+      oldCharacter.sociology = {}
+    }
+    if (!oldCharacter.psychology) {
+      console.warn('⚠️ [CONVERT] No psychology found, creating empty object')
+      oldCharacter.psychology = {}
+    }
+
+    console.log('✅ [CONVERT] Converted character:', {
+      name: oldCharacter.name,
+      hasPhysiology: !!oldCharacter.physiology,
+      hasSociology: !!oldCharacter.sociology,
+      hasPsychology: !!oldCharacter.psychology,
+      physiologyKeys: oldCharacter.physiology ? Object.keys(oldCharacter.physiology) : [],
+      sociologyKeys: oldCharacter.sociology ? Object.keys(oldCharacter.sociology) : [],
+      psychologyKeys: oldCharacter.psychology ? Object.keys(oldCharacter.psychology) : [],
+      // Show actual data values to verify they're not placeholders
+      physiologyData: oldCharacter.physiology ? {
+        age: oldCharacter.physiology.age,
+        gender: oldCharacter.physiology.gender,
+        appearance: oldCharacter.physiology.appearance?.substring(0, 100)
+      } : null,
+      sociologyData: oldCharacter.sociology ? {
+        occupation: oldCharacter.sociology.occupation || oldCharacter.sociology.profession?.occupation,
+        education: oldCharacter.sociology.education ? (typeof oldCharacter.sociology.education === 'string' 
+          ? oldCharacter.sociology.education.substring(0, 50)
+          : oldCharacter.sociology.education.level) : null
+      } : null,
+      psychologyData: oldCharacter.psychology ? {
+        want: typeof oldCharacter.psychology.want === 'string'
+          ? oldCharacter.psychology.want.substring(0, 50)
+          : oldCharacter.psychology.want?.consciousGoal?.substring(0, 50)
+      } : null
+    })
+
+    return oldCharacter
   }
 
   const addNewCharacter = async () => {
@@ -1522,38 +1820,26 @@ export default function StoryBiblePage() {
     }
   }
   
-  const addNewArc = () => {
+  const addNewArc = async () => {
     if (!storyBible) return
     
-    const newArc = {
-      title: 'New Arc',
-      summary: 'Arc summary to be defined',
-      episodes: [
-        {
-          number: (storyBible.narrativeArcs?.reduce((max: number, arc: any) => 
-            Math.max(max, ...arc.episodes.map((ep: any) => ep.number)), 0) || 0) + 1,
-          title: 'New Episode',
-          summary: 'Episode summary to be defined'
-        }
-      ]
+    try {
+      // Use the service function to extend the series
+      const updatedBible = await extendSeriesWithArc(storyBible, user?.id)
+      setStoryBible(updatedBible)
+      
+      // Save to both Firestore and localStorage (service already handles this, but ensure local state is updated)
+      await saveStoryBibleData(updatedBible)
+      
+      // Navigate to the new arc
+      setCurrentArcIndex((updatedBible.narrativeArcs?.length || 1) - 1)
+    } catch (error: any) {
+      console.error('Error adding new arc:', error)
+      alert(`Failed to add arc: ${error.message}`)
     }
-    
-    const updatedArcs = [...(storyBible.narrativeArcs || []), newArc]
-    const updatedBible = { ...storyBible, narrativeArcs: updatedArcs }
-    setStoryBible(updatedBible)
-    
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.narrativeArcs = updatedArcs
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
-    
-    setCurrentArcIndex(updatedArcs.length - 1)
   }
   
-  const deleteArc = (index: number) => {
+  const deleteArc = async (index: number) => {
     if (isStoryBibleLocked) {
       alert('🔒 Story Bible is locked! You cannot delete arcs after episodes have been generated.')
       return
@@ -1570,13 +1856,8 @@ export default function StoryBiblePage() {
     const updatedBible = { ...storyBible, narrativeArcs: updatedArcs }
     setStoryBible(updatedBible)
     
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.narrativeArcs = updatedArcs
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
+    // Save to both Firestore and localStorage
+    await saveStoryBibleData(updatedBible)
     
     // Adjust current index if needed
     if (currentArcIndex >= updatedArcs.length) {
@@ -1584,15 +1865,20 @@ export default function StoryBiblePage() {
     }
   }
   
-  const addEpisodeToArc = (arcIndex: number) => {
+  const addEpisodeToArc = async (arcIndex: number) => {
     if (!storyBible) return
     
     const arc = storyBible.narrativeArcs[arcIndex]
-    const lastEpisodeNum = arc.episodes[arc.episodes.length - 1]?.number || 0
+    // Calculate next episode number across all arcs to ensure uniqueness
+    const maxEpisodeNumber = storyBible.narrativeArcs?.reduce((max: number, a: any) => {
+      const arcMax = a.episodes?.reduce((epMax: number, ep: any) => 
+        Math.max(epMax, ep.number || 0), 0) || 0
+      return Math.max(max, arcMax)
+    }, 0) || 0
     
     const newEpisode = {
-      number: lastEpisodeNum + 1,
-      title: `Episode ${lastEpisodeNum + 1}`,
+      number: maxEpisodeNumber + 1,
+      title: `Episode ${maxEpisodeNumber + 1}`,
       summary: 'Episode summary to be defined'
     }
     
@@ -1605,16 +1891,11 @@ export default function StoryBiblePage() {
     const updatedBible = { ...storyBible, narrativeArcs: updatedArcs }
     setStoryBible(updatedBible)
     
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.narrativeArcs = updatedArcs
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
+    // Save to both Firestore and localStorage
+    await saveStoryBibleData(updatedBible)
   }
   
-  const deleteEpisodeFromArc = (arcIndex: number, episodeIndex: number) => {
+  const deleteEpisodeFromArc = async (arcIndex: number, episodeIndex: number) => {
     if (isStoryBibleLocked) {
       alert('🔒 Story Bible is locked! You cannot delete episodes after they have been generated.')
       return
@@ -1639,13 +1920,8 @@ export default function StoryBiblePage() {
     const updatedBible = { ...storyBible, narrativeArcs: updatedArcs }
     setStoryBible(updatedBible)
     
-    // Save to localStorage
-    const savedData = localStorage.getItem('greenlit-story-bible')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      data.storyBible.narrativeArcs = updatedArcs
-      localStorage.setItem('greenlit-story-bible', JSON.stringify(data))
-    }
+    // Save to both Firestore and localStorage
+    await saveStoryBibleData(updatedBible)
   }
 
   // ========================================
@@ -2204,7 +2480,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     {(() => {
                       // Calculate total episodes from all narrative arcs
                       const totalEpisodes = storyBible.narrativeArcs?.reduce((sum: number, arc: any) => {
-                        return sum + (arc.episodes?.length || 10)
+                        return sum + (arc.episodes?.length || 8)
                       }, 0) || 0
                       
                       return [
@@ -2536,7 +2812,19 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                     <div className="flex justify-between items-center mb-2">
                                       <h5 className={`font-semibold ${prefix}-text-primary`}>Episode {episode.number || episodeIndex + 1}</h5>
                                       <div className="flex items-center gap-2">
-                                        <span className={`text-xs ${prefix}-text-tertiary`}>{`${currentArcIndex * 10 + episodeIndex + 1}/60`}</span>
+                                        {(() => {
+                                          // Calculate total episodes across all arcs
+                                          const totalEpisodes = storyBible.narrativeArcs?.reduce((sum: number, arc: any) => {
+                                            return sum + (arc.episodes?.length || 8)
+                                          }, 0) || 0
+                                          // Calculate episode number in series
+                                          let episodeNumberInSeries = 0
+                                          for (let i = 0; i < currentArcIndex; i++) {
+                                            episodeNumberInSeries += storyBible.narrativeArcs[i].episodes?.length || 8
+                                          }
+                                          episodeNumberInSeries += episodeIndex + 1
+                                          return <span className={`text-xs ${prefix}-text-tertiary`}>{`${episodeNumberInSeries}/${totalEpisodes}`}</span>
+                                        })()}
                                         {storyBible.narrativeArcs[currentArcIndex].episodes.length > 1 && !isStoryBibleLocked && (
                                           <button
                                             onClick={() => deleteEpisodeFromArc(currentArcIndex, episodeIndex)}
@@ -3294,8 +3582,8 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
         />
       )}
 
-      {/* Character Creation Wizard */}
-      <CharacterCreationWizard
+      {/* Character Creator Modal */}
+      <CharacterCreatorModal
         isOpen={showCharacterWizard}
         onClose={() => setShowCharacterWizard(false)}
         onComplete={handleWizardComplete}
@@ -3310,7 +3598,32 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
             setShowCharacterModal(false)
             setSelectedCharacterIndex(null)
           }}
-          character={storyBible.mainCharacters[selectedCharacterIndex]}
+          character={(() => {
+            const char = storyBible.mainCharacters[selectedCharacterIndex]
+            console.log('🎭 [PAGE] Passing character to modal:', {
+              index: selectedCharacterIndex,
+              name: char?.name,
+              hasPhysiology: !!char?.physiology,
+              hasSociology: !!char?.sociology,
+              hasPsychology: !!char?.psychology,
+              physiologyData: char?.physiology ? {
+                age: char.physiology.age,
+                gender: char.physiology.gender,
+                appearance: char.physiology.appearance?.substring(0, 50)
+              } : null,
+              sociologyData: char?.sociology ? {
+                occupation: char.sociology.occupation,
+                education: char.sociology.education
+              } : null,
+              psychologyData: char?.psychology ? {
+                want: typeof char.psychology.want === 'string' 
+                  ? char.psychology.want.substring(0, 50)
+                  : char.psychology.want?.consciousGoal?.substring(0, 50)
+              } : null,
+              fullCharacter: JSON.stringify(char, null, 2).substring(0, 500)
+            })
+            return char
+          })()}
           characterIndex={selectedCharacterIndex}
           onSave={handleCharacterSave}
           onDelete={() => {

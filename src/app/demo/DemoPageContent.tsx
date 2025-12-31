@@ -38,10 +38,19 @@ export default function DemoPage() {
   const [protagonist, setProtagonist] = useState<string>('')
   const [stakes, setStakes] = useState<string>('')
   const [vibe, setVibe] = useState<string>('')
+  const [setting, setSetting] = useState<string>('')
   const [theme, setTheme] = useState<string>('')
+  const [additionalInfo, setAdditionalInfo] = useState<string>('')
   
-  // Progressive disclosure state - now includes 'advanced' as 6th field
-  const [currentField, setCurrentField] = useState<'logline' | 'protagonist' | 'stakes' | 'vibe' | 'theme' | 'advanced'>('logline')
+  // Character creator state
+  const [characterInfo, setCharacterInfo] = useState<string>('')
+  
+  // Viewport height tracking for dynamic textarea sizing
+  const [viewportHeight, setViewportHeight] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 800)
+  const [maxTextareaHeight, setMaxTextareaHeight] = useState<number>(400)
+  
+  // Progressive disclosure state - order: logline, protagonist, setting, stakes, vibe, theme, advanced, characterCreator, additionalInfo
+  const [currentField, setCurrentField] = useState<'logline' | 'protagonist' | 'setting' | 'stakes' | 'vibe' | 'theme' | 'advanced' | 'characterCreator' | 'additionalInfo'>('logline')
   const [guidedRevealedFields, setGuidedRevealedFields] = useState<Set<string>>(new Set(['logline']))
   const [isTyping, setIsTyping] = useState(true)
   const [completedFields, setCompletedFields] = useState<Set<string>>(new Set())
@@ -107,45 +116,146 @@ export default function DemoPage() {
         return logline.trim().length > 0
       case 'protagonist':
         return protagonist.trim().length > 0
+      case 'setting':
+        return setting.trim().length > 0
       case 'stakes':
         return stakes.trim().length > 0
       case 'vibe':
         return vibe.trim().length > 0
       case 'theme':
         return theme.trim().length > 0
+      case 'additionalInfo':
+        return true // Additional info is optional, always "filled"
       case 'advanced':
         return true // Advanced settings are always "filled" (optional)
+      case 'characterCreator':
+        return true // Character creator is optional, always "filled"
       default:
         return false
     }
-  }, [currentField, logline, protagonist, stakes, vibe, theme])
+  }, [currentField, logline, protagonist, setting, stakes, vibe, theme])
   
-  // Field order including advanced settings as 6th field
-  const fieldOrder: Array<'logline' | 'protagonist' | 'stakes' | 'vibe' | 'theme' | 'advanced'> = ['logline', 'protagonist', 'stakes', 'vibe', 'theme', 'advanced']
+  // Field order: logline, protagonist, setting, stakes, vibe, theme, advanced, characterCreator (if advanced on), additionalInfo
+  const fieldOrder: Array<'logline' | 'protagonist' | 'setting' | 'stakes' | 'vibe' | 'theme' | 'advanced' | 'characterCreator' | 'additionalInfo'> = ['logline', 'protagonist', 'setting', 'stakes', 'vibe', 'theme', 'advanced', 'characterCreator', 'additionalInfo']
+  
+  // Get effective field order (characterCreator only shows if advanced settings is enabled)
+  const effectiveFieldOrder = useMemo(() => {
+    const base: Array<'logline' | 'protagonist' | 'setting' | 'stakes' | 'vibe' | 'theme' | 'advanced' | 'characterCreator' | 'additionalInfo'> = ['logline', 'protagonist', 'setting', 'stakes', 'vibe', 'theme', 'advanced']
+    if (useAdvancedSettings) {
+      base.push('characterCreator')
+    }
+    base.push('additionalInfo')
+    return base
+  }, [useAdvancedSettings])
+  
+  
+  // Calculate max textarea height based on viewport
+  useEffect(() => {
+    const calculateMaxHeight = () => {
+      if (typeof window === 'undefined') return
+      
+      const vh = window.innerHeight
+      setViewportHeight(vh)
+      
+      // Find the current textarea to measure available space
+      const textareaId = currentField === 'characterCreator' ? 'characterInfo' : 
+                        currentField === 'additionalInfo' ? 'additionalInfo' : 
+                        currentField
+      const textarea = document.getElementById(textareaId) as HTMLTextAreaElement
+      
+      if (textarea) {
+        const textareaRect = textarea.getBoundingClientRect()
+        const textareaTop = textareaRect.top
+        
+        // Find the bottom of the form/container (look for buttons or form end)
+        const form = textarea.closest('form') || textarea.closest('[class*="space-y"]')
+        let bottomBoundary = vh
+        
+        if (form) {
+          // Find buttons below the textarea
+          const buttons = form.querySelectorAll('button')
+          buttons.forEach(btn => {
+            const btnRect = btn.getBoundingClientRect()
+            if (btnRect.top > textareaTop && btnRect.bottom < bottomBoundary) {
+              bottomBoundary = btnRect.bottom
+            }
+          })
+        }
+        
+        // Calculate available height: from textarea top to bottom boundary, minus padding
+        const availableHeight = bottomBoundary - textareaTop - 40 // 40px for margins/padding
+        const calculatedMax = Math.max(200, Math.min(600, availableHeight))
+        
+        setMaxTextareaHeight(calculatedMax)
+      } else {
+        // Fallback: estimate based on viewport size
+        // Mobile: ~600px reserved, Desktop: ~500px reserved
+        const reservedSpace = vh < 768 ? 600 : 500
+        const calculatedMax = Math.max(200, Math.min(600, vh - reservedSpace))
+        setMaxTextareaHeight(calculatedMax)
+      }
+    }
+    
+    // Calculate on mount, resize, and field change
+    // Use a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(calculateMaxHeight, 50)
+    
+    // Use requestAnimationFrame for smooth resize updates
+    let rafId: number
+    const handleResize = () => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(calculateMaxHeight)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      if (rafId) cancelAnimationFrame(rafId)
+      clearTimeout(timeoutId)
+    }
+  }, [currentField]) // Recalculate when field changes (examples might show/hide)
+
+  // Auto-resize textarea helper
+  const autoResizeTextarea = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (textarea) {
+      textarea.style.height = 'auto'
+      const newHeight = Math.min(textarea.scrollHeight, maxTextareaHeight)
+      textarea.style.height = `${newHeight}px`
+      textarea.style.overflowY = textarea.scrollHeight > maxTextareaHeight ? 'auto' : 'hidden'
+    }
+  }, [maxTextareaHeight])
+
+  // Handle textarea changes with auto-resize
+  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>, setter: (value: string) => void) => {
+    setter(e.target.value)
+    autoResizeTextarea(e.target)
+  }, [autoResizeTextarea])
   
   // Field navigation for progressive disclosure
   const handleNextField = useCallback(() => {
-    const currentIndex = fieldOrder.indexOf(currentField)
+    const currentIndex = effectiveFieldOrder.indexOf(currentField)
     
-    if (currentIndex < fieldOrder.length - 1) {
-      const nextField = fieldOrder[currentIndex + 1]
+    if (currentIndex < effectiveFieldOrder.length - 1) {
+      const nextField = effectiveFieldOrder[currentIndex + 1]
       setCurrentField(nextField)
       setGuidedRevealedFields(prev => new Set([...prev, nextField]))
       setIsTyping(true)
       setCompletedFields(prev => new Set([...prev, currentField]))
     }
-  }, [currentField, fieldOrder])
+  }, [currentField, effectiveFieldOrder])
   
   // Back button navigation
   const handlePreviousField = useCallback(() => {
-    const currentIndex = fieldOrder.indexOf(currentField)
+    const currentIndex = effectiveFieldOrder.indexOf(currentField)
     
     if (currentIndex > 0) {
-      const prevField = fieldOrder[currentIndex - 1]
+      const prevField = effectiveFieldOrder[currentIndex - 1]
       setCurrentField(prevField)
       setIsTyping(true)
     }
-  }, [currentField, fieldOrder])
+  }, [currentField, effectiveFieldOrder])
+  
   
   // Keyboard shortcut handler - use refs to avoid re-renders
   const isCurrentFieldFilledRef = React.useRef(isCurrentFieldFilled)
@@ -156,6 +266,17 @@ export default function DemoPage() {
     isCurrentFieldFilledRef.current = isCurrentFieldFilled
     handleNextFieldRef.current = handleNextField
   }, [isCurrentFieldFilled, handleNextField])
+
+  // Auto-resize textareas when field changes
+  useEffect(() => {
+    const textareaIds = ['logline', 'protagonist', 'setting', 'stakes', 'vibe', 'theme', 'characterInfo', 'additionalInfo']
+    textareaIds.forEach(id => {
+      const textarea = document.getElementById(id) as HTMLTextAreaElement
+      if (textarea) {
+        autoResizeTextarea(textarea)
+      }
+    })
+  }, [currentField, autoResizeTextarea])
   
   // Set up keyboard listener once
   useEffect(() => {
@@ -267,7 +388,11 @@ export default function DemoPage() {
           protagonist: protagonist.trim(),
           stakes: stakes.trim(),
           vibe: vibe.trim(),
+          setting: setting.trim(),
           theme: theme.trim(),
+          additionalInfo: additionalInfo.trim(),
+          // Character information if provided
+          characterInfo: characterInfo.trim() || null,
           // Advanced generation options
           useAdvancedSettings,
           advancedSettings: useAdvancedSettings ? advancedSettings : null,
@@ -393,14 +518,15 @@ export default function DemoPage() {
     return playbookContent[currentField] || playbookContent.logline
   }, [currentField])
   
-  // Check if all required fields (1-5) are completed
-  const allRequiredFieldsCompleted = logline.trim() && protagonist.trim() && stakes.trim() && vibe.trim() && theme.trim()
+  // Check if all required fields (1-6) are completed
+  const allRequiredFieldsCompleted = logline.trim() && protagonist.trim() && stakes.trim() && vibe.trim() && setting.trim() && theme.trim()
   
   // Check if on advanced settings screen
   const isOnAdvancedScreen = currentField === 'advanced'
   
-  // Get current field number (1-6)
-  const currentFieldNumber = fieldOrder.indexOf(currentField) + 1
+  // Get current field number based on effective field order
+  const currentFieldNumber = effectiveFieldOrder.indexOf(currentField) + 1
+  const totalFields = effectiveFieldOrder.length
   
   // Helper to toggle section expansion
   const toggleSection = (section: string) => {
@@ -416,7 +542,7 @@ export default function DemoPage() {
   }
   
   // Helper to update a single advanced setting
-  const updateAdvancedSetting = <K extends keyof AdvancedSettings>(key: K, value: AdvancedSettings[K]) => {
+  const updateAdvancedSetting = (key: keyof AdvancedSettings, value: AdvancedSettings[keyof AdvancedSettings]) => {
     setAdvancedSettings(prev => ({ ...prev, [key]: value }))
   }
   
@@ -698,7 +824,10 @@ export default function DemoPage() {
                   </button>
                 )}
               <span className={`text-sm font-medium ${isDark ? 'text-white/60' : 'text-black/60'}`}>
-                  {currentField === 'advanced' ? 'Advanced Settings' : `Question ${currentFieldNumber} of 5`}
+                  {currentField === 'advanced' ? 'Advanced Settings' : 
+                   currentField === 'characterCreator' ? 'Character Creator' : 
+                   currentField === 'additionalInfo' ? 'Additional Information' : 
+                   `Question ${currentFieldNumber} of 6`}
               </span>
               </div>
               <div className="flex gap-1">
@@ -736,12 +865,22 @@ export default function DemoPage() {
                           padding: '0.75rem',
                           borderRadius: '0.375rem',
                           width: '100%',
-                          minHeight: '80px'
+                            minHeight: '80px',
+                            maxHeight: `${maxTextareaHeight}px`,
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word'
                         }}
                         rows={3}
                         placeholder="(e.g., A hopeless romantic architect tells his kids the epic story of how he met their mother, recounting years of dating mishaps, friendship drama, and the one that got away - all while sitting in a booth at MacLaren's Pub.)"
                         value={logline}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLogline(e.target.value)}
+                        onChange={(e) => handleTextareaChange(e, setLogline)}
+                        ref={(el) => {
+                          if (el && currentField === 'logline') {
+                            autoResizeTextarea(el)
+                          }
+                        }}
                       />
                         </>
                       )}
@@ -761,12 +900,54 @@ export default function DemoPage() {
                           padding: '0.75rem',
                           borderRadius: '0.375rem',
                           width: '100%',
-                          minHeight: '60px'
+                          minHeight: '60px',
+                          maxHeight: `${maxTextareaHeight}px`,
+                          overflowY: 'auto'
                         }}
                         rows={2}
                         placeholder="(e.g., Ted Mosby, a 27-year-old architect with an idealistic view of love and destiny. He's searching for 'the one' while navigating the chaotic world of dating in New York City with his best friends Marshall, Lily, Barney, and Robin.)"
                         value={protagonist}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setProtagonist(e.target.value)}
+                        onChange={(e) => handleTextareaChange(e, setProtagonist)}
+                        ref={(el) => {
+                          if (el && currentField === 'protagonist') {
+                            autoResizeTextarea(el)
+                          }
+                        }}
+                      />
+                        </>
+                      )}
+                      
+                      {currentField === 'setting' && (
+                        <>
+                          <label htmlFor="setting" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
+                      3. The World: Where and when does your story take place?
+                    </label>
+                      <textarea
+                        id="setting"
+                        className={`resize-none ${isDark ? 'input-field' : ''}`}
+                          style={isDark ? {} : {
+                            backgroundColor: '#FFFFFF',
+                            color: '#1A1A1A',
+                            border: '1px solid #E2E8F0',
+                            padding: '0.75rem',
+                            borderRadius: '0.375rem',
+                            width: '100%',
+                            minHeight: '80px',
+                            maxHeight: `${maxTextareaHeight}px`,
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word'
+                          }}
+                        rows={3}
+                        placeholder="(e.g., Set in early 2000s New York City—specifically the Upper West Side where Ted and his friends live, work, and hang out. The story unfolds across iconic locations like MacLaren's Pub (their regular spot), Ted's apartment, Marshall and Lily's place, and various dating locations throughout Manhattan. It's a city where anything can happen, and every corner holds a potential love story or life-changing moment.)"
+                        value={setting}
+                        onChange={(e) => handleTextareaChange(e, setSetting)}
+                        ref={(el) => {
+                          if (el && currentField === 'setting') {
+                            autoResizeTextarea(el)
+                          }
+                        }}
                       />
                         </>
                       )}
@@ -774,7 +955,7 @@ export default function DemoPage() {
                       {currentField === 'stakes' && (
                         <>
                           <label htmlFor="stakes" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
-                      3. The Drama: What's at risk if our hero doesn't succeed?
+                      4. The Drama: What's at risk if our hero doesn't succeed?
                     </label>
                       <textarea
                         id="stakes"
@@ -786,12 +967,19 @@ export default function DemoPage() {
                           padding: '0.75rem',
                           borderRadius: '0.375rem',
                           width: '100%',
-                          minHeight: '60px'
+                          minHeight: '60px',
+                          maxHeight: `${maxTextareaHeight}px`,
+                          overflowY: 'auto'
                         }}
                         rows={2}
                         placeholder="(e.g., If Ted doesn't find true love soon, he'll settle for someone who's 'good enough' and miss out on the epic romance he's been waiting for. Meanwhile, Marshall and Lily's relationship faces the ultimate test as they navigate career changes and the pressure to start a family.)"
                         value={stakes}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setStakes(e.target.value)}
+                        onChange={(e) => handleTextareaChange(e, setStakes)}
+                        ref={(el) => {
+                          if (el && currentField === 'stakes') {
+                            autoResizeTextarea(el)
+                          }
+                        }}
                       />
                         </>
                       )}
@@ -799,23 +987,34 @@ export default function DemoPage() {
                       {currentField === 'vibe' && (
                         <>
                           <label htmlFor="vibe" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
-                      4. The Feel: What's the mood and energy? ('X meets Y' format works best)
+                      5. The Feel: What's the mood and energy? ('X meets Y' format works best)
                     </label>
-                          <input
-                        type="text"
+                          <textarea
                         id="vibe"
-                            className={isDark ? 'input-field' : ''}
+                        className={`resize-none ${isDark ? 'input-field' : ''}`}
                             style={isDark ? {} : {
                               backgroundColor: '#FFFFFF',
                               color: '#1A1A1A',
                               border: '1px solid #E2E8F0',
                               padding: '0.75rem',
                               borderRadius: '0.375rem',
-                              width: '100%'
+                              width: '100%',
+                              minHeight: '80px',
+                              maxHeight: `${maxTextareaHeight}px`,
+                              overflowY: 'auto',
+                              overflowX: 'hidden',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'break-word'
                             }}
+                        rows={3}
                         placeholder="(e.g., Witty ensemble comedy with heart and nostalgia. 'Friends' meets 'The Wonder Years' with a romantic twist - think warm, relatable humor mixed with genuine emotional moments and clever storytelling.)"
                         value={vibe}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVibe(e.target.value)}
+                            onChange={(e) => handleTextareaChange(e, setVibe)}
+                            ref={(el) => {
+                              if (el && currentField === 'vibe') {
+                                autoResizeTextarea(el)
+                              }
+                            }}
                           />
                         </>
                       )}
@@ -823,30 +1022,42 @@ export default function DemoPage() {
                       {currentField === 'theme' && (
                         <>
                           <label htmlFor="theme" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
-                      5. The Heart: What deeper message will resonate with your audience?
+                      6. The Heart: What deeper message will resonate with your audience?
                     </label>
-                          <input
-                        type="text"
+                          <textarea
                         id="theme"
-                            className={isDark ? 'input-field' : ''}
+                        className={`resize-none ${isDark ? 'input-field' : ''}`}
                             style={isDark ? {} : {
                               backgroundColor: '#FFFFFF',
                               color: '#1A1A1A',
                               border: '1px solid #E2E8F0',
                               padding: '0.75rem',
                               borderRadius: '0.375rem',
-                              width: '100%'
+                              width: '100%',
+                              minHeight: '80px',
+                              maxHeight: `${maxTextareaHeight}px`,
+                              overflowY: 'auto',
+                              overflowX: 'hidden',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'break-word'
                             }}
+                        rows={3}
                         placeholder="(e.g., The journey to finding true love, The importance of friendship and chosen family, Growing up and accepting change, The difference between settling and finding 'the one', The power of timing in relationships.)"
                         value={theme}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTheme(e.target.value)}
+                            onChange={(e) => handleTextareaChange(e, setTheme)}
+                            ref={(el) => {
+                              if (el && currentField === 'theme') {
+                                autoResizeTextarea(el)
+                              }
+                            }}
                           />
                         </>
                       )}
+                      
                     </div>
 
-                  {/* Continue Button - show for fields 1-5 */}
-                  {currentFieldNumber <= 5 && currentField !== 'advanced' && (
+                  {/* Continue Button - show for fields 1-6 and characterCreator/additionalInfo */}
+                  {currentFieldNumber <= 6 && (
                     <button
                       onClick={handleNextField}
                       disabled={!isCurrentFieldFilled()}
@@ -1303,8 +1514,127 @@ export default function DemoPage() {
                     )}
                   </AnimatePresence>
 
-                      {/* Generate Story Bible Button */}
+                  {/* Continue Button for Advanced Settings */}
+                  <button
+                    onClick={handleNextField}
+                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all ${
+                      isDark 
+                        ? 'bg-[#10B981] text-black hover:bg-[#059669] cursor-pointer'
+                        : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                    }`}
+                  >
+                    Continue (Ctrl+Enter / Cmd+Enter)
+                  </button>
+                    </motion.div>
+                  )}
+                  
+                  {/* 7th Field: Character Creator (only if advanced settings is ON) */}
+                  {currentField === 'characterCreator' && useAdvancedSettings && (
                   <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-6"
+                    >
+                      <div className="relative">
+                        <label htmlFor="characterInfo" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
+                          Character Information: Share details about other characters in your story (Optional)
+                        </label>
+                        <textarea
+                          id="characterInfo"
+                          className={`resize-none ${isDark ? 'input-field' : ''}`}
+                          style={isDark ? {} : {
+                            backgroundColor: '#FFFFFF',
+                            color: '#1A1A1A',
+                            border: '1px solid #E2E8F0',
+                            padding: '0.75rem',
+                            borderRadius: '0.375rem',
+                            width: '100%',
+                            minHeight: '150px',
+                            maxHeight: `${maxTextareaHeight}px`,
+                            overflowY: 'auto'
+                          }}
+                          rows={6}
+                          placeholder="(e.g., Barney Stinson - Suit-obsessed womanizer with elaborate schemes and catchphrases. Best friend of Ted, known for his 'Bro Code' and legendary dating strategies. Has a mysterious job and a hidden sensitive side.
+
+--
+
+Marshall Eriksen - Ted's best friend and roommate, a gentle giant from Minnesota. Environmental lawyer who loves his wife Lily more than anything. Known for his catchphrase 'Lawyered!' and his love of food.
+
+--
+
+Lily Aldrin - Marshall's wife and kindergarten teacher. The group's voice of reason who meddles in everyone's love lives. Has a shopping addiction and a dark side that occasionally surfaces.
+
+--
+
+Robin Scherbatsky - Canadian news anchor and Ted's on-again-off-again love interest. Independent, career-focused, and secretly loves dogs despite claiming to hate them. Has a complicated relationship with commitment.)"
+                          value={characterInfo}
+                          onChange={(e) => handleTextareaChange(e, setCharacterInfo)}
+                          ref={(el) => {
+                            if (el && currentField === 'characterCreator') {
+                              autoResizeTextarea(el)
+                            }
+                          }}
+                        />
+                        <p className={`text-xs mt-2 ${isDark ? 'text-white/50' : 'text-black/50'}`}>
+                          💡 Tip: Write as much or as little as you want for each character. Separate different characters with a blank line and "--" between them. The AI will use this information and generate the rest.
+                        </p>
+                      </div>
+                      
+                      {/* Continue Button for Character Creator */}
+                      <button
+                        onClick={handleNextField}
+                        className={`w-full py-3 px-6 rounded-lg font-semibold transition-all ${
+                          isDark 
+                            ? 'bg-[#10B981] text-black hover:bg-[#059669] cursor-pointer'
+                            : 'bg-black text-white hover:bg-gray-800 cursor-pointer'
+                        }`}
+                      >
+                        Continue (Ctrl+Enter / Cmd+Enter)
+                      </button>
+                    </motion.div>
+                  )}
+                  
+                  {/* 8th Field: Additional Information (Last) */}
+                  {currentField === 'additionalInfo' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-6"
+                    >
+                      <div className="relative">
+                        <label htmlFor="additionalInfo" className={`block mb-2 ${isDark ? 'text-white' : 'text-black'} font-semibold text-base`}>
+                          Additional Information: Anything else you'd like to share? (Optional)
+                        </label>
+                        <textarea
+                          id="additionalInfo"
+                          className={`resize-none ${isDark ? 'input-field' : ''}`}
+                          style={isDark ? {} : {
+                            backgroundColor: '#FFFFFF',
+                            color: '#1A1A1A',
+                            border: '1px solid #E2E8F0',
+                            padding: '0.75rem',
+                            borderRadius: '0.375rem',
+                            width: '100%',
+                            minHeight: '100px',
+                            maxHeight: `${maxTextareaHeight}px`,
+                            overflowY: 'auto'
+                          }}
+                          rows={4}
+                          placeholder="(e.g., The show is inspired by the creators' real-life experiences dating in New York City. Many of the stories are based on actual events from their friend group, including the legendary 'slap bet' and the 'naked man' strategy. The framing device of Ted telling the story to his kids was inspired by the creators wanting to tell their own kids about their dating adventures. The show explores themes of friendship, timing in relationships, and the idea that sometimes the journey is more important than the destination.)"
+                          value={additionalInfo}
+                          onChange={(e) => handleTextareaChange(e, setAdditionalInfo)}
+                          ref={(el) => {
+                            if (el && currentField === 'additionalInfo') {
+                              autoResizeTextarea(el)
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Generate Story Bible Button - Only on Additional Info screen */}
+                      <motion.div 
                         className="pt-4"
                         initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -1322,6 +1652,26 @@ export default function DemoPage() {
                     </motion.div>
                   </motion.div>
                   )}
+              
+                  {/* Generate Story Bible Button - For Advanced Settings screen if character creator is skipped */}
+                  {currentField === 'advanced' && !useAdvancedSettings && (
+              <motion.div
+                      className="pt-4"
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                      <ProgressButton
+                        onClick={handleStart}
+                        isLoading={isLoading}
+                        progress={loadingProgress}
+                        disabled={!allRequiredFieldsCompleted}
+                        className="w-full py-6 text-xl"
+                      >
+                        {isLoading ? '✨ CREATING YOUR SERIES...' : 'Generate Story Bible →'}
+                      </ProgressButton>
+              </motion.div>
+              )}
               </div>
 
               {/* Professional Footer */}
@@ -1334,6 +1684,7 @@ export default function DemoPage() {
         isOpen={showPitchPlaybook} 
         onClose={() => setShowPitchPlaybook(false)} 
       />
+      
     </div>
   )
 }

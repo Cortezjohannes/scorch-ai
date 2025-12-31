@@ -3,6 +3,21 @@
  * Type definitions for investor materials package structure
  */
 
+import type { 
+  CharacterStudyGuide,
+  PerformanceReference,
+  ThroughLine as ActorThroughLine,
+  GOTEAnalysis,
+  RelationshipMap as ActorRelationshipMap,
+  SceneBreakdown,
+  EmotionalBeat,
+  PhysicalCharacterWork,
+  VoicePatterns,
+  MonologuePractice,
+  KeyScene,
+  OnSetPreparation
+} from './actor-materials'
+
 // ============================================================================
 // REQUEST/RESPONSE TYPES
 // ============================================================================
@@ -143,6 +158,7 @@ export interface StoryboardFrame {
   cameraAngle: string
   cameraMovement: string
   dialogueSnippet?: string
+  scriptContext?: string // Actual script action for this frame (shown in orange)
   imageUrl?: string
   imagePrompt?: string
   visualNotes?: string
@@ -160,7 +176,90 @@ export interface CharactersSection {
   relationshipMap: RelationshipMap[]
 }
 
-export interface CharacterProfile {
+/**
+ * Lightweight characters section for main document
+ * Detailed data stored in subcollection
+ */
+export interface CharactersSectionLight {
+  mainCharacters: CharacterProfileLight[]
+  relationshipMap: RelationshipMap[]
+}
+
+// Story Bible 3D Character Data
+export interface CharacterPhysiology {
+  gender?: string
+  appearance?: string
+  height?: string
+  build?: string
+  physicalTraits?: string[]
+  health?: string
+  defects?: string[]
+  heredity?: string
+}
+
+export interface CharacterSociology {
+  class?: 'working' | 'middle' | 'upper' | 'underclass'
+  occupation?: string
+  education?: string
+  homeLife?: string
+  religion?: string
+  race?: string
+  nationality?: string
+  politicalAffiliation?: string
+  hobbies?: string[]
+  communityStanding?: string
+  economicStatus?: string
+  familyRelationships?: string[]
+}
+
+export interface CharacterPsychology {
+  coreValue?: string
+  opposingValue?: string
+  moralStandpoint?: string
+  want?: string
+  need?: string
+  primaryFlaw?: string
+  secondaryFlaws?: string[]
+  temperament?: string[]
+  attitude?: string
+  complexes?: string[]
+  ambitions?: string[]
+  frustrations?: string[]
+  fears?: string[]
+  superstitions?: string[]
+  likes?: string[]
+  dislikes?: string[]
+  iq?: number
+  abilities?: string[]
+  talents?: string[]
+  childhood?: string
+  trauma?: string[]
+  successes?: string[]
+}
+
+/**
+ * Lightweight character data for main investor materials document
+ * Keeps the main document under 1MB by storing only essential info
+ */
+export interface CharacterProfileLight {
+  name: string
+  role: string
+  age?: string
+  background: string // Short background summary
+  motivation: string // Short motivation summary
+  keyTraits: string[] // Top 3-5 traits only
+  // Image generation
+  imageUrl?: string
+  imagePrompt?: string
+  // Flag indicating detailed data is available in subcollection
+  hasDetailedData?: boolean
+}
+
+/**
+ * Detailed character data stored in subcollection
+ * Contains all actor materials and Story Bible 3D data
+ */
+export interface CharacterProfileDetailed {
   name: string
   role: string
   age?: string
@@ -173,32 +272,52 @@ export interface CharacterProfile {
   // Image generation
   imageUrl?: string
   imagePrompt?: string
-  // Actor materials enrichment
-  throughLine?: {
-    superObjective: string
-    explanation: string
+  // Story Bible 3D Data
+  physiology?: CharacterPhysiology
+  sociology?: CharacterSociology
+  psychology?: CharacterPsychology
+  
+  // Actor Materials - Complete Data
+  studyGuide?: CharacterStudyGuide
+  performanceReference?: PerformanceReference[]
+  throughLine?: ActorThroughLine
+  gotAnalysis?: GOTEAnalysis[]
+  relationshipMapActor?: ActorRelationshipMap[]  // Renamed to avoid conflict with RelationshipMap
+  sceneBreakdowns?: SceneBreakdown[]
+  emotionalBeats?: EmotionalBeat[]
+  physicalWork?: PhysicalCharacterWork
+  voicePatterns?: VoicePatterns
+  monologues?: MonologuePractice[]
+  keyScenes?: KeyScene[]
+  onSetPrep?: OnSetPreparation
+  researchSuggestions?: {
+    historical?: string[]
+    realWorld?: string[]
+    cultural?: string[]
+    resources?: string[]
   }
-  performanceReference?: Array<{
-    characterName: string
-    source: string
-    reason: string
-  }>
-  physicalWork?: {
-    posture: string
-    movement: string
-    gestures: string[]
+  wardrobeNotes?: {
+    howItAffects: string
+    keyChoices: string[]
+    comfortNotes?: string
   }
-  voicePatterns?: {
-    speechPattern: string
-    vocalRange: string
-    emotionalRange: string[]
+  memorizationAids?: {
+    techniques: string[]
+    order: number[]
+    tips: string[]
   }
-  keyScenes?: Array<{
+  techniqueFocus?: string
+  techniqueExercises?: {
     sceneNumber: number
-    objective: string
-    emotionalState: string
-  }>
+    exercises: string[]
+  }[]
 }
+
+/**
+ * Full character profile (backwards compatible)
+ * Used during generation, then split into light + detailed for storage
+ */
+export type CharacterProfile = CharacterProfileDetailed
 
 export interface RelationshipMap {
   character1: string
@@ -224,6 +343,13 @@ export interface DepthSection {
     setting: string
     rules: string[]
     locations: WorldBuildingLocation[]
+  }
+  livingWorld: {
+    backgroundEvents: string
+    socialDynamics: string
+    economicFactors: string
+    politicalUndercurrents: string
+    culturalShifts: string
   }
 }
 
@@ -360,6 +486,16 @@ export interface LocationSummary {
   cost: number
   imageUrl?: string
   address?: string  // NEW: Added for Section 8 requirement
+  venueName?: string
+  venueType?: string
+  episodesUsed?: number[]
+  totalCost?: number
+  dayRate?: number
+  permitCost?: number
+  depositAmount?: number
+  pros?: string[]
+  cons?: string[]
+  logistics?: any
 }
 
 export interface PropSummary {
@@ -373,6 +509,13 @@ export interface PropSummary {
 
 export interface CastingSummary {
   characters: CastingCharacter[]
+  stats?: {
+    totalCast: number
+    confirmedCount: number
+    leadCount: number
+    supportingCount: number
+    totalPayroll: number
+  }
 }
 
 export interface CastingCharacter {

@@ -558,6 +558,7 @@ export class CharacterEngineV2 {
   ): Promise<ArchitectedCharacter> {
     
     console.log(`🧠 CHARACTER ENGINE V2.0: Architecting ${characterRole}...`);
+    console.log(`📝 CHARACTER CONCEPT: ${characterConcept}`);
     
     try {
       // Stage 1: Foundation - Psychological Engine
@@ -567,12 +568,12 @@ export class CharacterEngineV2 {
       
       // Stage 2: Construction - Three-Dimensional Framework  
       const threedimensionalFramework = await this.buildThreeDimensionalFramework(
-        psychologicalFoundation, options
+        psychologicalFoundation, characterConcept, characterRole, options
       );
       
       // Stage 3: Dynamics - Advanced Narrative Engineering
       const narrativeDynamics = await this.engineerNarrativeDynamics(
-        psychologicalFoundation, threedimensionalFramework, options
+        psychologicalFoundation, threedimensionalFramework, characterConcept, characterRole, options
       );
       
       // Stage 4: Integration - Complete Character Assembly
@@ -580,6 +581,8 @@ export class CharacterEngineV2 {
         psychologicalFoundation,
         threedimensionalFramework,
         narrativeDynamics,
+        characterConcept,
+        characterRole,
         options
       );
       
@@ -610,14 +613,40 @@ export class CharacterEngineV2 {
     
     const prompt = `As a psychological expert, architect the internal world of this character:
 
-CHARACTER CONCEPT: ${concept}
+🚨 CRITICAL INSTRUCTIONS - READ CAREFULLY:
+The user has provided SPECIFIC character details below. You MUST use these exact details. Do NOT replace them with generic or different information.
+
+USER-PROVIDED CHARACTER INFORMATION (USE THESE EXACT DETAILS):
+${concept}
+
 ROLE IN STORY: ${role}
 STORY PREMISE: ${premise.premiseStatement}
 
 COMPLEXITY LEVEL: ${options.complexityLevel || 'lean-forward'}
 CULTURAL BACKGROUND: ${options.culturalBackground || 'General American'}
 
-Using advanced psychological frameworks, create:
+🎯 MANDATORY REQUIREMENTS:
+1. If the user specified a NAME (e.g., "Jane Lee"), that IS the character's name - use it exactly
+2. If the user specified an OCCUPATION (e.g., "actress", "kpop idol", "former kpop idol"), that IS their occupation - do not change it to something else
+3. If the user specified APPEARANCE (e.g., "5'5, 23 years old, Korean-American"), those ARE their physical traits - use them exactly
+4. If the user specified WANT (e.g., "to step out of being typecasted"), that IS their want - do not replace it with a different goal
+5. If the user specified NEED (e.g., "to learn how to be more confident"), that IS their need - do not replace it
+6. If the user specified PRIMARY FLAW (e.g., "Low internal confidence"), that IS their flaw - use it
+7. If the user specified BACKGROUND (e.g., "former kpop idol", "Korean-American"), that IS their background - include it in sociology
+
+❌ DO NOT:
+- Replace user-specified details with generic alternatives
+- Ignore specific requirements (age, ethnicity, occupation, etc.)
+- Change the Want/Need/Flaw to something "more interesting"
+- Generate a different character than what the user described
+
+✅ DO:
+- Use the psychological frameworks to ADD DEPTH and NUANCE to the user's provided details
+- Expand upon what they provided with psychological complexity
+- Connect their specific details to deeper psychological patterns
+- Honor every specific detail they mentioned
+
+Using advanced psychological frameworks, create a psychological foundation that USES and ENHANCES the user's exact provided details:
 
 1. ENNEAGRAM TYPE ANALYSIS:
    - Which of the 9 types best fits this character concept?
@@ -649,7 +678,7 @@ Create a psychologically complex character whose internal world drives compellin
         prompt,
         systemPrompt: 'You are a master psychologist and character architect. Create deep, nuanced psychological profiles using established psychological frameworks.',
         temperature: 0.7,
-        maxTokens: 2000
+        maxTokens: 8000 // Increased to prevent truncation for full 3D character generation
       });
 
       return this.parsePsychologicalFoundation(result, options);
@@ -665,6 +694,8 @@ Create a psychologically complex character whose internal world drives compellin
    */
   private static async buildThreeDimensionalFramework(
     foundation: any,
+    characterConcept: string,
+    characterRole: string,
     options: any
   ): Promise<{
     physiology: CharacterPhysiology;
@@ -674,7 +705,15 @@ Create a psychologically complex character whose internal world drives compellin
     
     const prompt = `Build the three-dimensional framework for this character:
 
-PSYCHOLOGICAL FOUNDATION:
+🚨 CRITICAL INSTRUCTIONS - READ CAREFULLY:
+The user has provided SPECIFIC character details below. You MUST use these exact details in the three-dimensional framework. Do NOT replace them.
+
+USER-PROVIDED CHARACTER INFORMATION (USE THESE EXACT DETAILS):
+${characterConcept}
+
+ROLE IN STORY: ${characterRole}
+
+PSYCHOLOGICAL FOUNDATION (from previous stage):
 - Enneagram Type: ${foundation.enneagramType.name}
 - Core Motivation: ${foundation.enneagramType.basicDesire}
 - Primary Fear: ${foundation.enneagramType.basicFear}
@@ -683,7 +722,50 @@ PSYCHOLOGICAL FOUNDATION:
 CULTURAL CONTEXT: ${options.culturalBackground || 'General American'}
 NARRATIVE FORMAT: ${options.narrativeFormat || 'series'}
 
-Create comprehensive three-dimensional profile:
+🎯 MANDATORY REQUIREMENTS FOR EACH DIMENSION:
+
+1. PHYSIOLOGY (Body as Narrative Canvas):
+   - If user specified AGE (e.g., "23 years old"), use that EXACT age
+   - If user specified GENDER/IDENTITY (e.g., "Korean-American", "Female"), use that EXACT identity
+   - If user specified APPEARANCE (e.g., "5'5", "Korean-American", "kpop idol visual"), use those EXACT details
+   - If user specified DISTINCTIVE FEATURES, include them
+   - Enhance with psychological depth, but KEEP the user's core physical description
+
+2. SOCIOLOGY (Cultural Matrix):
+   - If user specified OCCUPATION (e.g., "actress", "former kpop idol", "actor-producer"), that IS their occupation
+   - If user specified BACKGROUND (e.g., "Korean-American", "former kpop idol"), that IS their cultural/educational background
+   - If user specified EDUCATION or TRAINING, include it
+   - If user specified SOCIAL CLASS or ECONOMIC STATUS, use it
+   - Expand upon these details, but DO NOT replace them with different occupations or backgrounds
+
+3. PSYCHOLOGY (Want vs Need Engine):
+   - If user specified WANT (e.g., "to step out of being typecasted as a bubbly innocent love interest"), that IS their want - use it exactly
+   - If user specified NEED (e.g., "to learn how to be more confident"), that IS their need - use it exactly
+   - If user specified PRIMARY FLAW (e.g., "Low internal confidence"), that IS their flaw - use it
+   - If user specified CORE VALUE/TRAIT, use it
+   - Add psychological depth and nuance, but HONOR what they specified
+
+❌ DO NOT:
+- Replace "actress" with "business executive" or "VP"
+- Replace "23 years old" with "32 years old"
+- Replace "Korean-American" with "Non-binary" (unless user specified that)
+- Replace user's Want/Need/Flaw with different goals
+- Ignore specific background details (kpop idol, etc.)
+
+✅ DO:
+- Use the EXACT details the user provided
+- Add depth and psychological complexity to those details
+- Connect their specific traits to deeper patterns
+- Honor every specific requirement
+
+Example: If user says "Jane Lee, 23 years old, Korean-American, former kpop idol, actress, wants to step out of typecasting":
+- Age MUST be 23 (not 32)
+- Identity MUST include Korean-American
+- Occupation MUST include actress/performer
+- Sociology MUST include kpop idol background
+- Want MUST be about typecasting/acting roles (not becoming a VP)
+
+Create comprehensive three-dimensional profile that USES the user's EXACT provided details:
 
 1. PHYSIOLOGY (Body as Narrative Canvas):
    - Physical traits that reflect their psychology
@@ -706,16 +788,80 @@ Create comprehensive three-dimensional profile:
    - THE LIE: False belief driving their want
    - Core contradictions between stated beliefs and hidden flaws
    - Vulnerabilities vs agency balance
+   - CORE VALUE: Their fundamental belief or value that drives them (extract from enneagram or generate)
+   - MORAL STANDPOINT: Their ethical framework and moral position
+   - PRIMARY FLAW: Their main character flaw that creates obstacles (extract from psychologicalNeed or moralNeed)
+   - TEMPERAMENT: Array of 3-5 temperament traits (e.g., ["Melodramatic", "Hyper-focused", "Resilient"])
+   - ATTITUDE: Their general attitude toward life and others
+   - IQ: Brief description of their intelligence level and type (e.g., "High social intelligence and pattern recognition, low self-awareness")
 
-Ensure all three dimensions reinforce each other and the psychological foundation.`;
+Ensure all three dimensions reinforce each other and the psychological foundation.
+
+**OUTPUT FORMAT:**
+Provide your response as a valid JSON object with this structure:
+{
+  "physiology": {
+    "age": <number>,
+    "gender": "<string>",
+    "height": "<string>",
+    "build": "<string>",
+    "appearance": "<string>",
+    "health": "<string> - Description of their physical health and condition",
+    "physicalTraits": ["<string>", ...] - Array of distinctive physical features,
+    "senseMemory": { ... },
+    "animalEssence": { ... },
+    "privateMoments": { ... },
+    "healthConditions": [],
+    "chronicPain": [],
+    "physicalLimitations": [],
+    "bodyImage": "<string>",
+    "relationshipToPhysicality": "<string>"
+  },
+  "sociology": {
+    "socialClass": { ... },
+    "familySystem": { ... },
+    "profession": { ... },
+    "education": { ... },
+    "culturalBackground": { ... },
+    "culturalSoftware": { ... },
+    "religiousSpirituality": { ... },
+    "homeLife": "<string> - Description of their living situation and home environment",
+    "economicStatus": "<string> - Their financial situation and economic standing",
+    "communityStanding": "<string> - How they are viewed in their community"
+  },
+  "psychology": {
+    "want": { ... },
+    "need": { ... },
+    "lieTheyBelieve": { ... },
+    "psychologicalNeed": "<string>",
+    "moralNeed": "<string>",
+    "coreValue": "<string> - Their fundamental belief or value that drives them",
+    "moralStandpoint": "<string> - Their ethical framework and moral position",
+    "primaryFlaw": "<string> - Their main character flaw that creates obstacles",
+    "temperament": ["<string>", ...] - Array of 3-5 temperament traits,
+    "attitude": "<string> - Their general attitude toward life and others",
+    "iq": "<string> - Brief description of their intelligence level and type",
+    "coreContradictions": [],
+    "vulnerabilities": {
+      ...,
+      "fears": ["<string>", ...] - Array of fears (first one is their top fear)
+    },
+    "agency": { ... }
+  }
+}
+
+Output ONLY valid JSON (no markdown, no explanation).`;
 
     try {
       const result = await generateContent({
         prompt,
-        systemPrompt: 'You are an expert in character development using the three-dimensional framework. Create cohesive, realistic character profiles.',
+        systemPrompt: 'You are an expert in character development using the three-dimensional framework. Create cohesive, realistic character profiles. Output ONLY valid JSON.',
         temperature: 0.7,
-        maxTokens: 2500
+        maxTokens: 8000 // Increased to prevent truncation for full 3D character generation
       });
+
+      console.log('📝 [3D FRAMEWORK] AI Response length:', result.length)
+      console.log('📝 [3D FRAMEWORK] AI Response preview:', result.substring(0, 500))
 
       return this.parseThreeDimensionalFramework(result, foundation);
       
@@ -731,6 +877,8 @@ Ensure all three dimensions reinforce each other and the psychological foundatio
   private static async engineerNarrativeDynamics(
     foundation: any,
     framework: any,
+    characterConcept: string,
+    characterRole: string,
     options: any
   ): Promise<{
     voice: CharacterVoice;
@@ -739,14 +887,23 @@ Ensure all three dimensions reinforce each other and the psychological foundatio
     
     const prompt = `Engineer the narrative dynamics for this character:
 
+⚠️ CRITICAL: The user has provided this specific character concept - you MUST honor these details:
+CHARACTER CONCEPT: "${characterConcept}"
+ROLE IN STORY: ${characterRole}
+
 CHARACTER FOUNDATION:
 - Type: ${foundation.enneagramType.name}
 - Social Class: ${framework.sociology.socialClass.economic}
 - Education: ${framework.sociology.education.level}
+- Occupation: ${framework.sociology.occupation?.primary || 'Not specified'}
 - Personality: Big Five scores provided
 - Core Conflict: ${framework.psychology.want.consciousGoal} vs ${framework.psychology.need.unconsciousTruth}
 
-Create advanced narrative engineering:
+IMPORTANT: The character concept above contains specific user requirements. The voice and arc MUST reflect these details.
+For example, if the concept mentions "kpop idol", the voice should reflect that cultural/linguistic background.
+If the concept mentions "actress", the voice should reflect performance/acting background.
+
+Create advanced narrative engineering that honors the user's specific character concept:
 
 1. CHARACTER VOICE:
    - Lexicon: Vocabulary level, jargon, cultural expressions
@@ -762,15 +919,37 @@ Create advanced narrative engineering:
    - Key turning points and character revelations
    - Relationship to thematic journey
 
-Design voice and arc that feel authentic to this specific character's background and psychology.`;
+Design voice and arc that feel authentic to this specific character's background and psychology.
+
+**OUTPUT FORMAT:**
+Provide your response as a valid JSON object with this structure:
+{
+  "voice": {
+    "lexicon": { ... },
+    "syntax": { ... },
+    "rhythm": { ... },
+    "verbalTics": { ... },
+    "subtext": { ... }
+  },
+  "arcDevelopment": {
+    "type": "<positive|negative|flat>",
+    "subtype": "<optional>",
+    "stages": ["...", "..."]
+  }
+}
+
+Output ONLY valid JSON (no markdown, no explanation).`;
 
     try {
       const result = await generateContent({
         prompt,
-        systemPrompt: 'You are a master of character voice and narrative arc development. Create distinctive, authentic character dynamics.',
+        systemPrompt: 'You are a master of character voice and narrative arc development. Create distinctive, authentic character dynamics. Output ONLY valid JSON.',
         temperature: 0.8,
-        maxTokens: 2000
+        maxTokens: 8000 // Increased to prevent truncation for full 3D character generation
       });
+
+      console.log('📝 [NARRATIVE DYNAMICS] AI Response length:', result.length)
+      console.log('📝 [NARRATIVE DYNAMICS] AI Response preview:', result.substring(0, 500))
 
       return this.parseNarrativeDynamics(result, foundation, framework);
       
@@ -787,16 +966,58 @@ Design voice and arc that feel authentic to this specific character's background
     foundation: any,
     framework: any,
     dynamics: any,
+    characterConcept: string,
+    characterRole: string,
     options: any
   ): Promise<ArchitectedCharacter> {
     
-    // Generate character name if not provided
-    const name = await this.generateCharacterName(foundation, framework, options);
+    // Extract name from characterConcept if it contains a name
+    // The concept format is structured with sections like "Name: Jane Lee\n\nDescription: ..."
+    let providedName: string | null = null
+    
+    // Try format: "Name: Jane Lee" (at the start of the concept, followed by newline or end)
+    const nameLineMatch = characterConcept.match(/^Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/m)
+    if (nameLineMatch && nameLineMatch[1]) {
+      providedName = nameLineMatch[1].trim()
+      console.log(`📝 [ASSEMBLY] Found provided name in concept (format: "Name: ..."): ${providedName}`)
+    } else {
+      // Try format: "Name: description" (single line format)
+      const nameMatch = characterConcept.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*):\s*(.+)$/m)
+      if (nameMatch && nameMatch[1] && nameMatch[1].length < 50) { // Reasonable name length
+        providedName = nameMatch[1].trim()
+        console.log(`📝 [ASSEMBLY] Found provided name in concept (format: "Name: description"): ${providedName}`)
+      } else {
+        // Try format: "Name description" (name at start, followed by space and description)
+        // Match 1-3 capitalized words at the start that look like a name
+        const namePattern = /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+([a-z]|is|was|are|were|the|a|an|Description|Archetype|Premise)/
+        const namePatternMatch = characterConcept.match(namePattern)
+        if (namePatternMatch && namePatternMatch[1]) {
+          const potentialName = namePatternMatch[1].trim()
+          // Validate it's likely a name (2-3 words, all capitalized first letters, reasonable length)
+          if (potentialName.split(' ').length <= 3 && 
+              potentialName.length < 50 &&
+              /^[A-Z][a-z]+(\s+[A-Z][a-z]+)*$/.test(potentialName)) {
+            providedName = potentialName
+            console.log(`📝 [ASSEMBLY] Extracted name from concept (format: "Name description"): ${providedName}`)
+          }
+        }
+      }
+    }
+    
+    // Use provided name if found, otherwise generate one
+    const name = providedName || await this.generateCharacterName(foundation, framework, options);
+    
+    if (providedName) {
+      console.log(`✅ [ASSEMBLY] Using user-provided name: ${name}`)
+    } else {
+      console.log(`⚠️ [ASSEMBLY] No name found in concept, generated: ${name}`)
+      console.log(`⚠️ [ASSEMBLY] Concept preview (first 200 chars): ${characterConcept.substring(0, 200)}`)
+    }
     
     return {
       id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: name,
-      role: options.role || 'Character',
+      role: characterRole || options.role || 'Character',
       
       // Psychological Foundation
       enneagramType: foundation.enneagramType,
@@ -898,179 +1119,48 @@ Design voice and arc that feel authentic to this specific character's background
   
   private static parseThreeDimensionalFramework(result: string, foundation: any): any {
     // Parse AI response for three-dimensional elements
-    return {
-      physiology: {
-        age: 32,
-        gender: "Non-binary",
-        height: "5'8\"",
-        build: "Athletic",
-        appearance: "Polished, well-groomed, designer clothing",
-        senseMemory: {
-          triggerSense: 'sound',
-          triggerStimulus: "Sound of applause",
-          associatedMemory: "First major achievement recognition",
-          physiologicalResponse: "Rush of energy and confidence"
-        },
-        animalEssence: {
-          primaryAnimal: "Hawk",
-          movementQuality: "Precise, purposeful, observant",
-          posturalHabits: "Upright, commanding presence",
-          spatialNeeds: "Needs clear sight lines and escape routes",
-          observationalStyle: "Scans for opportunities and threats"
-        },
-        privateMoments: {
-          soloRituals: ["Reviewing goals and achievements", "Practicing presentations"],
-          unguardedBehaviors: ["Moments of self-doubt", "Compulsive checking of metrics"],
-          secretHabits: ["Reading self-help books", "Comparing themselves to others online"],
-          vulnerableMoments: ["When alone after failures", "Late night anxiety spirals"]
-        },
-        healthConditions: [],
-        chronicPain: ["Tension headaches from stress"],
-        physicalLimitations: [],
-        bodyImage: "Highly conscious of appearance and presentation",
-        relationshipToPhysicality: "Body as tool for success and image"
-      },
-      sociology: {
-        socialClass: {
-          economic: 'upper-middle',
-          cultural: "High cultural capital, elite education",
-          socialMobility: "Upwardly mobile",
-          classMarkers: ["Articulate speech", "Designer clothing", "Cultural references"]
-        },
-        familySystem: {
-          structure: "Nuclear family, high-achieving parents",
-          dynamics: "Achievement-oriented, conditional love",
-          birthOrder: "Eldest child",
-          familyRole: "Golden child, family representative",
-          intergenerationalTrauma: ["Performance pressure", "Emotional unavailability"]
-        },
-        profession: {
-          occupation: "Marketing Executive",
-          careerStage: "Rising star",
-          workCulture: "Competitive, results-driven",
-          professionalIdentity: "The go-to person for results",
-          workRelationships: ["Strategic alliances", "Competitive rivalries"]
-        },
-        education: {
-          level: "MBA from top-tier school",
-          institutions: ["Elite private school", "Ivy League university"],
-          learningStyle: "Goal-oriented, strategic",
-          intellectualCuriosity: 7,
-          knowledgeAreas: ["Business strategy", "Psychology of persuasion", "Market trends"]
-        },
-        culturalBackground: {
-          ethnicity: "Mixed heritage",
-          nationality: "American",
-          regionalCulture: "Urban, cosmopolitan",
-          immigrationStatus: "Third generation",
-          generationInCountry: 3
-        },
-        culturalSoftware: {
-          communicationStyle: 'direct',
-          conflictStyle: "Competitive, strategic",
-          authorityRelation: "Respects competence-based authority",
-          timeOrientation: 'future',
-          individualismCollectivism: 8
-        },
-        religiousSpirituality: {
-          beliefs: "Secular humanism with success philosophy",
-          practices: ["Goal-setting rituals", "Visualization"],
-          spiritualIdentity: "Believes in self-made success",
-          relationToSacred: "Achievement and recognition as sacred"
-        }
-      },
-      psychology: {
-        want: {
-          consciousGoal: "To become the youngest VP in company history",
-          externalObjective: "Recognition, status, financial success",
-          whatTheyThinkWillMakeThemHappy: "Achieving the next level of success",
-          pursuitStrategy: "Strategic networking, over-performance, image management"
-        },
-        need: {
-          unconsciousTruth: "To be loved and accepted for who they are, not what they achieve",
-          internalLesson: "Self-worth comes from within, not from external validation",
-          whatTheyActuallyNeedForFulfillment: "Authentic connections and self-acceptance",
-          thematicSignificance: "The journey from performance to authenticity"
-        },
-        lieTheyBelieve: {
-          falseWorldview: "I am only valuable if I am successful and achieving",
-          originOfLie: "Childhood conditioning with conditional love based on performance",
-          howLieManifests: "Constant striving, inability to rest, fear of being ordinary",
-          evidenceAgainstLie: ["Times when people loved them despite failures", "Moments of genuine connection"]
-        },
-        psychologicalNeed: "To overcome impostor syndrome and performance anxiety",
-        moralNeed: "To stop using others as stepping stones for personal advancement",
-        coreContradictions: [{
-          statedBelief: "I believe in teamwork and collaboration",
-          conflictingFlaw: "Deep competitive nature and need to be the best",
-          crucibleScenario: "When a team member threatens their position or recognition",
-          contradictoryAction: "Subtly undermining the team member while maintaining collaborative facade"
-        }],
-        vulnerabilities: {
-          emotionalAchillesHeel: "Fear of being exposed as not good enough",
-          deepInsecurities: ["Impostor syndrome", "Fear of failure", "Need for constant validation"],
-          fears: ["Being ordinary", "Losing status", "Being truly seen"],
-          internalConflicts: ["Success vs authenticity", "Competition vs connection"]
-        },
-        agency: {
-          decisionMakingStyle: "Strategic, goal-oriented, risk-calculated",
-          problemSolvingApproach: "Systematic, resource-leveraging, network-utilizing",
-          leadershipCapacity: 8,
-          influenceStrategies: ["Competence demonstration", "Strategic alliance building", "Image management"]
-        }
-      }
-    };
+    try {
+      const { cleanAndParseJSON } = require('@/lib/json-utils')
+      const parsed = cleanAndParseJSON(result)
+      
+      console.log('✅ [3D FRAMEWORK] Successfully parsed JSON from AI response')
+      console.log('📊 [3D FRAMEWORK] Parsed data:', {
+        hasPhysiology: !!parsed.physiology,
+        hasSociology: !!parsed.sociology,
+        hasPsychology: !!parsed.psychology,
+        age: parsed.physiology?.age,
+        gender: parsed.physiology?.gender,
+        occupation: parsed.sociology?.profession?.occupation || parsed.sociology?.occupation
+      })
+      
+      // Return parsed data - this is the ACTUAL AI-generated data, not hardcoded!
+      return parsed
+      
+    } catch (error) {
+      console.error('❌ [3D FRAMEWORK] Failed to parse AI response:', error)
+      console.log('📄 [3D FRAMEWORK] Raw response (first 1000 chars):', result.substring(0, 1000))
+      // Re-throw error so caller can use fallback
+      throw error
+    }
   }
   
   private static parseNarrativeDynamics(result: string, foundation: any, framework: any): any {
-    return {
-      voice: {
-        lexicon: {
-          vocabularyLevel: 'sophisticated',
-          professionalJargon: ["ROI", "synergies", "leverage", "scalable", "disruptive"],
-          culturalExpressions: ["Let's circle back", "Touch base", "Move the needle"],
-          slangUsage: ["Minimal, maintains professional image"],
-          uniqueWords: ["Optimization", "Strategic", "Execute"]
-        },
-        syntax: {
-          sentenceLength: 'medium',
-          complexity: 'compound',
-          voicePreference: 'active',
-          interruptionPattern: "Strategic interruptions to redirect conversations",
-          grammarPrecision: 9
-        },
-        rhythm: {
-          speakingPace: 'fast',
-          pauseUsage: "Strategic pauses for emphasis and control",
-          emphasisPatterns: ["Data points", "Achievement metrics", "Future opportunities"],
-          conversationalDominance: 8
-        },
-        verbalTics: {
-          fillerWords: ["Actually", "Obviously", "Clearly"],
-          catchphrases: ["Let's make it happen", "That's a win-win"],
-          repetitivePatterns: ["References to success metrics", "Future-focused language"],
-          nervousHabits: ["Speaking faster when challenged", "Over-explaining credentials"]
-        },
-        subtext: {
-          hiddenMeanings: ["Constant self-promotion", "Subtle competitiveness"],
-          emotionalUndercurrents: ["Insecurity masked as confidence", "Fear of being found out"],
-          powerDynamics: ["Always positioning for advantage", "Subtle dominance displays"],
-          intimacyMarkers: ["Rare moments of vulnerability", "Dropping professional mask"]
-        }
-      },
-      arcDevelopment: {
-        type: 'positive',
-        subtype: undefined,
-        stages: [
-          "Establishing competence and success",
-          "Encountering situation where performance isn't enough",
-          "Facing consequences of prioritizing achievement over relationships",
-          "Crisis that strips away external validation",
-          "Learning to find worth in authentic self",
-          "Integration of achievement drive with genuine connection"
-        ]
-      }
-    };
+    // Parse AI response for narrative dynamics (voice and arc)
+    try {
+      const { cleanAndParseJSON } = require('@/lib/json-utils')
+      const parsed = cleanAndParseJSON(result)
+      
+      console.log('✅ [NARRATIVE DYNAMICS] Successfully parsed JSON from AI response')
+      
+      // Return parsed data - this is the ACTUAL AI-generated data, not hardcoded!
+      return parsed
+      
+    } catch (error) {
+      console.error('❌ [NARRATIVE DYNAMICS] Failed to parse AI response:', error)
+      console.log('📄 [NARRATIVE DYNAMICS] Raw response (first 1000 chars):', result.substring(0, 1000))
+      // Re-throw error so caller can use fallback
+      throw error
+    }
   }
   
   private static async generateCharacterName(foundation: any, framework: any, options: any): Promise<string> {

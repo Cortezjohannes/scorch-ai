@@ -1,6 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextResponse } from 'next/server'
 
+// Primary model
+const PRIMARY_MODEL = 'gemini-3-pro-preview';
+
 // Initialize Gemini AI with retry logic
 const initializeGeminiAI = () => {
   const apiKey = process.env.GEMINI_API_KEY
@@ -17,6 +20,23 @@ const initializeGeminiAI = () => {
 }
 
 const genAI = initializeGeminiAI()
+
+/**
+ * Generate content with Gemini
+ */
+async function generateWithGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured')
+  }
+  
+  const genAI = new GoogleGenerativeAI(apiKey)
+  console.log(`🚀 [PHASE1] Using model: ${PRIMARY_MODEL}`)
+  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL })
+  const result = await model.generateContent(prompt)
+  const response = await result.response
+  return response.text()
+}
 const imageCache = new Map<string, string>()
 
 // Retry wrapper for API calls
@@ -195,13 +215,6 @@ const getGeminiKey = () => {
 
 export async function POST(request: Request) {
   try {
-    // Get API key only when the function is called
-    const apiKey = getGeminiKey()
-    
-    // Initialize the Google Generative AI with the API key
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' })
-
     // Get the request body
     const { theme, concept, characters } = await request.json()
 
@@ -231,9 +244,8 @@ Format your response as a JSON object with the following structure:
 
 Keep each episode synopsis concise, around 2-3 sentences. Generate exactly 10 episodes.`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    // Use generateWithGemini for 429 rate limit handling
+    const text = await generateWithGemini(prompt)
 
     // Attempt to parse the JSON
     try {

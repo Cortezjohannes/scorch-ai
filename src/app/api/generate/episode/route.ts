@@ -12,39 +12,273 @@ import { runComprehensiveEngines, ComprehensiveEngineNotes } from '@/services/co
 import { runGeminiComprehensiveEngines } from '@/services/gemini-comprehensive-engines'
 import { generateContentWithGemini } from '@/services/gemini-ai'
 
+// Helper function to build comprehensive story bible context for prompts
+function buildComprehensiveStoryBibleContext(storyBible: any): string {
+  if (!storyBible) return 'No story bible provided.';
+  
+  const sections: string[] = [];
+  
+  // Core Identity
+  sections.push('=== SERIES IDENTITY ===');
+  if (storyBible.seriesTitle) sections.push(`Series Title: ${storyBible.seriesTitle}`);
+  if (storyBible.genre) sections.push(`Genre: ${storyBible.genre}`);
+  if (storyBible.tone) sections.push(`Tone: ${storyBible.tone}`);
+  if (storyBible.targetAudience) {
+    const audience = typeof storyBible.targetAudience === 'string' 
+      ? storyBible.targetAudience 
+      : storyBible.targetAudience.primary || storyBible.targetAudience.primaryAudience || '';
+    if (audience) sections.push(`Target Audience: ${audience}`);
+  }
+  
+  // Premise
+  if (storyBible.premise) {
+    sections.push('\n=== PREMISE ===');
+    if (typeof storyBible.premise === 'string') {
+      sections.push(storyBible.premise);
+    } else {
+      if (storyBible.premise.premiseStatement) sections.push(storyBible.premise.premiseStatement);
+      if (storyBible.premise.coreConflict) sections.push(`Core Conflict: ${storyBible.premise.coreConflict}`);
+      if (storyBible.premise.stakes) sections.push(`Stakes: ${storyBible.premise.stakes}`);
+    }
+  }
+  
+  // Characters (ALL characters, not truncated)
+  if (storyBible.mainCharacters && storyBible.mainCharacters.length > 0) {
+    sections.push('\n=== CHARACTERS ===');
+    storyBible.mainCharacters.forEach((char: any, index: number) => {
+      const charDetails: string[] = [];
+      charDetails.push(`${index + 1}. ${char.name || 'Unnamed Character'}`);
+      if (char.archetype || char.premiseRole) charDetails.push(`   Archetype/Role: ${char.archetype || char.premiseRole}`);
+      if (char.description) {
+        const desc = typeof char.description === 'string' ? char.description : JSON.stringify(char.description);
+        charDetails.push(`   Description: ${desc}`);
+      }
+      if (char.background) {
+        const bg = typeof char.background === 'string' ? char.background : JSON.stringify(char.background);
+        charDetails.push(`   Background: ${bg}`);
+      }
+      if (char.psychology) {
+        if (char.psychology.want) charDetails.push(`   Want: ${char.psychology.want}`);
+        if (char.psychology.need) charDetails.push(`   Need: ${char.psychology.need}`);
+        if (char.psychology.fear) charDetails.push(`   Fear: ${char.psychology.fear}`);
+        if (char.psychology.flaw) charDetails.push(`   Flaw: ${char.psychology.flaw}`);
+      }
+      if (char.relationships) {
+        const rels = typeof char.relationships === 'string' ? char.relationships : JSON.stringify(char.relationships);
+        charDetails.push(`   Relationships: ${rels}`);
+      }
+      if (char.arc) {
+        const arc = typeof char.arc === 'string' ? char.arc : JSON.stringify(char.arc);
+        charDetails.push(`   Character Arc: ${arc}`);
+      }
+      if (char.motivation) charDetails.push(`   Motivation: ${char.motivation}`);
+      if (char.internalConflict) charDetails.push(`   Internal Conflict: ${char.internalConflict}`);
+      if (char.voice) charDetails.push(`   Voice: ${char.voice}`);
+      if (char.goals) {
+        const goals = typeof char.goals === 'string' ? char.goals : JSON.stringify(char.goals);
+        charDetails.push(`   Goals: ${goals}`);
+      }
+      if (char.fears) {
+        const fears = typeof char.fears === 'string' ? char.fears : JSON.stringify(char.fears);
+        charDetails.push(`   Fears: ${fears}`);
+      }
+      if (char.secrets) {
+        const secrets = typeof char.secrets === 'string' ? char.secrets : JSON.stringify(char.secrets);
+        charDetails.push(`   Secrets: ${secrets}`);
+      }
+      sections.push(charDetails.join('\n'));
+    });
+  }
+  
+  // World Building
+  if (storyBible.worldBuilding) {
+    sections.push('\n=== WORLD BUILDING ===');
+    if (typeof storyBible.worldBuilding === 'string') {
+      sections.push(storyBible.worldBuilding);
+    } else {
+      if (storyBible.worldBuilding.setting) {
+        const setting = typeof storyBible.worldBuilding.setting === 'string' 
+          ? storyBible.worldBuilding.setting 
+          : JSON.stringify(storyBible.worldBuilding.setting);
+        sections.push(`Setting: ${setting}`);
+      }
+      if (storyBible.worldBuilding.rules) {
+        if (Array.isArray(storyBible.worldBuilding.rules)) {
+          sections.push(`World Rules:\n${storyBible.worldBuilding.rules.map((r: string) => `- ${r}`).join('\n')}`);
+        } else {
+          sections.push(`World Rules: ${storyBible.worldBuilding.rules}`);
+        }
+      }
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        sections.push('\nLocations:');
+        storyBible.worldBuilding.locations.forEach((loc: any) => {
+          const locDetails: string[] = [];
+          if (loc.name) locDetails.push(`  - ${loc.name}`);
+          if (loc.type) locDetails.push(`    Type: ${loc.type}`);
+          if (loc.description) {
+            const desc = typeof loc.description === 'string' ? loc.description : JSON.stringify(loc.description);
+            locDetails.push(`    Description: ${desc}`);
+          }
+          if (loc.significance) locDetails.push(`    Significance: ${loc.significance}`);
+          if (loc.recurringEvents && Array.isArray(loc.recurringEvents)) {
+            locDetails.push(`    Recurring Events: ${loc.recurringEvents.join(', ')}`);
+          }
+          if (loc.conflicts && Array.isArray(loc.conflicts)) {
+            locDetails.push(`    Conflicts: ${loc.conflicts.join(', ')}`);
+          }
+          sections.push(locDetails.join('\n'));
+        });
+      }
+    }
+  }
+  
+  // Themes
+  if (storyBible.theme || storyBible.themes) {
+    sections.push('\n=== THEMES ===');
+    if (storyBible.themes && Array.isArray(storyBible.themes)) {
+      storyBible.themes.forEach((theme: string, index: number) => {
+        sections.push(`${index + 1}. ${theme}`);
+      });
+    } else if (storyBible.theme) {
+      sections.push(storyBible.theme);
+    }
+  }
+  
+  // Narrative Elements
+  if (storyBible.narrativeElements) {
+    sections.push('\n=== NARRATIVE ELEMENTS ===');
+    if (storyBible.narrativeElements.callbacks) {
+      sections.push(`Callbacks: ${storyBible.narrativeElements.callbacks}`);
+    }
+    if (storyBible.narrativeElements.foreshadowing) {
+      sections.push(`Foreshadowing: ${storyBible.narrativeElements.foreshadowing}`);
+    }
+    if (storyBible.narrativeElements.recurringMotifs) {
+      sections.push(`Recurring Motifs: ${storyBible.narrativeElements.recurringMotifs}`);
+    }
+  }
+  
+  // Narrative Arcs
+  if (storyBible.narrativeArcs && Array.isArray(storyBible.narrativeArcs)) {
+    sections.push('\n=== NARRATIVE ARCS ===');
+    storyBible.narrativeArcs.forEach((arc: any, index: number) => {
+      const arcDetails: string[] = [];
+      arcDetails.push(`Arc ${index + 1}: ${arc.title || `Arc ${index + 1}`}`);
+      if (arc.summary) {
+        const summary = typeof arc.summary === 'string' ? arc.summary : JSON.stringify(arc.summary);
+        arcDetails.push(`  Summary: ${summary}`);
+      }
+      if (arc.episodes && Array.isArray(arc.episodes)) {
+        arcDetails.push(`  Episodes: ${arc.episodes.length} episodes`);
+        arc.episodes.forEach((ep: any) => {
+          if (ep.title) arcDetails.push(`    - Episode ${ep.number || '?'}: ${ep.title}`);
+        });
+      }
+      sections.push(arcDetails.join('\n'));
+    });
+  }
+  
+  return sections.join('\n');
+}
+
 // Helper function to safely parse JSON from text that might contain markdown code blocks
+// Using the robust JSON parser from json-utils for better error handling
 const safeParseJSON = (text: string) => {
   try {
-    // First, try direct parsing
-    return JSON.parse(text)
+    // Import synchronously since cleanAndParseJSON is not async
+    const { cleanAndParseJSON } = require('@/lib/json-utils')
+    return cleanAndParseJSON(text)
   } catch (e) {
-    // If that fails, look for JSON inside markdown code blocks
+    console.error("Failed to parse JSON with robust parser, trying fallback", e)
+    // Fallback to basic parsing if robust parser fails
     try {
+      return JSON.parse(text)
+    } catch (e2) {
       const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
       if (jsonMatch && jsonMatch[1]) {
         return JSON.parse(jsonMatch[1])
       }
-    } catch (innerError) {
-      console.error("Failed to parse JSON from markdown block", innerError)
-    }
-    
-    // If all parsing attempts fail, create a basic structure
-    return {
-      episodeNumber: 1,
-      script: "INT. LOCATION - DAY\n\nCharacters discuss the situation.\n\nEND SCENE",
-      branchingOptions: [
-        "Continue the conversation",
-        "Leave the location", 
-        "Change the subject"
-      ]
+      throw e2
     }
   }
+}
+
+// Helper function for dialogue language instructions
+function getDialogueLanguageInstructions(language: string): string {
+  const languageInstructions: Record<string, string> = {
+    'english': '',
+    'tagalog': `
+🗣️ DIALOGUE LANGUAGE: TAGLISH (Tagalog-English Code-Switching)
+**ALL DIALOGUE MUST BE IN AUTHENTIC TAGLISH:**
+- Characters naturally switch between Tagalog and English mid-sentence
+- Use Filipino expressions: "Ano ba 'yan!" / "Sige na!" / "Hay nako!" / "Grabe!"
+- Mix English technical terms with Tagalog emotional expressions
+- Examples: "Wait lang, I need to think about this muna." / "Bakit mo ginawa 'yun? You know that's not right!"
+- Incorporate Filipino values: hiya, utang na loob, pakikisama
+- Use honorifics: Ate, Kuya, Tito, Tita, Ma, Pa
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Taglish
+`,
+    'thai': `
+🗣️ DIALOGUE LANGUAGE: THAI (ภาษาไทย)
+**ALL DIALOGUE MUST BE IN AUTHENTIC THAI:**
+- Write all character dialogue in Thai script (ภาษาไทย)
+- Use appropriate politeness particles: ครับ, ค่ะ, นะ
+- Examples: "ทำไมเธอถึงทำแบบนั้นล่ะ?" / "ฉันไม่เข้าใจเลย..."
+- Incorporate Thai cultural values: greng jai, respect for elders
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Thai script
+`,
+    'spanish': `
+🗣️ DIALOGUE LANGUAGE: SPANISH (Español)
+**ALL DIALOGUE MUST BE IN AUTHENTIC SPANISH:**
+- Write all dialogue in natural, conversational Spanish
+- Examples: "¿Por qué hiciste eso? No lo entiendo." / "¡Ay, Dios mío!"
+- Use appropriate formality (tú vs usted) based on relationships
+- Incorporate cultural values: familia, honor, respeto
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Spanish
+`,
+    'korean': `
+🗣️ DIALOGUE LANGUAGE: KOREAN (한국어)
+**ALL DIALOGUE MUST BE IN AUTHENTIC KOREAN:**
+- Write all dialogue in Korean script (한글)
+- Use appropriate speech levels (존댓말/반말)
+- Examples: "왜 그랬어? 이해가 안 돼." / "잠깐만, 내 얘기 좀 들어봐."
+- Use appropriate honorifics: 형/누나/오빠/언니, 선배/후배
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Korean script
+`,
+    'japanese': `
+🗣️ DIALOGUE LANGUAGE: JAPANESE (日本語)
+**ALL DIALOGUE MUST BE IN AUTHENTIC JAPANESE:**
+- Write dialogue in Japanese (hiragana, katakana, kanji)
+- Use appropriate politeness levels (敬語/タメ語)
+- Examples: "どうしてそんなことをしたの？" / "ちょっと待って、話を聞いて。"
+- Use appropriate honorifics: -san, -kun, -chan, -sama
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Japanese script
+`,
+    'french': `
+🗣️ DIALOGUE LANGUAGE: FRENCH (Français)
+**ALL DIALOGUE MUST BE IN AUTHENTIC FRENCH:**
+- Write all dialogue in natural, conversational French
+- Examples: "Pourquoi tu as fait ça?" / "Mon Dieu... Qu'est-ce qu'on va faire?"
+- Use appropriate formality (tu vs vous)
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in French
+`,
+    'chinese': `
+🗣️ DIALOGUE LANGUAGE: CHINESE (中文)
+**ALL DIALOGUE MUST BE IN AUTHENTIC MANDARIN CHINESE:**
+- Write all dialogue in Chinese characters
+- Examples: "你为什么要这样做？" / "等一下，听我说。"
+- Incorporate Chinese cultural values: 面子, 孝, 关系
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Chinese characters
+`
+  }
+  
+  return languageInstructions[language] || ''
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { storyBible, previousChoice, userChoices, useEngines, useComprehensiveEngines, useGeminiComprehensive, mode } = body
+    const { storyBible, previousChoice, previousEpisode, allPreviousEpisodes, userChoices, useEngines, useComprehensiveEngines, useGeminiComprehensive, useIntelligentDefaults, mode } = body
     const episodeNumber = body.episodeNumber ?? body.currentEpisodeNumber
     
     if (!storyBible || !episodeNumber) {
@@ -140,6 +374,8 @@ export async function POST(request: NextRequest) {
     
     console.log(`🎭 Episode ${episodeNumber} Generation - Using Intelligent Orchestrator`)
     console.log(`   Previous choice: ${previousChoice || 'None'}`)
+    console.log(`   Previous episode: ${previousEpisode ? `Yes (${previousEpisode.title || previousEpisode.episodeTitle || 'Untitled'})` : 'None'}`)
+    console.log(`   All previous episodes: ${allPreviousEpisodes?.length || 0} episodes`)
     console.log(`   User choices count: ${userChoices?.length || 0}`)
     
     // Use the orchestrator for intelligent, fast episode generation
@@ -147,6 +383,8 @@ export async function POST(request: NextRequest) {
       storyBible,
       episodeNumber,
       previousChoice,
+      previousEpisode,
+      allPreviousEpisodes,
       userChoices,
       mode // Pass legacy mode parameter for compatibility
     })
@@ -290,7 +528,11 @@ Return JSON:
 
 // Generate episode with Azure OpenAI (Story Bible + GPT-4.1 only, no engines)
 async function generateEpisodeWithAzure(draft: any, storyBible: any, episodeNumber: number, previousChoice?: string) {
-  const systemPrompt = `You are a senior TV writer crafting a tight 5-minute episode using ONLY the Story Bible (plus the draft) as guidance. Return valid JSON only. Prioritize cohesion, pacing, and character depth over breadth. Keep it cinematic, readable, and emotionally engaging.`
+  // Get dialogue language from story bible
+  const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
+  const languageInstructions = getDialogueLanguageInstructions(dialogueLanguage)
+  
+  const systemPrompt = `You are a senior TV writer crafting a tight 5-minute episode using ONLY the Story Bible (plus the draft) as guidance. Return valid JSON only. Prioritize cohesion, pacing, and character depth over breadth. Keep it cinematic, readable, and emotionally engaging.${dialogueLanguage !== 'english' ? ` IMPORTANT: All dialogue must be written in ${dialogueLanguage.toUpperCase()} while narrative prose remains in English.` : ''}`
 
   // Build narrative context from story bible
   const narrativeArcInfo = (storyBible.narrativeArcs || [])
@@ -313,7 +555,12 @@ async function generateEpisodeWithAzure(draft: any, storyBible: any, episodeNumb
       episodeSummary: '',
     };
 
+  // Build comprehensive story bible context
+  const storyBibleContext = buildComprehensiveStoryBibleContext(storyBible);
+  
   const prompt = `Create Episode ${episodeNumber} of "${storyBible.seriesTitle}" in the required format for a 5-minute episode.
+
+${storyBibleContext}
 
 BASE DRAFT (use as guidance, not a rigid outline):
 ${JSON.stringify(draft, null, 2)}
@@ -326,17 +573,23 @@ Arc Summary: ${narrativeArcInfo.arcSummary}
 Episode Title: ${narrativeArcInfo.episodeTitle}
 Episode Summary: ${narrativeArcInfo.episodeSummary}
 
-CHARACTERS (Use only the most relevant characters for this episode):
-${(storyBible.mainCharacters || [])
-  .slice(0, 6)
-  .map((char: any) => `- ${char.name} (${char.archetype || char.premiseRole}): ${char.description?.substring(0, 100) || char.background?.substring(0, 100) || 'Character in the story'}...`)
-  .join('\n')}
+CRITICAL: Use ALL story bible information above comprehensively:
+- Reference specific character details, relationships, and arcs
+- Incorporate world building rules, locations, and setting details
+- Weave in themes and narrative elements throughout
+- Ensure character voices match their established personalities
+- Use locations and world rules consistently
+- Reference character relationships and dynamics
+- Honor the premise and series identity throughout
+
+${languageInstructions}
 
 CRITICAL EPISODE REQUIREMENTS:
 - Third-person narrative prose (not script format)
 - No screenplay formatting ("INT."/"EXT.", caps names, etc.)
 - Dialogue should appear naturally within prose
 - Hard 5-minute runtime target
+${dialogueLanguage !== 'english' ? `- ALL DIALOGUE MUST BE IN ${dialogueLanguage.toUpperCase()} (narrative prose stays in English)` : ''}
 
 SCENE POLICY (DYNAMIC 1–5):
 - Prefer 1–3 fully fleshed scenes that carry the episode
@@ -529,7 +782,11 @@ RETURN FORMAT (valid JSON):
 
 // Generate episode with Azure OpenAI + Engine enhancements
 async function generateEpisodeWithEngines(draft: any, storyBible: any, episodeNumber: number, previousChoice?: string, engineNotes?: ComprehensiveEngineNotes) {
-  const systemPrompt = `You are a master cinematic storyteller creating a rich, detailed 5-minute episode enhanced by comprehensive 19-engine analysis. Your task is to INTEGRATE and EXPAND upon all provided engine enhancements to create premium content that surpasses the base draft in depth, quality, and engagement.
+  // Get dialogue language from story bible
+  const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
+  const languageInstructions = getDialogueLanguageInstructions(dialogueLanguage)
+  
+  const systemPrompt = `You are a master cinematic storyteller creating a rich, detailed 5-minute episode enhanced by comprehensive 19-engine analysis. Your task is to INTEGRATE and EXPAND upon all provided engine enhancements to create premium content that surpasses the base draft in depth, quality, and engagement.${dialogueLanguage !== 'english' ? ` CRITICAL: All dialogue must be written in ${dialogueLanguage.toUpperCase()} while narrative prose remains in English.` : ''}
 
 KEY REQUIREMENTS:
 - INTEGRATE all comprehensive engine enhancements provided (narrative, character, world, format, genre-specific)  
@@ -612,12 +869,15 @@ ${(storyBible.mainCharacters || [])
   .map((char: any) => `- ${char.name} (${char.archetype || char.premiseRole}): ${char.description?.substring(0, 100) || char.background?.substring(0, 100) || 'Character in the story'}...`)
   .join('\n')}
 
+${languageInstructions}
+
 CRITICAL EPISODE REQUIREMENTS:
 - Third-person narrative prose (not script format)
 - No screenplay formatting ("INT."/"EXT.", caps names, etc.)
 - Dialogue should appear naturally within prose
 - Hard 5-minute runtime target
 - Use engine notes as optional guidance, but maintain your creative vision
+${dialogueLanguage !== 'english' ? `- ALL DIALOGUE MUST BE IN ${dialogueLanguage.toUpperCase()} (narrative prose stays in English)` : ''}
 
 SCENE POLICY (DYNAMIC 1–5):
 - Prefer 1–3 fully fleshed scenes that carry the episode
@@ -842,7 +1102,11 @@ async function generateEpisodeWithComprehensiveEngines(
   previousChoice?: string, 
   comprehensiveNotes?: ComprehensiveEngineNotes
 ) {
-  const systemPrompt = `You are a master cinematic storyteller creating a premium 5-minute episode enhanced by comprehensive 19-engine analysis. Your task is to INTEGRATE and EXPAND upon all provided engine enhancements to create exceptional content that demonstrates massive quality improvements over baseline generation.
+  // Get dialogue language from story bible
+  const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
+  const languageInstructions = getDialogueLanguageInstructions(dialogueLanguage)
+  
+  const systemPrompt = `You are a master cinematic storyteller creating a premium 5-minute episode enhanced by comprehensive 19-engine analysis. Your task is to INTEGRATE and EXPAND upon all provided engine enhancements to create exceptional content that demonstrates massive quality improvements over baseline generation.${dialogueLanguage !== 'english' ? ` CRITICAL: All dialogue must be written in ${dialogueLanguage.toUpperCase()} while narrative prose remains in English.` : ''}
 
 KEY REQUIREMENTS:
 - INTEGRATE all 19 comprehensive engine enhancements provided (narrative, character, world, format, genre-specific)  
@@ -928,12 +1192,15 @@ ${(storyBible.mainCharacters || [])
     Voice: ${char.voice || 'Unique speaking style'}`)
   .join('\n')}
 
+${languageInstructions}
+
 CRITICAL EPISODE REQUIREMENTS:
 - Third-person narrative prose (not script format)
 - No screenplay formatting ("INT."/"EXT.", caps names, etc.)
 - Dialogue should appear naturally within prose
 - Hard 5-minute runtime target
 - INTEGRATE all engine enhancements naturally into the narrative
+${dialogueLanguage !== 'english' ? `- ALL DIALOGUE MUST BE IN ${dialogueLanguage.toUpperCase()} (narrative prose stays in English)` : ''}
 
 SCENE POLICY (DYNAMIC 1–5):
 - Prefer 1–3 fully fleshed scenes that carry the episode
@@ -1330,7 +1597,7 @@ RETURN FORMAT (valid JSON with enhanced content):
     }
   ],
   "geminiMetadata": {
-    "aiProvider": "gemini-2.5-pro",
+        "aiProvider": "gemini-2.5-pro",
     "enhancementLevel": "gemini-comprehensive",
     "contextTokensUsed": "2M available - no truncation",
     "creativeTemperature": "0.98",

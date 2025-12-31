@@ -200,41 +200,113 @@ export class AIPromptAssistant {
     sectionType: string,
     userPrompt: string
   ): string {
+
+    // Extract story context from existingData if available
+    const storyContext = data.existingData?.storyContext || {}
+    const genre = storyContext.genre || 'general'
+    const tone = storyContext.tone || 'balanced'
+    const theme = storyContext.theme || 'personal growth'
+    const existingCharacters = storyContext.mainCharacters || []
+    const locations = storyContext.worldBuilding?.locations || []
+
     const baseContext = `
-Character Name: ${data.name || 'Unnamed Character'}
+CHARACTER PROFILE:
+Name: ${data.name || 'Unnamed Character'}
 Archetype: ${data.archetype || 'Not specified'}
 Premise Function: ${data.premiseFunction || 'Not specified'}
 
-User Request: ${userPrompt}
+STORY CONTEXT:
+Genre: ${genre}
+Tone: ${tone}
+Theme: ${theme}
+Setting: ${locations.map((l: any) => l.name).join(', ') || 'Various locations'}
+Existing Characters: ${existingCharacters.map((c: any) => `${c.name} (${c.archetype})`).join(', ') || 'None'}
 
-Existing Data: ${JSON.stringify(data.existingData || {}, null, 2)}
+USER REQUEST: ${userPrompt}
+
+CURRENT CHARACTER DATA: ${JSON.stringify(data.existingData || {}, null, 2)}
 `
 
     const sectionInstructions = {
-      physiology: `Generate 3 distinct PHYSIOLOGY profiles with varied but coherent physical characteristics.
-Each option should include: age, gender, appearance, build, health, physical traits.
-Make them diverse yet fitting for the character's archetype and role.`,
-      
-      sociology: `Generate 3 distinct SOCIOLOGY backgrounds with varied social contexts.
-Each option should include: class, occupation, education, homeLife, economicStatus, communityStanding.
-Create different social backgrounds that could lead to the same character archetype.`,
-      
-      psychology: `Generate 3 distinct PSYCHOLOGY profiles with varied internal landscapes.
-Each option should include: coreValue, moralStandpoint, want, need, primaryFlaw, temperament, enneagramType, fears, strengths.
-Each should be psychologically coherent but offer different emotional depths.`,
-      
-      backstory: `Generate 3 distinct BACKSTORY narratives (2-3 paragraphs each).
-Each should explain how the character became who they are, fitting their archetype but with unique histories.
-Make them emotionally engaging and rich with detail.`,
-      
-      voiceProfile: `Generate 3 distinct VOICE PROFILES for how this character speaks.
-Each option should include: speechPattern, vocabulary, quirks (array of 3-5 items).
-Make them distinctly different - formal vs casual, verbose vs terse, etc.`
+      physiology: `Generate 3 distinct PHYSIOLOGY profiles that serve the character's story function.
+
+CRITICAL REQUIREMENTS:
+• Age appropriate for ${genre} genre (avoid cliché ages like 25, 42, etc.)
+• Physical traits that reflect their ${data.archetype || 'character'} archetype
+• Health and build that support their premise function: "${data.premiseFunction || ''}"
+• Distinctive features that make them memorable in a ${genre} story
+• Gender presentation that feels authentic and purposeful
+
+Each option should include: age, gender, appearance, height, build, health, physicalTraits (array), defects (if relevant), heredity.
+
+AVOID CLICHÉS: No "tall, dark, handsome" men or "petite, beautiful" women. Make each profile unique and story-serving.`,
+
+      sociology: `Generate 3 distinct SOCIOLOGY backgrounds that create compelling conflict opportunities.
+
+CRITICAL REQUIREMENTS:
+• Social class and occupation that intersect with the story's ${theme} theme
+• Education level that supports their ${data.archetype || 'character'} archetype
+• Economic status that creates tension or opportunity in a ${genre} story
+• Community standing that affects their relationships with existing characters
+• Cultural/political affiliations that matter to the plot
+
+Each option should include: class, occupation, education, homeLife, religion, race, nationality, politicalAffiliation, hobbies, communityStanding, economicStatus, familyRelationships.
+
+CONSIDER EXISTING CAST: ${existingCharacters.map((c: any) => c.name).join(', ') || 'No existing characters'} - create backgrounds that complement rather than duplicate.`,
+
+      psychology: `Generate 3 distinct PSYCHOLOGY profiles using Egri's 3D character model with Want vs Need arcs.
+
+CRITICAL REQUIREMENTS:
+• Core value that opposes or complements the story's ${theme} theme
+• Want vs Need psychology: external goal vs internal lesson they must learn
+• Primary flaw that creates obstacles and drives character growth
+• Temperament and attitude that make them compelling in a ${tone} story
+• Fears and ambitions that connect to their premise function
+
+Each option should include: coreValue, opposingValue, moralStandpoint, want, need, primaryFlaw, secondaryFlaws, temperament (array), attitude, complexes, ambitions, frustrations, fears, superstitions, likes, dislikes, iq, abilities, talents, childhood, trauma, successes.
+
+ENSURE PSYCHOLOGICAL DEPTH: Each profile should feel like a real person with internal conflict and growth potential.`,
+
+      backstory: `Generate 3 distinct BACKSTORY narratives (2-3 paragraphs each) that explain character development.
+
+CRITICAL REQUIREMENTS:
+• Backstory that explains HOW they developed their core psychology
+• Key formative events that shaped their ${data.archetype || 'character'} archetype
+• Experiences that justify their premise function: "${data.premiseFunction || ''}"
+• Connections to the story's ${theme} theme and ${genre} genre elements
+• Emotional resonance that makes readers care about their journey
+
+Each backstory should be 2-3 paragraphs, emotionally engaging, and rich with specific details that feel earned rather than contrived.
+
+AVOID TROPE HEAVY BACKSTORIES: No "lost their family in a fire" unless it serves a unique purpose. Make each backstory distinctive and character-specific.`,
+
+      voiceProfile: `Generate 3 distinct VOICE PROFILES that reveal character personality through speech.
+
+CRITICAL REQUIREMENTS:
+• Speech pattern that reflects their social background and psychology
+• Vocabulary level appropriate for their education and occupation
+• Unique quirks that make their dialogue memorable and distinctive
+• Voice characteristics that serve their ${data.archetype || 'character'} archetype
+• Accent/dialect that fits their background and story setting
+
+Each option should include: vocabulary, rhythm, catchphrases, uniqueExpressions, accent, voiceNotes.
+
+MAKE THEM DISTINCTIVE: Avoid generic "confident" or "hesitant" - be specific about HOW they speak that reveals their inner world.`
     }
 
-    return `${baseContext}
+    const qualityGuidelines = `
+QUALITY GUIDELINES:
+• Each option must be substantively different, not minor variations
+• Consider how this section affects the character's relationships with: ${existingCharacters.map((c: any) => c.name).join(', ') || 'other characters'}
+• Ensure consistency with established character traits and story requirements
+• Make choices that create interesting story possibilities, not just "cool" elements
+• Balance realism with genre expectations for ${genre} stories
 
-${sectionInstructions[sectionType as keyof typeof sectionInstructions]}
+CONFIDENCE SCORING:
+• 95-100: Perfect fit for character and story
+• 85-94: Good fit with minor considerations
+• 70-84: Acceptable but could be improved
+• <70: Not recommended
 
 Return ONLY valid JSON in this exact format:
 {
@@ -242,25 +314,29 @@ Return ONLY valid JSON in this exact format:
     {
       "id": "option-1",
       "content": { /* section-specific data */ },
-      "reasoning": "Why this option works for the character",
-      "confidence": 85
+      "reasoning": "Why this option works for the character and story (2-3 sentences)",
+      "confidence": 90
     },
     {
       "id": "option-2",
       "content": { /* section-specific data */ },
-      "reasoning": "Why this option works for the character",
-      "confidence": 90
+      "reasoning": "Why this option works for the character and story (2-3 sentences)",
+      "confidence": 88
     },
     {
       "id": "option-3",
       "content": { /* section-specific data */ },
-      "reasoning": "Why this option works for the character",
-      "confidence": 88
+      "reasoning": "Why this option works for the character and story (2-3 sentences)",
+      "confidence": 85
     }
   ]
-}
+}`
 
-Make each option substantively different, not just minor variations.`
+    return `${baseContext}
+
+${sectionInstructions[sectionType as keyof typeof sectionInstructions]}
+
+${qualityGuidelines}`
   }
 
   private buildWorldBuildingPrompt(

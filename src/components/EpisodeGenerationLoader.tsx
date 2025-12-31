@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ChatSuggestionButton from '@/components/chat/ChatSuggestionButton'
 
 interface EpisodeGenerationLoaderProps {
   episodeNumber: number
@@ -371,9 +372,18 @@ export default function EpisodeGenerationLoader({
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center mt-6 text-[#10B981] font-semibold"
+              className="text-center mt-6 space-y-4"
             >
-              ✓ Generation Complete • Transitioning to episode...
+              <div className="text-[#10B981] font-semibold mb-4">
+                ✓ Generation Complete • Transitioning to episode...
+              </div>
+              <div className="flex justify-center">
+                <ChatSuggestionButton
+                  suggestion="Discuss this episode with AI"
+                  context={`Episode ${episodeNumber} of ${seriesTitle}`}
+                  variant="action"
+                />
+              </div>
             </motion.div>
           )}
         </div>

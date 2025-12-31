@@ -2,7 +2,7 @@
  * API Route: Generate Shot List
  * 
  * Generates comprehensive production shot lists for all scenes based on script breakdown, script data, and storyboards
- * Uses EngineAIRouter with Gemini 2.5 Pro for technical production planning
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for technical production planning
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('\n🤖 Generating shot list with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: Technical production shot list for all scenes')
     console.log('  Includes: Camera specs, lens recommendations, duration estimates, priorities')
 

@@ -9,7 +9,7 @@ export const maxDuration = 180
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { storyBible, episodeNumber, episodeGoal, previousChoice } = body
+    const { storyBible, episodeNumber, episodeGoal, previousChoice, previousEpisode, allPreviousEpisodes } = body
     
     if (!storyBible || !episodeNumber || !episodeGoal) {
       return NextResponse.json(
@@ -20,9 +20,11 @@ export async function POST(request: NextRequest) {
 
     logger.startNewSession(`Beat Sheet Generation - Episode ${episodeNumber}`)
     logger.milestone(`Episode Goal: ${episodeGoal}`)
+    console.log(`   Previous episode: ${previousEpisode ? 'Yes' : 'None'}`)
+    console.log(`   All previous episodes: ${allPreviousEpisodes?.length || 0} episodes`)
     
     // Build comprehensive context for beat sheet generation
-    const beatSheetPrompt = buildBeatSheetPrompt(storyBible, episodeNumber, episodeGoal, previousChoice)
+    const beatSheetPrompt = buildBeatSheetPrompt(storyBible, episodeNumber, episodeGoal, previousChoice, previousEpisode, allPreviousEpisodes)
     
     const systemPrompt = `You are a master story architect specializing in episode structure and narrative beats. You create detailed, flexible beat sheets that serve as the structural foundation for cinematic episodes.
 
@@ -76,40 +78,187 @@ Return ONLY the beat sheet content - no JSON, no explanations, just the structur
   }
 }
 
+// Helper function to build comprehensive story bible context
+function buildComprehensiveStoryBibleContext(storyBible: any): string {
+  if (!storyBible) return 'No story bible provided.';
+  
+  const sections: string[] = [];
+  
+  // Core Identity
+  sections.push('=== SERIES IDENTITY ===');
+  if (storyBible.seriesTitle) sections.push(`Series Title: ${storyBible.seriesTitle}`);
+  if (storyBible.genre) sections.push(`Genre: ${storyBible.genre}`);
+  if (storyBible.tone) sections.push(`Tone: ${storyBible.tone}`);
+  if (storyBible.targetAudience) {
+    const audience = typeof storyBible.targetAudience === 'string' 
+      ? storyBible.targetAudience 
+      : storyBible.targetAudience.primary || storyBible.targetAudience.primaryAudience || '';
+    if (audience) sections.push(`Target Audience: ${audience}`);
+  }
+  
+  // Premise
+  if (storyBible.premise) {
+    sections.push('\n=== PREMISE ===');
+    if (typeof storyBible.premise === 'string') {
+      sections.push(storyBible.premise);
+    } else {
+      if (storyBible.premise.premiseStatement) sections.push(storyBible.premise.premiseStatement);
+      if (storyBible.premise.coreConflict) sections.push(`Core Conflict: ${storyBible.premise.coreConflict}`);
+      if (storyBible.premise.stakes) sections.push(`Stakes: ${storyBible.premise.stakes}`);
+    }
+  }
+  
+  // Characters (ALL characters, not truncated)
+  if (storyBible.mainCharacters && storyBible.mainCharacters.length > 0) {
+    sections.push('\n=== CHARACTERS ===');
+    storyBible.mainCharacters.forEach((char: any, index: number) => {
+      const charDetails: string[] = [];
+      charDetails.push(`${index + 1}. ${char.name || 'Unnamed Character'}`);
+      if (char.archetype || char.premiseRole) charDetails.push(`   Archetype/Role: ${char.archetype || char.premiseRole}`);
+      if (char.description) {
+        const desc = typeof char.description === 'string' ? char.description : JSON.stringify(char.description);
+        charDetails.push(`   Description: ${desc}`);
+      }
+      if (char.background) {
+        const bg = typeof char.background === 'string' ? char.background : JSON.stringify(char.background);
+        charDetails.push(`   Background: ${bg}`);
+      }
+      if (char.psychology) {
+        if (char.psychology.want) charDetails.push(`   Want: ${char.psychology.want}`);
+        if (char.psychology.need) charDetails.push(`   Need: ${char.psychology.need}`);
+        if (char.psychology.fear) charDetails.push(`   Fear: ${char.psychology.fear}`);
+        if (char.psychology.flaw || char.psychology.primaryFlaw) charDetails.push(`   Flaw: ${char.psychology.flaw || char.psychology.primaryFlaw}`);
+      }
+      if (char.relationships) {
+        const rels = typeof char.relationships === 'string' ? char.relationships : JSON.stringify(char.relationships);
+        charDetails.push(`   Relationships: ${rels}`);
+      }
+      if (char.arc) {
+        const arc = typeof char.arc === 'string' ? char.arc : JSON.stringify(char.arc);
+        charDetails.push(`   Character Arc: ${arc}`);
+      }
+      if (char.motivation) charDetails.push(`   Motivation: ${char.motivation}`);
+      if (char.internalConflict) charDetails.push(`   Internal Conflict: ${char.internalConflict}`);
+      if (char.voice) charDetails.push(`   Voice: ${char.voice}`);
+      if (char.goals) {
+        const goals = typeof char.goals === 'string' ? char.goals : JSON.stringify(char.goals);
+        charDetails.push(`   Goals: ${goals}`);
+      }
+      if (char.fears) {
+        const fears = typeof char.fears === 'string' ? char.fears : JSON.stringify(char.fears);
+        charDetails.push(`   Fears: ${fears}`);
+      }
+      if (char.secrets) {
+        const secrets = typeof char.secrets === 'string' ? char.secrets : JSON.stringify(char.secrets);
+        charDetails.push(`   Secrets: ${secrets}`);
+      }
+      sections.push(charDetails.join('\n'));
+    });
+  }
+  
+  // World Building
+  if (storyBible.worldBuilding) {
+    sections.push('\n=== WORLD BUILDING ===');
+    if (typeof storyBible.worldBuilding === 'string') {
+      sections.push(storyBible.worldBuilding);
+    } else {
+      if (storyBible.worldBuilding.setting) {
+        const setting = typeof storyBible.worldBuilding.setting === 'string' 
+          ? storyBible.worldBuilding.setting 
+          : JSON.stringify(storyBible.worldBuilding.setting);
+        sections.push(`Setting: ${setting}`);
+      }
+      if (storyBible.worldBuilding.rules) {
+        if (Array.isArray(storyBible.worldBuilding.rules)) {
+          sections.push(`World Rules:\n${storyBible.worldBuilding.rules.map((r: string) => `- ${r}`).join('\n')}`);
+        } else {
+          sections.push(`World Rules: ${storyBible.worldBuilding.rules}`);
+        }
+      }
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        sections.push('\nLocations:');
+        storyBible.worldBuilding.locations.forEach((loc: any) => {
+          const locDetails: string[] = [];
+          if (loc.name) locDetails.push(`  - ${loc.name}`);
+          if (loc.type) locDetails.push(`    Type: ${loc.type}`);
+          if (loc.description) {
+            const desc = typeof loc.description === 'string' ? loc.description : JSON.stringify(loc.description);
+            locDetails.push(`    Description: ${desc}`);
+          }
+          if (loc.significance) locDetails.push(`    Significance: ${loc.significance}`);
+          if (loc.recurringEvents && Array.isArray(loc.recurringEvents)) {
+            locDetails.push(`    Recurring Events: ${loc.recurringEvents.join(', ')}`);
+          }
+          if (loc.conflicts && Array.isArray(loc.conflicts)) {
+            locDetails.push(`    Conflicts: ${loc.conflicts.join(', ')}`);
+          }
+          sections.push(locDetails.join('\n'));
+        });
+      }
+    }
+  }
+  
+  // Themes
+  if (storyBible.theme || storyBible.themes) {
+    sections.push('\n=== THEMES ===');
+    if (storyBible.themes && Array.isArray(storyBible.themes)) {
+      storyBible.themes.forEach((theme: string, index: number) => {
+        sections.push(`${index + 1}. ${theme}`);
+      });
+    } else if (storyBible.theme) {
+      sections.push(storyBible.theme);
+    }
+  }
+  
+  // Narrative Elements
+  if (storyBible.narrativeElements) {
+    sections.push('\n=== NARRATIVE ELEMENTS ===');
+    if (storyBible.narrativeElements.callbacks) {
+      sections.push(`Callbacks: ${storyBible.narrativeElements.callbacks}`);
+    }
+    if (storyBible.narrativeElements.foreshadowing) {
+      sections.push(`Foreshadowing: ${storyBible.narrativeElements.foreshadowing}`);
+    }
+    if (storyBible.narrativeElements.recurringMotifs) {
+      sections.push(`Recurring Motifs: ${storyBible.narrativeElements.recurringMotifs}`);
+    }
+  }
+  
+  // Narrative Arcs
+  if (storyBible.narrativeArcs && Array.isArray(storyBible.narrativeArcs)) {
+    sections.push('\n=== NARRATIVE ARCS ===');
+    storyBible.narrativeArcs.forEach((arc: any, index: number) => {
+      const arcDetails: string[] = [];
+      arcDetails.push(`Arc ${index + 1}: ${arc.title || `Arc ${index + 1}`}`);
+      if (arc.summary) {
+        const summary = typeof arc.summary === 'string' ? arc.summary : JSON.stringify(arc.summary);
+        arcDetails.push(`  Summary: ${summary}`);
+      }
+      if (arc.episodes && Array.isArray(arc.episodes)) {
+        arcDetails.push(`  Episodes: ${arc.episodes.length} episodes`);
+        arc.episodes.forEach((ep: any) => {
+          if (ep.title) arcDetails.push(`    - Episode ${ep.number || '?'}: ${ep.title}`);
+        });
+      }
+      sections.push(arcDetails.join('\n'));
+    });
+  }
+  
+  return sections.join('\n');
+}
+
 function buildBeatSheetPrompt(
   storyBible: any, 
   episodeNumber: number, 
   episodeGoal: string, 
-  previousChoice?: string
+  previousChoice?: string,
+  previousEpisode?: any,
+  allPreviousEpisodes?: any[]
 ): string {
-  // Extract key story elements
-  const seriesTitle = storyBible.seriesTitle || 'Untitled Series'
-  const genre = storyBible.genre || 'Drama'
-  const tone = storyBible.tone || 'Balanced'
-  const premise = storyBible.premise?.premiseStatement || 'A story unfolds...'
+  // Build comprehensive story bible context
+  const storyBibleContext = buildComprehensiveStoryBibleContext(storyBible);
   
-  // Build character context (no truncation)
-  const characters = (storyBible.mainCharacters || [])
-    .map((char: any) => `
-• ${char.name || 'Character'} (${char.archetype || 'Role'}):
-  - Background: ${char.background || char.description || 'To be developed'}
-  - Motivation: ${char.motivation || 'Internal drive to be explored'}
-  - Arc: ${char.arc || 'Character journey in progress'}
-  - Relationships: ${char.relationships || 'Connections to be defined'}
-    `)
-    .join('\n')
-
-  // Build world context
-  const worldBuilding = storyBible.worldBuilding ? `
-WORLD CONTEXT:
-- Setting: ${storyBible.worldBuilding.setting || 'Contemporary setting'}
-- Atmosphere: ${storyBible.worldBuilding.atmosphere || 'Realistic tone'}
-- Key Locations: ${(storyBible.worldBuilding.locations || []).map((loc: any) => 
-    `${loc.name}: ${loc.description}`).join(', ') || 'Various locations'}
-- Cultural Context: ${storyBible.worldBuilding.culturalContext || 'Modern society'}
-  ` : ''
-
-  // Find relevant narrative arc
+  // Find relevant narrative arc for episode positioning
   const narrativeArcInfo = (storyBible.narrativeArcs || [])
     .filter((arc: any) => {
       const episodes = arc.episodes || []
@@ -117,35 +266,113 @@ WORLD CONTEXT:
     })
     .map((arc: any) => {
       const episode = (arc.episodes || []).find((ep: any) => ep.number === episodeNumber)
-      return `
-ARC CONTEXT:
-- Arc Title: ${arc.title || `Arc ${Math.ceil(episodeNumber / 10)}`}
-- Arc Theme: ${arc.theme || arc.summary || 'Continuing journey'}
-- Episode Position: ${episode?.title || `Episode ${episodeNumber}`}
-- Arc Summary: ${arc.summary || 'Story progression continues...'}
-      `
-    })[0] || ''
+      return {
+        arcTitle: arc.title || `Arc ${Math.ceil(episodeNumber / 10)}`,
+        arcSummary: arc.summary || 'Continuing journey',
+        episodeTitle: episode?.title || `Episode ${episodeNumber}`
+      }
+    })[0] || {
+      arcTitle: `Arc ${Math.ceil(episodeNumber / 10)}`,
+      arcSummary: 'Story progression continues...',
+      episodeTitle: `Episode ${episodeNumber}`
+    }
 
-  // Previous episode context if available
-  const previousContext = previousChoice ? `
-PREVIOUS EPISODE CONTEXT:
-- User's Previous Choice: "${previousChoice}"
-- This choice creates ripple effects and consequences that should influence the current episode
+  // Build ALL previous episodes context for full story continuity
+  let allPreviousEpisodesContext = ''
+  if (allPreviousEpisodes && allPreviousEpisodes.length > 0) {
+    allPreviousEpisodesContext = `\n\n📺 ALL PREVIOUS EPISODES (Full Story Context):`
+    
+    // Sort episodes by episode number
+    const sortedEpisodes = [...allPreviousEpisodes].sort((a, b) => {
+      const aNum = a.episodeNumber || 0
+      const bNum = b.episodeNumber || 0
+      return aNum - bNum
+    })
+    
+    sortedEpisodes.forEach((ep: any) => {
+      const epNum = ep.episodeNumber || '?'
+      const epTitle = ep.title || ep.episodeTitle || `Episode ${epNum}`
+      const epSynopsis = ep.synopsis || ''
+      
+      allPreviousEpisodesContext += `\n\nEpisode ${epNum}: "${epTitle}"`
+      if (epSynopsis) {
+        allPreviousEpisodesContext += `\nSynopsis: ${epSynopsis}`
+      }
+      
+      // Include key scenes for context (limit to last 2 scenes to avoid token bloat)
+      const scenes = ep.scenes || []
+      if (scenes.length > 0) {
+        const keyScenes = scenes.slice(-2)
+        keyScenes.forEach((scene: any, index: number) => {
+          const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+          const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+          // Include scene preview (first 200 chars)
+          const preview = sceneContent.substring(0, 200) + (sceneContent.length > 200 ? '...' : '')
+          allPreviousEpisodesContext += `\n\n  ${sceneTitle}:\n  ${preview}`
+        })
+      }
+    })
+  }
+  
+  // Build immediate previous episode context (full detail)
+  let previousEpisodeContext = ''
+  if (previousEpisode) {
+    const prevEpTitle = previousEpisode.title || previousEpisode.episodeTitle || `Episode ${episodeNumber - 1}`
+    const prevEpSynopsis = previousEpisode.synopsis || ''
+    const prevEpScenes = previousEpisode.scenes || []
+    
+    previousEpisodeContext = `\n\nPREVIOUS EPISODE (Episode ${episodeNumber - 1}): "${prevEpTitle}"`
+    
+    if (prevEpSynopsis) {
+      previousEpisodeContext += `\nSynopsis: ${prevEpSynopsis}`
+    }
+    
+    if (prevEpScenes.length > 0) {
+      previousEpisodeContext += `\n\nPrevious Episode Scenes:`
+      prevEpScenes.forEach((scene: any, index: number) => {
+        const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+        const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+        // Include full scene content for better context
+        previousEpisodeContext += `\n\n${sceneTitle}:\n${sceneContent}`
+      })
+    }
+  }
+
+  // Previous choice context
+  const previousChoiceContext = previousChoice ? `
+PREVIOUS CHOICE: "${previousChoice}"
+
+CRITICAL NARRATIVE STRUCTURE REQUIREMENTS:
+When a previous choice exists, the beat sheet MUST follow this progression:
+1. START: Show the immediate aftermath and consequences of the previous episode's ending
+   - Reference specific events, characters, and situations from the previous episode above
+   - Where do the characters find themselves after the choice was made?
+   - What are the immediate reactions and ripple effects?
+   
+2. MIDDLE: Build tension, conflict, and development leading toward the chosen option
+   - Create escalating complications that naturally lead to the chosen option's narrative moment
+   - Develop character motivations, conflicts, and situations that build toward the choice
+   - DO NOT jump directly to the choice's consequences - show the journey there
+   
+3. END: Place the chosen option's narrative beat near the end (final 1-2 beats)
+   - The chosen option should feel like the natural culmination of the episode's buildup
+   - The final beat should end on a specific emotional note (high/low, good/bad) reflecting the choice's impact
+   - Set up the consequences for the next episode, but don't fully resolve them yet
+
+The episode should feel like a gradual progression toward the chosen option, not a sudden jump.
   ` : ''
+  
+  const previousContext = `${allPreviousEpisodesContext}${previousEpisodeContext}${previousChoiceContext}`
 
-  return `Create a detailed beat sheet for Episode ${episodeNumber} of "${seriesTitle}".
+  return `Create a detailed beat sheet for Episode ${episodeNumber} of "${storyBible.seriesTitle || 'Untitled Series'}".
 
-SERIES CONTEXT:
+${storyBibleContext}
+
+CURRENT EPISODE CONTEXT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Series: ${seriesTitle}
-Genre: ${genre} | Tone: ${tone}
-Premise: ${premise}
-
-CHARACTERS:${characters}
-
-${worldBuilding}
-
-${narrativeArcInfo}
+Arc: ${narrativeArcInfo.arcTitle}
+Arc Summary: ${narrativeArcInfo.arcSummary}
+Episode: ${narrativeArcInfo.episodeTitle}
 
 ${previousContext}
 

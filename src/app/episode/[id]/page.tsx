@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from '@/components/ui/ClientMotion'
 import EpisodeEngineLoader from '@/components/EpisodeEngineLoader'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useAuth } from '@/context/AuthContext'
+import ChatSuggestionButton from '@/components/chat/ChatSuggestionButton'
 
 interface BranchingOption {
   id: number
@@ -1782,14 +1783,24 @@ export default function EpisodePage() {
                       Return to your dashboard to manage your episodes and continue writing.
                     </p>
                     
-                        <motion.button
-                      onClick={() => router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile')}
-                  className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 ${themeColors.shadow}`}
-                          whileHover={{ y: -2 }}
-                          whileTap={{ y: 0 }}
-                        >
-                      ← Back to Dashboard
-                        </motion.button>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                      <motion.button
+                        onClick={() => router.push(storyBibleId ? `/dashboard?id=${storyBibleId}` : '/profile')}
+                        className={`${theme === 'light' ? 'bg-[#c9a961] hover:bg-[#b39555]' : 'bg-[#d4af37] hover:bg-[#c9a02a]'} text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-200 ${themeColors.shadow}`}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ y: 0 }}
+                      >
+                        ← Back to Dashboard
+                      </motion.button>
+                      
+                      {episodeData && (
+                        <ChatSuggestionButton
+                          suggestion="Discuss this episode with AI"
+                          context={`Episode ${episodeId}: ${episodeData.episodeTitle}`}
+                          variant="action"
+                        />
+                      )}
+                    </div>
               </section>
             </article>
           ) : (

@@ -128,12 +128,12 @@ export async function generateContentWithFallback(
   } catch (primaryError) {
     console.warn(`⚠️ Primary model (${primaryModel}) generation failed:`, primaryError);
     
-    // Check if we should only use Gemini
-    if (fallbackOptions.useGeminiOnly) {
+  // Check if we should only use Gemini
+  if (fallbackOptions.useGeminiOnly) {
       // If primary Gemini model fails, just throw the error (no fallback)
       console.error('❌ Gemini model failed and useGeminiOnly is true, no fallback available');
       throw primaryError;
-    }
+  }
     
     // Try each fallback model in sequence
     for (const model of fallbackModels) {
@@ -204,7 +204,7 @@ export async function retryWithModelFallback<T>(
   if (fallbackOptions.useGeminiOnly) {
     // If primary Gemini model fails and useGeminiOnly is true, no fallback available
     console.error(`❌ ${operationName} - Primary Gemini model failed and useGeminiOnly is set to true, no fallback available`);
-    return null;
+      return null;
   }
 
   // If all primary model attempts failed, try fallback models

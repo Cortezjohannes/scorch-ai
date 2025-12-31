@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
@@ -12,6 +12,7 @@ interface CharacterDetailModalProps {
   characterIndex: number
   onSave: (updatedCharacter: any) => Promise<void>
   onDelete: () => void
+  onUpgrade?: () => void
   isLocked: boolean
   theme: 'light' | 'dark'
   editingField: {type: string, index?: number | string, field?: string, subfield?: string} | null
@@ -29,6 +30,7 @@ export default function CharacterDetailModal({
   characterIndex,
   onSave,
   onDelete,
+  onUpgrade,
   isLocked,
   theme,
   editingField,
@@ -40,6 +42,31 @@ export default function CharacterDetailModal({
 }: CharacterDetailModalProps) {
   const prefix = theme === 'dark' ? 'dark' : 'light'
   const is3D = character?.physiology && character?.sociology && character?.psychology
+  const [showFullImageModal, setShowFullImageModal] = useState(false)
+
+  // DEBUG: Log what character data we're actually receiving
+  console.log('🎭 [CHARACTER MODAL] Character data received:', {
+    name: character?.name,
+    hasPhysiology: !!character?.physiology,
+    hasSociology: !!character?.sociology,
+    hasPsychology: !!character?.psychology,
+    is3D,
+    physiologyKeys: character?.physiology ? Object.keys(character.physiology) : [],
+    sociologyKeys: character?.sociology ? Object.keys(character.sociology) : [],
+    psychologyKeys: character?.psychology ? Object.keys(character.psychology) : [],
+    // Show actual values to check if they're real or placeholders
+    age: character?.physiology?.age,
+    gender: character?.physiology?.gender,
+    appearance: character?.physiology?.appearance?.substring(0, 50),
+    occupation: character?.sociology?.occupation,
+    want: typeof character?.psychology?.want === 'string' 
+      ? character.psychology.want.substring(0, 50)
+      : character?.psychology?.want?.consciousGoal?.substring(0, 50),
+    // Check if this looks like hardcoded data
+    looksLikeHardcoded: character?.physiology?.age === '32' && 
+                       character?.physiology?.gender === 'Non-binary' &&
+                       character?.sociology?.occupation === 'Marketing Executive'
+  })
 
   if (!character) return null
 
@@ -112,6 +139,15 @@ export default function CharacterDetailModal({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {!isLocked && onUpgrade && (
+                    <button
+                      onClick={onUpgrade}
+                      className={`px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 ${prefix}-text-primary font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center gap-2 text-sm`}
+                      title="Upgrade character complexity"
+                    >
+                      ⬆️ Upgrade
+                    </button>
+                  )}
                   {!isLocked && (
                     <button
                       onClick={onDelete}
@@ -134,6 +170,28 @@ export default function CharacterDetailModal({
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto space-y-4">
+                  {/* Character Image and Description - At the top */}
+                  {(character.visualReference?.imageUrl || character.description) && (
+                    <div className={`${prefix}-card ${prefix}-border rounded-lg p-6 space-y-4`}>
+                      {character.visualReference?.imageUrl && (
+                        <div className="w-full max-w-md mx-auto">
+                          <img
+                            src={character.visualReference.imageUrl}
+                            alt={character.name}
+                            className="w-full h-auto rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setShowFullImageModal(true)}
+                          />
+                        </div>
+                      )}
+                      {character.description && (
+                        <div>
+                          <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-2`}>Description</h3>
+                          <p className={`${prefix}-text-secondary text-sm whitespace-pre-wrap`}>{character.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {is3D ? (
                     /* 3D Character Display - Accordion Layout */
                     <div className="space-y-4">
@@ -278,7 +336,27 @@ export default function CharacterDetailModal({
                             <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Occupation:</strong> {character.sociology.occupation}</p>
                           )}
                           {character.sociology.education && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Education:</strong> {character.sociology.education}</p>
+                            <div className={`${prefix}-text-secondary`}>
+                              <strong className={`${prefix}-text-primary`}>Education:</strong>
+                              {typeof character.sociology.education === 'string' ? (
+                                <p className="mt-1">{character.sociology.education}</p>
+                              ) : (
+                                <div className="mt-1 space-y-1">
+                                  {character.sociology.education.level && (
+                                    <p><strong>Level:</strong> {character.sociology.education.level}</p>
+                                  )}
+                                  {character.sociology.education.institutions && Array.isArray(character.sociology.education.institutions) && character.sociology.education.institutions.length > 0 && (
+                                    <p><strong>Institutions:</strong> {character.sociology.education.institutions.join(', ')}</p>
+                                  )}
+                                  {character.sociology.education.learningStyle && (
+                                    <p><strong>Learning Style:</strong> {character.sociology.education.learningStyle}</p>
+                                  )}
+                                  {character.sociology.education.knowledgeAreas && Array.isArray(character.sociology.education.knowledgeAreas) && character.sociology.education.knowledgeAreas.length > 0 && (
+                                    <p><strong>Knowledge Areas:</strong> {character.sociology.education.knowledgeAreas.join(', ')}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                           {character.sociology.homeLife && (
                             <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Home Life:</strong> {character.sociology.homeLife}</p>
@@ -313,14 +391,48 @@ export default function CharacterDetailModal({
                           {character.psychology.want && (
                             <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-blue-400`}>
                               <p className="text-blue-400 font-bold text-xs mb-1">WANT (External Goal)</p>
-                              <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.want}</p>
+                              {typeof character.psychology.want === 'string' ? (
+                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.want}</p>
+                              ) : (
+                                <div className={`text-sm ${prefix}-text-secondary space-y-1 mt-2`}>
+                                  {character.psychology.want.consciousGoal && (
+                                    <p><strong>Conscious Goal:</strong> {character.psychology.want.consciousGoal}</p>
+                                  )}
+                                  {character.psychology.want.externalObjective && (
+                                    <p><strong>External Objective:</strong> {character.psychology.want.externalObjective}</p>
+                                  )}
+                                  {character.psychology.want.whatTheyThinkWillMakeThemHappy && (
+                                    <p><strong>What They Think Will Make Them Happy:</strong> {character.psychology.want.whatTheyThinkWillMakeThemHappy}</p>
+                                  )}
+                                  {character.psychology.want.pursuitStrategy && (
+                                    <p><strong>Pursuit Strategy:</strong> {character.psychology.want.pursuitStrategy}</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                           
                           {character.psychology.need && (
                             <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-purple-400`}>
                               <p className="text-purple-400 font-bold text-xs mb-1">NEED (Internal Lesson)</p>
-                              <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.need}</p>
+                              {typeof character.psychology.need === 'string' ? (
+                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.need}</p>
+                              ) : (
+                                <div className={`text-sm ${prefix}-text-secondary space-y-1 mt-2`}>
+                                  {character.psychology.need.unconsciousTruth && (
+                                    <p><strong>Unconscious Truth:</strong> {character.psychology.need.unconsciousTruth}</p>
+                                  )}
+                                  {character.psychology.need.internalLesson && (
+                                    <p><strong>Internal Lesson:</strong> {character.psychology.need.internalLesson}</p>
+                                  )}
+                                  {character.psychology.need.whatTheyActuallyNeedForFulfillment && (
+                                    <p><strong>What They Actually Need:</strong> {character.psychology.need.whatTheyActuallyNeedForFulfillment}</p>
+                                  )}
+                                  {character.psychology.need.thematicSignificance && (
+                                    <p><strong>Thematic Significance:</strong> {character.psychology.need.thematicSignificance}</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                           
@@ -408,6 +520,42 @@ export default function CharacterDetailModal({
           </motion.div>
         </>
       )}
+      
+      {/* Full Image Modal */}
+      <AnimatePresence>
+        {showFullImageModal && character?.visualReference?.imageUrl && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFullImageModal(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-w-7xl w-full max-h-[90vh] flex items-center justify-center"
+              >
+                <img
+                  src={character.visualReference.imageUrl}
+                  alt={character.name}
+                  className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg"
+                />
+                <button
+                  onClick={() => setShowFullImageModal(false)}
+                  className={`absolute top-4 right-4 p-2 ${prefix}-bg-secondary ${prefix}-text-secondary rounded-lg hover:${prefix}-bg-tertiary transition-colors z-10`}
+                  title="Close"
+                >
+                  <X size={24} />
+                </button>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   )
 }

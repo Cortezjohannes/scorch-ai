@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { generateContent } from '@/services/azure-openai';
-import { cleanAndParseJSON, createFallbackJSON } from '@/lib/json-utils';
+import { cleanAndParseJSON } from '@/lib/json-utils';
+
+// Primary model
+const GEMINI_PRIMARY_MODEL = 'gemini-3-pro-preview';
 
 // Initialize Gemini AI with API key - Using dynamic import to avoid webpack issues
 const getGeminiClient = async () => {
@@ -22,6 +25,18 @@ const getGeminiClient = async () => {
     throw new Error('Failed to initialize AI client');
   }
 };
+
+/**
+ * Generate content with Gemini
+ */
+async function generateWithGemini(prompt: string): Promise<string> {
+  const genAI = await getGeminiClient();
+  const geminiModel = process.env.GEMINI_STABLE_MODE_MODEL || GEMINI_PRIMARY_MODEL;
+  console.log(`🚀 [ANALYZE-SCRIPT] Using model: ${geminiModel}`);
+  const model = genAI.getGenerativeModel({ model: geminiModel });
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
 
 // Using centralized JSON parsing from @/lib/json-utils instead of local safeParseJSON
 
@@ -92,7 +107,7 @@ Focus on items that are explicitly mentioned or strongly implied in the script.`
         return cleanAndParseJSON(result);
       } catch (parseError) {
         console.error('JSON parsing failed for props/wardrobe (Azure), using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
-        return createFallbackJSON('props', result);
+        throw new Error('Failed to parse JSON for props/wardrobe');
       }
     } catch (error) {
       console.log('Error with Azure OpenAI, falling back to Gemini:', error);
@@ -106,15 +121,9 @@ Focus on items that are explicitly mentioned or strongly implied in the script.`
   }
 }
 
-// Fallback to Gemini for props and wardrobe
+// Fallback to Gemini for props and wardrobe with 429 fallback
 async function generatePropsAndWardrobeWithGemini(scriptText: string) {
   console.log('Generating props and wardrobe with Gemini');
-  
-  try {
-    // Use the stable mode model from environment variables or default
-    const geminiModel = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-2.5-pro';
-    const genAI = await getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: geminiModel });
     
     const prompt = `You are an experienced Production Designer. Please analyze this screenplay and create a detailed props and wardrobe list.
 
@@ -152,13 +161,14 @@ Return your analysis as a JSON object with this exact structure:
 
 Focus on items that are explicitly mentioned or strongly implied in the script. Be thorough and precise.`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+  try {
+    // Use generateWithGemini
+    const responseText = await generateWithGemini(prompt);
     try {
       return cleanAndParseJSON(responseText);
     } catch (error) {
       console.error('JSON parsing failed for props/wardrobe, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-      return createFallbackJSON('props', responseText);
+        throw new Error('Failed to parse JSON for props/wardrobe');
     }
   } catch (error) {
     console.error('Error generating with Gemini:', error);
@@ -237,7 +247,7 @@ I need the analysis returned as a JSON object with the following structure:
         return cleanAndParseJSON(result);
       } catch (parseError) {
         console.error('JSON parsing failed for marketing (Azure), using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
-        return createFallbackJSON('marketing', result);
+        throw new Error('Failed to parse JSON for marketing');
       }
     } catch (error) {
       console.log('Error with Azure OpenAI, falling back to Gemini:', error);
@@ -251,15 +261,9 @@ I need the analysis returned as a JSON object with the following structure:
   }
 }
 
-// Fallback to Gemini for marketing guide
+// Fallback to Gemini for marketing guide with 429 fallback
 async function generateMarketingGuideWithGemini(scriptText: string) {
   console.log('Generating marketing guide with Gemini');
-  
-  try {
-    // Use the stable mode model from environment variables or default
-    const geminiModel = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-2.5-pro';
-    const genAI = await getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: geminiModel });
     
     const prompt = `As a marketing executive, analyze this screenplay and create a detailed marketing guide:
 
@@ -306,13 +310,14 @@ Return your analysis as a JSON object with this exact structure:
 
 Be creative but strategic, focusing on marketable elements that would appeal to the appropriate audience for this project.`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+  try {
+    // Use generateWithGemini
+    const responseText = await generateWithGemini(prompt);
     try {
       return cleanAndParseJSON(responseText);
     } catch (parseError) {
       console.error('JSON parsing failed for marketing (Gemini), using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
-      return createFallbackJSON('marketing', responseText);
+        throw new Error('Failed to parse JSON for marketing');
     }
   } catch (error) {
     console.error('Error generating with Gemini:', error);
@@ -388,7 +393,7 @@ I need the analysis returned as a JSON object with the following structure:
         return cleanAndParseJSON(result);
       } catch (parseError) {
         console.error('JSON parsing failed for post-production (Azure), using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
-        return createFallbackJSON('postProduction', result);
+        throw new Error('Failed to parse JSON for post-production');
       }
     } catch (error) {
       console.log('Error with Azure OpenAI, falling back to Gemini:', error);
@@ -402,15 +407,9 @@ I need the analysis returned as a JSON object with the following structure:
   }
 }
 
-// Fallback to Gemini for post-production brief
+// Fallback to Gemini for post-production brief with 429 fallback
 async function generatePostProductionBriefWithGemini(scriptText: string) {
   console.log('Generating post-production brief with Gemini');
-  
-  try {
-    // Use the stable mode model from environment variables or default
-    const geminiModel = process.env.GEMINI_STABLE_MODE_MODEL || 'gemini-2.5-pro';
-    const genAI = await getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: geminiModel });
     
     const prompt = `As a Film Editor and Post-Production Supervisor, analyze this screenplay and create a detailed post-production brief:
 
@@ -454,13 +453,14 @@ Return your analysis as a JSON object with this exact structure:
 
 Be detailed and technical, focusing on creating a practical guide for the post-production team.`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+  try {
+    // Use generateWithGemini
+    const responseText = await generateWithGemini(prompt);
     try {
       return cleanAndParseJSON(responseText);
     } catch (parseError) {
       console.error('JSON parsing failed for post-production (Gemini), using fallback:', parseError instanceof Error ? parseError.message : 'Unknown error');
-      return createFallbackJSON('postProduction', responseText);
+        throw new Error('Failed to parse JSON for post-production');
     }
   } catch (error) {
     console.error('Error generating with Gemini:', error);

@@ -109,6 +109,12 @@ service cloud.firestore {
                        resource.data.ownerId == request.auth.uid; // owner can update
       allow delete: if request.auth != null && 
                        resource.data.ownerId == request.auth.uid; // owner can delete
+      
+      // Character details subcollection
+      match /characters/{characterName} {
+        allow read: if true; // public read (part of shared materials)
+        allow write: if request.auth != null; // authenticated users can write when creating/updating the parent
+      }
     }
     
     // Investor link management

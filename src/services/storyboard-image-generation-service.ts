@@ -47,7 +47,7 @@ function extractFallbackScriptContext(frame: StoryboardFrame, breakdownData?: an
 
           // Look for action verbs in the context
           const actionWords = ['says', 'asks', 'replies', 'responds', 'yells', 'whispers', 'grabs', 'looks', 'turns', 'stands', 'sits', 'walks']
-          const lastAction = contextBefore.split('.').reverse().find(sentence =>
+          const lastAction = contextBefore.split('.').reverse().find((sentence: string) =>
             actionWords.some(word => sentence.toLowerCase().includes(word))
           )
 
@@ -188,7 +188,9 @@ export async function generateAllStoryboardImages(
           const sceneData = breakdownData.scenes.find((s: any) => s.sceneNumber === sceneNumber)
           if (sceneData?.characters && Array.isArray(sceneData.characters)) {
             sceneCharacters = sceneData.characters.map((c: any) => c.name || c).filter((name: string) => name && name.trim())
-            console.log(`🎨 [Bulk Image Generation] Frame ${frame.id}: Extracted ${sceneCharacters.length} scene characters: ${sceneCharacters.join(', ')}`)
+            if (sceneCharacters && sceneCharacters.length > 0) {
+              console.log(`🎨 [Bulk Image Generation] Frame ${frame.id}: Extracted ${sceneCharacters.length} scene characters: ${sceneCharacters.join(', ')}`)
+            }
           }
         }
 
@@ -253,7 +255,7 @@ export async function generateAllStoryboardImages(
           }
         }
 
-        if (extractedScriptContext) {
+        if (extractedScriptContext && enhancedPrompt) {
           // Extract location/setting from existing prompt if available
           const locationMatch = enhancedPrompt.match(/^([^,]+),\s*/)
           const location = locationMatch ? locationMatch[1] : 'Scene setting'
@@ -264,8 +266,15 @@ export async function generateAllStoryboardImages(
           console.log(`🎨 [Bulk Image Generation] Frame ${frame.id}: Enhanced prompt: "${enhancedPrompt.substring(0, 100)}..."`)
         }
 
+        // Ensure enhancedPrompt is defined before using it
+        if (!enhancedPrompt) {
+          console.error(`❌ [Bulk Image Generation] Frame ${frame.id}: No image prompt available, skipping image generation`)
+          throw new Error(`Frame ${frame.id} has no image prompt`)
+        }
+
         // Call image generation API
         // 🎯 Use NANO BANANA PRO for high quality storyboard images
+        // 🎯 Use SQUARE (1:1) aspect ratio for storyboard frames
         const imageResponse = await fetch('/api/generate-image', {
           method: 'POST',
           headers: {
@@ -280,6 +289,7 @@ export async function generateAllStoryboardImages(
             characterDescriptions: characterDescriptions.length > 0 ? characterDescriptions : undefined,
             characterImageMap: Object.keys(characterImageMap).length > 0 ? characterImageMap : undefined,
             artStyleDescription: artStyleDescription || undefined,
+            aspectRatio: '1:1', // SQUARE orientation for storyboard frames
             model: 'nano-banana-pro' // High quality for storyboards
           })
         })

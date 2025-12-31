@@ -19,11 +19,6 @@
                 <span class="header-brand-text">Greenlit</span>
             </div>
             <nav class="header-nav">
-                <a href="/uprising" class="nav-link uprising-link">Uprising</a>
-                <a href="/program" class="nav-link">Program</a>
-                <a href="/criteria" class="nav-link">Criteria</a>
-                <a href="/fund" class="nav-link">Fund</a>
-                <a href="/playbook" class="nav-link">Playbook</a>
             </nav>
             <div class="header-actions">
                 <button class="faq-link" onclick="openFAQModal()">FAQ</button>

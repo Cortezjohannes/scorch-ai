@@ -9,6 +9,7 @@ import { saveEpisode, getEpisode, deleteEpisode, getEpisodesForStoryBible } from
 import { saveEpisodeReflection, updateLockStatus } from '@/services/story-bible-firestore'
 import { episodeReflectionService } from '@/services/episode-reflection-service'
 import { storyBibleLock } from '@/services/story-bible-lock'
+import { extendSeriesWithArc } from '@/services/story-bible-service'
 import EpisodeGenerationModal from '@/components/EpisodeGenerationModal'
 import DuplicateEpisodeConfirmDialog from '@/components/DuplicateEpisodeConfirmDialog'
 import GenerationErrorModal from '@/components/modals/GenerationErrorModal'
@@ -24,6 +25,8 @@ interface EpisodeGenerationSuiteProps {
   storyBibleId?: string
   previousChoice?: string
   onComplete?: () => void
+  onEpisodeChange?: (episodeNumber: number) => void
+  onStoryBibleUpdate?: (updatedStoryBible: any) => void
 }
 
 interface VibeSettings {
@@ -50,7 +53,9 @@ export default function EpisodeGenerationSuite({
   storyBible,
   storyBibleId,
   previousChoice,
-  onComplete
+  onComplete,
+  onEpisodeChange,
+  onStoryBibleUpdate
 }: EpisodeGenerationSuiteProps) {
   const router = useRouter()
   const { user } = useAuth()
@@ -96,6 +101,9 @@ export default function EpisodeGenerationSuite({
   const [previousEpisodeSummary, setPreviousEpisodeSummary] = useState<string>('')
   const [loadingSummary, setLoadingSummary] = useState(false)
   
+  // All episodes for rewrite functionality
+  const [allEpisodes, setAllEpisodes] = useState<Record<number, any>>({})
+  
   // Error Modal state
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorModalData, setErrorModalData] = useState<{
@@ -109,6 +117,10 @@ export default function EpisodeGenerationSuite({
 
   // Track if form has been initialized to prevent reset after inspiration choice
   const [formInitialized, setFormInitialized] = useState(false)
+  const [isRewriteMode, setIsRewriteMode] = useState(false)
+  
+  // Extend series state
+  const [isExtendingSeries, setIsExtendingSeries] = useState(false)
 
   // Reset form when modal opens or episode number changes (but not if form was just filled by inspiration choice)
   useEffect(() => {
@@ -122,6 +134,7 @@ export default function EpisodeGenerationSuite({
       setPreviousEpisodeSummary('')
       setLoadingSummary(false)
       setFormInitialized(true)
+      setIsRewriteMode(false)
     }
   }, [isOpen, episodeNumber, formInitialized])
 
@@ -138,18 +151,12 @@ export default function EpisodeGenerationSuite({
   // Load previous episode data for context and inspiration
   useEffect(() => {
     const loadPreviousEpisodes = async () => {
-      if (episodeNumber <= 1) {
-        setPreviousEpisode(null)
-        setAllPreviousEpisodes([])
-        return
-      }
-      
       try {
-        let allEpisodes: Record<number, any> = {}
+        let allEpisodesData: Record<number, any> = {}
         
         if (storyBibleId && user) {
           // Load all episodes from Firestore
-          allEpisodes = await getEpisodesForStoryBible(storyBibleId, user.id)
+          allEpisodesData = await getEpisodesForStoryBible(storyBibleId, user.id)
         } else {
           // Fallback to localStorage
           const savedEpisodes = localStorage.getItem('greenlit-episodes') || 
@@ -157,12 +164,25 @@ export default function EpisodeGenerationSuite({
                               localStorage.getItem('reeled-episodes')
           
           if (savedEpisodes) {
-            allEpisodes = JSON.parse(savedEpisodes)
+            allEpisodesData = JSON.parse(savedEpisodes)
           }
         }
         
+        // Store all episodes for rewrite functionality (always, regardless of episode number)
+        setAllEpisodes(allEpisodesData)
+        const episodeCount = Object.keys(allEpisodesData).length
+        console.log(`✅ Loaded ${episodeCount} total episodes for rewrite functionality`)
+        console.log('📋 Episodes:', Object.keys(allEpisodesData).map(k => `Ep ${k}`).join(', '))
+        
+        // Only load previous episode context if episodeNumber > 1
+        if (episodeNumber <= 1) {
+          setPreviousEpisode(null)
+          setAllPreviousEpisodes([])
+          return
+        }
+        
         // Get immediate previous episode
-        const prevEp = allEpisodes[episodeNumber - 1]
+        const prevEp = allEpisodesData[episodeNumber - 1]
         if (prevEp) {
           setPreviousEpisode(prevEp)
           if (prevEp.branchingOptions && Array.isArray(prevEp.branchingOptions)) {
@@ -171,7 +191,7 @@ export default function EpisodeGenerationSuite({
         }
         
         // Get ALL previous episodes (episodes 1 through episodeNumber - 1)
-        const previousEpisodesArray = Object.values(allEpisodes)
+        const previousEpisodesArray = Object.values(allEpisodesData)
           .filter((ep: any) => {
             const epNum = ep.episodeNumber || 0
             return epNum > 0 && epNum < episodeNumber
@@ -191,6 +211,7 @@ export default function EpisodeGenerationSuite({
     
     loadPreviousEpisodes()
   }, [episodeNumber, storyBibleId, user])
+
 
   // Generate AI summary of previous episode
   const generatePreviousEpisodeSummary = async (prevEpisode: any) => {
@@ -720,6 +741,35 @@ export default function EpisodeGenerationSuite({
 
   const arcInfo = getArcInfo()
 
+  // Handle extending series
+  const handleExtendSeries = async () => {
+    if (!storyBible) {
+      alert('No story bible available')
+      return
+    }
+
+    try {
+      setIsExtendingSeries(true)
+      const updatedBible = await extendSeriesWithArc(storyBible, user?.id)
+      
+      // Notify parent component to update story bible (this will trigger stats recalculation)
+      if (onStoryBibleUpdate) {
+        onStoryBibleUpdate(updatedBible)
+      }
+      
+      alert(`✅ Series extended! Added Arc ${updatedBible.narrativeArcs?.length || 0} with ${updatedBible.narrativeArcs?.[updatedBible.narrativeArcs.length - 1]?.episodes?.length || 8} episodes`)
+    } catch (error: any) {
+      console.error('Error extending series:', error)
+      alert(`Failed to extend series: ${error.message}`)
+    } finally {
+      setIsExtendingSeries(false)
+    }
+  }
+
+  // Check if we're near the end of the current arc (last 2 episodes)
+  const isNearEndOfArc = arcInfo.episodeInArc >= arcInfo.totalInArc - 1
+  const isLastArc = arcInfo.arcIndex === (storyBible?.narrativeArcs?.length || 1) - 1
+
   // Handle escape key to close modal
   useEffect(() => {
     if (!isOpen) return
@@ -768,6 +818,30 @@ export default function EpisodeGenerationSuite({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                  {/* Add Arc Button - Always visible */}
+                  <button
+                    onClick={handleExtendSeries}
+                    disabled={isExtendingSeries}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      theme === 'dark' 
+                        ? 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50' 
+                        : 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50'
+                    }`}
+                    title="Add a new arc to extend your series"
+                  >
+                    {isExtendingSeries ? (
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        <span className="hidden sm:inline">Adding...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>➕</span>
+                        <span className="hidden sm:inline">Add Arc</span>
+                        <span className="sm:hidden">Arc</span>
+                      </>
+                    )}
+                  </button>
                   {/* Mode Selector */}
                   <div className="flex gap-1">
                     <button
@@ -850,6 +924,29 @@ export default function EpisodeGenerationSuite({
                   
                   <div>
                     <h3 className={`text-sm font-semibold ${prefix}-text-primary mb-2`}>Quick Actions</h3>
+                    {/* Add Arc Button */}
+                    <button
+                      onClick={handleExtendSeries}
+                      disabled={isExtendingSeries}
+                      className={`w-full mb-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                        theme === 'dark' 
+                          ? 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50' 
+                          : 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50'
+                      }`}
+                      title="Add a new arc to extend your series"
+                    >
+                      {isExtendingSeries ? (
+                        <>
+                          <span className="animate-spin">⏳</span>
+                          <span>Adding Arc...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>➕</span>
+                          <span>Add Arc</span>
+                        </>
+                      )}
+                    </button>
                     {episodeNumber > 1 && (previousEpisode || allPreviousEpisodes.length > 0) && (
                       <button
                         onClick={async () => {
@@ -895,6 +992,34 @@ export default function EpisodeGenerationSuite({
                         className={`w-full px-3 py-2 rounded-lg text-sm font-medium mb-2 ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-wait`}
                       >
                         {generatingChoices ? '🤖 Analyzing Story...' : 'Use Previous Episode Choice'}
+                      </button>
+                    )}
+                    {episodeNumber > 1 && (
+                      <button
+                        onClick={() => {
+                          const prevEpisodeNum = episodeNumber - 1
+                          console.log(`🔄 Rewriting previous episode ${prevEpisodeNum}`)
+                          console.log('onEpisodeChange available:', !!onEpisodeChange)
+                          console.log('Current episode number:', episodeNumber)
+                          console.log('Previous episode exists:', !!allEpisodes[prevEpisodeNum])
+                          
+                          // Reset form initialization flag - this will trigger useEffect to reset form when episode number changes
+                          setFormInitialized(false)
+                          setIsRewriteMode(true)
+                          
+                          // Change to previous episode number - this will trigger useEffect to reload data and reset form
+                          if (onEpisodeChange) {
+                            console.log('Calling onEpisodeChange with:', prevEpisodeNum)
+                            onEpisodeChange(prevEpisodeNum)
+                          } else {
+                            console.error('❌ onEpisodeChange callback not provided')
+                            console.error('This should not happen - callback should be provided by parent component')
+                          }
+                        }}
+                        disabled={!onEpisodeChange}
+                        className={`w-full px-3 py-2 rounded-lg text-sm font-medium mb-2 border ${prefix}-border ${prefix === 'dark' ? 'bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] border-[#10B981]/30' : 'bg-[#C9A961]/10 hover:bg-[#C9A961]/20 text-[#C9A961] border-[#C9A961]/30'} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        🔄 Rewrite Previous Episode
                       </button>
                     )}
                     <button
@@ -1280,11 +1405,18 @@ export default function EpisodeGenerationSuite({
             isOpen={showDuplicateDialog}
             onClose={() => setShowDuplicateDialog(false)}
             onConfirm={async () => {
-              if (pendingGeneration) {
-                await pendingGeneration()
-                setPendingGeneration(null)
-              }
+              // Close the dialog immediately
               setShowDuplicateDialog(false)
+              
+              // Start generation after closing
+              if (pendingGeneration) {
+                const gen = pendingGeneration
+                setPendingGeneration(null)
+                // Run generation (don't await - let it run and show generation modal)
+                gen().catch((error) => {
+                  console.error('Generation error after duplicate confirmation:', error)
+                })
+              }
             }}
             onCancel={() => {
               setPendingGeneration(null)
@@ -1296,8 +1428,8 @@ export default function EpisodeGenerationSuite({
           <GenerationErrorModal
             isOpen={showErrorModal}
             onClose={() => setShowErrorModal(false)}
-            error={errorModalData?.message || ''}
-            type={errorModalData?.type || 'episode'}
+            errorMessage={errorModalData?.message || ''}
+            generationType={errorModalData?.type || 'episode'}
             onRetry={() => {
               if (errorModalData?.retryFunction) {
                 errorModalData.retryFunction()

@@ -522,20 +522,33 @@ export async function getStoryboardReferenceImages(
   }
 
   // Step 2: Get recent storyboard images (for art style consistency across episodes)
-  // REDUCED to minimize character appearance dilution
-  const recentImages = await getRecentStoryboardImages(
-    storyBibleId,
-    userId,
-    currentEpisodeNumber,
-    2 // REDUCED from 5 to 2: minimize dilution of character appearance
-  )
+  // TIGHTENED: When character images are present, minimize style reference images to prioritize character likeness
+  // Only get style references if we have character images (to maintain art style), but keep it minimal
+  let recentImages: string[] = []
+  if (characterImageCount > 0) {
+    // If we have character images, get only 1 recent storyboard for art style (minimal dilution)
+    recentImages = await getRecentStoryboardImages(
+      storyBibleId,
+      userId,
+      currentEpisodeNumber,
+      1 // TIGHTENED: Only 1 style reference when character images present - prioritize character likeness
+    )
+  } else {
+    // If no character images, get more style references (up to 3) for art style consistency
+    recentImages = await getRecentStoryboardImages(
+      storyBibleId,
+      userId,
+      currentEpisodeNumber,
+      3 // More style references when no character images available
+    )
+  }
 
   // Add recent storyboard images (avoid duplicates and invalid formats)
-  // REDUCED MINIMUM: Character identity takes priority over style consistency
+  // TIGHTENED: Character identity takes absolute priority over style consistency
   let validRecentImages = 0
   for (const imgUrl of recentImages) {
-    if (isValidReferenceImage(imgUrl) && !usedImageUrls.has(imgUrl) && referenceImages.length < 20) {
-      // Upper limit of 20 total images to avoid overwhelming the API (but this is generous)
+    if (isValidReferenceImage(imgUrl) && !usedImageUrls.has(imgUrl) && referenceImages.length < 15) {
+      // Reduced upper limit to 15 total images to prioritize character images
       referenceImages.push(imgUrl)
       usedImageUrls.add(imgUrl)
       recentStoryboardCount++
@@ -545,9 +558,11 @@ export async function getStoryboardReferenceImages(
     }
   }
 
-  // CHANGED: Only warn if NO recent images, accept 1-2 images
+  // TIGHTENED: Character images take priority - style references are secondary
   if (validRecentImages === 0 && characterImageCount > 0) {
-    console.warn(`[Storyboard Reference] Frame ${frame.id}: No recent storyboard images found, relying on character images for style`)
+    console.log(`[Storyboard Reference] Frame ${frame.id}: No recent storyboard images found, relying on character images for both character likeness AND art style`)
+  } else if (characterImageCount > 0) {
+    console.log(`[Storyboard Reference] Frame ${frame.id}: ✅ Added ${recentStoryboardCount} recent storyboard image(s) for minimal art style reference (character images prioritized)`)
   } else {
     console.log(`[Storyboard Reference] Frame ${frame.id}: ✅ Added ${recentStoryboardCount} recent storyboard image(s) for art style reference`)
   }

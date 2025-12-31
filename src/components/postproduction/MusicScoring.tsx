@@ -17,7 +17,14 @@ interface MusicTrack {
   aiGenerated?: boolean
 }
 
-export function MusicScoring() {
+interface MusicScoringProps {
+  storyBibleId?: string
+  episodeNumber?: number
+  arcIndex?: number | null
+  arcEpisodes?: number[]
+}
+
+export function MusicScoring({ storyBibleId, episodeNumber, arcIndex, arcEpisodes }: MusicScoringProps) {
   const searchParams = useSearchParams()
   const synopsis = searchParams.get('synopsis') || ''
   const theme = searchParams.get('theme') || ''

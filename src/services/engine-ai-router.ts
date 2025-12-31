@@ -75,7 +75,7 @@ export class EngineAIRouter {
         let response: EngineResponse
 
         if (provider === 'gemini') {
-          response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
+          response = await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens, engineId)
         } else {
           response = await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
         }
@@ -96,7 +96,7 @@ export class EngineAIRouter {
         
         try {
           const fallbackResponse = fallbackProvider === 'gemini' 
-            ? await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens)
+            ? await this.generateWithGemini(prompt, systemPrompt, temperature, maxTokens, engineId)
             : await this.generateWithAzure(prompt, systemPrompt, temperature, maxTokens)
           
           fallbackResponse.metadata.completionTime = Date.now() - startTime
@@ -112,16 +112,21 @@ export class EngineAIRouter {
   /**
    * Generate with Gemini with automatic 429 fallback
    * Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
+   * For ai-shot-detector: Uses gemini-2.5-pro directly
    */
   private static async generateWithGemini(
     prompt: string,
     systemPrompt: string,
     temperature: number,
-    maxTokens: number
+    maxTokens: number,
+    engineId?: string
   ): Promise<EngineResponse> {
     
-    const geminiMaxTokens = 8192 // Gemini's actual max output tokens
-    const primaryModel = GEMINI_CONFIG.getModel('stable');
+    // Use Gemini 2.5 for AI shot detector, otherwise use configured model
+    const primaryModel = engineId === 'ai-shot-detector' ? 'gemini-2.5-pro' : GEMINI_CONFIG.getModel('stable');
+    
+    // Gemini 2.5 Pro has 8192 max output tokens, but we'll use a safe limit
+    const geminiMaxTokens = engineId === 'ai-shot-detector' ? 8192 : 8192
     
     const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt
     
@@ -143,15 +148,32 @@ export class EngineAIRouter {
     
     const result = await model.generateContent(fullPrompt)
     const response = await result.response
-    const text = response.text()
+    let text = ''
     
-      // Check if response was truncated
+    try {
+      text = response.text()
+    } catch (error: any) {
+      console.error(`❌ Error getting text from Gemini response:`, error)
+      // Check if response was blocked or filtered
+      const finishReason = (response as any).candidates?.[0]?.finishReason
+      const safetyRatings = (response as any).candidates?.[0]?.safetyRatings
+      if (finishReason === 'SAFETY' || safetyRatings) {
+        throw new Error(`Gemini response blocked by safety filters. Finish reason: ${finishReason}`)
+      }
+      throw new Error(`Failed to extract text from Gemini response: ${error.message}`)
+    }
+    
+    // Check if response was truncated
     const finishReason = (response as any).candidates?.[0]?.finishReason
     const isTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH'
     
     if (isTruncated) {
       console.warn(`⚠️  Gemini response truncated (finishReason: ${finishReason})`)
       console.warn(`  Response length: ${text.length} characters`)
+      if (text.length === 0) {
+        console.error(`❌ Response is empty after truncation. This may indicate the prompt is too long or the model hit a limit.`)
+        throw new Error('Gemini response was truncated and is empty. Try reducing prompt length or increasing maxTokens.')
+      }
     }
     
     return {

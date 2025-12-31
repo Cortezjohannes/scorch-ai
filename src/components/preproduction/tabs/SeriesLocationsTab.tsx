@@ -530,25 +530,25 @@ export function SeriesLocationsTab({
           >
             Reset Locations
           </button>
-          <button
-            onClick={handleGenerateLocations}
-            disabled={isGenerating}
-            className="px-6 py-3 bg-[#10B981] hover:bg-[#059669] disabled:bg-[#10B981]/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
-          >
-            {isGenerating ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <span>📍</span>
-                {hasNewLocationData ? 'Regenerate Locations' : 'Generate Locations'}
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          onClick={handleGenerateLocations}
+          disabled={isGenerating}
+          className="px-6 py-3 bg-[#10B981] hover:bg-[#059669] disabled:bg-[#10B981]/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+        >
+          {isGenerating ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <span>📍</span>
+              {hasNewLocationData ? 'Regenerate Locations' : 'Generate Locations'}
+            </>
+          )}
+        </button>
       </div>
+              </div>
 
       {/* Stats Cards */}
       <div className="bg-gradient-to-r from-[#1a1a1a] to-[#252628] border border-[#36393f] rounded-xl p-6">
@@ -802,13 +802,13 @@ function LocationGroupCard({
             {/* Only show scenes/episodes if we have that data */}
             {group.totalScenes > 0 && (
               <>
-                <span>{group.totalScenes} scene{group.totalScenes !== 1 ? 's' : ''}</span>
-                <span>•</span>
+            <span>{group.totalScenes} scene{group.totalScenes !== 1 ? 's' : ''}</span>
+            <span>•</span>
               </>
             )}
             {group.totalEpisodes > 0 && (
               <>
-                <span>{group.totalEpisodes} episode{group.totalEpisodes !== 1 ? 's' : ''}</span>
+            <span>{group.totalEpisodes} episode{group.totalEpisodes !== 1 ? 's' : ''}</span>
               </>
             )}
             {/* If Story Bible location with no scene data, show that */}
@@ -1009,6 +1009,9 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
         <div className="text-right min-w-[120px]">
           <div className={`text-xl font-bold ${costColor}`}>
             ${Math.round(dayRate)}<span className="text-sm font-normal">/day</span>
+            {suggestion.isEstimated && (
+              <span className="ml-2 text-xs text-yellow-400/70 font-normal">(Estimated)</span>
+            )}
           </div>
           {(permitCost > 0 || depositAmount > 0) && (
             <div className="text-xs text-[#e7e7e7]/50 mt-1">
@@ -1039,8 +1042,8 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
 
       {/* Pros & Cons Grid */}
       <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-[#36393f]">
-        {/* Pros */}
-        {suggestion.pros.length > 0 && (
+      {/* Pros */}
+      {suggestion.pros.length > 0 && (
           <div>
             <div className="text-xs text-green-400 font-semibold mb-2">✓ Pros</div>
             <ul className="text-xs text-[#e7e7e7]/80 space-y-1">
@@ -1049,13 +1052,13 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
                   <span className="text-green-400 mt-0.5">•</span>
                   <span>{pro}</span>
                 </li>
-              ))}
-            </ul>
-          </div>
-        )}
+            ))}
+          </ul>
+        </div>
+      )}
 
-        {/* Cons */}
-        {suggestion.cons.length > 0 && (
+      {/* Cons */}
+      {suggestion.cons.length > 0 && (
           <div>
             <div className="text-xs text-orange-400 font-semibold mb-2">✗ Cons</div>
             <ul className="text-xs text-[#e7e7e7]/80 space-y-1">
@@ -1064,10 +1067,10 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
                   <span className="text-orange-400 mt-0.5">•</span>
                   <span>{con}</span>
                 </li>
-              ))}
-            </ul>
-          </div>
-        )}
+            ))}
+          </ul>
+        </div>
+      )}
       </div>
 
       {/* Logistics */}
@@ -1095,20 +1098,20 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
       {/* Search Guidance & Venue Link */}
       {(suggestion.searchGuidance || suggestion.specificVenueUrl) && (
         <div className="mt-3 pt-3 border-t border-[#36393f] flex flex-wrap items-center gap-3 text-xs">
-          {suggestion.searchGuidance && (
+      {suggestion.searchGuidance && (
             <span className="text-[#e7e7e7]/60">
               🔍 {suggestion.searchGuidance}
             </span>
-          )}
-          {suggestion.specificVenueUrl && (
-            <a
-              href={suggestion.specificVenueUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+      )}
+      {suggestion.specificVenueUrl && (
+        <a
+          href={suggestion.specificVenueUrl}
+          target="_blank"
+          rel="noopener noreferrer"
               className="px-3 py-2 bg-[#10B981] text-[#0b1c14] font-semibold rounded-md border border-[#0ea56a] shadow-md shadow-[#10B981]/30 hover:bg-[#0ea56a] hover:text-black transition-colors"
-            >
+        >
               🔗 Open Venue
-            </a>
+        </a>
           )}
         </div>
       )}

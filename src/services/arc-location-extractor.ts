@@ -284,7 +284,7 @@ export function extractLocationsFromScripts(
       )
       allLocations.push(...breakdownLocs)
     }
-
+    
     // Fallback to script text parsing
     if (episode.scriptText) {
       const scriptLocs = extractLocationsFromScriptText(

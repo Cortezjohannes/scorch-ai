@@ -18,11 +18,6 @@ export default function Navigation() {
 
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/uprising', label: 'Uprising', special: true },
-    { href: '/program', label: 'Program' },
-    { href: '/criteria', label: 'Criteria' },
-    { href: '/fund', label: 'Fund' },
-    { href: '/playbook', label: 'Playbook' },
   ]
 
   const isActive = (path: string) => {

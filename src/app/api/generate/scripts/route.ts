@@ -2,7 +2,7 @@
  * API Route: Generate Script
  * 
  * Generates industry-standard screenplay for a specific episode
- * Uses actual EngineAIRouter with Gemini 2.5 Pro
+ * Uses actual EngineAIRouter with Gemini 3 Pro Preview
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Generate the screenplay
     console.log('\n🤖 Generating screenplay with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: 5 pages (~5 minutes)')
     
     const generatedScript = await generateScript({

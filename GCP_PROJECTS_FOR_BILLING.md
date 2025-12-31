@@ -147,3 +147,11 @@ gcloud services enable aiplatform.googleapis.com --project=reeled-ai-production
 
 
 
+
+
+
+
+
+
+
+

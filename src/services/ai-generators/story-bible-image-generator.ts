@@ -158,6 +158,7 @@ export async function generateHeroImage(
   const theme = storyBible.theme || storyBible.themes?.[0] || ''
   
   // Build comprehensive hero image prompt with character context
+  // CRITICAL: Hero image must be LANDSCAPE (16:9) aspect ratio for banner display
   let prompt = `Cinematic ensemble poster-style key art for "${seriesTitle}"`
   
   // Add series overview and theme context
@@ -176,7 +177,9 @@ export async function generateHeroImage(
   prompt += `. ${genre} series`
   
   // Add character information for poster composition
+  // CRITICAL: Emphasize that characters must match their reference images exactly
   if (storyBible.mainCharacters && storyBible.mainCharacters.length > 0) {
+    const characterNames: string[] = []
     const characterDescriptions: string[] = []
     
     for (let i = 0; i < Math.min(6, storyBible.mainCharacters.length); i++) {
@@ -184,6 +187,8 @@ export async function generateHeroImage(
       const charName = char.name || `Character ${i + 1}`
       const charRole = char.archetype || char.premiseFunction || char.premiseRole || char.role || ''
       const charDescription = char.physicalDescription || char.description || ''
+      
+      characterNames.push(charName)
       
       let charInfo = charName
       if (charRole) {
@@ -199,11 +204,17 @@ export async function generateHeroImage(
     if (characterDescriptions.length > 0) {
       prompt += `. Main characters featured in poster composition: ${characterDescriptions.join('; ')}`
       prompt += `. Create a cinematic poster with these characters arranged dynamically, showing their roles and relationships in the series`
+      
+      // CRITICAL: Emphasize character matching if character images are provided
+      if (characterImages && characterImages.length > 0) {
+        prompt += `. CRITICAL: Each character in the poster MUST look EXACTLY like their character portrait reference image. Match their face, ethnicity, age, body type, and core features precisely. All characters must be in the same art style as their reference images.`
+      }
     }
   }
   
   // Add poster-specific instructions
-  prompt += `. Professional key art poster design, ensemble cast composition, dynamic layout, cinematic framing, series branding aesthetic`
+  // CRITICAL: Emphasize landscape orientation for banner display
+  prompt += `. Professional key art poster design, ensemble cast composition, dynamic layout, cinematic framing, series branding aesthetic. LANDSCAPE orientation (16:9 aspect ratio) - wide horizontal banner format`
   
   // Apply slightly animated style (matching character portraits)
   const finalPrompt = applyStoryBibleStyleToPrompt(
@@ -213,18 +224,50 @@ export async function generateHeroImage(
     'series-hero'
   )
   
-  // Combine character images with style references (prioritize character images for style)
-  const allReferenceImages = characterImages && characterImages.length > 0
-    ? [...characterImages, ...(referenceImages || [])].slice(0, 3) // Max 3 references
-    : referenceImages || []
+  // Build characterImageMap for explicit character identity matching
+  // This ensures characters in the hero image match their character tab portraits EXACTLY
+  const characterImageMap: Record<string, string> = {}
+  const allReferenceImages: string[] = []
   
-  // Generate with 16:9 aspect ratio for banner
+  if (storyBible.mainCharacters && characterImages && characterImages.length > 0) {
+    // Map each character name to their image URL for explicit matching
+    for (let i = 0; i < Math.min(characterImages.length, storyBible.mainCharacters.length); i++) {
+      const char = storyBible.mainCharacters[i]
+      const charName = char.name || `Character ${i + 1}`
+      const charImageUrl = characterImages[i]
+      
+      if (charImageUrl && charName) {
+        characterImageMap[charName] = charImageUrl
+        allReferenceImages.push(charImageUrl)
+        console.log(`[Story Bible Images] Hero: Mapped character "${charName}" to their character portrait image`)
+      }
+    }
+    
+    // Add style references if available (but prioritize character images)
+    if (referenceImages && referenceImages.length > 0) {
+      // Only add style references that aren't already character images
+      for (const styleRef of referenceImages) {
+        if (!allReferenceImages.includes(styleRef) && allReferenceImages.length < 14) {
+          allReferenceImages.push(styleRef)
+        }
+      }
+    }
+  } else if (referenceImages && referenceImages.length > 0) {
+    // Fallback: use style references if no character images available
+    allReferenceImages.push(...referenceImages.slice(0, 14))
+  }
+  
+  console.log(`[Story Bible Images] Hero: Using ${Object.keys(characterImageMap).length} character(s) for identity matching, ${allReferenceImages.length} total reference image(s)`)
+  
+  // Generate with 16:9 LANDSCAPE aspect ratio for banner
   // 🎯 Use NANO BANANA PRO for hero images (high quality)
+  // CRITICAL: Hero images must be landscape (16:9) for proper banner display
   const options: GeminiImageOptions = {
-    aspectRatio: '16:9',
+    aspectRatio: '16:9', // LANDSCAPE - wide horizontal banner format
     quality: 'hd',
     style: 'natural',
-    referenceImages: allReferenceImages, // Pass character images + style references
+    referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
+    characterImageMap: Object.keys(characterImageMap).length > 0 ? characterImageMap : undefined, // CRITICAL: This ensures character identity matching
     model: 'nano-banana-pro' // High quality for hero images
   }
   
@@ -274,14 +317,56 @@ export async function generateCharacterImage(
   const archetype = character.archetype || character.premiseFunction || character.premiseRole || ''
   const physicalDescription = character.physicalDescription || character.description || ''
   
-  // Build prompt
+  // Extract physiology attributes for detailed character description
+  const physiology = character.physiology || {}
+  const gender = physiology.gender || ''
+  const age = physiology.age || ''
+  const appearance = physiology.appearance || ''
+  const build = physiology.build || ''
+  const health = physiology.health || ''
+  const physicalTraits = physiology.physicalTraits || []
+  
+  // Build comprehensive prompt with physiology details
   let prompt = `Semi-realistic character concept art: ${characterName}`
   
   if (archetype) {
     prompt += `, ${archetype}`
   }
   
-  if (physicalDescription) {
+  // Add physiology attributes to the prompt
+  const physiologyDetails: string[] = []
+  
+  if (gender) {
+    physiologyDetails.push(`Gender: ${gender}`)
+  }
+  
+  if (age) {
+    physiologyDetails.push(`Age: ${age}`)
+  }
+  
+  // Use appearance from physiology if available, otherwise fall back to physicalDescription
+  const characterAppearance = appearance || physicalDescription
+  if (characterAppearance) {
+    physiologyDetails.push(`Appearance: ${characterAppearance.substring(0, 200)}`)
+  }
+  
+  if (build) {
+    physiologyDetails.push(`Build: ${build}`)
+  }
+  
+  if (health) {
+    physiologyDetails.push(`Health: ${health}`)
+  }
+  
+  if (physicalTraits && physicalTraits.length > 0) {
+    physiologyDetails.push(`Physical traits: ${physicalTraits.join(', ')}`)
+  }
+  
+  // Combine all physiology details
+  if (physiologyDetails.length > 0) {
+    prompt += `. ${physiologyDetails.join('. ')}`
+  } else if (physicalDescription) {
+    // Fallback to original description if no physiology data
     prompt += `. ${physicalDescription.substring(0, 150)}`
   }
   
@@ -559,8 +644,31 @@ export async function generateStoryBibleImages(
       const shouldGenerateHeroImage = !hasHeroImage || options.regenerate
       
       if (shouldGenerateHeroImage) {
-        // For specific hero generation, use existing references only
-        updatedBible.visualAssets.heroImage = await generateHeroImage(updatedBible, userId, referenceImages)
+        // Collect ALL character images for hero reference (same as bulk generation)
+        // This ensures characters in the hero image match their character tab portraits EXACTLY
+        const characterImages: string[] = []
+        if (updatedBible.mainCharacters) {
+          for (let i = 0; i < updatedBible.mainCharacters.length; i++) {
+            const char = updatedBible.mainCharacters[i]
+            // Only include characters that have valid Storage URLs (not base64)
+            const hasValidImage = char.visualReference?.imageUrl && 
+                                 char.visualReference.imageUrl.trim() !== '' &&
+                                 (char.visualReference.imageUrl.includes('firebasestorage.googleapis.com') ||
+                                  char.visualReference.imageUrl.includes('storage.googleapis.com'))
+            
+            if (hasValidImage) {
+              characterImages.push(char.visualReference.imageUrl)
+              console.log(`[${requestId}] Including character ${i} (${char.name}) image as hero reference for identity matching`)
+            } else {
+              console.warn(`[${requestId}] Skipping character ${i} (${char.name}) - no valid character portrait image available`)
+            }
+          }
+        }
+        
+        console.log(`[${requestId}] Generating hero with ${characterImages.length} character reference(s) for identity matching`)
+        
+        // For specific hero generation, pass character images for identity matching
+        updatedBible.visualAssets.heroImage = await generateHeroImage(updatedBible, userId, referenceImages, characterImages)
         updatedBible.visualAssets.generatedAt = new Date().toISOString()
         updatedBible.visualAssets.lastRegenerated = new Date().toISOString()
         
@@ -874,19 +982,28 @@ export async function generateStoryBibleImages(
       if (shouldGenerateHeroImage) {
         console.log(`[${requestId}] 🎨 Generating hero image LAST with character context...`)
         
-        // Collect character images for hero reference (up to 3 main characters)
+        // Collect ALL character images for hero reference (not just 3)
+        // This ensures all characters are included and in the same art style
         const characterImages: string[] = []
         if (updatedBible.mainCharacters) {
-          for (let i = 0; i < Math.min(3, updatedBible.mainCharacters.length); i++) {
+          for (let i = 0; i < updatedBible.mainCharacters.length; i++) {
             const char = updatedBible.mainCharacters[i]
-            if (char.visualReference?.imageUrl) {
+            // Only include characters that have valid Storage URLs (not base64)
+            const hasValidImage = char.visualReference?.imageUrl && 
+                                 char.visualReference.imageUrl.trim() !== '' &&
+                                 (char.visualReference.imageUrl.includes('firebasestorage.googleapis.com') ||
+                                  char.visualReference.imageUrl.includes('storage.googleapis.com'))
+            
+            if (hasValidImage) {
               characterImages.push(char.visualReference.imageUrl)
-              console.log(`[${requestId}] Including character ${i} image as hero reference: ${char.name}`)
+              console.log(`[${requestId}] Including character ${i} (${char.name}) image as hero reference for identity matching`)
+            } else {
+              console.warn(`[${requestId}] Skipping character ${i} (${char.name}) - no valid character portrait image available`)
             }
           }
         }
         
-        console.log(`[${requestId}] Generating hero with ${characterImages.length} character reference(s)`)
+        console.log(`[${requestId}] Generating hero with ${characterImages.length} character reference(s) for identity matching`)
         
         updatedBible.visualAssets.heroImage = await generateHeroImage(
           updatedBible, 

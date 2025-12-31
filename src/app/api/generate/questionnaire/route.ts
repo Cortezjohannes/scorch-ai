@@ -2,7 +2,7 @@
  * API Route: Generate Contextual Questionnaire
  * 
  * Generates project-specific questions for Props/Wardrobe and Equipment generation
- * Uses EngineAIRouter with Gemini 2.5 Pro for contextual understanding
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for contextual understanding
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,54 +11,134 @@ import { generateQuestionnaire } from '@/services/ai-generators/questionnaire-ge
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { preProductionId, storyBibleId, episodeNumber, userId, scriptData, breakdownData, storyBibleData, castingData, questionnaireType } = body
+    const { preProductionId, storyBibleId, episodeNumber, arcPreProductionId, episodeNumbers, episodePreProdData, userId, scriptData, breakdownData, storyBibleData, castingData, questionnaireType } = body
+
+    const isArcContext = !!arcPreProductionId
 
     console.log('❓ Questionnaire Generation API called')
     console.log('  Pre-Production ID:', preProductionId)
     console.log('  Story Bible ID:', storyBibleId)
     console.log('  Episode Number:', episodeNumber)
+    console.log('  Production Assistant ID:', arcPreProductionId)
+    console.log('  Episode Numbers:', episodeNumbers)
     console.log('  Questionnaire Type:', questionnaireType || 'both')
     console.log('  User ID:', userId || 'GUEST MODE')
+    console.log('  Context:', isArcContext ? 'ARC' : 'EPISODE')
 
     // Validate required parameters
-    if (!preProductionId || !storyBibleId || episodeNumber === undefined) {
+    if (!preProductionId || !storyBibleId) {
       console.error('❌ Missing required parameters')
       return NextResponse.json(
-        { error: 'Missing required parameters: preProductionId, storyBibleId, episodeNumber' },
+        { error: 'Missing required parameters: preProductionId, storyBibleId' },
         { status: 400 }
       )
     }
 
-    // 1. Validate Script Breakdown exists
-    console.log('\n📋 Validating Script Breakdown data...')
-    if (!breakdownData) {
-      console.error('❌ Script breakdown data not provided')
+    // For episode context, episodeNumber is required
+    // For arc context, arcPreProductionId and episodeNumbers are required
+    if (!isArcContext && episodeNumber === undefined) {
+      console.error('❌ Missing episodeNumber for episode context')
       return NextResponse.json(
-        { 
-          error: 'Please generate script breakdown first',
-          details: 'Script breakdown is required to generate contextual questions. Go to Script Breakdown tab and generate a breakdown first.'
-        },
+        { error: 'Missing required parameter: episodeNumber' },
         { status: 400 }
       )
     }
 
-    console.log('✅ Script Breakdown data received')
-    console.log('  Total scenes:', breakdownData.totalScenes || breakdownData.scenes?.length)
-
-    // 2. Validate Script exists
-    console.log('\n📝 Validating Script data...')
-    if (!scriptData) {
-      console.error('❌ Script data not provided')
+    if (isArcContext && (!episodeNumbers || episodeNumbers.length === 0)) {
+      console.error('❌ Missing episodeNumbers for arc context')
       return NextResponse.json(
-        { 
-          error: 'Please generate script first',
-          details: 'Script data is required for questionnaire context. Go to Scripts tab and generate a screenplay first.'
-        },
+        { error: 'Missing required parameter: episodeNumbers for arc context' },
         { status: 400 }
       )
     }
 
-    console.log('✅ Script data received:', scriptData.title || `Episode ${episodeNumber}`)
+    // Aggregate breakdown and script data based on context
+    let aggregatedBreakdown: any = null
+    let aggregatedScript: any = null
+    let episodeTitle = ''
+
+    if (isArcContext) {
+      // Arc context: use breakdownData from request if provided, otherwise aggregate from episodes
+      console.log('\n📋 Getting Script Breakdown data for arc context...')
+      
+      if (breakdownData && breakdownData.scenes && breakdownData.scenes.length > 0) {
+        // Use breakdown data provided directly in request body
+        console.log('✅ Using breakdown data from request body')
+        aggregatedBreakdown = breakdownData
+        aggregatedScript = scriptData || null
+      } else {
+        // Aggregate from all episodes
+        console.log('📊 Aggregating Script Breakdown data from episodes...')
+        aggregatedBreakdown = {
+          scenes: [],
+          totalScenes: 0
+        }
+        const scripts: any[] = []
+
+        if (episodePreProdData) {
+          Object.values(episodePreProdData).forEach((epPreProd: any) => {
+            if (epPreProd.scriptBreakdown?.scenes) {
+              aggregatedBreakdown.scenes.push(...epPreProd.scriptBreakdown.scenes)
+              aggregatedBreakdown.totalScenes += epPreProd.scriptBreakdown.scenes.length
+            }
+            if (epPreProd.scripts?.fullScript) {
+              scripts.push(epPreProd.scripts.fullScript)
+            }
+          })
+        }
+
+        if (aggregatedBreakdown.scenes.length === 0) {
+          console.error('❌ No script breakdown data found in any episode')
+          return NextResponse.json(
+            { 
+              error: 'Please generate script breakdown for at least one episode first',
+              details: 'Script breakdown is required to generate contextual questions. Go to Script Breakdown tab and generate a breakdown first.'
+            },
+            { status: 400 }
+          )
+        }
+
+        aggregatedScript = scripts[0] || scriptData || null // Use first script as reference, or provided scriptData
+        console.log('✅ Aggregated Script Breakdown data from episodes')
+        console.log('  Total scenes:', aggregatedBreakdown.totalScenes)
+        console.log('  Episodes with breakdown:', Object.values(episodePreProdData || {}).filter((ep: any) => ep?.scriptBreakdown?.scenes?.length > 0).length)
+      }
+
+      episodeTitle = `Arc (${episodeNumbers?.length || 0} episodes)`
+    } else {
+      // Episode context: use provided data
+      console.log('\n📋 Validating Script Breakdown data...')
+      if (!breakdownData) {
+        console.error('❌ Script breakdown data not provided')
+        return NextResponse.json(
+          { 
+            error: 'Please generate script breakdown first',
+            details: 'Script breakdown is required to generate contextual questions. Go to Script Breakdown tab and generate a breakdown first.'
+          },
+          { status: 400 }
+        )
+      }
+
+      console.log('\n📝 Validating Script data...')
+      if (!scriptData) {
+        console.error('❌ Script data not provided')
+        return NextResponse.json(
+          { 
+            error: 'Please generate script first',
+            details: 'Script data is required for questionnaire context. Go to Scripts tab and generate a screenplay first.'
+          },
+          { status: 400 }
+        )
+      }
+
+      aggregatedBreakdown = breakdownData
+      aggregatedScript = scriptData
+      episodeTitle = scriptData.title || `Episode ${episodeNumber}`
+
+      console.log('✅ Script Breakdown data received')
+      console.log('  Total scenes:', aggregatedBreakdown.totalScenes || aggregatedBreakdown.scenes?.length)
+      console.log('✅ Script data received:', episodeTitle)
+    }
 
     // 3. Validate Story Bible
     console.log('\n📖 Validating Story Bible data...')
@@ -82,17 +162,20 @@ export async function POST(request: NextRequest) {
 
     // 5. Generate questionnaire with AI
     console.log('\n🤖 Generating questionnaire with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: Contextual questions for', questionnaireType || 'both')
+    console.log('  Context:', isArcContext ? 'ARC-WIDE' : 'EPISODE-SPECIFIC')
 
     const questionnaire = await generateQuestionnaire({
-      scriptData,
-      breakdownData,
+      scriptData: aggregatedScript,
+      breakdownData: aggregatedBreakdown,
       storyBible: storyBibleData,
       castingData,
-      episodeNumber,
-      episodeTitle: scriptData.title || `Episode ${episodeNumber}`,
-      questionnaireType: questionnaireType || 'both'
+      episodeNumber: isArcContext ? 0 : episodeNumber, // Use 0 for arc context
+      episodeTitle,
+      questionnaireType: questionnaireType || 'both',
+      isArcContext,
+      episodeNumbers: isArcContext ? episodeNumbers : undefined
     })
 
     console.log('\n✅ Questionnaire generated successfully!')

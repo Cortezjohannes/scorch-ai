@@ -68,12 +68,39 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
         const cleanMarketing = JSON.parse(JSON.stringify(data.marketing))
         let cleanVisualAssets = data.visualAssets ? JSON.parse(JSON.stringify(data.visualAssets)) : (storyBible.marketing?.visualAssets || {})
         
-        // Upload base64 images from auto-generated templates to Storage (if any)
+        // Validate and upload base64 images from auto-generated templates to Storage
+        // CRITICAL: All images must be Storage URLs before saving to Firestore
         if (cleanVisualAssets.platformTemplates) {
           const userId = storyBible.ownerId
           if (userId) {
             const { uploadImageToStorage } = await import('@/services/image-storage-service')
             const { hashPrompt } = await import('@/services/image-cache-service')
+            
+            // Helper to validate and upload image if needed
+            const validateAndUploadImage = async (imageUrl: string, promptText: string, context: string): Promise<string> => {
+              // Already a Storage URL - validate format
+              if (imageUrl.startsWith('https://firebasestorage.googleapis.com/') ||
+                  imageUrl.startsWith('https://storage.googleapis.com/')) {
+                return imageUrl // Already valid Storage URL
+              }
+              
+              // Base64 - upload to Storage
+              if (imageUrl.startsWith('data:image/')) {
+                const hash = await hashPrompt(promptText, undefined, context)
+                const storageUrl = await uploadImageToStorage(userId, imageUrl, hash)
+                
+                // CRITICAL: Verify we got a Storage URL
+                if (!storageUrl.startsWith('https://firebasestorage.googleapis.com/') &&
+                    !storageUrl.startsWith('https://storage.googleapis.com/')) {
+                  throw new Error('Storage upload failed - received invalid URL format')
+                }
+                
+                return storageUrl
+              }
+              
+              // Invalid format
+              throw new Error(`Invalid image URL format: ${imageUrl.substring(0, 50)}...`)
+            }
             
             // Process character spotlight templates
             if (cleanVisualAssets.platformTemplates.characterSpotlights) {
@@ -81,15 +108,15 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
                 if (spotlight.templates) {
                   for (const platform of ['tiktok', 'instagram', 'youtube'] as const) {
                     const template = spotlight.templates[platform]
-                    if (template?.imageUrl?.startsWith('data:image/')) {
+                    if (template?.imageUrl) {
                       try {
                         const promptText = template.prompt || `character-spotlight-${spotlight.characterName}-${platform}`
-                        const hash = await hashPrompt(promptText, undefined, 'marketing-template')
-                        const storageUrl = await uploadImageToStorage(userId, template.imageUrl, hash)
-                        template.imageUrl = storageUrl
-                        console.log(`✅ Uploaded auto-generated ${platform} template for ${spotlight.characterName} to Storage`)
+                        template.imageUrl = await validateAndUploadImage(template.imageUrl, promptText, 'marketing-template')
+                        console.log(`✅ Validated/uploaded ${platform} template for ${spotlight.characterName} to Storage`)
                       } catch (error: any) {
-                        console.error(`❌ Failed to upload auto-generated ${platform} template:`, error)
+                        console.error(`❌ Failed to validate/upload ${platform} template:`, error)
+                        // Remove invalid image to prevent Firestore errors
+                        delete template.imageUrl
                       }
                     }
                   }
@@ -101,15 +128,15 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
             if (cleanVisualAssets.platformTemplates.campaignGraphics) {
               const processGraphics = async (graphics: any[], type: string) => {
                 for (const graphic of graphics) {
-                  if (graphic?.imageUrl?.startsWith('data:image/')) {
+                  if (graphic?.imageUrl) {
                     try {
                       const promptText = graphic.prompt || `campaign-${type}-${storyBible.seriesTitle || 'graphic'}`
-                      const hash = await hashPrompt(promptText, undefined, 'marketing-campaign')
-                      const storageUrl = await uploadImageToStorage(userId, graphic.imageUrl, hash)
-                      graphic.imageUrl = storageUrl
-                      console.log(`✅ Uploaded auto-generated ${type} campaign graphic to Storage`)
+                      graphic.imageUrl = await validateAndUploadImage(graphic.imageUrl, promptText, 'marketing-campaign')
+                      console.log(`✅ Validated/uploaded ${type} campaign graphic to Storage`)
                     } catch (error: any) {
-                      console.error(`❌ Failed to upload auto-generated ${type} graphic:`, error)
+                      console.error(`❌ Failed to validate/upload ${type} graphic:`, error)
+                      // Remove invalid image to prevent Firestore errors
+                      delete graphic.imageUrl
                     }
                   }
                 }
@@ -250,9 +277,16 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
 
       const data = await response.json()
       if (data.success && data.poster) {
-        // Upload base64 image to Storage using client SDK (same as story bible images)
+        // Validate and ensure Storage URL (generateImageWithStorage should already return Storage URL)
         let imageUrl = data.poster.imageUrl || ''
-        if (imageUrl.startsWith('data:image/')) {
+        
+        // CRITICAL: Validate that we have a Storage URL, not base64
+        const isStorageUrl = imageUrl.startsWith('https://firebasestorage.googleapis.com/') ||
+                           imageUrl.startsWith('https://storage.googleapis.com/')
+        
+        if (!isStorageUrl && imageUrl.startsWith('data:image/')) {
+          // Fallback: Upload base64 to Storage if somehow we got base64
+          console.warn('⚠️ Received base64 instead of Storage URL, uploading to Storage...')
           const { uploadImageToStorage } = await import('@/services/image-storage-service')
           const { hashPrompt } = await import('@/services/image-cache-service')
           
@@ -262,10 +296,19 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
           // Upload to Storage using client-side SDK (authenticated user)
           imageUrl = await uploadImageToStorage(storyBible.ownerId, imageUrl, hash)
           console.log('✅ Poster uploaded to Storage:', imageUrl.substring(0, 60) + '...')
+        } else if (!isStorageUrl && imageUrl) {
+          // Invalid URL format
+          throw new Error('Invalid image URL format - must be Firebase Storage URL')
+        }
+        
+        // CRITICAL: Final validation - ensure we have a Storage URL before saving
+        if (!imageUrl || (!imageUrl.startsWith('https://firebasestorage.googleapis.com/') && 
+                         !imageUrl.startsWith('https://storage.googleapis.com/'))) {
+          throw new Error('Cannot save poster: Image must be uploaded to Firebase Storage first (base64 not allowed in Firestore)')
         }
         
         const poster = {
-          imageUrl: imageUrl,
+          imageUrl: imageUrl, // Must be Storage URL
           prompt: data.poster.prompt || '',
           generatedAt: data.poster.generatedAt || new Date().toISOString(),
           source: data.poster.source || 'gemini',
@@ -409,6 +452,32 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
         
         const cleanTemplates = JSON.parse(JSON.stringify(data.templates))
         
+        // Helper to validate and upload image if needed
+        const validateAndUploadImage = async (imageUrl: string, promptText: string, context: string): Promise<string> => {
+          // Already a Storage URL - validate format
+          if (imageUrl.startsWith('https://firebasestorage.googleapis.com/') ||
+              imageUrl.startsWith('https://storage.googleapis.com/')) {
+            return imageUrl // Already valid Storage URL
+          }
+          
+          // Base64 - upload to Storage
+          if (imageUrl.startsWith('data:image/')) {
+            const hash = await hashPrompt(promptText, undefined, context)
+            const storageUrl = await uploadImageToStorage(userId, imageUrl, hash)
+            
+            // CRITICAL: Verify we got a Storage URL
+            if (!storageUrl.startsWith('https://firebasestorage.googleapis.com/') &&
+                !storageUrl.startsWith('https://storage.googleapis.com/')) {
+              throw new Error('Storage upload failed - received invalid URL format')
+            }
+            
+            return storageUrl
+          }
+          
+          // Invalid format
+          throw new Error(`Invalid image URL format: ${imageUrl.substring(0, 50)}...`)
+        }
+        
         // Process character spotlight templates
         if (cleanTemplates.characterSpotlights) {
           for (const spotlight of cleanTemplates.characterSpotlights) {
@@ -416,16 +485,15 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
               // Process each platform template
               for (const platform of ['tiktok', 'instagram', 'youtube'] as const) {
                 const template = spotlight.templates[platform]
-                if (template?.imageUrl?.startsWith('data:image/')) {
+                if (template?.imageUrl) {
                   try {
                     const promptText = template.prompt || `character-spotlight-${spotlight.characterName}-${platform}`
-                    const hash = await hashPrompt(promptText, undefined, 'marketing-template')
-                    const storageUrl = await uploadImageToStorage(userId, template.imageUrl, hash)
-                    template.imageUrl = storageUrl
-                    console.log(`✅ Uploaded ${platform} template for ${spotlight.characterName} to Storage`)
+                    template.imageUrl = await validateAndUploadImage(template.imageUrl, promptText, 'marketing-template')
+                    console.log(`✅ Validated/uploaded ${platform} template for ${spotlight.characterName} to Storage`)
                   } catch (error: any) {
-                    console.error(`❌ Failed to upload ${platform} template:`, error)
-                    // Continue with other templates even if one fails
+                    console.error(`❌ Failed to validate/upload ${platform} template:`, error)
+                    // Remove invalid image to prevent Firestore errors
+                    delete template.imageUrl
                   }
                 }
               }
@@ -435,55 +503,35 @@ export default function MarketingSection({ storyBible, theme, onUpdate }: Market
         
         // Process campaign graphics
         if (cleanTemplates.campaignGraphics) {
-          // Process launch graphics
-          if (cleanTemplates.campaignGraphics.launch) {
-            for (const graphic of cleanTemplates.campaignGraphics.launch) {
-              if (graphic?.imageUrl?.startsWith('data:image/')) {
+          const processGraphics = async (graphics: any[], type: string) => {
+            for (const graphic of graphics) {
+              if (graphic?.imageUrl) {
                 try {
-                  const promptText = graphic.prompt || `campaign-launch-${storyBible.seriesTitle || 'graphic'}`
-                  const hash = await hashPrompt(promptText, undefined, 'marketing-campaign')
-                  const storageUrl = await uploadImageToStorage(userId, graphic.imageUrl, hash)
-                  graphic.imageUrl = storageUrl
-                  console.log('✅ Uploaded launch campaign graphic to Storage')
+                  const promptText = graphic.prompt || `campaign-${type}-${storyBible.seriesTitle || 'graphic'}`
+                  graphic.imageUrl = await validateAndUploadImage(graphic.imageUrl, promptText, 'marketing-campaign')
+                  console.log(`✅ Validated/uploaded ${type} campaign graphic to Storage`)
                 } catch (error: any) {
-                  console.error('❌ Failed to upload launch graphic:', error)
+                  console.error(`❌ Failed to validate/upload ${type} graphic:`, error)
+                  // Remove invalid image to prevent Firestore errors
+                  delete graphic.imageUrl
                 }
               }
             }
+          }
+          
+          // Process launch graphics
+          if (cleanTemplates.campaignGraphics.launch) {
+            await processGraphics(cleanTemplates.campaignGraphics.launch, 'launch')
           }
           
           // Process milestone graphics
           if (cleanTemplates.campaignGraphics.milestones) {
-            for (const graphic of cleanTemplates.campaignGraphics.milestones) {
-              if (graphic?.imageUrl?.startsWith('data:image/')) {
-                try {
-                  const promptText = graphic.prompt || `campaign-milestone-${storyBible.seriesTitle || 'graphic'}`
-                  const hash = await hashPrompt(promptText, undefined, 'marketing-campaign')
-                  const storageUrl = await uploadImageToStorage(userId, graphic.imageUrl, hash)
-                  graphic.imageUrl = storageUrl
-                  console.log('✅ Uploaded milestone campaign graphic to Storage')
-                } catch (error: any) {
-                  console.error('❌ Failed to upload milestone graphic:', error)
-                }
-              }
-            }
+            await processGraphics(cleanTemplates.campaignGraphics.milestones, 'milestone')
           }
           
           // Process arc transition graphics
           if (cleanTemplates.campaignGraphics.arcTransitions) {
-            for (const graphic of cleanTemplates.campaignGraphics.arcTransitions) {
-              if (graphic?.imageUrl?.startsWith('data:image/')) {
-                try {
-                  const promptText = graphic.prompt || `campaign-arc-transition-${storyBible.seriesTitle || 'graphic'}`
-                  const hash = await hashPrompt(promptText, undefined, 'marketing-campaign')
-                  const storageUrl = await uploadImageToStorage(userId, graphic.imageUrl, hash)
-                  graphic.imageUrl = storageUrl
-                  console.log('✅ Uploaded arc transition campaign graphic to Storage')
-                } catch (error: any) {
-                  console.error('❌ Failed to upload arc transition graphic:', error)
-                }
-              }
-            }
+            await processGraphics(cleanTemplates.campaignGraphics.arcTransitions, 'arc-transition')
           }
         }
         

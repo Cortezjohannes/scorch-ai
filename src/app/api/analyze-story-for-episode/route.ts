@@ -16,7 +16,7 @@ export const maxDuration = 120
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { storyBible, episodeNumber, previousChoice } = body
+    const { storyBible, episodeNumber, previousChoice, previousEpisode, allPreviousEpisodes } = body
     
     // Validation
     if (!storyBible) {
@@ -36,12 +36,15 @@ export async function POST(request: NextRequest) {
     logger.startNewSession(`Story Analysis - Episode ${episodeNumber}`)
     
     console.log(`📊 Analyzing story for episode ${episodeNumber} settings...`)
+    console.log(`   Previous episode: ${previousEpisode ? 'Yes' : 'None'}`)
+    console.log(`   All previous episodes: ${allPreviousEpisodes?.length || 0} episodes`)
     
-    // Perform analysis
+    // Perform analysis with full episode context
     const settings = await analyzeStoryForEpisodeGeneration(
       storyBible,
       episodeNumber,
-      previousChoice
+      previousChoice,
+      previousEpisode
     )
     
     logger.milestone(`Analysis complete: Tone ${settings.vibeSettings.tone}, Pacing ${settings.vibeSettings.pacing}, Dialogue ${settings.vibeSettings.dialogueStyle}`)

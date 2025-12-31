@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import React, { useState, useEffect } from 'react'
 import { CardTitle, CardHeader, CardContent, Card } from "@/components/ui/card"
 import { useVideo } from '@/context/VideoContext'
+import { useTheme } from '@/context/ThemeContext'
+import { ComingSoonOverlay } from './ComingSoonOverlay'
 
 interface AudioTrack {
   id: string
@@ -27,7 +29,14 @@ interface ProcessingTask {
   status: 'pending' | 'processing' | 'completed';
 }
 
-export function SoundDesign() {
+interface SoundDesignProps {
+  storyBibleId?: string
+  episodeNumber?: number
+  arcIndex?: number | null
+  arcEpisodes?: number[]
+}
+
+export function SoundDesign({ storyBibleId, episodeNumber, arcIndex, arcEpisodes }: SoundDesignProps) {
   const { videos } = useVideo()
   const selectedVideo = videos.length > 0 ? videos[0] : null
   const [selectedTrack, setSelectedTrack] = useState<string>('main')
@@ -194,7 +203,11 @@ export function SoundDesign() {
   ]
   
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <ComingSoonOverlay 
+      title="Sound Design"
+      description="The Sound Design post-production workflow is currently under development. This feature will allow you to enhance audio, apply effects, and manage sound tracks based on your pre-production data."
+    >
+      <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
         <h2 className="text-xl sm:text-2xl font-bold text-[#e2c376]">Sound Design</h2>
         
@@ -559,6 +572,7 @@ export function SoundDesign() {
         <AudioEqualizerVisualizer />
       </div>
     </div>
+    </ComingSoonOverlay>
   )
 }
 
@@ -819,4 +833,4 @@ const AudioEqualizerVisualizer = () => {
       </div>
     </div>
   )
-} 
+}

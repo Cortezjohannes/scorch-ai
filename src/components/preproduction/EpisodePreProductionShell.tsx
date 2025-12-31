@@ -1481,20 +1481,30 @@ export function EpisodePreProductionShell({
       updateStepStatus('storyboards', 'generating')
       setCurrentGenerationStep('storyboards')
 
-      const storyboardsResponse = await fetch('/api/generate/storyboards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preProductionId,
-          storyBibleId,
-          episodeNumber,
-          episodeTitle: preProductionData.episodeTitle || `Episode ${episodeNumber}`,
-          userId: user.id,
-          breakdownData: breakdownResult.breakdown,
-          scriptData: scriptResult.script,
-          storyBibleData: storyBible
+      // Create AbortController with 5-minute timeout for batched generation
+      const storyboardsController = new AbortController()
+      const storyboardsTimeoutId = setTimeout(() => storyboardsController.abort(), 300000) // 5 minutes
+
+      let storyboardsResponse
+      try {
+        storyboardsResponse = await fetch('/api/generate/storyboards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preProductionId,
+            storyBibleId,
+            episodeNumber,
+            episodeTitle: preProductionData.episodeTitle || `Episode ${episodeNumber}`,
+            userId: user.id,
+            breakdownData: breakdownResult.breakdown,
+            scriptData: scriptResult.script,
+            storyBibleData: storyBible
+          }),
+          signal: storyboardsController.signal
         })
-      })
+      } finally {
+        clearTimeout(storyboardsTimeoutId)
+      }
 
       if (!storyboardsResponse.ok) {
         throw new Error('Failed to generate storyboards')

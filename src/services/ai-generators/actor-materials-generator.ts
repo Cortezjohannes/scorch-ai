@@ -2,7 +2,7 @@
  * Actor Materials Generator - Enhanced Version
  * Generates comprehensive actor preparation materials with real-time progress updates
  * 
- * Strategy: 3 AI calls per character (15 total for 5 characters - under 20 limit)
+ * Strategy: 3 AI calls per character (scales with number of characters in arc)
  * - Call 1: Core materials (study guide, scene analysis, emotional journey)
  * - Call 2: Deep relationships & dynamics (comprehensive relationship map)
  * - Call 3: Practice & performance materials (monologues, references, prep)
@@ -116,6 +116,8 @@ export async function generateActorMaterials(
           onProgress?.({
             type: 'phase',
             characterName: character.name,
+            characterIndex: i,
+            totalCharacters: characters.length,
             phase: phaseName,
             message: `${character.name}: ${phaseName}`,
             percentage: Math.min(phaseProgress, charPercentageEnd - 1) // Don't hit 100% until complete
@@ -209,8 +211,8 @@ function getMainCharacters(
     }
   }
 
-  // Limit to top 5 main characters to keep AI calls reasonable
-  return characters.slice(0, 5)
+  // Return all main characters
+  return characters
 }
 
 /**

@@ -185,7 +185,12 @@ export async function generateImageWithGemini(
   prompt: string,
   options: GeminiImageOptions = {}
 ): Promise<GeminiImageResponse> {
-  // Pass character descriptions through to options if provided in a different format
+  // ⚠️ IMPORTANT: This function ALWAYS tries the primary model first (as specified in options.model)
+  // Fallback to Nano Banana only happens if:
+  // 1. Primary model is 'nano-banana-pro' AND
+  // 2. A 429/quota error occurs
+  // Each request is independent - if quota replenishes, the primary model will be tried again
+  
   const startTime = Date.now();
   
   try {
@@ -193,11 +198,12 @@ export async function generateImageWithGemini(
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // Select model based on options - DEFAULT to Nano Banana (fast) unless explicitly set to Pro
+    // ⚠️ This is the PRIMARY model - it's always tried first, even if previous requests fell back
     const selectedModel = options.model || 'nano-banana';
     const modelName = IMAGE_MODELS[selectedModel];
     const modelLabel = selectedModel === 'nano-banana-pro' ? 'NANO BANANA PRO' : 'NANO BANANA';
     
-    console.log(`🎨 [${modelLabel}] Generating image with ${modelLabel} (${modelName})`);
+    console.log(`🎨 [${modelLabel}] Generating image with ${modelLabel} (${modelName}) - PRIMARY MODEL (always tried first)`);
     console.log(`📝 [${modelLabel}] Prompt: ${prompt.substring(0, 100)}...`);
     
     // Sanitize the prompt
@@ -215,6 +221,12 @@ export async function generateImageWithGemini(
     
     // Prepare parts for multimodal input (text + reference images)
     const parts: any[] = []
+    
+    // Declare at function scope so accessible throughout
+    const imageOrder: Array<{ name: string; url: string; index: number }> = []
+    let characterMappingText = ''
+    let characterValidationText = ''
+    let successfullyLoadedImages = 0
     
     if (options.referenceImages && options.referenceImages.length > 0) {
       // CRITICAL: Filter out invalid reference images BEFORE processing
@@ -254,9 +266,7 @@ export async function generateImageWithGemini(
       console.log(`[${modelLabel}] 📸 Using ${validReferenceImages.length} valid reference image(s) - these are CHARACTER IMAGES from story bible`)
       
       // Build character-to-image mapping text for explicit matching (HIGHEST PRIORITY)
-      let characterMappingText = ''
       if (options.characterImageMap && Object.keys(options.characterImageMap).length > 0) {
-        const imageOrder: Array<{ name: string; url: string; index: number }> = []
         
         // Map each character to their image index (only for valid images)
         for (const [charName, imageUrl] of Object.entries(options.characterImageMap)) {
@@ -270,23 +280,53 @@ export async function generateImageWithGemini(
         }
         
         characterMappingText = '═══════════════════════════════════════════════════════════════\n'
-        characterMappingText += '🚨 CRITICAL: CHARACTER IDENTITY MATCHING (HIGHEST PRIORITY) 🚨\n'
+        characterMappingText += '🚨🚨🚨 CRITICAL: CHARACTER IDENTITY MATCHING (HIGHEST PRIORITY) 🚨🚨🚨\n'
         characterMappingText += '═══════════════════════════════════════════════════════════════\n\n'
-        characterMappingText += '⚠️ ABSOLUTE REQUIREMENT: The following reference images show the MANDATORY core identity of each character.\n'
-        characterMappingText += '⚠️ CORE FEATURES (face, build, ethnicity, age) must match reference image exactly.\n'
-        characterMappingText += '⚠️ ADAPTABLE FEATURES (clothing, hairstyle, accessories) can change for scene context.\n\n'
+        characterMappingText += '⚠️⚠️⚠️ ABSOLUTE REQUIREMENT - READ CAREFULLY: ⚠️⚠️⚠️\n'
+        characterMappingText += 'The reference images below show the EXACT, MANDATORY appearance of each character.\n'
+        characterMappingText += 'These are NOT suggestions, guidelines, or inspirations - they are STRICT REQUIREMENTS.\n'
+        characterMappingText += 'You MUST replicate the character appearance from the reference image PRECISELY.\n'
+        characterMappingText += 'DO NOT create new character designs. DO NOT interpret or reinterpret. COPY EXACTLY.\n\n'
+        characterMappingText += 'CORE IDENTITY FEATURES (MANDATORY - NEVER CHANGE):\n'
+        characterMappingText += '• Face: Exact facial structure, features, proportions, bone structure\n'
+        characterMappingText += '• Ethnicity: Must match reference image exactly - no variations\n'
+        characterMappingText += '• Skin tone: Must match reference image exactly\n'
+        characterMappingText += '• Age: Must match reference image exactly\n'
+        characterMappingText += '• Body type: Height, build, proportions must match reference exactly\n'
+        characterMappingText += '• Facial features: Eye shape, nose shape, mouth shape, jawline, cheekbones - ALL must match\n'
+        characterMappingText += '• Hair color: Base color must match reference (can style differently)\n\n'
+        characterMappingText += 'ADAPTABLE FEATURES (CAN CHANGE FOR SCENE):\n'
+        characterMappingText += '• Clothing: Can change for scene context (formal, casual, athletic, etc.)\n'
+        characterMappingText += '• Hairstyle: Can be styled differently (ponytail, loose, updo) while maintaining hair color\n'
+        characterMappingText += '• Accessories: Can add/remove glasses, jewelry, hats for scene context\n'
+        characterMappingText += '• Expression: Must match scene emotion and action\n\n'
 
-        // Add explicit per-character requirements
+        // Add explicit per-character requirements with more detail
         for (const mapping of imageOrder) {
           characterMappingText += `━━━ CHARACTER: ${mapping.name} ━━━\n`
-          characterMappingText += `📸 Reference Image ${mapping.index} shows the MANDATORY core identity for "${mapping.name}"\n`
-          characterMappingText += `✓ MUST MATCH EXACTLY: Face, ethnicity, skin tone, age, body type, facial structure, core features\n`
-          characterMappingText += `✓ CAN ADAPT FOR SCENE: Clothing (suit for ball, athletic wear for gym), hairstyle variations, accessories, expression\n`
-          characterMappingText += `✗ NEVER CHANGE: Ethnicity, age, face shape, facial features, body build, core identifying characteristics\n`
-          characterMappingText += `✗ FORBIDDEN: Creating a different person who looks "similar" - use THE SAME PERSON from the reference\n\n`
+          characterMappingText += `📸 Reference Image ${mapping.index} shows the EXACT, MANDATORY appearance for "${mapping.name}"\n`
+          characterMappingText += `🚨 CRITICAL: You MUST replicate this character's appearance PRECISELY from Reference Image ${mapping.index}\n\n`
+          characterMappingText += `✓ MANDATORY - MUST MATCH EXACTLY:\n`
+          characterMappingText += `  • Face: Exact facial structure, bone structure, proportions, features\n`
+          characterMappingText += `  • Facial features: Eye shape, nose shape, mouth shape, jawline, cheekbones - ALL must match Reference Image ${mapping.index} EXACTLY\n`
+          characterMappingText += `  • Ethnicity: Must match Reference Image ${mapping.index} EXACTLY - no variations\n`
+          characterMappingText += `  • Skin tone: Must match Reference Image ${mapping.index} EXACTLY\n`
+          characterMappingText += `  • Age: Must match Reference Image ${mapping.index} EXACTLY\n`
+          characterMappingText += `  • Body type: Height, build, proportions must match Reference Image ${mapping.index} EXACTLY\n`
+          characterMappingText += `  • Hair color: Base color must match Reference Image ${mapping.index} (can style differently)\n\n`
+          characterMappingText += `✓ CAN ADAPT FOR SCENE:\n`
+          characterMappingText += `  • Clothing: Can change for scene context (formal, casual, athletic, etc.)\n`
+          characterMappingText += `  • Hairstyle: Can be styled differently (ponytail, loose, updo) while maintaining hair color\n`
+          characterMappingText += `  • Accessories: Can add/remove glasses, jewelry, hats for scene context\n`
+          characterMappingText += `  • Expression: Must match scene emotion and action\n\n`
+          characterMappingText += `✗ FORBIDDEN - NEVER DO THIS:\n`
+          characterMappingText += `  • DO NOT create a different person who looks "similar" - use THE EXACT PERSON from Reference Image ${mapping.index}\n`
+          characterMappingText += `  • DO NOT change ethnicity, age, face shape, or core features\n`
+          characterMappingText += `  • DO NOT interpret or reinterpret - COPY EXACTLY from Reference Image ${mapping.index}\n`
+          characterMappingText += `  • DO NOT create new character designs - ONLY use the exact appearance from Reference Image ${mapping.index}\n\n`
         }
 
-        characterMappingText += 'IMPORTANT: These are the ONLY character designs to use. Core identity must match - scene adaptations allowed.\n'
+        characterMappingText += '🚨🚨🚨 FINAL WARNING: These reference images are MANDATORY REQUIREMENTS, not suggestions. Every character MUST look IDENTICALLY like their reference image. Core identity must match - scene adaptations allowed for clothing/hairstyle only.\n'
         characterMappingText += '═══════════════════════════════════════════════════════════════\n'
         
         console.log(`[${modelLabel}] ✅ Character-image mappings created: ${imageOrder.length} character(s) mapped to reference images`)
@@ -302,7 +342,6 @@ export async function generateImageWithGemini(
         })
       }
       
-      let successfullyLoadedImages = 0
       const characterImageIndices = new Map<string, number>() // Track which image index corresponds to which character
       
       // Section 2: Load images with clear labels (only valid images)
@@ -311,10 +350,12 @@ export async function generateImageWithGemini(
         
         // Find which character this image belongs to
         let characterName = ''
+        let isCharacterImage = false
         if (options.characterImageMap) {
           for (const [name, url] of Object.entries(options.characterImageMap)) {
             if (url === refImageUrl) {
               characterName = name
+              isCharacterImage = true
               characterImageIndices.set(name, i + 1)
               break
             }
@@ -326,12 +367,12 @@ export async function generateImageWithGemini(
             ? ` (🚨 CHARACTER REFERENCE: ${characterName} - MANDATORY APPEARANCE)`
             : ` (Style Reference)`
           console.log(`[${modelLabel}] Loading reference image ${i + 1}/${validReferenceImages.length}${imageLabel}: ${refImageUrl.substring(0, 60)}...`)
-
+          
           // CRITICAL: Validate image format before processing
           if (refImageUrl.startsWith('data:image/svg+xml')) {
             throw new Error('SVG images are not supported as reference images')
           }
-
+          
           const base64Data = await fetchImageAsBase64(refImageUrl)
           parts.push({
             inlineData: {
@@ -383,26 +424,37 @@ export async function generateImageWithGemini(
         characterMatchingInstructions = `
 
 ═══════════════════════════════════════════════════════════════
-CRITICAL CHARACTER MATCHING REQUIREMENTS (HIGHEST PRIORITY):
+🚨🚨🚨 CRITICAL CHARACTER MATCHING REQUIREMENTS (HIGHEST PRIORITY) 🚨🚨🚨
 ═══════════════════════════════════════════════════════════════
 
-1. CHARACTER IDENTITY MATCHING (MANDATORY):
+⚠️⚠️⚠️ ABSOLUTE REQUIREMENT - READ CAREFULLY: ⚠️⚠️⚠️
+The character reference images shown above are MANDATORY REQUIREMENTS.
+These are NOT suggestions, guidelines, or inspirations - they are STRICT REQUIREMENTS.
+You MUST replicate each character's appearance PRECISELY from their reference image.
+DO NOT create new character designs. DO NOT interpret or reinterpret. COPY EXACTLY.
+
+1. CHARACTER IDENTITY MATCHING (MANDATORY - HIGHEST PRIORITY):
    • Every character mentioned in the scene MUST look IDENTICALLY like their corresponding reference image
-   • If a character name appears in the scene description, find their reference image above and replicate their appearance precisely
-   • Do NOT create new character designs - ONLY use the exact appearances from the reference images provided
+   • If a character name appears in the scene description, find their reference image above and replicate their appearance PRECISELY
+   • DO NOT create new character designs - ONLY use the exact appearances from the reference images provided
+   • DO NOT create a "similar looking" person - use THE EXACT PERSON from the reference image
 
-2. WHAT MUST STAY IDENTICAL (NEVER CHANGE):
-   • Face: facial structure, features, skin tone, ethnicity
-   • Build: height, body type, proportions, age
-   • Hair color: base color must match reference image
-   • Core identifying features from reference image
+2. WHAT MUST STAY IDENTICAL (NEVER CHANGE - MANDATORY):
+   • Face: Exact facial structure, bone structure, proportions, features - ALL must match reference EXACTLY
+   • Facial features: Eye shape, nose shape, mouth shape, jawline, cheekbones - ALL must match reference EXACTLY
+   • Ethnicity: Must match reference image EXACTLY - no variations allowed
+   • Skin tone: Must match reference image EXACTLY
+   • Age: Must match reference image EXACTLY
+   • Build: Height, body type, proportions must match reference EXACTLY
+   • Hair color: Base color must match reference image EXACTLY (can style differently)
+   • Core identifying features: ALL must match reference image EXACTLY
 
-3. WHAT CAN ADAPT TO SCENE CONTEXT:
-   • Clothing: can change for scene (formal wear for ball, athletic clothes for gym)
-   • Hairstyle: can be styled differently (ponytail, loose, updo, etc.) while maintaining hair color
-   • Accessories: can add/remove for scene context
-   • Expression: must match scene emotion and action
-   • Hair length: can vary slightly for scene context while maintaining overall appearance
+3. WHAT CAN ADAPT TO SCENE CONTEXT (ONLY THESE):
+   • Clothing: Can change for scene (formal wear for ball, athletic clothes for gym)
+   • Hairstyle: Can be styled differently (ponytail, loose, updo, etc.) while maintaining hair color
+   • Accessories: Can add/remove glasses, jewelry, hats for scene context
+   • Expression: Must match scene emotion and action
+   • Hair length: Can vary slightly for scene context while maintaining overall appearance
 
 4. ART STYLE CONSISTENCY (MANDATORY):
    • The rendering technique, color palette, line work, shading, and overall aesthetic must match the reference images exactly
@@ -411,39 +463,44 @@ CRITICAL CHARACTER MATCHING REQUIREMENTS (HIGHEST PRIORITY):
 5. SCENE COMPOSITION:
    • Place characters in the scene as described, maintaining their EXACT appearance from reference images
    • Lighting and camera angles can vary, but character appearance must remain consistent with references
+   • When in doubt, prioritize character appearance accuracy over scene composition
+
+🚨 REMINDER: Character appearance matching is MORE IMPORTANT than scene composition. If you must choose, prioritize matching the character reference images EXACTLY.
 
 ═══════════════════════════════════════════════════════════════`
       }
 
       // Add character validation checklist AFTER the scene prompt
-      let characterValidationText = ''
-      if (characterMappingText && successfullyLoadedImages > 0) {
+      if (characterMappingText && successfullyLoadedImages > 0 && imageOrder.length > 0) {
         characterValidationText = `
 
 ═══════════════════════════════════════════════════════════════
-🔍 CHARACTER IDENTITY VALIDATION CHECKLIST (BEFORE GENERATING):
+🔍🔍🔍 CHARACTER IDENTITY VALIDATION CHECKLIST (BEFORE GENERATING) 🔍🔍🔍
 ═══════════════════════════════════════════════════════════════
 
-Before generating this image, VERIFY each character against their reference:
+⚠️⚠️⚠️ CRITICAL: Before generating this image, VERIFY each character against their reference image: ⚠️⚠️⚠️
 
 `
-        // Add per-character checklist
+        // Add per-character checklist with more detail
         for (const mapping of imageOrder) {
-          characterValidationText += `□ "${mapping.name}" → Check Reference Image ${mapping.index}:
-   • Face EXACTLY matches reference? ✓ / ✗
-   • Ethnicity EXACTLY matches reference? ✓ / ✗
-   • Age EXACTLY matches reference? ✓ / ✗
-   • Body type EXACTLY matches reference? ✓ / ✗
-
-`
+          characterValidationText += `━━━ VERIFICATION FOR "${mapping.name}" (Reference Image ${mapping.index}) ━━━\n`
+          characterValidationText += `□ Face structure EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Facial features (eyes, nose, mouth, jawline) EXACTLY match Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Ethnicity EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Skin tone EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Age EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Body type (height, build, proportions) EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ Hair color EXACTLY matches Reference Image ${mapping.index}? ✓ / ✗\n`
+          characterValidationText += `□ This is THE SAME PERSON from Reference Image ${mapping.index}, not a "similar" person? ✓ / ✗\n\n`
         }
 
-        characterValidationText += `🚨 CORE IDENTITY CHECKS - Verify before generating:
-• Face, ethnicity, age, body type MUST match reference
-• Clothing, hairstyle, accessories SHOULD adapt to scene
-
-═══════════════════════════════════════════════════════════════
-`
+        characterValidationText += `🚨🚨🚨 CORE IDENTITY VERIFICATION - ALL CHECKS MUST BE ✓ BEFORE GENERATING: 🚨🚨🚨\n`
+        characterValidationText += `• Face, ethnicity, age, body type, skin tone MUST match reference EXACTLY\n`
+        characterValidationText += `• Facial features (eyes, nose, mouth, jawline) MUST match reference EXACTLY\n`
+        characterValidationText += `• This is THE EXACT PERSON from the reference, not a "similar" person\n`
+        characterValidationText += `• Clothing, hairstyle, accessories CAN adapt to scene (but core identity must match)\n\n`
+        characterValidationText += `⚠️ IF ANY CHECK IS ✗ → DO NOT PROCEED → MATCH THE REFERENCE EXACTLY ⚠️\n`
+        characterValidationText += `═══════════════════════════════════════════════════════════════\n`
       }
 
       // Build enhanced prompt with scriptContext priority
@@ -456,11 +513,21 @@ VISUAL DESCRIPTION: ${sanitizedPrompt}`
         scenePrompt = sanitizedPrompt
       }
       
+      // Add aspect ratio/orientation instructions to prompt
+      let aspectRatioInstruction = ''
+      if (options.aspectRatio === '9:16') {
+        aspectRatioInstruction = '\n\nCRITICAL: Generate this image in PORTRAIT orientation (9:16 aspect ratio - vertical/portrait format). The image should be taller than it is wide, suitable for portrait/vertical display.'
+      } else if (options.aspectRatio === '1:1') {
+        aspectRatioInstruction = '\n\nCRITICAL: Generate this image in SQUARE format (1:1 aspect ratio). The image should have equal width and height.'
+      } else if (options.aspectRatio === '16:9') {
+        aspectRatioInstruction = '\n\nCRITICAL: Generate this image in LANDSCAPE orientation (16:9 aspect ratio - wide horizontal format). The image should be wider than it is tall.'
+      }
+      
       parts.push({ 
         text: `STYLE & CHARACTER REQUIREMENTS:${artStyleText}${characterAppearanceText}
 
 SCENE TO GENERATE:
-${scenePrompt}
+${scenePrompt}${aspectRatioInstruction}
 ${characterMatchingInstructions}
 
 ${options.scriptContext ? `CRITICAL: The image MUST depict the script action "${options.scriptContext}" exactly as described. This is the primary action happening in this frame.` : ''}
@@ -474,16 +541,38 @@ VISUAL STORYTELLING REQUIREMENTS:
 
 ${characterValidationText}
 
-🚨🚨🚨 FINAL REMINDER BEFORE GENERATING 🚨🚨🚨
-${characterImageMap && Object.keys(characterImageMap).length > 0 ? `
-The reference images above show each character's CORE IDENTITY (face, ethnicity, age, build).
-CORE FEATURES are MANDATORY and must match the reference exactly.
-ADAPTABLE FEATURES (clothing, hairstyle, accessories) should adapt to scene context.
-DO NOT change the character's core identity - maintain their face, ethnicity, age, and build.
-Scene-appropriate costume and styling variations are expected and encouraged.
+🚨🚨🚨🚨🚨 FINAL REMINDER BEFORE GENERATING - READ THIS CAREFULLY 🚨🚨🚨🚨🚨
+${options.characterImageMap && Object.keys(options.characterImageMap).length > 0 ? `
+⚠️⚠️⚠️ CRITICAL: The character reference images shown above are MANDATORY REQUIREMENTS. ⚠️⚠️⚠️
+
+These are NOT suggestions, guidelines, or inspirations - they are STRICT REQUIREMENTS.
+You MUST replicate each character's appearance PRECISELY from their reference image.
+
+CORE IDENTITY FEATURES (MANDATORY - NEVER CHANGE):
+• Face: Exact facial structure, bone structure, proportions, features - MUST match reference EXACTLY
+• Facial features: Eye shape, nose shape, mouth shape, jawline, cheekbones - ALL must match reference EXACTLY
+• Ethnicity: Must match reference image EXACTLY - no variations allowed
+• Skin tone: Must match reference image EXACTLY
+• Age: Must match reference image EXACTLY
+• Body type: Height, build, proportions must match reference EXACTLY
+• Hair color: Base color must match reference EXACTLY (can style differently)
+
+ADAPTABLE FEATURES (CAN CHANGE FOR SCENE):
+• Clothing: Can change for scene context (formal, casual, athletic, etc.)
+• Hairstyle: Can be styled differently (ponytail, loose, updo) while maintaining hair color
+• Accessories: Can add/remove glasses, jewelry, hats for scene context
+• Expression: Must match scene emotion and action
+
+🚨 DO NOT create new character designs. DO NOT interpret or reinterpret. COPY EXACTLY from the reference images.
+🚨 DO NOT create a "similar looking" person - use THE EXACT PERSON from the reference image.
+🚨 Character appearance matching is MORE IMPORTANT than scene composition - prioritize character likeness.
 ` : ''}
 
-REMINDER: The reference images above show the EXACT appearance of each character. When generating this scene, every character must look IDENTICALLY like their reference image - no variations, no creative interpretations. Match them exactly.` 
+🚨🚨🚨 ABSOLUTE FINAL REMINDER: 🚨🚨🚨
+The reference images above show the EXACT, MANDATORY appearance of each character.
+When generating this scene, every character MUST look IDENTICALLY like their reference image.
+NO variations. NO creative interpretations. NO "similar" people. COPY THE EXACT APPEARANCE.
+Match them EXACTLY - this is the HIGHEST PRIORITY requirement for this image generation.` 
       })
     } else {
       // No reference images - use standard prompt
@@ -571,17 +660,40 @@ REMINDER: The reference images above show the EXACT appearance of each character
     
   } catch (error: any) {
     const errorModelLabel = options.model === 'nano-banana-pro' ? 'NANO BANANA PRO' : 'NANO BANANA';
-    console.error(`❌ [${errorModelLabel}] Image generation failed:`, error);
+    console.error(`❌ [${errorModelLabel}] Image generation failed:`, {
+      error: error.message,
+      status: error.status,
+      statusCode: error.statusCode,
+      code: error.code,
+      fullError: error
+    });
     
     // Only retry with fallback if we were using Nano Banana Pro
     // If already using Nano Banana, don't retry
     if (options.model === 'nano-banana-pro') {
-      // Handle 429 rate limit errors - fallback to Nano Banana (gemini-2.5-flash-image)
-      if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('rate limit')) {
-        console.log(`🔄 [${errorModelLabel}] Rate limit (429) hit, falling back to Nano Banana...`);
+      // Check for 429/quota errors - be more specific to avoid false positives
+      const isRateLimitError = 
+        error.status === 429 || 
+        error.statusCode === 429 ||
+        error.code === 429 ||
+        (typeof error.message === 'string' && (
+          error.message.includes('429') ||
+          (error.message.toLowerCase().includes('quota') && error.message.toLowerCase().includes('exceeded')) ||
+          (error.message.toLowerCase().includes('rate limit') && error.message.toLowerCase().includes('exceeded')) ||
+          error.message.toLowerCase().includes('resource exhausted')
+        ));
+      
+      if (isRateLimitError) {
+        console.log(`🔄 [${errorModelLabel}] Rate limit (429/quota) detected, falling back to Nano Banana...`);
+        console.log(`📊 [${errorModelLabel}] Error details:`, {
+          status: error.status,
+          statusCode: error.statusCode,
+          code: error.code,
+          message: error.message?.substring(0, 200)
+        });
         
         try {
-          // Fallback to Nano Banana for 429 errors
+          // Fallback to Nano Banana for 429/quota errors ONLY
           return await generateImageWithNanoBanana(prompt, options);
         } catch (fallbackError: any) {
           console.error('❌ [NANO BANANA FALLBACK] Fallback to Nano Banana also failed:', fallbackError);
@@ -607,6 +719,10 @@ REMINDER: The reference images above show the EXACT appearance of each character
           };
         }
       }
+      
+      // For other errors with Nano Banana Pro, log but don't fallback
+      // This ensures we always try the primary model first on each request
+      console.warn(`⚠️ [${errorModelLabel}] Non-quota error occurred, NOT falling back. Error: ${error.message}`);
     }
     
     return {

@@ -308,6 +308,194 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
   }
 }
 
+// Helper function to build comprehensive story bible context
+function buildComprehensiveStoryBibleContext(storyBible: any): string {
+  if (!storyBible) return 'No story bible provided.';
+  
+  const sections: string[] = [];
+  
+  // Core Identity
+  sections.push('=== SERIES IDENTITY ===');
+  if (storyBible.seriesTitle) sections.push(`Series Title: ${storyBible.seriesTitle}`);
+  if (storyBible.genre) sections.push(`Genre: ${storyBible.genre}`);
+  if (storyBible.tone) sections.push(`Tone: ${storyBible.tone}`);
+  if (storyBible.targetAudience) {
+    const audience = typeof storyBible.targetAudience === 'string' 
+      ? storyBible.targetAudience 
+      : storyBible.targetAudience.primary || storyBible.targetAudience.primaryAudience || '';
+    if (audience) sections.push(`Target Audience: ${audience}`);
+  }
+  
+  // Premise
+  if (storyBible.premise) {
+    sections.push('\n=== PREMISE ===');
+    if (typeof storyBible.premise === 'string') {
+      sections.push(storyBible.premise);
+    } else {
+      if (storyBible.premise.premiseStatement) sections.push(storyBible.premise.premiseStatement);
+      if (storyBible.premise.coreConflict) sections.push(`Core Conflict: ${storyBible.premise.coreConflict}`);
+      if (storyBible.premise.stakes) sections.push(`Stakes: ${storyBible.premise.stakes}`);
+    }
+  }
+  
+  // Characters (ALL characters, not truncated) - Use full 3D profiles if available
+  if (storyBible.mainCharacters && storyBible.mainCharacters.length > 0) {
+    sections.push('\n=== CHARACTERS ===');
+    storyBible.mainCharacters.forEach((char: any, index: number) => {
+      const charDetails: string[] = [];
+      charDetails.push(`${index + 1}. ${char.name || 'Unnamed Character'}`);
+      if (char.archetype || char.premiseRole) charDetails.push(`   Archetype/Role: ${char.archetype || char.premiseRole}`);
+      
+      // 3D Character Profile
+      if (char.physiology && char.sociology && char.psychology) {
+        charDetails.push(`   PHYSIOLOGY: Age ${char.physiology.age}, ${char.physiology.gender}, ${char.physiology.appearance}`);
+        charDetails.push(`   SOCIOLOGY: ${char.sociology.class}, ${char.sociology.occupation}, ${char.sociology.education}`);
+        charDetails.push(`   PSYCHOLOGY: Core Value: ${char.psychology.coreValue}, Want: ${char.psychology.want}, Need: ${char.psychology.need}, Flaw: ${char.psychology.primaryFlaw}`);
+        if (char.psychology.temperament) charDetails.push(`   Temperament: ${Array.isArray(char.psychology.temperament) ? char.psychology.temperament.join(', ') : char.psychology.temperament}`);
+        if (char.psychology.moralStandpoint) charDetails.push(`   Moral Standpoint: ${char.psychology.moralStandpoint}`);
+        if (char.psychology.fears) {
+          const fears = Array.isArray(char.psychology.fears) ? char.psychology.fears.join(', ') : char.psychology.fears;
+          charDetails.push(`   Fears: ${fears}`);
+        }
+        if (char.psychology.strengths) {
+          const strengths = Array.isArray(char.psychology.strengths) ? char.psychology.strengths.join(', ') : char.psychology.strengths;
+          charDetails.push(`   Strengths: ${strengths}`);
+        }
+      }
+      
+      if (char.description) {
+        const desc = typeof char.description === 'string' ? char.description : JSON.stringify(char.description);
+        charDetails.push(`   Description: ${desc}`);
+      }
+      if (char.background || char.backstory) {
+        const bg = typeof (char.background || char.backstory) === 'string' ? (char.background || char.backstory) : JSON.stringify(char.background || char.backstory);
+        charDetails.push(`   Background: ${bg}`);
+      }
+      if (char.relationships) {
+        const rels = typeof char.relationships === 'string' ? char.relationships : JSON.stringify(char.relationships);
+        charDetails.push(`   Relationships: ${rels}`);
+      }
+      if (char.arc) {
+        const arc = typeof char.arc === 'string' ? char.arc : JSON.stringify(char.arc);
+        charDetails.push(`   Character Arc: ${arc}`);
+      }
+      if (char.motivation) charDetails.push(`   Motivation: ${char.motivation}`);
+      if (char.internalConflict) charDetails.push(`   Internal Conflict: ${char.internalConflict}`);
+      if (char.voice || char.voiceProfile) {
+        const voice = char.voiceProfile ? JSON.stringify(char.voiceProfile) : char.voice;
+        charDetails.push(`   Voice: ${voice}`);
+      }
+      if (char.goals) {
+        const goals = typeof char.goals === 'string' ? char.goals : JSON.stringify(char.goals);
+        charDetails.push(`   Goals: ${goals}`);
+      }
+      if (char.fears) {
+        const fears = typeof char.fears === 'string' ? char.fears : JSON.stringify(char.fears);
+        charDetails.push(`   Fears: ${fears}`);
+      }
+      if (char.secrets) {
+        const secrets = typeof char.secrets === 'string' ? char.secrets : JSON.stringify(char.secrets);
+        charDetails.push(`   Secrets: ${secrets}`);
+      }
+      sections.push(charDetails.join('\n'));
+    });
+  }
+  
+  // World Building
+  if (storyBible.worldBuilding) {
+    sections.push('\n=== WORLD BUILDING ===');
+    if (typeof storyBible.worldBuilding === 'string') {
+      sections.push(storyBible.worldBuilding);
+    } else {
+      if (storyBible.worldBuilding.setting) {
+        const setting = typeof storyBible.worldBuilding.setting === 'string' 
+          ? storyBible.worldBuilding.setting 
+          : JSON.stringify(storyBible.worldBuilding.setting);
+        sections.push(`Setting: ${setting}`);
+      }
+      if (storyBible.worldBuilding.rules) {
+        if (Array.isArray(storyBible.worldBuilding.rules)) {
+          sections.push(`World Rules:\n${storyBible.worldBuilding.rules.map((r: string) => `- ${r}`).join('\n')}`);
+        } else {
+          sections.push(`World Rules: ${storyBible.worldBuilding.rules}`);
+        }
+      }
+      if (storyBible.worldBuilding.locations && Array.isArray(storyBible.worldBuilding.locations)) {
+        sections.push('\nLocations:');
+        storyBible.worldBuilding.locations.forEach((loc: any) => {
+          const locDetails: string[] = [];
+          if (loc.name) locDetails.push(`  - ${loc.name}`);
+          if (loc.type) locDetails.push(`    Type: ${loc.type}`);
+          if (loc.description) {
+            const desc = typeof loc.description === 'string' ? loc.description : JSON.stringify(loc.description);
+            locDetails.push(`    Description: ${desc}`);
+          }
+          if (loc.significance) locDetails.push(`    Significance: ${loc.significance}`);
+          if (loc.atmosphere) locDetails.push(`    Atmosphere: ${loc.atmosphere}`);
+          if (loc.recurringEvents && Array.isArray(loc.recurringEvents)) {
+            locDetails.push(`    Recurring Events: ${loc.recurringEvents.join(', ')}`);
+          }
+          if (loc.conflicts && Array.isArray(loc.conflicts)) {
+            locDetails.push(`    Conflicts: ${loc.conflicts.join(', ')}`);
+          }
+          sections.push(locDetails.join('\n'));
+        });
+      }
+      if (storyBible.worldBuilding.atmosphere) sections.push(`Atmosphere: ${storyBible.worldBuilding.atmosphere}`);
+      if (storyBible.worldBuilding.culturalContext) sections.push(`Cultural Context: ${storyBible.worldBuilding.culturalContext}`);
+      if (storyBible.worldBuilding.visualStyle) sections.push(`Visual Style: ${storyBible.worldBuilding.visualStyle}`);
+    }
+  }
+  
+  // Themes
+  if (storyBible.theme || storyBible.themes) {
+    sections.push('\n=== THEMES ===');
+    if (storyBible.themes && Array.isArray(storyBible.themes)) {
+      storyBible.themes.forEach((theme: string, index: number) => {
+        sections.push(`${index + 1}. ${theme}`);
+      });
+    } else if (storyBible.theme) {
+      sections.push(storyBible.theme);
+    }
+  }
+  
+  // Narrative Elements
+  if (storyBible.narrativeElements) {
+    sections.push('\n=== NARRATIVE ELEMENTS ===');
+    if (storyBible.narrativeElements.callbacks) {
+      sections.push(`Callbacks: ${storyBible.narrativeElements.callbacks}`);
+    }
+    if (storyBible.narrativeElements.foreshadowing) {
+      sections.push(`Foreshadowing: ${storyBible.narrativeElements.foreshadowing}`);
+    }
+    if (storyBible.narrativeElements.recurringMotifs) {
+      sections.push(`Recurring Motifs: ${storyBible.narrativeElements.recurringMotifs}`);
+    }
+  }
+  
+  // Narrative Arcs
+  if (storyBible.narrativeArcs && Array.isArray(storyBible.narrativeArcs)) {
+    sections.push('\n=== NARRATIVE ARCS ===');
+    storyBible.narrativeArcs.forEach((arc: any, index: number) => {
+      const arcDetails: string[] = [];
+      arcDetails.push(`Arc ${index + 1}: ${arc.title || `Arc ${index + 1}`}`);
+      if (arc.summary) {
+        const summary = typeof arc.summary === 'string' ? arc.summary : JSON.stringify(arc.summary);
+        arcDetails.push(`  Summary: ${summary}`);
+      }
+      if (arc.episodes && Array.isArray(arc.episodes)) {
+        arcDetails.push(`  Episodes: ${arc.episodes.length} episodes`);
+        arc.episodes.forEach((ep: any) => {
+          if (ep.title) arcDetails.push(`    - Episode ${ep.number || '?'}: ${ep.title}`);
+        });
+      }
+      sections.push(arcDetails.join('\n'));
+    });
+  }
+  
+  return sections.join('\n');
+}
+
 function buildScriptPrompt(
   storyBible: any,
   episodeNumber: number,
@@ -317,13 +505,15 @@ function buildScriptPrompt(
   previousChoice?: string,
   editedScenes?: any
 ): string {
+  // Build comprehensive story bible context
+  const storyBibleContext = buildComprehensiveStoryBibleContext(storyBible);
   
   // Extract key story elements
   const seriesTitle = storyBible.seriesTitle || 'Untitled Series'
   const genre = storyBible.genre || 'Drama'
   const premise = storyBible.premise?.premiseStatement || 'A story unfolds...'
   
-  // Build COMPREHENSIVE character context using FULL 3D profiles
+  // Build COMPREHENSIVE character context using FULL 3D profiles (for detailed character writing guidance)
   const characters = (storyBible.mainCharacters || [])
     .map((char: any) => {
       // Check if this is a 3D character (has physiology, sociology, psychology)
@@ -390,16 +580,12 @@ Character Arc: ${char.arc || 'Growth journey throughout series'}
     })
     .join('\n')
 
-  // Build world context
-  const worldContext = storyBible.worldBuilding ? `
-WORLD & ATMOSPHERE:
-Setting: ${storyBible.worldBuilding.setting || 'Contemporary setting'}
-Atmosphere: ${storyBible.worldBuilding.atmosphere || 'Realistic and grounded'}
-Key Locations: ${(storyBible.worldBuilding.locations || []).map((loc: any) => 
-    `${loc.name}: ${loc.description} [${loc.atmosphere || 'Standard atmosphere'}]`).join(' | ') || 'Various locations'}
-Cultural Context: ${storyBible.worldBuilding.culturalContext || 'Modern society'}
-Visual Style: ${storyBible.worldBuilding.visualStyle || 'Cinematic realism'}
-  ` : ''
+  // World context is now included in comprehensive story bible context above
+  const worldContext = '' // World context is included in storyBibleContext
+  
+  // Get dialogue language from story bible settings
+  const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
+  const languageInstructions = getDialogueLanguageInstructions(dialogueLanguage)
 
   // Convert vibe settings to creative direction
   const vibeDirection = `
@@ -450,17 +636,15 @@ IMPORTANT: These edited scenes represent the user's creative vision and should b
 
   return `Create Episode ${episodeNumber} of "${seriesTitle}" based on the provided beat sheet, vibe settings, and creative direction.
 
-SERIES FOUNDATION:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Series: ${seriesTitle}
-Genre: ${genre}
-Premise: ${premise}
+${storyBibleContext}
 
-COMPLETE CHARACTER CONTEXT:${characters}
+DETAILED CHARACTER WRITING GUIDANCE:${characters}
 
 ${worldContext}
 
 ${vibeDirection}
+
+${languageInstructions}
 
 ${directorVision}
 
@@ -501,6 +685,7 @@ ADAPTATION REQUIREMENTS (MANDATORY):
    • Vivid sensory descriptions matching requested atmosphere
    • Character authenticity and series continuity
    • Compelling branching choices that emerge organically from the story
+   ${dialogueLanguage !== 'english' ? `• ALL DIALOGUE MUST BE IN ${dialogueLanguage.toUpperCase()} (narrative prose stays in English)` : ''}
 
 ⚠️ BEFORE YOU RETURN YOUR RESPONSE:
    - Verify you have 2-3 deep, substantial scenes appropriate for 5-minute runtime
@@ -508,6 +693,7 @@ ADAPTATION REQUIREMENTS (MANDATORY):
    - Confirm pacing is appropriate (are scenes slow/fast as requested?)
    - Ensure ALL director's notes are incorporated
    - Confirm each scene is fully developed, not rushed or shallow
+   ${dialogueLanguage !== 'english' ? `- VERIFY all dialogue is written in ${dialogueLanguage.toUpperCase()} with cultural authenticity` : ''}
 
 CRITICAL OUTPUT FORMAT:
 Return ONLY valid JSON in this exact structure:
@@ -545,6 +731,176 @@ Return ONLY valid JSON in this exact structure:
 }
 
 Transform the beat sheet into cinematic storytelling that perfectly executes the vibe settings and director's vision while maintaining the authentic voice and world of the series.`
+}
+
+// Helper function for dialogue language instructions
+function getDialogueLanguageInstructions(language: string): string {
+  const languageInstructions: Record<string, string> = {
+    'english': '',  // No special instructions for English (default)
+    'tagalog': `
+🗣️ DIALOGUE LANGUAGE: TAGLISH (Tagalog-English Code-Switching)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC TAGLISH:**
+- Characters naturally switch between Tagalog and English mid-sentence
+- Use Filipino expressions, idioms, and cultural references
+- Common patterns: "Ano ba 'yan!" / "Sige na!" / "Hay nako!" / "Aba!" / "Grabe!"
+- Mix English technical/modern terms with Tagalog emotional expressions
+- Examples of authentic Taglish dialogue:
+  * "Wait lang, I need to think about this muna."
+  * "Bakit mo ginawa 'yun? You know that's not right!"
+  * "I don't know anymore, pare. Ang hirap ng situation."
+  * "Let me explain, pero please, don't get mad."
+  * "So what now? Ano na ang plan natin?"
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate Filipino values: hiya, utang na loob, pakikisama, respeto
+- Use appropriate honorifics: Ate, Kuya, Tito, Tita, Ma, Pa
+- Include Filipino gestures/mannerisms in action descriptions (lip pointing, eyebrow raising for yes)
+- Reference Filipino contexts, food, places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Taglish
+`,
+    'thai': `
+🗣️ DIALOGUE LANGUAGE: THAI (ภาษาไทย)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC THAI:**
+- Write all character dialogue in Thai script (ภาษาไทย)
+- Use appropriate Thai politeness particles: ครับ (khrap), ค่ะ (ka), นะ (na)
+- Include Thai expressions and idioms naturally
+- Examples of Thai dialogue:
+  * "ทำไมเธอถึงทำแบบนั้นล่ะ?"
+  * "ฉันไม่เข้าใจเลย... มันเกิดอะไรขึ้น?"
+  * "ใจเย็นๆ นะ เดี๋ยวเราค่อยคุยกัน"
+  * "อย่าไปคิดมากเลย สู้ๆ นะ"
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate Thai cultural values: greng jai (consideration), kruu (respect for elders), sanuk (fun)
+- Use appropriate Thai honorifics and pronouns based on relationships and age
+- Include Thai-specific gestures and customs in descriptions (wai greeting, etc.)
+- Reference Thai contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Thai script
+`,
+    'spanish': `
+🗣️ DIALOGUE LANGUAGE: SPANISH (Español)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC SPANISH:**
+- Write all character dialogue in natural, conversational Spanish
+- Use regional variations appropriately (Latin American or Castilian as fits the story)
+- Include Spanish expressions, idioms, and interjections
+- Examples of Spanish dialogue:
+  * "¿Por qué hiciste eso? No lo entiendo."
+  * "Mira, necesito que me escuches bien."
+  * "¡Ay, Dios mío! ¿Qué vamos a hacer ahora?"
+  * "No te preocupes, todo va a salir bien."
+  * "¿Sabes qué? Ya me cansé de esta situación."
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate cultural values: familia, honor, respeto
+- Use appropriate formality levels (tú vs usted) based on character relationships
+- Include culturally-specific gestures and customs in descriptions
+- Reference appropriate cultural contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Spanish
+`,
+    'korean': `
+🗣️ DIALOGUE LANGUAGE: KOREAN (한국어)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC KOREAN:**
+- Write all character dialogue in Korean script (한글)
+- Use appropriate speech levels based on relationships (존댓말/반말)
+- Include Korean expressions and interjections naturally
+- Examples of Korean dialogue:
+  * "왜 그랬어? 이해가 안 돼."
+  * "잠깐만, 내 얘기 좀 들어봐."
+  * "어떡해... 이제 어떻게 해야 해?"
+  * "괜찮아, 다 잘 될 거야."
+  * "진짜? 그게 사실이야?"
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate Korean cultural values: jeong (affection), nunchi (social awareness), respect for hierarchy
+- Use appropriate honorifics and titles: 형/누나/오빠/언니, 선배/후배, -씨, -님
+- Include Korean-specific gestures and customs in descriptions (bowing, etc.)
+- Reference Korean contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Korean script
+`,
+    'japanese': `
+🗣️ DIALOGUE LANGUAGE: JAPANESE (日本語)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC JAPANESE:**
+- Write all character dialogue in Japanese (using appropriate mix of hiragana, katakana, kanji)
+- Use appropriate politeness levels based on relationships (敬語/タメ語)
+- Include Japanese expressions and interjections naturally
+- Examples of Japanese dialogue:
+  * "どうしてそんなことをしたの？"
+  * "ちょっと待って、話を聞いて。"
+  * "どうしよう...これからどうすればいい？"
+  * "大丈夫、きっとうまくいくよ。"
+  * "本当に？信じられない..."
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate Japanese cultural values: wa (harmony), giri (duty), honne/tatemae
+- Use appropriate honorifics: -san, -kun, -chan, -sama, senpai/kohai
+- Include Japanese-specific gestures and customs in descriptions (bowing levels, etc.)
+- Reference Japanese contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Japanese script
+`,
+    'french': `
+🗣️ DIALOGUE LANGUAGE: FRENCH (Français)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC FRENCH:**
+- Write all character dialogue in natural, conversational French
+- Use appropriate formality (tu vs vous) based on character relationships
+- Include French expressions and interjections naturally
+- Examples of French dialogue:
+  * "Pourquoi tu as fait ça? Je ne comprends pas."
+  * "Écoute, il faut qu'on parle sérieusement."
+  * "Mon Dieu... Qu'est-ce qu'on va faire maintenant?"
+  * "Ne t'inquiète pas, tout va s'arranger."
+  * "Tu sais quoi? J'en ai marre de cette situation."
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate French cultural nuances and communication style
+- Use appropriate levels of formality based on relationships
+- Include culturally-specific gestures and customs in descriptions
+- Reference French contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in French
+`,
+    'chinese': `
+🗣️ DIALOGUE LANGUAGE: CHINESE (中文)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**ALL DIALOGUE MUST BE IN AUTHENTIC MANDARIN CHINESE:**
+- Write all character dialogue in Chinese characters (简体中文 or 繁體中文 as appropriate)
+- Use appropriate formality based on relationships and context
+- Include Chinese expressions and interjections naturally
+- Examples of Chinese dialogue:
+  * "你为什么要这样做？我不明白。"
+  * "等一下，听我说。"
+  * "怎么办...我们现在该怎么办？"
+  * "别担心，一切都会好起来的。"
+  * "真的吗？我简直不敢相信。"
+
+**CULTURAL AUTHENTICITY:**
+- Incorporate Chinese cultural values: 面子 (face), 孝 (filial piety), 关系 (relationships)
+- Use appropriate titles and terms of address based on relationships
+- Include Chinese-specific gestures and customs in descriptions
+- Reference Chinese contexts, food, and places naturally
+
+**NARRATIVE PROSE REMAINS IN ENGLISH** - Only dialogue is in Chinese characters
+`
+  }
+  
+  return languageInstructions[language] || languageInstructions['english'] || ''
 }
 
 // Helper functions for vibe direction

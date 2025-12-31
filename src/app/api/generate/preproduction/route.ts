@@ -30,6 +30,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Set maximum execution time to 30 minutes (1800 seconds) for Safari compatibility
+export const maxDuration = 1800
 import {
   generateV2Scripts,
   generateV2Storyboards,
@@ -179,8 +182,11 @@ export async function POST(request: NextRequest) {
       cameraMovementPreference: 'fluid' as const,
       genreConsideration: true,
       colorPsychologyFocus: true,
-      generateImages: true, // NEW: Enable image generation
-      imageQuality: 'standard' as const
+      generateImages: false, // DISABLED: Images should be generated manually via "Generate All Images" button
+      imageQuality: 'standard' as const,
+      generateVideos: false, // Opt-in: Enable video generation (uses VEO 3 credits)
+      videoQuality: 'high' as const,
+      maxVideosPerScene: 2 // Maximum videos per scene
     };
     
     const storyboardResult = await generateV2Storyboards(

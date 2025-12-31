@@ -177,6 +177,18 @@ export default function EpisodesList({ episodes, arcTitle, arcDescription }: Epi
           </div>
         )}
 
+        {/* Disclaimer Banner */}
+        <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">ℹ️</span>
+            <div className="flex-1">
+              <p className="text-sm text-white/90 leading-relaxed">
+                <strong className="text-[#10B981]">Note:</strong> This is the rough, uncut, unenhanced narrative of the episode used as the reference for the AI showrunner in writing the rest of the materials. For the full narrative experience, please read the screenplay instead.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Search and Sort */}
         <div className="bg-[#121212] border border-[#10B981]/20 rounded-lg p-4 flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">

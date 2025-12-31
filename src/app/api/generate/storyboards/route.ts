@@ -2,7 +2,7 @@
  * API Route: Generate Storyboard Frames
  * 
  * Generates comprehensive storyboard frames for all scenes based on script breakdown and screenplay
- * Uses EngineAIRouter with Gemini 2.5 Pro for visual storytelling and shot breakdown
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for visual storytelling and shot breakdown
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Story Bible data received:', storyBibleData.seriesTitle || storyBibleData.title || 'Untitled')
 
     console.log('\n🤖 Generating storyboard frames with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: Detailed storyboard frames for all scenes')
     console.log('  Includes: Visual descriptions, camera specs, image prompts, lighting notes')
 

@@ -211,7 +211,7 @@ async function testGemini25(scenario: TestScenario) {
   const startTime = Date.now()
   
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-3-pro-preview',
     generationConfig: {
       temperature: 0.9,
       maxOutputTokens: 8000,

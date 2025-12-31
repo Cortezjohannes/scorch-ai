@@ -1,8 +1,28 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextResponse } from 'next/server'
 
+// Primary model
+const PRIMARY_MODEL = 'gemini-3-pro-preview';
+
 // Initialize Google Generative AI with your API key
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || '')
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY || process.env.GEMINI_API_KEY || '')
+
+/**
+ * Generate content with Gemini
+ */
+async function generateWithGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GOOGLE_AI_KEY || process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured')
+  }
+  
+  const genAI = new GoogleGenerativeAI(apiKey)
+  console.log(`🚀 [PHASE2] Using model: ${PRIMARY_MODEL}`)
+  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL })
+  const result = await model.generateContent(prompt)
+  const response = await result.response
+  return response.text()
+}
 
 // Cache for storing image URLs to prevent duplicate searches
 const imageCache: { [key: string]: string } = {}
@@ -83,9 +103,6 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' })
 
     // Create a detailed prompt for Phase 2 pre-production content
     const prompt = `As a film pre-production expert, create a detailed Phase 2 pre-production plan for a film with the following synopsis: "${synopsis}" and theme: "${theme}".
@@ -204,10 +221,8 @@ The response should be a JSON object with the following structure:
 
 Focus on providing detailed visual descriptions that can be used to find reference images. Make the content realistic and professional.`
 
-    // Generate the content
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    // Generate the content with fallback for 429 rate limits
+    const text = await generateWithGemini(prompt)
 
     // Parse the response as JSON
     let content

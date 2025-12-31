@@ -41,11 +41,11 @@ export function getEpisodeRangeForArc(storyBible: any, arcIndex: number): number
   
   let runningCount = 0
   for (let i = 0; i < arcIndex; i++) {
-    runningCount += storyBible.narrativeArcs[i].episodes?.length || 10
+    runningCount += storyBible.narrativeArcs[i].episodes?.length || 8
   }
   
   const arc = storyBible.narrativeArcs[arcIndex]
-  const arcEpisodeCount = arc?.episodes?.length || 10
+  const arcEpisodeCount = arc?.episodes?.length || 8
   
   return Array.from({ length: arcEpisodeCount }, (_, i) => runningCount + i + 1)
 }

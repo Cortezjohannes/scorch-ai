@@ -1,527 +1,554 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState, useContext, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useVideo } from '@/context/VideoContext'
+import { useAuth } from '@/context/AuthContext'
+import { getEpisodePreProduction } from '@/services/preproduction-firestore'
+import { getStoryBible } from '@/services/story-bible-service'
+import { getEpisodeRangeForArc } from '@/services/preproduction-firestore'
 
-export function FootageOrganization() {
-  const [selectedFolder, setSelectedFolder] = useState<string>('all')
-  const { uploadedVideos, addVideos: originalAddVideos, removeVideo, selectedVideo, setSelectedVideo } = useVideo()
-  const [dragActive, setDragActive] = useState<boolean>(false)
-  const [uploadComplete, setUploadComplete] = useState<boolean>(false)
-  const [mockSceneNames, setMockSceneNames] = useState<string[]>([
-    'Scene 1 - Opening Shot',
-    'Scene 2 - Character Introduction',
-    'Scene 3 - Conversation', 
-    'Scene 4 - Conflict',
-    'Scene 5 - Resolution'
-  ])
-  
-  // Add pre-production compliance check state
-  const [showPreproductionCheck, setShowPreproductionCheck] = useState<boolean>(false)
-  const [isCheckingPreproduction, setIsCheckingPreproduction] = useState<boolean>(false)
-  const [preproductionCheckProgress, setPreproductionCheckProgress] = useState<number>(0)
-  const [preproductionChecks, setPreproductionChecks] = useState([
-    { id: 'narrative', name: 'Narrative Compliance', status: 'pending', confidence: 0, matchScore: 0 },
-    { id: 'storyboard', name: 'Storyboard Adherence', status: 'pending', confidence: 0, matchScore: 0 },
-    { id: 'visual-dev', name: 'Visual Development Match', status: 'pending', confidence: 0, matchScore: 0 },
-    { id: 'script', name: 'Script Coverage', status: 'pending', confidence: 0, matchScore: 0 },
-    { id: 'color-palette', name: 'Color Palette Adherence', status: 'pending', confidence: 0, matchScore: 0 },
-    { id: 'shot-composition', name: 'Shot Composition', status: 'pending', confidence: 0, matchScore: 0 },
-  ])
-  
-  // Images for reference from pre-production
-  const [preproductionReferences] = useState([
-    { type: 'storyboard', src: '/storyboard-1.jpg', frame: 1 },
-    { type: 'storyboard', src: '/storyboard-2.jpg', frame: 2 },
-    { type: 'visual-dev', src: '/visual-dev-1.jpg', name: 'Main Location' },
-    { type: 'visual-dev', src: '/visual-dev-2.jpg', name: 'Character Design' },
-  ])
-  
-  const folders = [
-    { id: 'all', name: 'All Footage', count: uploadedVideos.length },
-    { id: 'scenes', name: 'Scenes', count: uploadedVideos.filter(v => v.type === 'video').length },
-    { id: 'audio', name: 'Audio', count: uploadedVideos.filter(v => v.type === 'audio').length },
-    { id: 'other', name: 'Other', count: uploadedVideos.filter(v => v.type === 'image').length },
-  ]
-  
-  // Override addVideos to work entirely client-side with real files
-  const addVideos = (files: File[]) => {
-    if (!files.length) return;
-    
-    console.log('Processing files locally:', files.length);
-    
-    // Mark upload as complete
-    setUploadComplete(true);
-    
-    // Create simple mock files without waiting for metadata
-    const mockFiles = Array.from(files).map(file => {
-      return {
-        id: `local-${Date.now()}-${Math.random().toString(36).substring(2)}`,
-        name: file.name,
-        url: URL.createObjectURL(file),
-        uploadDate: new Date().toISOString(),
-        size: file.size,
-        type: file.type.includes('video') ? 'video' : 
-              file.type.includes('audio') ? 'audio' : 'image',
-        status: 'ready' as const,
-        duration: 60, // Mock duration
-        metadata: {}
-      };
-    });
-    
-    // Force update the context
-    mockFiles.forEach(mockFile => {
-      // @ts-ignore - Type issues don't matter for demo
-      originalAddVideos([new File([], mockFile.name)]);
-    });
-    
-    // Always select the first mock file to ensure something is displayed
-    if (mockFiles.length > 0) {
-      // @ts-ignore - Type issues don't matter for demo
-      setSelectedVideo(mockFiles[0]);
-    }
-    
-    // Run pre-production check immediately after upload
-    setTimeout(() => {
-      runPreproductionCheck();
-    }, 100);
-  };
-  
-  // Helper function to format file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-  
-  // Show upload area only if there are no uploaded videos yet
-  const shouldShowUploadArea = uploadedVideos.length === 0;
-  
-  // Handle file input change
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      console.log('Files selected via input:', e.target.files.length);
-      
-      // Create a proper Array from FileList
-      const filesArray = Array.from(e.target.files);
-      console.log('File types:', filesArray.map(f => f.type).join(', '));
-      
-      // Use the centralized upload handler
-      addVideos(filesArray);
-      
-      // Reset the input to allow selecting the same file again
-      e.target.value = '';
-    }
-  }
-  
-  // Handle drag events
-  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }
-  
-  // Handle drop event
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      console.log('Files dropped:', e.dataTransfer.files.length);
-      
-      // Create a proper Array from FileList
-      const filesArray = Array.from(e.dataTransfer.files);
-      console.log('File types:', filesArray.map(f => f.type).join(', '));
-      
-      // Use the centralized upload handler
-      addVideos(filesArray);
-    }
-  }
-  
-  // Match uploaded files with scene names for better organization
+interface FootageOrganizationProps {
+  storyBibleId?: string
+  episodeNumber?: number
+  arcIndex?: number | null
+  arcEpisodes?: number[]
+}
+
+interface SceneData {
+  sceneNumber: number
+  sceneTitle?: string
+  location?: string
+  storyboardFrames: Array<{
+    id: string
+    shotNumber: number
+    frameImage?: string
+    description?: string
+    cameraAngle?: string
+  }>
+}
+
+interface EpisodeData {
+  episodeNumber: number
+  episodeTitle?: string
+  scenes: SceneData[]
+}
+
+export function FootageOrganization({ 
+  storyBibleId, 
+  episodeNumber, 
+  arcIndex, 
+  arcEpisodes 
+}: FootageOrganizationProps) {
+  const { user } = useAuth()
+  const { uploadedVideos, addVideos, selectedVideo, setSelectedVideo, updateVideoMetadata } = useVideo()
+  const [isLoading, setIsLoading] = useState(true)
+  const [episodesData, setEpisodesData] = useState<Map<number, EpisodeData>>(new Map())
+  const [availableEpisodes, setAvailableEpisodes] = useState<number[]>([])
+  const [currentEpisode, setCurrentEpisode] = useState<number>(episodeNumber || (arcEpisodes && arcEpisodes.length > 0 ? arcEpisodes[0] : 1))
+  const [dragActive, setDragActive] = useState<Record<string, boolean>>({})
+  const [uploadingScenes, setUploadingScenes] = useState<Record<string, boolean>>({})
+  const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set())
+
+  // Determine available episodes
   useEffect(() => {
-    // This is just a mock implementation that matches based on position
-    const updatedVideos = uploadedVideos.map((video, index) => {
-      if (video.type === 'video' && index < mockSceneNames.length) {
-        return {
-          ...video,
-          matchedSceneName: mockSceneNames[index]
+    const determineEpisodes = async () => {
+      if (!storyBibleId || !user?.id) return
+
+      let episodes: number[] = []
+      
+      if (arcIndex !== null && arcIndex !== undefined && arcEpisodes && arcEpisodes.length > 0) {
+        episodes = arcEpisodes
+      } else if (episodeNumber !== undefined && episodeNumber > 0) {
+        episodes = [episodeNumber]
+      } else {
+        const storyBible = await getStoryBible(storyBibleId, user.id)
+        if (storyBible && arcIndex !== null && arcIndex !== undefined) {
+          episodes = getEpisodeRangeForArc(storyBible, arcIndex)
         }
       }
-      return video
-    })
-    
-    // We don't actually update the videos here since the context doesn't support this operation
-    // This would update matchedSceneName in a real implementation
-  }, [uploadedVideos, mockSceneNames])
-  
-  // Function to simulate pre-production compliance check
-  const runPreproductionCheck = () => {
-    setIsCheckingPreproduction(true)
-    setPreproductionCheckProgress(0)
-    setShowPreproductionCheck(true)
-    
-    // Reset all checks to pending
-    setPreproductionChecks(checks => 
-      checks.map(check => ({ ...check, status: 'pending', confidence: 0, matchScore: 0 }))
-    )
-    
-    // Simulate progress - faster to complete quickly
-    const progressInterval = setInterval(() => {
-      setPreproductionCheckProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval)
-          return 100
+
+      if (episodes.length > 0) {
+        setAvailableEpisodes(episodes)
+        const targetEpisode = (episodeNumber !== undefined && episodeNumber > 0) ? episodeNumber : episodes[0]
+        if (targetEpisode !== currentEpisode) {
+          setCurrentEpisode(targetEpisode)
         }
-        return prev + 4 // Faster progress
-      })
-    }, 25) // Faster interval
-    
-    // Simulate checking each item with delays
-    preproductionChecks.forEach((check, index) => {
-      setTimeout(() => {
-        setPreproductionChecks(prev => {
-          return prev.map((c, i) => {
-            if (i === index) {
-              // Generate random confidence and match scores for visual effect
-              const confidence = Math.floor(Math.random() * 30) + 65 // 65-94%
-              const matchScore = Math.floor(Math.random() * 36) + 60 // 60-95%
-              
-              return { 
-                ...c, 
-                status: 'checking',
-                confidence: 0,
-                matchScore: 0
-              }
-            }
-            return c
-          })
-        })
+      }
+    }
+
+    determineEpisodes()
+  }, [storyBibleId, episodeNumber, arcIndex, arcEpisodes, user?.id, currentEpisode])
+
+  // Load pre-production data for current episode
+  useEffect(() => {
+    const loadEpisodeData = async () => {
+      if (!storyBibleId || !currentEpisode || !user?.id) {
+        setIsLoading(false)
+        return
+      }
+
+      if (episodesData.has(currentEpisode)) {
+        setIsLoading(false)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const preProdData = await getEpisodePreProduction(user.id, storyBibleId, currentEpisode)
         
-        // Animate the confidence score going up for this check
-        let confidenceCounter = 0
-        let matchCounter = 0
-        const confidenceInterval = setInterval(() => {
-          confidenceCounter += 5 // Faster confidence increase
-          matchCounter += 5 // Faster match score increase
-          
-          setPreproductionChecks(prev => {
-            return prev.map((c, i) => {
-              if (i === index) {
-                // Generate random confidence and match scores
-                const confidence = Math.floor(Math.random() * 30) + 65 // 65-94%
-                const matchScore = Math.floor(Math.random() * 36) + 60 // 60-95%
-                
-                return { 
-                  ...c, 
-                  confidence: Math.min(confidenceCounter, confidence),
-                  matchScore: Math.min(matchCounter, matchScore) 
-                }
-              }
-              return c
+        if (!preProdData) {
+          console.warn(`No pre-production data found for episode ${currentEpisode}`)
+          setIsLoading(false)
+          return
+        }
+
+        const sceneMap = new Map<number, SceneData>()
+
+        if (preProdData.storyboards?.scenes) {
+          preProdData.storyboards.scenes.forEach((scene: any) => {
+            const sceneNum = scene.sceneNumber || scene.number || 0
+            sceneMap.set(sceneNum, {
+              sceneNumber: sceneNum,
+              storyboardFrames: (scene.frames || []).map((frame: any) => ({
+                id: frame.id || frame.frameId || '',
+                shotNumber: frame.shotNumber || frame.number || 0,
+                frameImage: frame.frameImage,
+                description: frame.description || frame.notes,
+                cameraAngle: frame.cameraAngle || frame.angle,
+              }))
             })
           })
-          
-          if (confidenceCounter >= 100) {
-            clearInterval(confidenceInterval)
+        }
+
+        if (preProdData.shotList?.scenes) {
+          preProdData.shotList.scenes.forEach((shotScene: any) => {
+            const sceneNum = shotScene.sceneNumber || shotScene.number || 0
+            const existing = sceneMap.get(sceneNum)
             
-            // Mark as completed after confidence reaches target
-            setPreproductionChecks(prev => {
-              return prev.map((c, i) => {
-                if (i === index) {
-                  return { ...c, status: 'completed' }
-                }
-                return c
+            if (existing) {
+              existing.sceneTitle = shotScene.sceneTitle || shotScene.title || existing.sceneTitle
+              existing.location = shotScene.location || existing.location
+            } else {
+              sceneMap.set(sceneNum, {
+                sceneNumber: sceneNum,
+                sceneTitle: shotScene.sceneTitle || shotScene.title,
+                location: shotScene.location,
+                storyboardFrames: []
               })
-            })
-          }
-        }, 10) // Faster interval
-      }, index * 300) // Faster stagger time
+            }
+          })
+        }
+
+        const scenesArray = Array.from(sceneMap.values())
+          .sort((a, b) => a.sceneNumber - b.sceneNumber)
+
+        const episodeData: EpisodeData = {
+          episodeNumber: currentEpisode,
+          episodeTitle: preProdData.episodeTitle,
+          scenes: scenesArray
+        }
+
+        setEpisodesData(prev => {
+          const newMap = new Map(prev)
+          newMap.set(currentEpisode, episodeData)
+          return newMap
+        })
+
+        // Auto-expand first scene
+        if (scenesArray.length > 0) {
+          setExpandedScenes(prev => new Set([...prev, scenesArray[0].sceneNumber]))
+        }
+      } catch (error) {
+        console.error(`Error loading episode ${currentEpisode} data:`, error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadEpisodeData()
+  }, [storyBibleId, currentEpisode, user?.id, episodesData])
+
+  useEffect(() => {
+    if (episodeNumber !== undefined && episodeNumber > 0 && episodeNumber !== currentEpisode) {
+      setCurrentEpisode(episodeNumber)
+    } else if (!episodeNumber && arcEpisodes && arcEpisodes.length > 0 && arcEpisodes[0] !== currentEpisode) {
+      setCurrentEpisode(arcEpisodes[0])
+    }
+  }, [episodeNumber, arcEpisodes, currentEpisode])
+
+  const toggleScene = (sceneNumber: number) => {
+    setExpandedScenes(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(sceneNumber)) {
+        newSet.delete(sceneNumber)
+      } else {
+        newSet.add(sceneNumber)
+      }
+      return newSet
     })
-    
-    // Finish checking after all items are processed - faster completion
-    setTimeout(() => {
-      setIsCheckingPreproduction(false)
-    }, preproductionChecks.length * 300 + 500) // Faster completion time
   }
-  
-  // Add or update the thumbnail display for videos
-  const renderVideoThumbnails = () => {
-    // If no videos, show empty state or placeholders
-    if (uploadedVideos.length === 0) return null;
-    
-    console.log('Displaying videos:', uploadedVideos.length);
-    
+
+  const handleSceneFileUpload = async (sceneNumber: number, files: File[]) => {
+    if (!files.length) return
+
+    const sceneKey = `${currentEpisode}-${sceneNumber}`
+    setUploadingScenes(prev => ({ ...prev, [sceneKey]: true }))
+
+    try {
+      addVideos(files)
+
+      const currentEpisodeData = episodesData.get(currentEpisode)
+      const scene = currentEpisodeData?.scenes.find(s => s.sceneNumber === sceneNumber)
+      const sceneTitle = scene?.sceneTitle
+      const matchedSceneName = `Episode ${currentEpisode} - Scene ${sceneNumber}${sceneTitle ? ` - ${sceneTitle}` : ''}`
+
+      setTimeout(async () => {
+        const recentVideos = uploadedVideos.filter(v => {
+          const uploadTime = new Date(v.uploadDate).getTime()
+          const now = Date.now()
+          return (now - uploadTime) < 5000
+        })
+
+        for (const video of recentVideos) {
+          try {
+            await updateVideoMetadata(video.id, {
+              metadata: {
+                ...video.metadata,
+                episodeNumber: currentEpisode,
+                sceneNumber,
+                matchedSceneName
+              }
+            })
+          } catch (err) {
+            console.error('Error updating video metadata:', err)
+          }
+        }
+      }, 2000)
+    } catch (error) {
+      console.error('Error uploading files:', error)
+    } finally {
+      setUploadingScenes(prev => ({ ...prev, [sceneKey]: false }))
+    }
+  }
+
+  const handleDrag = (e: React.DragEvent, sceneNumber: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const sceneKey = `${currentEpisode}-${sceneNumber}`
+
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(prev => ({ ...prev, [sceneKey]: true }))
+    } else if (e.type === 'dragleave') {
+      setDragActive(prev => ({ ...prev, [sceneKey]: false }))
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, sceneNumber: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const sceneKey = `${currentEpisode}-${sceneNumber}`
+    setDragActive(prev => ({ ...prev, [sceneKey]: false }))
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const filesArray = Array.from(e.dataTransfer.files)
+      handleSceneFileUpload(sceneNumber, filesArray)
+    }
+  }
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>, sceneNumber: number) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files)
+      handleSceneFileUpload(sceneNumber, filesArray)
+      e.target.value = ''
+    }
+  }
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const currentEpisodeData = episodesData.get(currentEpisode)
+  const currentScenes = currentEpisodeData?.scenes || []
+
+  if (isLoading && !currentEpisodeData) {
     return (
-      <div className="mt-6">
-        <h3 className="text-lg font-medium mb-3">Video Preview</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {uploadedVideos.map((video, index) => (
-            <motion.div 
-              key={video.id || index}
-              initial={{ opacity: 0, y: 20 }}
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#10B981] mb-4"></div>
+          <p className="text-gray-400">Loading episode {currentEpisode} data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentEpisodeData || currentScenes.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-400 text-lg mb-2">No pre-production data found</p>
+        <p className="text-gray-500 text-sm">
+          Please complete pre-production (storyboards/shot list) for episode {currentEpisode} first.
+        </p>
+        <p className="text-gray-500 text-xs mt-2">
+          Make sure storyboards are generated in the Storyboards tab.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header - Simplified */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl sm:text-2xl font-bold text-[#10B981]">Footage Organization</h2>
+        <p className="text-sm text-gray-400">
+          {currentScenes.length} scene{currentScenes.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+
+      {/* Scene sections - Collapsible */}
+      <div className="space-y-3">
+        {currentScenes.map((scene, sceneIndex) => {
+          const sceneKey = `${currentEpisode}-${scene.sceneNumber}`
+          const sceneFiles = uploadedVideos.filter(v => 
+            v.metadata?.episodeNumber === currentEpisode && 
+            v.metadata?.sceneNumber === scene.sceneNumber
+          )
+          const isExpanded = expandedScenes.has(scene.sceneNumber)
+
+          return (
+            <motion.div
+              key={sceneKey}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-              className={`relative rounded-lg overflow-hidden cursor-pointer border-2 ${
-                selectedVideo?.id === video.id ? 'border-[#e2c376]' : 'border-transparent'
-              }`}
-              onClick={() => {
-                // @ts-ignore - Ignore type errors for functionality
-                setSelectedVideo(video);
-              }}
+              transition={{ duration: 0.2, delay: sceneIndex * 0.05 }}
+              className="bg-[#121212] border border-[#10B981]/20 rounded-xl overflow-hidden hover:border-[#10B981]/40 transition-all"
             >
-              <div className="aspect-video bg-black relative group">
-                {/* Video thumbnail */}
-                {video.type === 'video' ? (
-                  <div className="w-full h-full bg-[#1e1e20] flex items-center justify-center">
-                    <svg className="w-12 h-12 text-[#e2c376]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+              {/* Collapsible Scene Header */}
+              <button
+                onClick={() => toggleScene(scene.sceneNumber)}
+                className="w-full p-5 flex items-center justify-between hover:bg-[#1a1a1a]/50 transition-colors"
+              >
+                <div className="flex items-center gap-4 flex-1 text-left">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center">
+                    <span className="text-[#10B981] font-bold text-lg">{scene.sceneNumber}</span>
                   </div>
-                ) : video.type === 'image' ? (
-                  <div className="w-full h-full bg-[#1e1e20] flex items-center justify-center">
-                    <svg className="w-12 h-12 text-[#e2c376]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="w-full h-full bg-[#1e1e20] flex items-center justify-center">
-                    <svg className="w-12 h-12 text-[#e2c376]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.06-7.072m-1.06 7.072a9 9 0 001.06-12.728"></path>
-                    </svg>
-                  </div>
-                )}
-                
-                {/* File type indicator */}
-                <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
-                  {video.type.toUpperCase()}
-                </div>
-                
-                {/* File name */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-1 px-2">
-                  <div className="text-xs font-medium truncate text-white">{video.name}</div>
-                </div>
-                
-                {/* Selected indicator */}
-                {selectedVideo?.id === video.id && (
-                  <div className="absolute top-2 right-2">
-                    <div className="bg-[#e2c376] rounded-full p-1">
-                      <svg className="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-white mb-1">
+                      {scene.sceneTitle || `Scene ${scene.sceneNumber}`}
+                    </h3>
+                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                      {scene.location && (
+                        <span className="flex items-center gap-1.5">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {scene.location}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {scene.storyboardFrames.length} frame{scene.storyboardFrames.length !== 1 ? 's' : ''}
+                      </span>
+                      {sceneFiles.length > 0 && (
+                        <span className="flex items-center gap-1.5 text-[#10B981]">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          {sceneFiles.length} file{sceneFiles.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Add the formatDuration helper function
-  const formatDuration = (seconds?: number): string => {
-    if (seconds === undefined) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  // Auto-run pre-production check if not already shown
-  useEffect(() => {
-    // Always show pre-production check, even without uploads
-    if (!showPreproductionCheck && !isCheckingPreproduction) {
-      runPreproductionCheck();
-    }
-  }, [showPreproductionCheck, isCheckingPreproduction]);
-  
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-[#e2c376]">Footage Organization</h2>
-        
-        <div className="flex space-x-2">
-            <button 
-              onClick={runPreproductionCheck}
-              className="cursor-pointer px-3 py-2 rounded-md bg-[#36393f] text-white font-medium hover:bg-[#4f535a] transition-colors flex items-center"
-            >
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-              </svg>
-              Run Pre-Production Check
-            </button>
-          <label className="btn-primary cursor-pointer px-3 py-2 rounded-md bg-[#e2c376] text-black font-medium hover:bg-[#d4b46a] transition-colors">
-            Upload Files
-            <input 
-              type="file" 
-              multiple 
-              accept="video/*,audio/*,image/*" 
-              className="hidden" 
-              onChange={handleFileChange}
-            />
-          </label>
-        </div>
-      </div>
-      
-      {/* Drag and drop area */}
-      {shouldShowUploadArea && (
-        <div 
-          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200 ${
-            dragActive ? 'border-[#e2c376] bg-[#e2c376]/10' : 'border-gray-600'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-            </svg>
-            <p className="text-gray-300">
-              Drag and drop your footage files here, or click <label className="text-[#e2c376] cursor-pointer">browse<input type="file" multiple accept="video/*,audio/*,image/*" className="hidden" onChange={handleFileChange} /></label>
-            </p>
-            <p className="text-gray-500 text-sm">Supports video, audio, and image files</p>
-          </div>
-        </div>
-      )}
-      
-      {/* Pre-production compliance check panel */}
-      <AnimatePresence>
-        {showPreproductionCheck && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="border border-blue-500/30 bg-blue-500/5 rounded-lg p-4 space-y-4"
-          >
-            <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-blue-400 flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                Pre-Production Compliance
-                </h3>
-                <div className="text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded text-xs font-medium">
-                  AI
                 </div>
-              </div>
-              
-              {isCheckingPreproduction && (
-              <div>
-                  <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm">Checking against pre-production assets...</span>
-                    <span className="text-sm">{preproductionCheckProgress}%</span>
-                  </div>
-                  <div className="h-2 bg-[#36393f] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-500 transition-all duration-300" 
-                      style={{ width: `${preproductionCheckProgress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-              
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {preproductionChecks.map(check => (
-                    <div 
-                      key={check.id} 
-                  className="border border-blue-500/20 bg-blue-500/10 rounded-md p-3"
+                <motion.svg
+                  className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-blue-300">{check.name}</h4>
-                    <div className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded text-xs">
-                      {check.status === 'completed' ? 'COMPLETE' : 'CHECKING'}
-                      </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </motion.svg>
+              </button>
+
+              {/* Expanded Content */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-5 pt-0 space-y-6 border-t border-[#10B981]/10">
+                      {/* Storyboard Frames - Larger with more context */}
+                      {scene.storyboardFrames.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#10B981] mb-4 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Storyboard Reference
+                          </h4>
+                          <div className="overflow-x-auto pb-4 -mx-2 px-2">
+                            <div className="flex gap-6 min-w-max">
+                              {scene.storyboardFrames.map((frame, frameIndex) => (
+                                <motion.div
+                                  key={frame.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ duration: 0.2, delay: frameIndex * 0.05 }}
+                                  className="flex-shrink-0 w-72 bg-[#1a1a1a] rounded-xl overflow-hidden border border-[#10B981]/20 hover:border-[#10B981]/40 transition-all group"
+                                >
+                                  {frame.frameImage ? (
+                                    <div className="relative">
+                                      <img
+                                        src={frame.frameImage}
+                                        alt={`Scene ${scene.sceneNumber} - Shot ${frame.shotNumber}`}
+                                        className="w-full h-auto object-contain bg-[#0a0a0a]"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement
+                                          target.style.display = 'none'
+                                          const parent = target.parentElement
+                                          if (parent) {
+                                            parent.innerHTML = `
+                                              <div class="w-full h-48 bg-[#0a0a0a] flex items-center justify-center text-gray-500 text-sm">
+                                                Image unavailable
+                                              </div>
+                                            `
+                                          }
+                                        }}
+                                      />
+                                      <div className="absolute top-2 right-2 bg-[#10B981]/90 text-black text-xs font-bold px-2 py-1 rounded">
+                                        Shot {frame.shotNumber}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-48 bg-[#0a0a0a] flex items-center justify-center text-gray-500 text-sm">
+                                      No image
+                                    </div>
+                                  )}
+                                  <div className="p-4 bg-[#1a1a1a]">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div>
+                                        <p className="text-sm font-semibold text-white">Shot {frame.shotNumber}</p>
+                                        {frame.cameraAngle && (
+                                          <p className="text-xs text-[#10B981] mt-1">{frame.cameraAngle}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {frame.description && (
+                                      <p className="text-xs text-gray-400 line-clamp-2 mt-2">{frame.description}</p>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        
-                        {check.status === 'checking' && (
-                    <div className="w-full h-1 bg-[#36393f] rounded-full overflow-hidden mb-2">
-                      <div className="h-full bg-blue-500 animate-pulse"></div>
+                      )}
+
+                      {/* Upload Section */}
+                      <div
+                        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                          dragActive[sceneKey]
+                            ? 'border-[#10B981] bg-[#10B981]/10'
+                            : 'border-[#10B981]/30 hover:border-[#10B981]/50 bg-[#0a0a0a]/50'
+                        }`}
+                        onDragEnter={(e) => handleDrag(e, scene.sceneNumber)}
+                        onDragLeave={(e) => handleDrag(e, scene.sceneNumber)}
+                        onDragOver={(e) => handleDrag(e, scene.sceneNumber)}
+                        onDrop={(e) => handleDrop(e, scene.sceneNumber)}
+                      >
+                        {uploadingScenes[sceneKey] ? (
+                          <div className="flex flex-col items-center justify-center space-y-3">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#10B981]"></div>
+                            <p className="text-gray-300">Uploading files...</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center space-y-3">
+                            <svg className="w-12 h-12 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="text-gray-300">
+                              Drag and drop footage files here, or{' '}
+                              <label className="text-[#10B981] cursor-pointer hover:underline font-medium">
+                                browse
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept="video/*,audio/*,image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleFileInputChange(e, scene.sceneNumber)}
+                                />
+                              </label>
+                            </p>
+                            <p className="text-gray-500 text-sm">Supports video, audio, and image files</p>
                           </div>
                         )}
-                        
-                        {check.status === 'completed' && (
-                    <div className="space-y-2">
-                      <div>
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>Confidence</span>
-                          <span>{check.confidence}%</span>
-                        </div>
-                        <div className="w-full h-1 bg-[#36393f] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-500" 
-                            style={{ width: `${check.confidence}%` }}
-                          ></div>
+                      </div>
+
+                      {/* Uploaded Files */}
+                      {sceneFiles.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#10B981] mb-3 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            Uploaded Files ({sceneFiles.length})
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {sceneFiles.map((file) => (
+                              <div
+                                key={file.id}
+                                className={`bg-[#1a1a1a] rounded-lg overflow-hidden border cursor-pointer hover:border-[#10B981]/50 transition-all ${
+                                  selectedVideo?.id === file.id ? 'border-[#10B981] ring-2 ring-[#10B981]/20' : 'border-[#10B981]/20'
+                                }`}
+                                onClick={() => setSelectedVideo(file)}
+                              >
+                                <div className="aspect-video bg-[#0a0a0a] flex items-center justify-center">
+                                  {file.type?.includes('video') ? (
+                                    <svg className="w-8 h-8 text-[#10B981]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                  ) : file.type?.includes('image') ? (
+                                    <svg className="w-8 h-8 text-[#10B981]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-8 h-8 text-[#10B981]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.06-7.072m-1.06 7.072a9 9 0 001.06-12.728" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-white truncate">{file.name}</p>
+                                  <p className="text-xs text-gray-400 mt-1">{formatFileSize(file.size)}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                </div>
-                
-                      <div>
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>Match Score</span>
-                          <span>{check.matchScore}%</span>
                         </div>
-                        <div className="w-full h-1 bg-[#36393f] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500" 
-                            style={{ width: `${check.matchScore}%` }}
-                          ></div>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  )}
-                      </div>
-                    ))}
-                  </div>
-                  
-            {!isCheckingPreproduction && (
-              <div className="flex justify-between items-center pt-2">
-                <div className="text-blue-300 text-sm">
-                  Pre-production assets analyzed successfully
-                </div>
-                    <button 
-                      onClick={runPreproductionCheck}
-                      className="text-xs px-3 py-1.5 bg-[#36393f] hover:bg-[#4f535a] rounded transition-colors"
-                    >
-                  Re-check
-                    </button>
-                  </div>
-              )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      {/* Folder navigation */}
-          <div className="flex space-x-2 overflow-x-auto pb-2">
-            {folders.map(folder => (
-              <button
-                key={folder.id}
-                onClick={() => setSelectedFolder(folder.id)}
-            className={`px-3 py-1.5 rounded-md text-sm flex items-center space-x-1.5 whitespace-nowrap ${
-                  selectedFolder === folder.id 
-                ? 'bg-[#e2c376] text-black font-medium'
-                : 'bg-[#36393f] text-white hover:bg-[#4f535a]'
-                }`}
-              >
-            <span>{folder.name}</span>
-            <span className="px-1.5 py-0.5 rounded-full text-xs bg-black/20">{folder.count}</span>
-              </button>
-            ))}
-          </div>
-      
-      {/* Video thumbnails */}
-      {renderVideoThumbnails()}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )
+        })}
+      </div>
     </div>
   )
-} 
+}

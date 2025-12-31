@@ -264,6 +264,11 @@ export async function saveStoryBible(
     if (isBrowser()) {
       console.log('⚠️ Guest mode - saving story bible to localStorage only (will not sync across devices)')
       localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(updatedStoryBible))
+      
+      // Dispatch custom event to notify ChatWidget to reload
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('storyBibleUpdated'))
+      }
     } else {
       // Server-side: cannot save to localStorage, throw error
       throw new Error('Cannot save story bible in guest mode on server. Provide userId or call from client.')
@@ -271,6 +276,53 @@ export async function saveStoryBible(
   }
 
   return updatedStoryBible
+}
+
+/**
+ * Extend a series by adding a new narrative arc
+ * This function creates a new arc with placeholder episodes and persists it
+ * 
+ * @param storyBible - The current story bible
+ * @param userId - The user ID (optional, will try to get from auth if not provided)
+ * @param episodesPerArc - Number of episodes to create in the new arc (default: 8)
+ * @returns The updated story bible with the new arc
+ */
+export async function extendSeriesWithArc(
+  storyBible: StoryBible,
+  userId?: string,
+  episodesPerArc: number = 8
+): Promise<StoryBible> {
+  if (!storyBible) {
+    throw new Error('Story bible is required to extend series')
+  }
+
+  // Calculate the next episode number across all existing arcs
+  const maxEpisodeNumber = storyBible.narrativeArcs?.reduce((max: number, arc: any) => {
+    const arcMax = arc.episodes?.reduce((epMax: number, ep: any) => 
+      Math.max(epMax, ep.number || 0), 0) || 0
+    return Math.max(max, arcMax)
+  }, 0) || 0
+
+  // Create new arc with placeholder episodes
+  const newArc = {
+    title: `Arc ${(storyBible.narrativeArcs?.length || 0) + 1}`,
+    summary: 'Arc summary to be defined',
+    episodes: Array.from({ length: episodesPerArc }, (_, i) => ({
+      number: maxEpisodeNumber + i + 1,
+      title: `Episode ${maxEpisodeNumber + i + 1}`,
+      summary: 'Episode summary to be defined'
+    }))
+  }
+
+  // Add the new arc to the story bible
+  const updatedArcs = [...(storyBible.narrativeArcs || []), newArc]
+  const updatedBible: StoryBible = {
+    ...storyBible,
+    narrativeArcs: updatedArcs
+  }
+
+  // Save the updated story bible (this handles both Firestore and localStorage)
+  return await saveStoryBible(updatedBible, userId)
 }
 
 /**
@@ -361,15 +413,27 @@ export async function getStoryBible(
         const data = docSnap.data()
         console.log('✅ Story bible loaded from Firestore')
         
-        // Debug: Log character images
+        // Debug: Log character data structure
         if (data?.mainCharacters) {
           console.log(`📸 [Client] Found ${data.mainCharacters.length} characters in Firestore`)
           data.mainCharacters.forEach((char: any, idx: number) => {
-            if (char?.visualReference?.imageUrl) {
-              console.log(`  Character ${idx} (${char.name}): HAS IMAGE - ${char.visualReference.imageUrl.substring(0, 60)}...`)
-            } else {
-              console.log(`  Character ${idx} (${char.name}): NO IMAGE - visualReference:`, char?.visualReference ? 'exists but no imageUrl' : 'missing')
-            }
+            console.log(`  Character ${idx} (${char.name}):`, {
+              hasPhysiology: !!char.physiology,
+              hasSociology: !!char.sociology,
+              hasPsychology: !!char.psychology,
+              physiologyKeys: char.physiology ? Object.keys(char.physiology) : [],
+              sociologyKeys: char.sociology ? Object.keys(char.sociology) : [],
+              psychologyKeys: char.psychology ? Object.keys(char.psychology) : [],
+              // Check for actual data vs placeholders
+              age: char.physiology?.age,
+              gender: char.physiology?.gender,
+              appearance: char.physiology?.appearance?.substring(0, 50),
+              occupation: char.sociology?.occupation || char.sociology?.profession?.occupation,
+              want: typeof char.psychology?.want === 'string' 
+                ? char.psychology.want.substring(0, 50)
+                : char.psychology?.want?.consciousGoal?.substring(0, 50),
+              hasImage: !!char?.visualReference?.imageUrl
+            })
           })
         } else {
           console.log(`📸 [Client] NO mainCharacters array in Firestore`)

@@ -3,6 +3,21 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useVideo } from '@/context/VideoContext'
+import { loadPostProductionData } from '@/services/postproduction-data-loader'
+import { generateSceneIntelligence } from '@/services/scene-intelligence-generator'
+import { mapShotsToStoryboards } from '@/services/postproduction-shot-mapper'
+import { useAuth } from '@/context/AuthContext'
+import { StoryboardReferencePanel } from './StoryboardReferencePanel'
+import { ComingSoonOverlay } from './ComingSoonOverlay'
+import type { PostProductionDataContext } from '@/services/postproduction-data-loader'
+import type { SceneIntelligence } from '@/services/scene-intelligence-generator'
+
+interface VisualEffectsProps {
+  storyBibleId?: string
+  episodeNumber?: number
+  arcIndex?: number | null
+  arcEpisodes?: number[]
+}
 
 interface EffectPreset {
   id: string;
@@ -13,8 +28,14 @@ interface EffectPreset {
   cssFilter: string;
 }
 
-export function VisualEffects() {
+export function VisualEffects({ storyBibleId, episodeNumber, arcIndex, arcEpisodes }: VisualEffectsProps) {
+  const { user } = useAuth()
   const { selectedVideo } = useVideo()
+  
+  // Post-production data state
+  const [postProductionData, setPostProductionData] = useState<PostProductionDataContext | null>(null)
+  const [sceneIntelligence, setSceneIntelligence] = useState<Record<number, SceneIntelligence>>({})
+  const [selectedScene, setSelectedScene] = useState<number | null>(null)
   const [showReel, setShowReel] = useState<boolean>(false)
   const [selectedEffect, setSelectedEffect] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -22,6 +43,50 @@ export function VisualEffects() {
   const [splitPosition, setSplitPosition] = useState<number>(50)
   const [intensity, setIntensity] = useState<number>(100)
   const [previewPlaying, setPreviewPlaying] = useState<boolean>(false)
+  
+  // Load post-production data on mount
+  useEffect(() => {
+    if (storyBibleId && episodeNumber) {
+      loadPostProductionDataForComponent()
+    }
+  }, [storyBibleId, episodeNumber, user?.id])
+
+  const loadPostProductionDataForComponent = async () => {
+    if (!storyBibleId || !episodeNumber) return
+    
+    try {
+      const data = await loadPostProductionData(storyBibleId, episodeNumber, user?.id)
+      if (data) {
+        setPostProductionData(data)
+        
+        // Generate scene intelligence for VFX planning
+        if (data.shotList && data.storyboards) {
+          const shotMappings = mapShotsToStoryboards(data.shotList, data.storyboards)
+          const intelligence: Record<number, SceneIntelligence> = {}
+          
+          const sceneNumbers = new Set(shotMappings.map(m => m.sceneNumber))
+          for (const sceneNum of sceneNumbers) {
+            const sceneIntel = await generateSceneIntelligence(sceneNum, data, shotMappings)
+            if (sceneIntel) {
+              intelligence[sceneNum] = sceneIntel
+            }
+          }
+          
+          setSceneIntelligence(intelligence)
+          
+          // Select first scene with VFX needs
+          const sceneWithVFX = Object.values(intelligence).find(s => 
+            s.vfx.shotsNeedingVFX.length > 0 || s.vfx.propsToRemove.length > 0
+          )
+          if (sceneWithVFX) {
+            setSelectedScene(sceneWithVFX.sceneNumber)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading post-production data:', error)
+    }
+  }
   
   const effectPresets: EffectPreset[] = [
     {
@@ -178,8 +243,99 @@ export function VisualEffects() {
     setSplitPosition(Math.max(10, Math.min(90, newPosition)))
   }
   
+  // Render VFX requirements panel
+  const renderVFXRequirements = () => {
+    if (!postProductionData || Object.keys(sceneIntelligence).length === 0) {
+      return null
+    }
+
+    const scenesWithVFX = Object.values(sceneIntelligence).filter(s => 
+      s.vfx.shotsNeedingVFX.length > 0 || s.vfx.propsToRemove.length > 0
+    )
+
+    if (scenesWithVFX.length === 0) {
+      return (
+        <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+          <div className="text-sm text-gray-400">No VFX requirements identified from pre-production data.</div>
+        </div>
+      )
+    }
+
+    const shotMappings = postProductionData.shotList && postProductionData.storyboards
+      ? mapShotsToStoryboards(postProductionData.shotList, postProductionData.storyboards)
+      : []
+
+    return (
+      <div className="mb-6 space-y-4">
+        <h3 className="text-lg font-semibold text-[#e2c376]">VFX Requirements from Pre-Production</h3>
+        {scenesWithVFX.map(scene => (
+          <div key={scene.sceneNumber} className="bg-gray-900/50 rounded-lg border border-gray-700 p-4">
+            <div className="flex justify-between items-start mb-3">
+              <h4 className="font-semibold text-white">
+                Scene {scene.sceneNumber}
+              </h4>
+              <span className={`text-xs px-2 py-1 rounded ${
+                scene.vfx.complexity === 'very-complex' ? 'bg-red-500/20 text-red-400' :
+                scene.vfx.complexity === 'complex' ? 'bg-orange-500/20 text-orange-400' :
+                scene.vfx.complexity === 'moderate' ? 'bg-yellow-500/20 text-yellow-400' :
+                'bg-green-500/20 text-green-400'
+              }`}>
+                {scene.vfx.complexity.toUpperCase()}
+              </span>
+            </div>
+            
+            {scene.vfx.shotsNeedingVFX.length > 0 && (
+              <div className="mb-4">
+                <div className="text-sm font-medium text-gray-300 mb-2">
+                  Shots Requiring VFX ({scene.vfx.shotsNeedingVFX.length})
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {scene.vfx.shotsNeedingVFX.map(shot => {
+                    const mapping = shotMappings.find(m => 
+                      m.sceneNumber === scene.sceneNumber && m.shotNumber === shot.shotNumber
+                    )
+                    return (
+                      <StoryboardReferencePanel
+                        key={shot.shotId || shot.shotNumber}
+                        storyboardFrame={mapping?.storyboardFrame || null}
+                        shotNumber={shot.shotNumber}
+                        sceneNumber={scene.sceneNumber}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {scene.vfx.propsToRemove.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-300 mb-2">
+                  Props to Remove/Replace ({scene.vfx.propsToRemove.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {scene.vfx.propsToRemove.map((prop, index) => (
+                    <span
+                      key={index}
+                      className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded"
+                    >
+                      {typeof prop === 'string' ? prop : prop.prop}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <ComingSoonOverlay 
+      title="Visual Effects"
+      description="The Visual Effects post-production workflow is currently under development. This feature will allow you to apply and manage VFX based on your pre-production data."
+    >
+      <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
         <h2 className="text-xl sm:text-2xl font-bold text-[#e2c376]">Visual Effects</h2>
         
@@ -206,6 +362,9 @@ export function VisualEffects() {
           </button>
         </div>
       </div>
+      
+      {/* VFX Requirements Panel */}
+      {renderVFXRequirements()}
       
       {/* Main preview area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -460,6 +619,7 @@ export function VisualEffects() {
         <BackgroundManipulationPreview />
       </div>
     </div>
+    </ComingSoonOverlay>
   )
 }
 

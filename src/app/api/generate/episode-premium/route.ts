@@ -123,7 +123,8 @@ RETURN VALID JSON:
 }
 `
     
-    const result = await generateContent(scriptPrompt, systemPrompt, {
+    const result = await generateContent(scriptPrompt, {
+      systemPrompt,
       temperature: 0.9,
       maxTokens: 8000
     })

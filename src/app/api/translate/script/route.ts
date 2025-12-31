@@ -1,13 +1,29 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { NextResponse } from 'next/server'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+// Primary model
+const PRIMARY_MODEL = 'gemini-3-pro-preview';
+
+/**
+ * Generate content with Gemini
+ */
+async function generateWithGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured')
+  }
+  
+  const genAI = new GoogleGenerativeAI(apiKey)
+  console.log(`🚀 [TRANSLATE] Using model: ${PRIMARY_MODEL}`)
+  const model = genAI.getGenerativeModel({ model: PRIMARY_MODEL })
+  const result = await model.generateContent(prompt)
+  const response = await result.response
+  return response.text()
+}
 
 export async function POST(request: Request) {
   try {
     const { script } = await request.json()
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' })
 
     const prompt = `Translate this script into Taglish (a combination of Tagalog and English). Follow these guidelines:
 
@@ -23,9 +39,8 @@ ${script}
 
 Please translate the dialogue while maintaining the script format.`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const translatedScript = response.text()
+    // Use generateWithGemini
+    const translatedScript = await generateWithGemini(prompt)
 
     return NextResponse.json({ translatedScript })
   } catch (error) {

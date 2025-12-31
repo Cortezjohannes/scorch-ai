@@ -569,11 +569,6 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
             <span className="header-brand-text">Greenlit</span>
           </div>
           <nav className="header-nav">
-            <Link href="/uprising" className="nav-link uprising-link">Uprising</Link>
-            <Link href="/program" className="nav-link">Program</Link>
-            <Link href="/criteria" className="nav-link">Criteria</Link>
-            <Link href="/fund" className="nav-link">Fund</Link>
-            <Link href="/playbook" className="nav-link">Playbook</Link>
           </nav>
             <div className="header-actions">
             <button className="faq-link" onClick={openFAQModal}>FAQ</button>
@@ -620,11 +615,6 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
       {/* Mobile Menu Overlay */}
       <div id="mobile-menu" className={`mobile-menu ${showMobileMenu ? 'open' : ''}`}>
         <div className="mobile-menu-content">
-          <Link href="/uprising" className="mobile-nav-link" onClick={closeMobileMenu}>Uprising</Link>
-          <Link href="/program" className="mobile-nav-link" onClick={closeMobileMenu}>Program</Link>
-          <Link href="/criteria" className="mobile-nav-link" onClick={closeMobileMenu}>Criteria</Link>
-          <Link href="/fund" className="mobile-nav-link" onClick={closeMobileMenu}>Fund</Link>
-          <Link href="/playbook" className="mobile-nav-link" onClick={closeMobileMenu}>Playbook</Link>
           <button 
             className="mobile-nav-link" 
             onClick={() => { openFAQModal(); closeMobileMenu() }}

@@ -2,6 +2,7 @@ import { EngineAIRouter } from '@/services/engine-ai-router'
 import type { ArcLocationGroup, ShootingLocationSuggestion } from '@/types/preproduction'
 import type { CastingData } from '@/types/preproduction'
 import { LocationSuggestionsResponseSchema } from '@/schemas/location-suggestion.schema'
+import { applyPriceEstimationIfNeeded } from '@/services/location-pricing-estimator'
 
 type Provider = 'azure' | 'gemini'
 
@@ -63,7 +64,17 @@ function buildUserPrompt(locationGroup: ArcLocationGroup, storyBible: any): stri
     `Genre: ${genre} | Setting: ${setting}`,
     worldRules ? `World Rules: ${typeof worldRules === 'string' ? worldRules.substring(0, 200) : ''}` : '',
     description ? `Story bible notes: ${description}` : '',
-    `Location type: ${locationGroup.type}. Budget: prioritize free or <$200/day.`,
+    `Location type: ${locationGroup.type}.`,
+    `PRICING GUIDANCE - Provide realistic day rates:`,
+    `  - Airbnb: $100-300/day`,
+    `  - Peerspace: $150-400/day`,
+    `  - Giggster: $200-500/day`,
+    `  - Specific venues: $300-800/day`,
+    `  - Rentals: $250-600/day`,
+    `  - Public spaces: $0/day (free)`,
+    `Do NOT return $0 unless the location is genuinely free (public park, library, street, etc.).`,
+    `Examples: Modern loft on Peerspace: $250/day, Office building: $400/day, Public park: $0/day, Residential Airbnb: $180/day.`,
+    `costBreakdown.dayRate must always be populated with realistic values.`,
     `Output JSON with shape: {"suggestions":[{venueName,venueType,address,estimatedCost,permitCost,depositAmount,insuranceRequired,pros,cons,logistics:{parking,power,restrooms,permitRequired,permitCost,notes},sourcing,searchGuidance,specificVenueUrl,isPreferred:false,costBreakdown:{dayRate,permitCost,insuranceRequired,depositAmount,notes}}]}`
   ]
     .filter(Boolean)
@@ -160,7 +171,13 @@ function parseAndValidateSuggestions(raw: string): ShootingLocationSuggestion[] 
   }
 
   const validated = LocationSuggestionsResponseSchema.parse(payload)
-  return validated.suggestions
+
+  // Apply price estimation for any suggestions with $0 or missing prices
+  const suggestionsWithPricing = validated.suggestions.map(suggestion =>
+    applyPriceEstimationIfNeeded(suggestion)
+  )
+
+  return suggestionsWithPricing
 }
 
 async function generateWithProvider(

@@ -11,7 +11,7 @@
  * All generated images are uploaded to Firebase Storage for persistence.
  */
 
-import { generateImageWithStorage, type ImageGenerationWithStorageOptions } from '@/services/image-generation-with-storage'
+import { generateImageWithStorageAdmin, type ImageGenerationWithStorageOptions } from '@/services/image-generation-with-storage'
 import { applyStoryBibleStyleToPrompt, extractGenreAndTone } from '@/services/story-bible-art-style'
 import type { StoryBible, ImageAsset } from '@/services/story-bible-service'
 import { STORY_BIBLE_PROMPT_VERSION } from '@/services/story-bible-art-style'
@@ -70,7 +70,8 @@ export async function generateSeriesPoster(
   try {
     // Generate image and upload to Firebase Storage using Admin SDK (server-side)
     // 🎯 Use NANO BANANA PRO for high quality marketing visuals
-    const result = await generateImageWithStorage(finalPrompt, {
+    // CRITICAL: Use Admin SDK version for server-side API routes
+    const result = await generateImageWithStorageAdmin(finalPrompt, {
       userId,
       context: 'marketing',
       aspectRatio: '16:9',
@@ -146,13 +147,13 @@ export async function generateCharacterSpotlightCard(
     const result = await generateImageWithStorage(finalPrompt, {
       userId,
       context: 'marketing',
-      aspectRatio,
-      quality: 'hd',
-      style: 'natural',
+    aspectRatio,
+    quality: 'hd',
+    style: 'natural',
       model: 'nano-banana-pro', // High quality for marketing
-      referenceImages: character.visualReference?.imageUrl 
-        ? [character.visualReference.imageUrl] 
-        : undefined
+    referenceImages: character.visualReference?.imageUrl 
+      ? [character.visualReference.imageUrl] 
+      : undefined
     })
     
     if (!result.success) {
@@ -217,7 +218,8 @@ export async function generateCampaignGraphic(
   try {
     // Generate image and upload to Firebase Storage using Admin SDK (server-side)
     // 🎯 Use NANO BANANA PRO for high quality marketing visuals
-    const result = await generateImageWithStorage(finalPrompt, {
+    // CRITICAL: Use Admin SDK version for server-side API routes
+    const result = await generateImageWithStorageAdmin(finalPrompt, {
       userId,
       context: 'marketing',
       aspectRatio: '16:9', // Standard for campaign graphics

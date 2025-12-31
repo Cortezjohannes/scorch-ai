@@ -276,6 +276,13 @@ export interface Shot {
   setupGroup?: string // Grouping label for batching setups
   estimatedSetupTime?: number // Minutes to prep this shot/setup
   comments: Comment[]
+  // AI Generation fields
+  canBeAIGenerated?: boolean // Whether this shot can be AI-generated
+  aiGenerationPrompt?: string // Detailed prompt for AI video generation
+  aiGenerationRecommendation?: 'high' | 'medium' | 'low' // Recommendation level: high = strongly recommend AI, medium = can use AI, low = actors should shoot but AI can save time
+  aiGenerationSampleGenerated?: boolean // Track if sample was generated (one per episode)
+  aiGeneratedVideoUrl?: string // URL of generated video sample (9:16 portrait)
+  manuallyShot?: boolean // Whether this shot was shot manually (disables AI recommendation)
 }
 
 export interface ShotListScene {
@@ -645,6 +652,7 @@ export interface ShootingLocationSuggestion {
     depositAmount?: number
     notes?: string
   }
+  isEstimated?: boolean // Indicates if pricing was estimated rather than provided by AI
 }
 
 // Episode usage for a location group
@@ -944,6 +952,10 @@ export interface StoryboardFrame {
   status: 'draft' | 'revised' | 'final'
   notes: string
   comments: Comment[]
+  // AI Generation fields
+  canBeAIGenerated?: boolean // Whether this frame can be AI-generated
+  aiGenerationPrompt?: string // Detailed prompt for AI video generation
+  aiGenerationRecommendation?: 'high' | 'medium' | 'low' // Recommendation level: high = strongly recommend AI, medium = can use AI, low = actors should shoot but AI can save time
 }
 
 export interface StoryboardScene {

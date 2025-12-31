@@ -25,13 +25,6 @@ import type {
   LocationSummary,
   PropSummary,
   CastingSummary,
-  EquipmentSection,
-  EquipmentCategorySummary,
-  WardrobeSection,
-  ScheduleSummary,
-  EquipmentItemSummary,
-  WardrobeItemSummary,
-  ScheduleDaySummary,
   PilotSection,
   MarketingSection,
   EpisodeMarketingData
@@ -939,6 +932,7 @@ function mapStoryboardFrame(frame: any, options: MapStoryboardFrameOptions): Sto
     cameraAngle: frame.cameraAngle || frame.angle || 'medium',
     cameraMovement: frame.cameraMovement || frame.movement || 'static',
     dialogueSnippet: frame.dialogueSnippet || frame.dialogue || undefined,
+    scriptContext: frame.scriptContext || undefined, // Script action for this frame (orange)
     imageUrl, // CRITICAL: This MUST be set if frame.frameImage exists
     imagePrompt: frame.imagePrompt || frame.prompt || undefined,
     visualNotes: frame.visualNotes || (frame.notes && frame.notes !== description ? frame.notes : undefined),
@@ -1118,46 +1112,124 @@ function extractCharacters(storyBible: any, actorMaterials: any): { mainCharacte
     // Extract character image from story bible visualReference
     const imageUrl = char.visualReference?.imageUrl || undefined
     
-    // Extract actor materials data
-    const throughLine = actorMat?.throughLine ? {
-      superObjective: actorMat.throughLine.superObjective || '',
-      explanation: actorMat.throughLine.explanation || ''
+    // Extract ALL Actor Materials data (complete mapping)
+    const studyGuide = actorMat?.studyGuide ? {
+      background: actorMat.studyGuide.background || '',
+      motivations: actorMat.studyGuide.motivations || [],
+      relationships: actorMat.studyGuide.relationships || [],
+      characterArc: actorMat.studyGuide.characterArc || '',
+      internalConflicts: actorMat.studyGuide.internalConflicts || []
     } : undefined
     
-    const performanceReference = actorMat?.performanceReference && Array.isArray(actorMat.performanceReference)
-      ? actorMat.performanceReference.map((ref: any) => ({
-          characterName: ref.characterName || '',
-          source: ref.source || '',
-          reason: ref.reason || ''
-        }))
-      : undefined
+    const performanceReference = actorMat?.performanceReference || undefined
+    
+    const throughLine = actorMat?.throughLine ? {
+      superObjective: actorMat.throughLine.superObjective || '',
+      explanation: actorMat.throughLine.explanation || '',
+      keyScenes: actorMat.throughLine.keyScenes || []
+    } : undefined
+    
+    const gotAnalysis = actorMat?.gotAnalysis || undefined
+    const relationshipMapActor = actorMat?.relationshipMap || undefined
+    const sceneBreakdowns = actorMat?.sceneBreakdowns || undefined
+    const emotionalBeats = actorMat?.emotionalBeats || undefined
     
     const physicalWork = actorMat?.physicalWork ? {
-      posture: Array.isArray(actorMat.physicalWork.posture) ? actorMat.physicalWork.posture.join('. ') : '',
-      movement: Array.isArray(actorMat.physicalWork.movement) ? actorMat.physicalWork.movement.join('. ') : '',
-      gestures: Array.isArray(actorMat.physicalWork.bodyLanguage) ? actorMat.physicalWork.bodyLanguage : []
+      bodyLanguage: Array.isArray(actorMat.physicalWork.bodyLanguage) ? actorMat.physicalWork.bodyLanguage : [],
+      movement: Array.isArray(actorMat.physicalWork.movement) ? actorMat.physicalWork.movement : [],
+      posture: Array.isArray(actorMat.physicalWork.posture) ? actorMat.physicalWork.posture : [],
+      transformationNotes: actorMat.physicalWork.transformationNotes
     } : undefined
     
     const voicePatterns = actorMat?.voicePatterns ? {
-      speechPattern: actorMat.voicePatterns.rhythm || actorMat.voicePatterns.accent || '',
-      vocalRange: Array.isArray(actorMat.voicePatterns.vocabulary) ? actorMat.voicePatterns.vocabulary.join(', ') : '',
-      emotionalRange: Array.isArray(actorMat.voicePatterns.keyPhrases) ? actorMat.voicePatterns.keyPhrases : []
+      vocabulary: Array.isArray(actorMat.voicePatterns.vocabulary) ? actorMat.voicePatterns.vocabulary : [],
+      rhythm: actorMat.voicePatterns.rhythm || '',
+      accent: actorMat.voicePatterns.accent,
+      keyPhrases: Array.isArray(actorMat.voicePatterns.keyPhrases) ? actorMat.voicePatterns.keyPhrases : [],
+      verbalTics: Array.isArray(actorMat.voicePatterns.verbalTics) ? actorMat.voicePatterns.verbalTics : undefined
     } : undefined
     
-    // Extract key scenes from sceneBreakdowns or keyScenes
-    const keyScenes = actorMat?.keyScenes && Array.isArray(actorMat.keyScenes)
-      ? actorMat.keyScenes.map((scene: any) => ({
-          sceneNumber: scene.sceneNumber || 0,
-          objective: Array.isArray(scene.whatToFocusOn) ? scene.whatToFocusOn.join('. ') : (scene.whyItMatters?.[0] || ''),
-          emotionalState: Array.isArray(scene.quickPrepTips) ? scene.quickPrepTips[0] || '' : ''
-        }))
-      : (actorMat?.sceneBreakdowns && Array.isArray(actorMat.sceneBreakdowns)
-        ? actorMat.sceneBreakdowns.slice(0, 5).map((scene: any) => ({
-            sceneNumber: scene.sceneNumber || 0,
-            objective: scene.objective || '',
-            emotionalState: scene.emotionalState || ''
-          }))
-        : undefined)
+    const monologues = actorMat?.monologues || undefined
+    const keyScenes = actorMat?.keyScenes || undefined
+    const onSetPrep = actorMat?.onSetPrep ? {
+      preScene: Array.isArray(actorMat.onSetPrep.preScene) ? actorMat.onSetPrep.preScene : [],
+      warmUp: Array.isArray(actorMat.onSetPrep.warmUp) ? actorMat.onSetPrep.warmUp : [],
+      emotionalPrep: Array.isArray(actorMat.onSetPrep.emotionalPrep) ? actorMat.onSetPrep.emotionalPrep : [],
+      mentalChecklist: Array.isArray(actorMat.onSetPrep.mentalChecklist) ? actorMat.onSetPrep.mentalChecklist : []
+    } : undefined
+    
+    const researchSuggestions = actorMat?.researchSuggestions || undefined
+    const wardrobeNotes = actorMat?.wardrobeNotes || undefined
+    const memorizationAids = actorMat?.memorizationAids || undefined
+    const techniqueFocus = actorMat?.techniqueFocus || undefined
+    const techniqueExercises = actorMat?.techniqueExercises || undefined
+    
+    // Extract Story Bible 3D Character Data (physiology, sociology, psychology)
+    // Check for detailed character data (Character3D structure)
+    const detailedChar = char.detailed || char
+    const physiologyData = detailedChar.physiology || detailedChar.fullPhysiology
+    const sociologyData = detailedChar.sociology || detailedChar.fullSociology
+    const psychologyData = detailedChar.psychology || detailedChar.fullPsychology
+    
+    // Build physiology object
+    const physiology = physiologyData ? {
+      gender: physiologyData.gender,
+      appearance: physiologyData.appearance,
+      height: physiologyData.height,
+      build: physiologyData.build,
+      physicalTraits: Array.isArray(physiologyData.physicalTraits) ? physiologyData.physicalTraits : [],
+      health: physiologyData.health,
+      defects: Array.isArray(physiologyData.defects) ? physiologyData.defects : [],
+      heredity: physiologyData.heredity
+    } : undefined
+    
+    // Build sociology object
+    const sociology = sociologyData ? {
+      class: sociologyData.class,
+      occupation: sociologyData.occupation,
+      education: sociologyData.education,
+      homeLife: sociologyData.homeLife,
+      religion: sociologyData.religion,
+      race: sociologyData.race,
+      nationality: sociologyData.nationality,
+      politicalAffiliation: sociologyData.politicalAffiliation,
+      hobbies: Array.isArray(sociologyData.hobbies) ? sociologyData.hobbies : [],
+      communityStanding: sociologyData.communityStanding,
+      economicStatus: sociologyData.economicStatus,
+      familyRelationships: Array.isArray(sociologyData.familyRelationships) ? sociologyData.familyRelationships : []
+    } : undefined
+    
+    // Build psychology object
+    const psychology = psychologyData ? {
+      coreValue: psychologyData.coreValue,
+      opposingValue: psychologyData.opposingValue,
+      moralStandpoint: psychologyData.moralStandpoint,
+      want: psychologyData.want,
+      need: psychologyData.need,
+      primaryFlaw: psychologyData.primaryFlaw,
+      secondaryFlaws: Array.isArray(psychologyData.secondaryFlaws) ? psychologyData.secondaryFlaws : [],
+      temperament: Array.isArray(psychologyData.temperament) ? psychologyData.temperament : [],
+      attitude: psychologyData.attitude,
+      complexes: Array.isArray(psychologyData.complexes) ? psychologyData.complexes : [],
+      ambitions: Array.isArray(psychologyData.ambitions) ? psychologyData.ambitions : [],
+      frustrations: Array.isArray(psychologyData.frustrations) ? psychologyData.frustrations : [],
+      fears: Array.isArray(psychologyData.fears) ? psychologyData.fears : [],
+      superstitions: Array.isArray(psychologyData.superstitions) ? psychologyData.superstitions : [],
+      likes: Array.isArray(psychologyData.likes) ? psychologyData.likes : [],
+      dislikes: Array.isArray(psychologyData.dislikes) ? psychologyData.dislikes : [],
+      iq: psychologyData.iq,
+      abilities: Array.isArray(psychologyData.abilities) ? psychologyData.abilities : [],
+      talents: Array.isArray(psychologyData.talents) ? psychologyData.talents : [],
+      childhood: psychologyData.childhood,
+      trauma: Array.isArray(psychologyData.trauma) ? psychologyData.trauma : [],
+      successes: Array.isArray(psychologyData.successes) ? psychologyData.successes : []
+    } : undefined
+    
+    // Enhance keyTraits with physical traits from physiology if available
+    const enhancedTraits = traits.length > 0 ? traits : 
+      (physiologyData?.physicalTraits && Array.isArray(physiologyData.physicalTraits) 
+        ? physiologyData.physicalTraits 
+        : [])
     
     return {
       name: charName,
@@ -1168,14 +1240,31 @@ function extractCharacters(storyBible: any, actorMaterials: any): { mainCharacte
       conflicts: conflicts,
       arc: arc,
       relationships: extractCharacterRelationships(char, characters),
-      keyTraits: traits,
+      keyTraits: enhancedTraits,
       imageUrl: imageUrl,
       imagePrompt: imagePrompt,
-      throughLine: throughLine,
+      // Story Bible 3D Data
+      physiology: physiology,
+      sociology: sociology,
+      psychology: psychology,
+      // Actor Materials - Complete Data
+      studyGuide: studyGuide,
       performanceReference: performanceReference,
+      throughLine: throughLine,
+      gotAnalysis: gotAnalysis,
+      relationshipMapActor: relationshipMapActor,
+      sceneBreakdowns: sceneBreakdowns,
+      emotionalBeats: emotionalBeats,
       physicalWork: physicalWork,
       voicePatterns: voicePatterns,
-      keyScenes: keyScenes
+      monologues: monologues,
+      keyScenes: keyScenes,
+      onSetPrep: onSetPrep,
+      researchSuggestions: researchSuggestions,
+      wardrobeNotes: wardrobeNotes,
+      memorizationAids: memorizationAids,
+      techniqueFocus: techniqueFocus,
+      techniqueExercises: techniqueExercises
     }
   }).filter((char: any) => char.name && char.name !== 'Unnamed Character') // Filter out empty characters
   
@@ -1259,11 +1348,21 @@ function extractDepth(storyBible: any) {
     })
   }
   
+  // Extract living world dynamics - 1:1 reflection from Story Bible
+  const livingWorldDynamics = storyBible.livingWorldDynamics || {}
+  
   return {
     world: {
       setting,
       rules,
       locations
+    },
+    livingWorld: {
+      backgroundEvents: livingWorldDynamics.backgroundEvents || '',
+      socialDynamics: livingWorldDynamics.socialDynamics || '',
+      economicFactors: livingWorldDynamics.economicFactors || '',
+      politicalUndercurrents: livingWorldDynamics.politicalUndercurrents || '',
+      culturalShifts: livingWorldDynamics.culturalShifts || ''
     }
   }
 }
@@ -1495,9 +1594,9 @@ function extractProduction(
   locations: LocationSummary[]
   props: PropSummary[]
   casting: CastingSummary
-  equipment?: EquipmentSection
-  wardrobe?: WardrobeSection
-  schedule?: ScheduleSummary
+  equipment?: any // EquipmentSection
+  wardrobe?: any // WardrobeSection
+  schedule?: any // ScheduleSummary
 } {
   // PRIORITY: Use Production Assistant (arc-level) budget data first
   let totalBaseExtras = 0
@@ -1878,7 +1977,6 @@ function extractProduction(
 
       locations.push({
         name: selected.venueName || parentName,
-        storyLocationName: parentName,
         venueName: selected.venueName,
         venueType: selected.venueType,
         description: group.storyBibleReference || '',
@@ -2154,7 +2252,7 @@ function buildEquipmentSection(
   arcPreProd: any,
   allEpisodePreProd: Record<number, any>,
   episodeNumbers: number[]
-): EquipmentSection | undefined {
+): any {
   const sources: Array<{ data: any; episodes: number[] }> = []
   if (arcPreProd?.equipment) {
     sources.push({ data: arcPreProd.equipment, episodes: episodeNumbers })
@@ -2169,7 +2267,7 @@ function buildEquipmentSection(
   if (sources.length === 0) return undefined
 
   const categoryOrder = ['camera', 'lens', 'lighting', 'audio', 'grip', 'other']
-  const categoriesMap = new Map<string, EquipmentCategorySummary>()
+  const categoriesMap = new Map<string, any>()
   categoryOrder.forEach(cat => {
     categoriesMap.set(cat, {
       category: cat,
@@ -2214,7 +2312,7 @@ function buildEquipmentSection(
             ? item.costPerDay
             : 0
 
-          const itemSummary: EquipmentItemSummary = {
+          const itemSummary: any = {
             name: item.name || 'Equipment',
             category,
             status: item.status,
@@ -2249,7 +2347,7 @@ function buildEquipmentSection(
   const categories = Array.from(categoriesMap.values()).filter(cat => cat.totalItems > 0)
   if (categories.length === 0) return undefined
 
-  const status: EquipmentSection['status'] = totalItems === 0
+  const status = totalItems === 0
     ? 'missing'
     : obtainedItems > 0 && obtainedItems < totalItems
     ? 'partial'
@@ -2268,8 +2366,8 @@ function buildWardrobeSection(
   arcPreProd: any,
   allEpisodePreProd: Record<number, any>,
   episodeNumbers: number[]
-): WardrobeSection | undefined {
-  const wardrobeItems: WardrobeItemSummary[] = []
+): any {
+  const wardrobeItems: any[] = []
   const propsItems: PropSummary[] = []
   let totalCost = 0
 
@@ -2346,7 +2444,7 @@ function buildWardrobeSection(
 
   if (wardrobeItems.length === 0 && propsItems.length === 0) return undefined
 
-  const status: WardrobeSection['status'] = wardrobeItems.length > 0 || propsItems.length > 0
+  const status = wardrobeItems.length > 0 || propsItems.length > 0
     ? 'complete'
     : 'missing'
 
@@ -2362,7 +2460,7 @@ function buildScheduleSection(
   arcPreProd: any,
   allEpisodePreProd: Record<number, any>,
   episodeNumbers: number[]
-): ScheduleSummary | undefined {
+): any {
   // EXACT 1:1 REPLICA - Extract from arc-level Production Assistant
   let schedule = arcPreProd?.shootingSchedule || arcPreProd?.schedule
   let sourceEpisodes: number[] | undefined = arcPreProd?.shootingSchedule ? episodeNumbers : undefined
@@ -2381,7 +2479,7 @@ function buildScheduleSection(
   if (!schedule) return undefined
 
   const daysRaw = Array.isArray(schedule.days) ? schedule.days : []
-  const days: ScheduleDaySummary[] = daysRaw.map((day: any) => ({
+  const days: any[] = daysRaw.map((day: any) => ({
     dayNumber: day.dayNumber,
     date: day.date,
     location: day.location,
@@ -2424,7 +2522,7 @@ function buildScheduleSection(
   const upcomingDays = daysRaw.filter((d: any) => d.status === 'scheduled' || d.status === 'confirmed').length
   const totalScenes = daysRaw.reduce((sum: number, day: any) => sum + (Array.isArray(day.scenes) ? day.scenes.length : 0), 0)
   const uniqueLocations = new Set(daysRaw.map((d: any) => d.location).filter(Boolean)).size
-  const status: ScheduleSummary['status'] = totalShootDays > 0 ? 'complete' : 'missing'
+  const status = totalShootDays > 0 ? 'complete' : 'missing'
 
   return {
     mode: schedule.schedulingMode,

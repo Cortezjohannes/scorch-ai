@@ -4,7 +4,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useTheme } from '@/context/ThemeContext'
-import { User } from 'firebase/auth'
+import { User } from '@/context/AuthContext'
 
 interface DashboardHeroProps {
   user: User | null

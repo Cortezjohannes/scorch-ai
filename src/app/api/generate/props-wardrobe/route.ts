@@ -2,7 +2,7 @@
  * API Route: Generate Props/Wardrobe Breakdown
  * 
  * Generates props and wardrobe breakdowns based on script, breakdown, and questionnaire answers
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical + practical generation
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical + practical generation
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Generate props/wardrobe with AI
     console.log('\n🤖 Generating props/wardrobe with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: Comprehensive props and wardrobe breakdown')
     console.log('  Budget focus: $5-$350 per episode (micro-budget)')
 

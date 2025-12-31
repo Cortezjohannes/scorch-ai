@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
+import ChatSuggestionButton from '@/components/chat/ChatSuggestionButton'
 
 interface GenerationErrorModalProps {
   isOpen: boolean
@@ -21,7 +22,7 @@ export default function GenerationErrorModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -81,23 +82,35 @@ export default function GenerationErrorModal({
             </p>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 px-6 py-3 bg-[#2a2a2a] border border-[#36393f] text-[#e7e7e7] font-medium rounded-lg hover:bg-[#36393f] transition-all"
-              >
-                Cancel
-              </button>
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-6 py-3 bg-[#2a2a2a] border border-[#36393f] text-[#e7e7e7] font-medium rounded-lg hover:bg-[#36393f] transition-all"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={() => {
+                    onClose()
+                    onRetry()
+                  }}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all"
+                >
+                  Try Again
+                </button>
+              </div>
               
-              <button
-                onClick={() => {
-                  onClose()
-                  onRetry()
-                }}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#10B981] to-[#059669] text-black font-bold rounded-lg hover:shadow-lg hover:shadow-[#10B981]/20 transition-all"
-              >
-                Try Again
-              </button>
+              {/* Chat Suggestion */}
+              <div className="pt-2 border-t border-[#36393f]">
+                <ChatSuggestionButton
+                  suggestion="Ask AI for help"
+                  context={`Error: ${errorMessage}`}
+                  variant="action"
+                  className="w-full"
+                />
+              </div>
             </div>
           </div>
         </motion.div>

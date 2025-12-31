@@ -13,6 +13,9 @@ import { productionQualityMonitor } from '@/services/production-quality-monitor'
 import { productionMonitoringDashboard } from '@/services/production-monitoring-dashboard'
 import { logger } from '@/services/console-logger'
 
+// Set maximum execution time to 30 minutes (1800 seconds) for Safari compatibility
+export const maxDuration = 1800
+
 // 📊 PRODUCTION API INTERFACES
 
 interface ProductionAPIRequest {

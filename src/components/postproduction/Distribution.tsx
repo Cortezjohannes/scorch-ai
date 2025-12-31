@@ -39,7 +39,14 @@ interface Episode {
   scenes: Scene[]
 }
 
-export function Distribution() {
+interface DistributionProps {
+  storyBibleId?: string
+  episodeNumber?: number
+  arcIndex?: number | null
+  arcEpisodes?: number[]
+}
+
+export function Distribution({ storyBibleId, episodeNumber, arcIndex, arcEpisodes }: DistributionProps) {
   const router = useRouter()
   const [selectedExport, setSelectedExport] = useState<string>('preset1')
   const [isExporting, setIsExporting] = useState<boolean>(false)

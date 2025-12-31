@@ -60,11 +60,35 @@ export async function generateScriptBreakdown(params: BreakdownGenerationParams)
 
   console.log('📋 Generating script breakdown for Episode', episodeNumber)
   console.log('📄 Analyzing', script.metadata.sceneCount, 'scenes')
+  console.log('📄 Script metadata sceneCount:', script.metadata.sceneCount)
 
   // Extract scenes from screenplay
   const scriptScenes = parseScriptToScenes(script)
   
   console.log('✅ Extracted', scriptScenes.length, 'scenes from screenplay')
+  console.log('📊 Extracted scene numbers:', scriptScenes.map(s => s.sceneNumber).sort((a, b) => a - b).join(', '))
+  
+  // Validate scene count
+  if (scriptScenes.length !== script.metadata.sceneCount) {
+    console.warn(`⚠️ WARNING: Scene count mismatch!`)
+    console.warn(`   Script metadata says: ${script.metadata.sceneCount} scenes`)
+    console.warn(`   But extracted: ${scriptScenes.length} scenes`)
+    console.warn(`   Missing scenes: ${script.metadata.sceneCount - scriptScenes.length}`)
+    
+    // Log all scene numbers found in script pages
+    const allSceneNumbers: number[] = []
+    for (const page of script.pages) {
+      for (const element of page.elements) {
+        if (element.type === 'slug' && element.metadata?.sceneNumber) {
+          if (!allSceneNumbers.includes(element.metadata.sceneNumber)) {
+            allSceneNumbers.push(element.metadata.sceneNumber)
+          }
+        }
+      }
+    }
+    allSceneNumbers.sort((a, b) => a - b)
+    console.warn(`   Scene numbers found in script pages: ${allSceneNumbers.join(', ')}`)
+  }
 
   // Build AI prompts
   const systemPrompt = buildSystemPrompt()
@@ -99,7 +123,7 @@ export async function generateScriptBreakdown(params: BreakdownGenerationParams)
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
     
     // Parse AI response into structured breakdown
-    const structuredBreakdown = structureBreakdownData(response.content, script, episodeNumber, episodeTitle, scriptScenes)
+    const structuredBreakdown = await structureBreakdownData(response.content, script, episodeNumber, episodeTitle, scriptScenes, storyBible)
     
     console.log('✅ Breakdown generated:', structuredBreakdown.scenes.length, 'scenes')
     console.log('💰 Total budget impact: $', structuredBreakdown.totalBudgetImpact)
@@ -131,31 +155,47 @@ function parseScriptToScenes(script: GeneratedScript): Array<{
 
   let currentScene: any = null
   let sceneContent: string[] = []
+  const seenSceneNumbers = new Set<number>()
+
+  console.log(`📝 Parsing ${script.pages.length} pages for scenes...`)
 
   for (const page of script.pages) {
     for (const element of page.elements) {
       if (element.type === 'slug' && element.metadata?.sceneNumber) {
+        const sceneNum = element.metadata.sceneNumber
+        
+        // Check for duplicate scene numbers
+        if (seenSceneNumbers.has(sceneNum)) {
+          console.warn(`⚠️ Duplicate scene number ${sceneNum} found on page ${page.pageNumber}`)
+        }
+        seenSceneNumbers.add(sceneNum)
+        
         // Save previous scene if exists
         if (currentScene) {
           currentScene.content = sceneContent.join('\n')
           currentScene.pageEnd = page.pageNumber
           scenes.push(currentScene)
+          console.log(`  ✅ Saved Scene ${currentScene.sceneNumber}: ${currentScene.heading.substring(0, 50)}...`)
         }
 
         // Start new scene
         currentScene = {
-          sceneNumber: element.metadata.sceneNumber,
+          sceneNumber: sceneNum,
           heading: element.content,
           content: '',
           pageStart: page.pageNumber,
           pageEnd: page.pageNumber
         }
         sceneContent = [element.content]
+        console.log(`  📍 Starting Scene ${sceneNum} on page ${page.pageNumber}: ${element.content.substring(0, 50)}...`)
       } else if (currentScene) {
         // Add to current scene content
         if (element.content.trim()) {
           sceneContent.push(element.content)
         }
+      } else if (element.type === 'slug' && !element.metadata?.sceneNumber) {
+        // Found a slug line without sceneNumber metadata - this might be a missing scene!
+        console.warn(`⚠️ Found slug line without sceneNumber metadata on page ${page.pageNumber}: ${element.content.substring(0, 50)}...`)
       }
     }
   }
@@ -165,6 +205,28 @@ function parseScriptToScenes(script: GeneratedScript): Array<{
     currentScene.content = sceneContent.join('\n')
     currentScene.pageEnd = script.pages[script.pages.length - 1]?.pageNumber || currentScene.pageStart
     scenes.push(currentScene)
+    console.log(`  ✅ Saved Scene ${currentScene.sceneNumber}: ${currentScene.heading.substring(0, 50)}...`)
+  }
+
+  // Check for missing scene numbers
+  const extractedSceneNumbers = scenes.map(s => s.sceneNumber).sort((a, b) => a - b)
+  const expectedSceneCount = script.metadata.sceneCount
+  if (extractedSceneNumbers.length < expectedSceneCount) {
+    console.warn(`⚠️ Missing scenes detected!`)
+    console.warn(`   Expected: ${expectedSceneCount} scenes`)
+    console.warn(`   Found: ${extractedSceneNumbers.length} scenes`)
+    console.warn(`   Scene numbers found: ${extractedSceneNumbers.join(', ')}`)
+    
+    // Find missing scene numbers
+    const missingScenes: number[] = []
+    for (let i = 1; i <= expectedSceneCount; i++) {
+      if (!extractedSceneNumbers.includes(i)) {
+        missingScenes.push(i)
+      }
+    }
+    if (missingScenes.length > 0) {
+      console.warn(`   Missing scene numbers: ${missingScenes.join(', ')}`)
+    }
   }
 
   return scenes
@@ -334,7 +396,11 @@ function buildUserPrompt(
 
   // Scenes to analyze
   prompt += `**SCENES TO ANALYZE:**\n\n`
+  prompt += `**CRITICAL: You MUST analyze ALL ${scriptScenes.length} scenes listed below. Do NOT skip any scenes. Every scene from Scene ${scriptScenes[0]?.sceneNumber} to Scene ${scriptScenes[scriptScenes.length - 1]?.sceneNumber} must appear in your JSON response.**\n\n`
+  
+  console.log(`📝 Building prompt with ${scriptScenes.length} scenes to analyze`)
   scriptScenes.forEach((scene, idx) => {
+    console.log(`  ✅ Including Scene ${scene.sceneNumber}: ${scene.heading.substring(0, 50)}...`)
     prompt += `Scene ${scene.sceneNumber}:\n`
     prompt += `Slug Line: ${scene.heading}\n`
     prompt += `Content:\n${scene.content.substring(0, 1000)}${scene.content.length > 1000 ? '...' : ''}\n\n`
@@ -424,6 +490,7 @@ function buildUserPrompt(
   prompt += `]\n\n`
 
   prompt += `**CRITICAL REMINDERS:**\n`
+  prompt += `- **ABSOLUTELY CRITICAL: You MUST generate breakdowns for ALL ${scriptScenes.length} scenes listed above. Missing scenes will cause the breakdown to be incomplete. Every scene from Scene ${scriptScenes[0]?.sceneNumber} to Scene ${scriptScenes[scriptScenes.length - 1]?.sceneNumber} must appear in your JSON array.**\n`
   prompt += `- Output ONLY valid JSON (no markdown, no explanation)\n`
   prompt += `- Extract from screenplay ONLY (no invention)\n`
   prompt += `- ULTRA-MICRO-BUDGET: Total episode should be $30-$625 MAX\n`
@@ -434,20 +501,149 @@ function buildUserPrompt(
   prompt += `- Crew NOT included (added separately in Budget tab)\n`
   prompt += `- One object per scene\n`
   prompt += `- All fields required\n`
+  prompt += `- **REQUIRED: Your JSON array must contain exactly ${scriptScenes.length} scene objects, one for each scene listed above.**\n`
 
   return prompt
 }
 
 /**
+ * Build prompt for missing scenes only
+ */
+function buildMissingScenesPrompt(
+  missingScenes: Array<{ sceneNumber: number; heading: string; content: string }>,
+  storyBible: any
+): string {
+  let prompt = `Generate production breakdowns for the following MISSING scenes that were not included in the initial breakdown.\n\n`
+  
+  prompt += `**SERIES CONTEXT:**\n`
+  prompt += `- Series: ${storyBible?.seriesTitle || storyBible?.title || 'Unknown'}\n`
+  prompt += `- Genre: ${storyBible?.genre || 'Drama'}\n`
+  prompt += `- Budget: Ultra-micro-budget ($1k-$20k total series, $30-$625 per episode)\n\n`
+  
+  prompt += `**MISSING SCENES TO ANALYZE:**\n\n`
+  
+  missingScenes.forEach((scene, index) => {
+    prompt += `**Scene ${scene.sceneNumber}:**\n`
+    prompt += `${scene.heading}\n\n`
+    prompt += `${scene.content}\n\n`
+    if (index < missingScenes.length - 1) {
+      prompt += `---\n\n`
+    }
+  })
+  
+  prompt += `**OUTPUT FORMAT:**\n`
+  prompt += `Return ONLY a JSON array with ${missingScenes.length} scene object(s), one for each scene above.\n`
+  prompt += `Use the same structure as the main breakdown:\n`
+  prompt += `[\n`
+  prompt += `  {\n`
+  prompt += `    "sceneNumber": <number>,\n`
+  prompt += `    "sceneTitle": "<extracted from heading>",\n`
+  prompt += `    "location": "<from slug line>",\n`
+  prompt += `    "timeOfDay": "DAY" | "NIGHT" | "SUNRISE" | "SUNSET" | "MAGIC_HOUR",\n`
+  prompt += `    "estimatedShootTime": <minutes 15-90>,\n`
+  prompt += `    "characters": [{"name": "...", "lineCount": <number>, "importance": "lead"|"supporting"|"background"}],\n`
+  prompt += `    "props": [{"item": "...", "importance": "hero"|"secondary"|"background", "source": "buy"|"rent"|"borrow"|"actor-owned", "estimatedCost": <number>}],\n`
+  prompt += `    "specialRequirements": [],\n`
+  prompt += `    "budgetImpact": <number $5-$200>,\n`
+  prompt += `    "budgetDetails": {"locationCost": 0, "propCost": 0, "extrasCost": 0, "specialEqCost": 0, "contingency": 0, "savingsTips": [], "assumptions": []},\n`
+  prompt += `    "logistics": {"nightShoot": false, "companyMoveRequired": false},\n`
+  prompt += `    "coverage": {"suggestedSetupCount": 2, "complexity": "simple"},\n`
+  prompt += `    "continuity": {"keyPropsCarried": [], "wardrobeNotes": ""},\n`
+  prompt += `    "warnings": [],\n`
+  prompt += `    "notes": ""\n`
+  prompt += `  }\n`
+  prompt += `]\n\n`
+  
+  prompt += `**CRITICAL:**\n`
+  prompt += `- Output ONLY valid JSON (no markdown, no explanation)\n`
+  prompt += `- Extract from screenplay ONLY (no invention)\n`
+  prompt += `- ULTRA-MICRO-BUDGET: Keep costs low ($5-$200 per scene)\n`
+  prompt += `- Actors are NOT paid (revenue share model)\n`
+  prompt += `- All fields required\n`
+  
+  return prompt
+}
+
+/**
+ * Create a basic breakdown for a scene when AI fails
+ */
+function createBasicBreakdownForScene(
+  scriptScene: { sceneNumber: number; heading: string; content: string },
+  episodeNumber: number
+): any {
+  // Extract location from heading (slug line)
+  const locationMatch = scriptScene.heading.match(/(?:INT\.|EXT\.)\s+(.+?)(?:\s+-\s+|$)/i)
+  const location = locationMatch ? locationMatch[1].trim() : 'Unknown Location'
+  
+  // Determine time of day from heading
+  let timeOfDay = 'DAY'
+  if (scriptScene.heading.toUpperCase().includes('NIGHT')) {
+    timeOfDay = 'NIGHT'
+  } else if (scriptScene.heading.toUpperCase().includes('SUNRISE')) {
+    timeOfDay = 'SUNRISE'
+  } else if (scriptScene.heading.toUpperCase().includes('SUNSET')) {
+    timeOfDay = 'SUNSET'
+  } else if (scriptScene.heading.toUpperCase().includes('MAGIC HOUR')) {
+    timeOfDay = 'MAGIC_HOUR'
+  }
+  
+  // Extract basic character names from content (simple heuristic)
+  const characterMatches = scriptScene.content.match(/(?:^|\n)([A-Z][A-Z\s]+?)(?:\n|$)/g) || []
+  const characters = characterMatches
+    .slice(0, 5) // Limit to 5 characters
+    .map(match => ({
+      name: match.trim().replace(/\n/g, ''),
+      lineCount: 1,
+      importance: 'supporting' as const
+    }))
+  
+  return {
+    sceneNumber: scriptScene.sceneNumber,
+    sceneTitle: scriptScene.heading,
+    location: location,
+    timeOfDay: timeOfDay,
+    estimatedShootTime: 30,
+    characters: characters,
+    props: [],
+    specialRequirements: [],
+    budgetImpact: 10,
+    budgetDetails: {
+      locationCost: 0,
+      propCost: 0,
+      extrasCost: 0,
+      specialEqCost: 0,
+      contingency: 0,
+      savingsTips: ['Basic scene - minimal costs'],
+      assumptions: ['Location is free or actor-owned']
+    },
+    logistics: {
+      nightShoot: timeOfDay === 'NIGHT',
+      companyMoveRequired: false
+    },
+    coverage: {
+      suggestedSetupCount: 2,
+      complexity: 'simple'
+    },
+    continuity: {
+      keyPropsCarried: [],
+      wardrobeNotes: ''
+    },
+    warnings: ['Basic breakdown - AI generation failed for this scene'],
+    notes: 'Basic breakdown created automatically. Please review and update with full details.'
+  }
+}
+
+/**
  * Parse AI response and structure breakdown data
  */
-function structureBreakdownData(
+async function structureBreakdownData(
   aiResponse: string,
   script: GeneratedScript,
   episodeNumber: number,
   episodeTitle: string,
-  scriptScenes: Array<{ sceneNumber: number; heading: string; content: string }>
-): ScriptBreakdownData {
+  scriptScenes: Array<{ sceneNumber: number; heading: string; content: string }>,
+  storyBible: any
+): Promise<ScriptBreakdownData> {
   console.log('📊 Structuring breakdown data...')
   console.log('   Raw response length:', aiResponse.length)
   console.log('   Raw response (first 300 chars):', aiResponse.substring(0, 300))
@@ -577,6 +773,85 @@ function structureBreakdownData(
       throw new Error('AI response is not an array')
     }
 
+    console.log(`📊 AI returned ${parsedScenes.length} scenes`)
+    console.log(`📊 Expected ${scriptScenes.length} scenes from script`)
+    
+    // Validate that all script scenes are accounted for
+    const aiSceneNumbers = parsedScenes.map((s: any) => s.sceneNumber).sort((a: number, b: number) => a - b)
+    const scriptSceneNumbers = scriptScenes.map(s => s.sceneNumber).sort((a, b) => a - b)
+    const missingFromAI = scriptSceneNumbers.filter(num => !aiSceneNumbers.includes(num))
+    
+    if (missingFromAI.length > 0) {
+      console.warn(`⚠️ WARNING: AI response is missing ${missingFromAI.length} scene(s):`)
+      missingFromAI.forEach(sceneNum => {
+        const scriptScene = scriptScenes.find(s => s.sceneNumber === sceneNum)
+        console.warn(`   - Scene ${sceneNum}: ${scriptScene?.heading || 'Unknown'}`)
+      })
+      console.warn(`   AI returned scenes: ${aiSceneNumbers.join(', ')}`)
+      console.warn(`   Script has scenes: ${scriptSceneNumbers.join(', ')}`)
+      
+      // Generate breakdowns for missing scenes
+      console.log(`\n🔄 Generating breakdowns for ${missingFromAI.length} missing scene(s)...`)
+      try {
+        const missingScenesData = missingFromAI
+          .map(sceneNum => scriptScenes.find(s => s.sceneNumber === sceneNum))
+          .filter((scene): scene is { sceneNumber: number; heading: string; content: string } => scene !== undefined)
+        
+        if (missingScenesData.length > 0) {
+          const missingScenesPrompt = buildMissingScenesPrompt(missingScenesData, storyBible)
+          const missingScenesResponse = await EngineAIRouter.generateContent({
+            prompt: missingScenesPrompt,
+            systemPrompt: buildSystemPrompt(),
+            temperature: 0.6,
+            maxTokens: 8000,
+            forceProvider: 'gemini'
+          })
+          
+          const missingScenesText = missingScenesResponse.content || ''
+          console.log(`✅ Received response for missing scenes (${missingScenesText.length} chars)`)
+          
+          // Parse the missing scenes
+          const { cleanAndParseJSONArray } = require('@/lib/json-utils')
+          const missingParsedScenes = cleanAndParseJSONArray(missingScenesText)
+          
+          if (Array.isArray(missingParsedScenes) && missingParsedScenes.length > 0) {
+            console.log(`✅ Successfully parsed ${missingParsedScenes.length} missing scene breakdown(s)`)
+            // Add missing scenes to parsedScenes
+            parsedScenes.push(...missingParsedScenes)
+            console.log(`📊 Total scenes after adding missing: ${parsedScenes.length}`)
+          } else {
+            console.warn(`⚠️ Failed to parse missing scenes, creating basic breakdowns...`)
+            // Create basic breakdowns for missing scenes
+            missingScenesData.forEach(scriptScene => {
+              if (scriptScene) {
+                const basicBreakdown = createBasicBreakdownForScene(scriptScene, episodeNumber)
+                parsedScenes.push(basicBreakdown)
+              }
+            })
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error generating missing scenes:`, error)
+        console.warn(`⚠️ Creating basic breakdowns for missing scenes...`)
+        // Fallback: create basic breakdowns
+        missingFromAI.forEach(sceneNum => {
+          const scriptScene = scriptScenes.find(s => s.sceneNumber === sceneNum)
+          if (scriptScene) {
+            const basicBreakdown = createBasicBreakdownForScene(scriptScene, episodeNumber)
+            parsedScenes.push(basicBreakdown)
+          }
+        })
+      }
+      
+      // Sort scenes by scene number after adding missing ones
+      parsedScenes.sort((a: any, b: any) => (a.sceneNumber || 0) - (b.sceneNumber || 0))
+      console.log(`✅ Scenes sorted by scene number`)
+    }
+
+    if (parsedScenes.length < scriptScenes.length) {
+      console.warn(`⚠️ AI generated fewer scenes (${parsedScenes.length}) than script has (${scriptScenes.length})`)
+    }
+
     // Convert to TypeScript types
     const scenes: ScriptBreakdownScene[] = parsedScenes.map((scene: any) => {
       // Find matching scene content from script extraction
@@ -698,7 +973,7 @@ function structureBreakdownData(
     }
   } catch (error) {
     console.error('❌ Error parsing AI response:', error)
-    console.error('Raw response:', cleanedResponse.substring(0, 500))
+    console.error('Raw response:', aiResponse.substring(0, 500))
     throw new Error(`Failed to parse breakdown data: ${error instanceof Error ? error.message : 'Invalid JSON'}`)
   }
 }

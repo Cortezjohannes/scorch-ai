@@ -35,8 +35,8 @@ export default function ActorMaterialsArcPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedTechnique, setSelectedTechnique] = useState<ActingTechnique | undefined>()
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | undefined>()
-  const [totalCharacters, setTotalCharacters] = useState(5)
-
+  const [totalCharacters, setTotalCharacters] = useState(0) // Will be updated from backend
+  
   const prefix = theme === 'dark' ? 'dark' : 'light'
 
   // Load data
@@ -45,14 +45,14 @@ export default function ActorMaterialsArcPage() {
       if (!storyBibleId || arcIndex === undefined) {
         setError('Missing story bible or arc information')
         setLoading(false)
-        return
-      }
+      return
+    }
 
-      try {
-        // Load story bible
+    try {
+      // Load story bible
         const bible = await getStoryBible(storyBibleId, user?.id || '')
         if (!bible) {
-          setError('Story bible not found')
+        setError('Story bible not found')
           setLoading(false)
           return
         }
@@ -62,18 +62,18 @@ export default function ActorMaterialsArcPage() {
         if (!bible.narrativeArcs || !bible.narrativeArcs[arcIndex]) {
           setError(`Arc ${arcIndex + 1} not found`)
           setLoading(false)
-          return
-        }
-
+        return
+      }
+      
         // Try to load existing materials
         const existingMaterials = await getActorMaterials(
           user?.id || '',
           storyBibleId,
           arcIndex
         )
-
-        if (existingMaterials) {
-          setMaterials(existingMaterials)
+      
+      if (existingMaterials) {
+        setMaterials(existingMaterials)
         }
 
         setLoading(false)
@@ -124,8 +124,8 @@ export default function ActorMaterialsArcPage() {
           try {
             const { getEpisodePreProduction } = await import('@/services/preproduction-firestore')
             const preProd = await getEpisodePreProduction(user.id, storyBibleId, episodeNum)
-            if (preProd) {
-              episodePreProdData[episodeNum] = preProd
+          if (preProd) {
+            episodePreProdData[episodeNum] = preProd
               console.log(`✅ Pre-prod data loaded for episode ${episodeNum}`)
             } else {
               console.log(`⚠️ No pre-prod data for episode ${episodeNum}`)
@@ -146,7 +146,7 @@ export default function ActorMaterialsArcPage() {
 
       // Set up progress tracking
       const mainCharacters = storyBible.mainCharacters?.length || 3
-      const totalChars = Math.min(mainCharacters, 5)
+      const totalChars = mainCharacters // Generate for all characters
       setTotalCharacters(totalChars)
       
       setGenerationProgress({
@@ -171,7 +171,7 @@ export default function ActorMaterialsArcPage() {
           episodePreProdData
         })
       })
-
+      
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to generate materials')
@@ -216,11 +216,17 @@ export default function ActorMaterialsArcPage() {
                   (data.type === 'character' ? 'Starting character' : 
                    data.type === 'complete' ? 'Complete' : data.message)
                 
+                // Always use backend's totalCharacters if provided, otherwise use local calculation
+                const backendTotalChars = data.totalCharacters
+                if (backendTotalChars) {
+                  setTotalCharacters(backendTotalChars)
+                }
+                
                 setGenerationProgress({
                   currentCharacter: data.characterName || 'Processing...',
                   currentPhase: phaseName,
                   characterIndex: data.characterIndex ?? 0,
-                  totalCharacters: data.totalCharacters ?? totalChars,
+                  totalCharacters: backendTotalChars ?? totalChars,
                   percentage: data.percentage ?? 0
                 })
               }
@@ -259,10 +265,6 @@ export default function ActorMaterialsArcPage() {
     } catch (err: any) {
       console.error('❌ Error generating materials:', err)
       setError(err.message || 'Failed to generate materials')
-      // Clear interval on error too
-      if (typeof progressInterval !== 'undefined') {
-        clearInterval(progressInterval)
-      }
     } finally {
       setGenerating(false)
       setTimeout(() => setGenerationProgress(undefined), 1000) // Keep final state visible briefly
@@ -381,16 +383,16 @@ export default function ActorMaterialsArcPage() {
                       <option value="spolin">Spolin</option>
                     </optgroup>
                   </select>
-                </div>
-
+          </div>
+          
                 {/* Generate Button */}
-                <button
+            <button
                   onClick={handleGenerate}
                   disabled={generating}
                   className={`px-8 py-3 rounded-lg font-semibold text-lg ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
+            >
                   {generating ? 'Generating...' : 'Generate Materials'}
-                </button>
+            </button>
 
                 {/* Features List */}
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">

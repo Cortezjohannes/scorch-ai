@@ -42,7 +42,7 @@ export const GEMINI_CONFIG = {
     temperature: 0.9, // 🔥 INCREASED FOR MAXIMUM CREATIVITY!
     topK: 40,
     topP: 0.8,
-    maxOutputTokens: 8192
+    maxOutputTokens: 16384 // 🔥 INCREASED for large character rosters (28+ characters)
   }
 }
 
@@ -168,6 +168,35 @@ export const PERFORMANCE_CONFIG = {
     [AZURE_CONFIG.DEPLOYMENTS.GPT_5]: 128000, // 128k tokens
     [AZURE_CONFIG.DEPLOYMENTS.GPT_5_TURBO]: 128000
   }
+}
+
+// 🔍 HELPER FUNCTIONS
+/**
+ * Check if an error is a rate limit (429) error
+ */
+export function isRateLimitError(error: any): boolean {
+  return error?.status === 429 || 
+         error?.message?.includes('429') ||
+         error?.message?.toLowerCase().includes('rate limit') ||
+         error?.message?.toLowerCase().includes('quota')
+}
+
+/**
+ * Get the fallback model for a given model when rate limited
+ */
+export function getTextFallbackModel(model: string): string | null {
+  // For Gemini 3, fallback to Gemini 2.5 Pro
+  if (model === 'gemini-3-pro-preview') {
+    return 'gemini-2.0-pro-exp-0827'
+  }
+  
+  // For Gemini 2.5 Pro, fallback to Flash
+  if (model === 'gemini-2.0-pro-exp-0827') {
+    return 'gemini-2.5-flash-preview-0514'
+  }
+  
+  // No more Gemini fallbacks
+  return null
 }
 
 export default {

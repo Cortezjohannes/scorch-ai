@@ -2,11 +2,13 @@
  * API Route: Generate Script Breakdown
  * 
  * Analyzes screenplay from Scripts tab and generates micro-budget production breakdown
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical tasks
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical tasks
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { generateScriptBreakdown } from '@/services/ai-generators/script-breakdown-generator'
+
+const MAX_EPISODE_BUDGET = 625
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Generate the breakdown
     console.log('\n🤖 Generating script breakdown with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Focus: Micro-budget ($1k-$20k)')
     
     const breakdown = await generateScriptBreakdown({
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.log('  Total budget:', `$${breakdown.totalBudgetImpact}`)
 
     // Validate budget is within range (per episode for UGC series)
-    if (breakdown.totalBudgetImpact > 625) {
+    if (breakdown.totalBudgetImpact > MAX_EPISODE_BUDGET) {
       console.warn('⚠️  Budget exceeds typical per-episode range:', `$${breakdown.totalBudgetImpact}`)
       console.warn('   (Series budget $1k-$20k ÷ 32 episodes = ~$30-$625/ep)')
     } else if (breakdown.totalBudgetImpact < 10) {
@@ -92,9 +94,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      breakdown: breakdown,
+      breakdown,
       preProductionId,
-      message: `Breakdown generated: ${breakdown.scenes.length} scenes, $${breakdown.totalBudgetImpact} total budget`
+      message: `Breakdown generated: ${breakdown.scenes.length} scenes, $${breakdown.totalBudgetImpact} total budget`,
+      warnings: breakdown.warnings || []
     })
 
   } catch (error: any) {

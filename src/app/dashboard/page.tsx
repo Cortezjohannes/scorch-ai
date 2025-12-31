@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from '@/components/ui/ClientMotion'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
-import { getStoryBible } from '@/services/story-bible-service'
+import { getStoryBible, extendSeriesWithArc } from '@/services/story-bible-service'
 import { getEpisodesForStoryBible, Episode } from '@/services/episode-service'
 import { getEpisodePreProduction, getEpisodeRangeForArc } from '@/services/preproduction-firestore'
 import { getActorMaterials } from '@/services/actor-materials-firestore'
@@ -13,6 +13,7 @@ import DashboardStats from '@/components/dashboard/DashboardStats'
 import QuickAccessCards from '@/components/dashboard/QuickAccessCards'
 import EpisodeGenerationSuite from '@/components/workspace/EpisodeGenerationSuite'
 import ShareInvestorMaterialsModal from '@/components/share/ShareInvestorMaterialsModal'
+import { useChat } from '@/context/ChatContext'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth()
   const { theme } = useTheme()
   const prefix = theme === 'dark' ? 'dark' : 'light'
+  const { loadSession } = useChat()
   
   const [storyBible, setStoryBible] = useState<any>(null)
   const [episodes, setEpisodes] = useState<Record<number, Episode>>({})
@@ -40,6 +42,9 @@ export default function DashboardPage() {
   
   // Share Modal
   const [showShareModal, setShowShareModal] = useState(false)
+  
+  // Extend series state
+  const [isExtendingSeries, setIsExtendingSeries] = useState(false)
   
   // Window dimensions for particles
   const [windowHeight, setWindowHeight] = useState(800)
@@ -83,7 +88,7 @@ export default function DashboardPage() {
       let totalEpisodes = 0
       if (storyBible?.narrativeArcs) {
         totalEpisodes = storyBible.narrativeArcs.reduce((sum: number, arc: any) => {
-          return sum + (arc.episodes?.length || 10)
+          return sum + (arc.episodes?.length || 8)
         }, 0)
       }
       
@@ -144,6 +149,49 @@ export default function DashboardPage() {
         preProductionCompleted, 
         arcsReadyForProduction 
       })
+    }
+  }
+
+  const handleExtendSeries = async () => {
+    if (!storyBible) {
+      alert('No story bible available')
+      return
+    }
+
+    try {
+      setIsExtendingSeries(true)
+      const updatedBible = await extendSeriesWithArc(storyBible, user?.id)
+      
+      // Update story bible state immediately
+      setStoryBible(updatedBible)
+      
+      // Recalculate total episodes from updated story bible
+      let totalEpisodes = 0
+      if (updatedBible?.narrativeArcs) {
+        totalEpisodes = updatedBible.narrativeArcs.reduce((sum: number, arc: any) => {
+          return sum + (arc.episodes?.length || 8)
+        }, 0)
+      }
+      
+      // Update stats with new total episodes
+      setStats(prev => ({
+        ...prev,
+        totalEpisodes
+      }))
+      
+      // Reload episodes to ensure everything is in sync
+      const storyBibleId = updatedBible.id || searchParams.get('id')
+      if (storyBibleId && user?.id) {
+        const loadedEpisodes = await getEpisodesForStoryBible(storyBibleId, user.id)
+        setEpisodes(loadedEpisodes)
+      }
+      
+      alert(`✅ Series extended! Added Arc ${updatedBible.narrativeArcs?.length || 0}`)
+    } catch (error: any) {
+      console.error('Error extending series:', error)
+      alert(`Failed to extend series: ${error.message}`)
+    } finally {
+      setIsExtendingSeries(false)
     }
   }
 
@@ -277,7 +325,7 @@ export default function DashboardPage() {
         let totalEpisodes = 0
         if (loadedBible?.narrativeArcs) {
           totalEpisodes = loadedBible.narrativeArcs.reduce((sum: number, arc: any) => {
-            return sum + (arc.episodes?.length || 10)
+            return sum + (arc.episodes?.length || 8)
           }, 0)
         }
         
@@ -362,6 +410,13 @@ export default function DashboardPage() {
 
   // Calculate storyBibleId early (before early returns)
   const storyBibleId = storyBible?.id || searchParams.get('id') || ''
+  
+  // Load chat session when story bible loads
+  useEffect(() => {
+    if (storyBibleId) {
+      loadSession(storyBibleId)
+    }
+  }, [storyBibleId, loadSession])
   
   // Debug logging (must be before early returns)
   useEffect(() => {
@@ -471,16 +526,40 @@ export default function DashboardPage() {
             </span>
           )}
           {storyBible?.narrativeArcs && storyBible.narrativeArcs.length > 0 && (
-            <button
-              onClick={() => setShowShareModal(true)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                theme === 'dark' 
-                  ? 'bg-[#10B981] text-black hover:bg-[#059669] shadow-lg shadow-green-500/20' 
-                  : 'bg-[#C9A961] text-white hover:bg-[#B8944F] shadow-lg shadow-yellow-500/20'
-              }`}
-            >
-              Share
-            </button>
+            <>
+              <button
+                onClick={handleExtendSeries}
+                disabled={isExtendingSeries}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                  theme === 'dark' 
+                    ? 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50' 
+                    : 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50'
+                }`}
+                title="Add a new arc to extend your series"
+              >
+                {isExtendingSeries ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    <span>Extending...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>➕</span>
+                    <span>Extend Series</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  theme === 'dark' 
+                    ? 'bg-[#10B981] text-black hover:bg-[#059669] shadow-lg shadow-green-500/20' 
+                    : 'bg-[#C9A961] text-white hover:bg-[#B8944F] shadow-lg shadow-yellow-500/20'
+                }`}
+              >
+                Share
+              </button>
+            </>
           )}
           {user && (
             <div className={`w-8 h-8 rounded-full ${prefix}-bg-secondary ${prefix}-border border`}></div>
@@ -564,6 +643,35 @@ export default function DashboardPage() {
           storyBibleId={storyBibleId || searchParams.get('id') || ''}
           previousChoice={getPreviousEpisodeChoice()}
           onComplete={handleGenerationComplete}
+          onEpisodeChange={(newEpisodeNumber) => {
+            console.log(`🔄 Changing episode number to ${newEpisodeNumber}`)
+            setCurrentEpisodeNumber(newEpisodeNumber)
+            // Ensure modal stays open
+            if (!showGenerationSuite) {
+              setShowGenerationSuite(true)
+            }
+          }}
+          onStoryBibleUpdate={(updatedBible) => {
+            setStoryBible(updatedBible)
+            // Recalculate total episodes immediately
+            let totalEpisodes = 0
+            if (updatedBible?.narrativeArcs) {
+              totalEpisodes = updatedBible.narrativeArcs.reduce((sum: number, arc: any) => {
+                return sum + (arc.episodes?.length || 8)
+              }, 0)
+            }
+            setStats(prev => ({
+              ...prev,
+              totalEpisodes
+            }))
+            // Also reload episodes to ensure everything is in sync
+            const storyBibleId = updatedBible.id || searchParams.get('id')
+            if (storyBibleId && user?.id) {
+              getEpisodesForStoryBible(storyBibleId, user.id).then(loadedEpisodes => {
+                setEpisodes(loadedEpisodes)
+              })
+            }
+          }}
         />
       )}
 
@@ -578,6 +686,7 @@ export default function DashboardPage() {
           ownerName={user?.displayName || user?.email || undefined}
         />
       )}
+
     </div>
   )
 }

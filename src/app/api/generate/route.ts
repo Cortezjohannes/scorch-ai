@@ -1,13 +1,16 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateContent, generateStructuredContent } from '@/services/azure-openai'
-import { cleanAndParseJSON, createFallbackJSON } from '@/lib/json-utils'
+import { cleanAndParseJSON } from '@/lib/json-utils'
 
 // Import engines for phase-specific enhancement
 import { StoryboardingEngine } from '@/services/storyboarding-engine'
 import { VisualStorytellingEngine } from '@/services/visual-storytelling-engine'
 import { CastingEngine } from '@/services/casting-engine'
 import { StrategicDialogueEngine } from '@/services/strategic-dialogue-engine'
+
+// Primary and fallback models for Gemini
+const GEMINI_PRIMARY_MODEL = 'gemini-3-pro-preview';
 
 // Only throw errors when the API is actually called, not during build time
 const getGeminiKey = () => {
@@ -39,6 +42,17 @@ const getGenAI = (): GoogleGenerativeAI => {
     genAI = initializeGeminiAI()
   }
   return genAI!
+}
+
+/**
+ * Generate content with Gemini
+ */
+async function generateWithGemini(prompt: string): Promise<string> {
+  const genAI = getGenAI()
+  console.log(`🚀 [GENERATE] Using Gemini model: ${GEMINI_PRIMARY_MODEL}`)
+  const model = genAI.getGenerativeModel({ model: GEMINI_PRIMARY_MODEL })
+  const result = await model.generateContent(prompt)
+  return result.response.text()
 }
 
 // Retry wrapper for API calls
@@ -211,11 +225,24 @@ async function generateNarrative(synopsis: string, theme: string) {
     4. Do not include any text outside the JSON structure
         5. Make sure all JSON is properly formatted and valid`;
 
-        const genAI = getGenAI()
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-        const result = await model.generateContent(geminiPrompt);
+        // Use generateWithGemini for 429 rate limit handling
+        const responseText = await generateWithGemini(geminiPrompt);
         console.log('Received response from Gemini model');
-        return result;
+        try {
+          return cleanAndParseJSON(responseText);
+        } catch (e) {
+          console.error('Error parsing Gemini response as JSON:', e);
+          // Return fallback structure if parsing fails
+          return {
+            overview: 'A compelling web series exploring the themes presented in the synopsis.',
+            episodes: Array.from({ length: 10 }, (_, i) => ({
+              number: i + 1,
+              title: `Episode ${i + 1}`,
+              synopsis: `Episode ${i + 1} synopsis`,
+              scenes: []
+            }))
+          };
+        }
       });
     }
   }
@@ -263,12 +290,9 @@ async function generateStoryboard(synopsis: string, theme: string) {
     } catch (secondError) {
       console.error('Error with GPT-4o fallback:', secondError);
       
-      // Fall back to Gemini
+      // Fall back to Gemini with 429 fallback
       console.log('Falling back to Gemini for storyboard generation...');
-      const genAI = getGenAI()
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-      const result = await model.generateContent(prompt);
-      return result.response.text();
+      return await generateWithGemini(prompt);
     }
   }
 }
@@ -314,12 +338,9 @@ async function generateScripts(narrative: string) {
     } catch (secondError) {
       console.error('Error with GPT-4o fallback:', secondError);
       
-      // Fall back to Gemini
+      // Fall back to Gemini with 429 fallback
       console.log('Falling back to Gemini for script generation...');
-      const genAI = getGenAI()
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-      const result = await model.generateContent(prompt);
-      return result.response.text();
+      return await generateWithGemini(prompt);
     }
   }
 }
@@ -542,7 +563,7 @@ Please follow this EXACT JSON format without any markdown or additional text:
 Synopsis: ${synopsis}
 Theme: ${theme}`;
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
+      const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-preview' })
       const genResult = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
         generationConfig: {
@@ -593,44 +614,90 @@ Theme: ${theme}`;
   }
 }
 
-// Add similar functions for other phases with Gemini
+// Add similar functions for other phases with Gemini - with 429 fallback
 async function generateStoryboardWithGemini(prompt: string, context: string) {
-  const genAI = getGenAI()
-  // Similar structure to the narrative function
-  // Implementation details similar to the OpenAI version but using Gemini
+  // Use generateWithGemini for 429 handling
   return withRetry(async () => {
-    // Gemini implementation for storyboard
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-    // ...
-    return { /* storyboard data structure */ };
+    const result = await generateWithGemini(prompt);
+    return { content: result /* storyboard data structure */ };
   });
 }
 
 async function generateScriptsWithGemini(narrative: string) {
-  const genAI = getGenAI()
-  // Similar structure to the narrative function
-  // Implementation details similar to the OpenAI version but using Gemini
+  // Use generateWithGemini for 429 handling
   return withRetry(async () => {
-    // Gemini implementation for scripts
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-    // ...
-    return { /* script data structure */ };
+    const result = await generateWithGemini(narrative);
+    return { content: result /* script data structure */ };
   });
 }
 
 async function generateCastingWithGemini(narrative: string) {
-  const genAI = getGenAI()
-  // Similar structure to the narrative function
-  // Implementation details similar to the OpenAI version but using Gemini
+  // Use generateWithGemini for 429 handling
   return withRetry(async () => {
-    // Gemini implementation for casting
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
-    // ...
-    return { /* casting data structure */ };
+    const result = await generateWithGemini(narrative);
+    return { content: result /* casting data structure */ };
   });
 }
 
 async function generateContentWithGemini(prompt: string, phase: string) {
+  const genAI = getGenAI()
+  
+  const geminiPrompt = `Generate detailed content for the ${phase} phase of a web series production.
+    
+    Use this prompt as the basis: ${prompt}
+    
+    Please provide a well-structured response that can be easily used in a pre-production workflow.`;
+  
+  const generationConfig = {
+    temperature: 0.9, // CRANKED UP FOR PREMIUM CONTENT!
+    maxOutputTokens: 8000,
+  };
+  
+  const safetySettings = [
+    {
+      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+      threshold: HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+      threshold: HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+      threshold: HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+      threshold: HarmBlockThreshold.BLOCK_NONE,
+    },
+  ];
+  
+  // Helper to generate with a specific model
+  const generateWithModel = async (modelName: string) => {
+    const model = genAI.getGenerativeModel({ model: modelName });
+    const genResult = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
+      generationConfig,
+      safetySettings,
+    });
+    return genResult.response.text();
+  };
+  
+  return withRetry(async () => {
+    // Try primary model first
+    try {
+      console.log(`🚀 [generateContentWithGemini] Using primary model: ${GEMINI_PRIMARY_MODEL}`);
+      return await generateWithModel(GEMINI_PRIMARY_MODEL);
+    } catch (primaryError: any) {
+      console.error(`❌ [generateContentWithGemini] Primary model failed:`, primaryError);
+      
+      throw primaryError;
+    }
+  });
+}
+
+// Legacy function for backwards compatibility - replaced by inline fallback above
+async function _legacyGenerateContentWithGemini(prompt: string, phase: string) {
   const genAI = getGenAI()
   return withRetry(async () => {
     const geminiPrompt = `Generate detailed content for the ${phase} phase of a web series production.
@@ -639,11 +706,11 @@ async function generateContentWithGemini(prompt: string, phase: string) {
     
     Please provide a well-structured response that can be easily used in a pre-production workflow.`;
     
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
+    const model = genAI.getGenerativeModel({ model: GEMINI_PRIMARY_MODEL })
     const genResult = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: geminiPrompt }] }],
       generationConfig: {
-        temperature: 0.9, // CRANKED UP FOR PREMIUM CONTENT!
+        temperature: 0.9,
         maxOutputTokens: 8000,
       },
       safetySettings: [

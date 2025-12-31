@@ -16,7 +16,7 @@ export default function DuplicateEpisodeConfirmDialog({
   if (!isOpen) return null
   
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="bg-[#1a1a1a] border border-[#D62828]/50 rounded-xl p-6 max-w-md mx-4 shadow-2xl">
         <div className="flex items-start gap-4 mb-4">
           <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#D62828]/20 flex items-center justify-center">

@@ -82,7 +82,38 @@ interface ShotFrame {
 }
 
 /**
- * Generate shot list for all scenes
+ * Calculate number of batches based on scene count
+ * - 5 or fewer scenes: 1 batch
+ * - 6-10 scenes: 2 batches
+ * - 11-15 scenes: 3 batches
+ * - And so on (add 1 batch per 5 additional scenes)
+ */
+function calculateBatchCount(sceneCount: number): number {
+  if (sceneCount <= 5) {
+    return 1
+  }
+  // For every 5 scenes, add 1 batch (minimum 2 batches for 6+ scenes)
+  return Math.ceil(sceneCount / 5)
+}
+
+/**
+ * Split scenes into batches
+ */
+function splitScenesIntoBatches<T>(scenes: T[], batchCount: number): T[][] {
+  const batches: T[][] = []
+  const scenesPerBatch = Math.ceil(scenes.length / batchCount)
+  
+  for (let i = 0; i < batchCount; i++) {
+    const start = i * scenesPerBatch
+    const end = Math.min(start + scenesPerBatch, scenes.length)
+    batches.push(scenes.slice(start, end))
+  }
+  
+  return batches
+}
+
+/**
+ * Generate shot list for all scenes (with batching for large scene counts)
  */
 export async function generateShotList(params: ShotListGenerationParams): Promise<ShotListData> {
   const { breakdownData, scriptData, storyBible, storyboardsData, episodeNumber, episodeTitle, userId } = params
@@ -93,6 +124,121 @@ export async function generateShotList(params: ShotListGenerationParams): Promis
   if (breakdownData.scenes.length === 0) {
     throw new Error('No scenes found in script breakdown. Please generate script breakdown first.')
   }
+
+  // Calculate batches based on scene count
+  const batchCount = calculateBatchCount(breakdownData.scenes.length)
+  console.log(`📦 Using ${batchCount} batch${batchCount > 1 ? 'es' : ''} for ${breakdownData.scenes.length} scenes`)
+
+  // If only 1 batch, use original single-call approach
+  if (batchCount === 1) {
+    return await generateShotListSingleBatch(params)
+  }
+
+  // Split scenes into batches
+  const sceneBatches = splitScenesIntoBatches(breakdownData.scenes, batchCount)
+  console.log(`📦 Scene batches: ${sceneBatches.map((batch, idx) => `Batch ${idx + 1}: scenes ${batch[0].sceneNumber}-${batch[batch.length - 1].sceneNumber} (${batch.length} scenes)`).join(', ')}`)
+
+  // Build system prompt (same for all batches)
+  const systemPrompt = buildSystemPrompt()
+
+  // Generate shot lists for each batch
+  const allShotListScenes: ShotListScene[] = []
+  
+  for (let batchIdx = 0; batchIdx < sceneBatches.length; batchIdx++) {
+    const sceneBatch = sceneBatches[batchIdx]
+    console.log(`\n🔄 Processing batch ${batchIdx + 1}/${batchCount} (${sceneBatch.length} scenes)...`)
+
+    // Create a subset of breakdown data for this batch
+    const batchBreakdownData: ScriptBreakdownData = {
+      ...breakdownData,
+      scenes: sceneBatch
+    }
+
+    // Create a subset of storyboards data for this batch (if available)
+    const batchStoryboardsData = storyboardsData ? {
+      ...storyboardsData,
+      scenes: storyboardsData.scenes.filter(s => 
+        sceneBatch.some(bs => bs.sceneNumber === s.sceneNumber)
+      )
+    } : undefined
+
+    // Build prompt for this batch
+    const userPrompt = buildUserPrompt(batchBreakdownData, scriptData, storyBible, batchStoryboardsData, episodeTitle, batchIdx + 1, batchCount)
+
+    try {
+      console.log(`🤖 Calling AI for batch ${batchIdx + 1}...`)
+      // Use Azure GPT-4.1 (better for long responses, no truncation)
+      // Falls back to Gemini if Azure fails
+      let response
+      try {
+        response = await EngineAIRouter.generateContent({
+          prompt: userPrompt,
+          systemPrompt: systemPrompt,
+          temperature: 0.7, // Lower temperature for technical precision
+          maxTokens: 12000, // Large enough for multiple scenes with detailed shots
+          engineId: 'shot-list-generator',
+          forceProvider: 'azure' // Azure GPT for longer responses without truncation
+        })
+      } catch (azureError) {
+        console.warn(`⚠️ Azure GPT failed for batch ${batchIdx + 1}, falling back to Gemini:`, azureError instanceof Error ? azureError.message : String(azureError))
+        // Fallback to Gemini if Azure fails
+        response = await EngineAIRouter.generateContent({
+          prompt: userPrompt,
+          systemPrompt: systemPrompt,
+          temperature: 0.7,
+          maxTokens: 12000,
+          engineId: 'shot-list-generator',
+          forceProvider: 'gemini' // Gemini fallback
+        })
+      }
+
+      console.log(`✅ Batch ${batchIdx + 1} response received:`, response.metadata.contentLength, 'characters')
+
+      // Parse AI response for this batch
+      const batchShotListData = parseShotList(response.content, batchBreakdownData, episodeNumber, episodeTitle, userId, batchStoryboardsData)
+      
+      // Add scenes from this batch to the combined result
+      allShotListScenes.push(...batchShotListData.scenes)
+      
+      console.log(`✅ Batch ${batchIdx + 1} completed: ${batchShotListData.totalShots} shots across ${batchShotListData.scenes.length} scenes`)
+    } catch (error) {
+      console.error(`❌ Error generating shot list for batch ${batchIdx + 1}:`, error)
+      throw new Error(`Shot list generation failed for batch ${batchIdx + 1}/${batchCount}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Combine all batches into final result
+  const totalShots = allShotListScenes.reduce((sum, scene) => sum + scene.totalShots, 0)
+  const completedShots = allShotListScenes.reduce((sum, scene) => sum + scene.completedShots, 0)
+
+  // Sort scenes by scene number to ensure correct order
+  allShotListScenes.sort((a, b) => a.sceneNumber - b.sceneNumber)
+
+  const finalShotListData: ShotListData = {
+    episodeNumber,
+    episodeTitle,
+    totalShots,
+    completedShots,
+    scenes: allShotListScenes,
+    lastUpdated: Date.now(),
+    updatedBy: userId
+  }
+
+  console.log('\n✅ Shot list generated (all batches):')
+  console.log('  Total shots:', finalShotListData.totalShots)
+  console.log('  Scenes:', finalShotListData.scenes.length)
+  finalShotListData.scenes.forEach(scene => {
+    console.log(`    Scene ${scene.sceneNumber}: ${scene.totalShots} shots`)
+  })
+
+  return finalShotListData
+}
+
+/**
+ * Generate shot list for a single batch (original implementation)
+ */
+async function generateShotListSingleBatch(params: ShotListGenerationParams): Promise<ShotListData> {
+  const { breakdownData, scriptData, storyBible, storyboardsData, episodeNumber, episodeTitle, userId } = params
 
   // Build AI prompts
   const systemPrompt = buildSystemPrompt()
@@ -128,7 +274,7 @@ export async function generateShotList(params: ShotListGenerationParams): Promis
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
 
     // Parse AI response into structured shot list data
-    const shotListData = parseShotList(response.content, breakdownData, episodeNumber, episodeTitle, userId)
+    const shotListData = parseShotList(response.content, breakdownData, episodeNumber, episodeTitle, userId, storyboardsData)
 
     console.log('✅ Shot list generated:')
     console.log('  Total shots:', shotListData.totalShots)
@@ -220,9 +366,16 @@ function buildUserPrompt(
   script: GeneratedScript,
   storyBible: any,
   storyboardsData: StoryboardsData | undefined,
-  episodeTitle: string
+  episodeTitle: string,
+  batchNumber?: number,
+  totalBatches?: number
 ): string {
   let prompt = `Generate comprehensive production shot list for Episode "${episodeTitle}" of the series "${storyBible?.seriesTitle || storyBible?.title || 'Untitled Series'}".\n\n`
+  
+  // Add batch information if batching is used
+  if (batchNumber && totalBatches && totalBatches > 1) {
+    prompt += `**NOTE: This is batch ${batchNumber} of ${totalBatches}. Generate shot lists ONLY for the scenes listed below.\n\n`
+  }
 
   // Story context (CORE DATA)
   prompt += `**STORY CONTEXT:**\n`
@@ -271,7 +424,11 @@ function buildUserPrompt(
 
   // Episode context
   prompt += `**EPISODE:** ${episodeTitle}\n`
-  prompt += `Total Scenes: ${breakdown.scenes.length}\n`
+  if (batchNumber && totalBatches && totalBatches > 1) {
+    prompt += `Scenes in this batch: ${breakdown.scenes.length} (batch ${batchNumber} of ${totalBatches})\n`
+  } else {
+    prompt += `Total Scenes: ${breakdown.scenes.length}\n`
+  }
   prompt += `\n`
 
   // Storyboards reference
@@ -423,7 +580,11 @@ function buildUserPrompt(
 
   prompt += `**CRITICAL REMINDERS:**\n`
   prompt += `- Output ONLY valid JSON (no markdown, no code blocks, no explanation)\n`
-  prompt += `- Generate shot list for ALL scenes listed above\n`
+  if (batchNumber && totalBatches && totalBatches > 1) {
+    prompt += `- Generate shot list for ALL scenes listed above in this batch (batch ${batchNumber} of ${totalBatches})\n`
+  } else {
+    prompt += `- Generate shot list for ALL scenes listed above\n`
+  }
   prompt += `- Vary shot counts per scene based on complexity (2-8 shots per scene)\n`
   prompt += `- Focus on execution: camera specs + department instructions (actors, camera, lighting, audio, continuity)\n`
   prompt += `- Assign priorities realistically (must-have for critical story beats)\n`
@@ -441,7 +602,8 @@ function parseShotList(
   breakdownData: ScriptBreakdownData,
   episodeNumber: number,
   episodeTitle: string,
-  userId: string
+  userId: string,
+  storyboardsData?: StoryboardsData
 ): ShotListData {
   console.log('📊 Parsing shot list data...')
   console.log('   Raw response length:', aiResponse.length)
@@ -614,30 +776,58 @@ function parseShotList(
       const location = scene.location || breakdownScene?.location || 'Location TBD'
 
       const shots: Shot[] = Array.isArray(scene.shots)
-        ? scene.shots.map((shot: any, shotIdx: number) => ({
-            id: `shot_${scene.sceneNumber}_${shotIdx + 1}`,
-            shotNumber: shot.shotNumber || String(shotIdx + 1),
-            sceneNumber: scene.sceneNumber,
-            description: shot.description || `Shot ${shot.shotNumber || shotIdx + 1}`,
-            cameraAngle: shot.cameraAngle || 'medium',
-            cameraMovement: shot.cameraMovement || 'static',
-            lensRecommendation: shot.lensRecommendation || undefined,
-            durationEstimate: shot.durationEstimate || 5,
-            priority: shot.priority || 'must-have',
-            fpsCameraFrameRate: shot.fpsCameraFrameRate || undefined,
-            notes: shot.notes || '',
-            actorInstructions: shot.actorInstructions || '',
-            cameraCrewInstructions: shot.cameraCrewInstructions || '',
-            lightingSetup: shot.lightingSetup || '',
-            audioRequirements: shot.audioRequirements || '',
-            continuityNotes: shot.continuityNotes || '',
-            blockingDescription: shot.blockingDescription || '',
-            storyboardFrameId: shot.storyboardFrameId || undefined,
-            setupGroup: shot.setupGroup || '',
-            estimatedSetupTime: shot.estimatedSetupTime || 0,
-            status: 'planned',
-            comments: []
-          }))
+        ? scene.shots.map((shot: any, shotIdx: number) => {
+            const storyboardFrameId = shot.storyboardFrameId || undefined
+            
+            // Find corresponding storyboard frame to inherit AI flags
+            let canBeAIGenerated: boolean | undefined
+            let aiGenerationPrompt: string | undefined
+            let aiGenerationRecommendation: 'high' | 'medium' | 'low' | undefined
+            
+            if (storyboardFrameId && storyboardsData) {
+              const storyboardScene = storyboardsData.scenes.find(s => s.sceneNumber === scene.sceneNumber)
+              const storyboardFrame = storyboardScene?.frames?.find(f => f.id === storyboardFrameId)
+              
+              if (storyboardFrame) {
+                canBeAIGenerated = storyboardFrame.canBeAIGenerated
+                aiGenerationPrompt = storyboardFrame.aiGenerationPrompt
+                aiGenerationRecommendation = storyboardFrame.aiGenerationRecommendation
+                
+                if (canBeAIGenerated) {
+                  console.log(`🤖 Shot ${shot.shotNumber || shotIdx + 1} (Scene ${scene.sceneNumber}) inheriting AI flags from storyboard frame ${storyboardFrameId} (${aiGenerationRecommendation || 'medium'} recommendation)`)
+                }
+              }
+            }
+            
+            return {
+              id: `shot_${scene.sceneNumber}_${shotIdx + 1}`,
+              shotNumber: shot.shotNumber || String(shotIdx + 1),
+              sceneNumber: scene.sceneNumber,
+              description: shot.description || `Shot ${shot.shotNumber || shotIdx + 1}`,
+              cameraAngle: shot.cameraAngle || 'medium',
+              cameraMovement: shot.cameraMovement || 'static',
+              lensRecommendation: shot.lensRecommendation || undefined,
+              durationEstimate: shot.durationEstimate || 5,
+              priority: shot.priority || 'must-have',
+              fpsCameraFrameRate: shot.fpsCameraFrameRate || undefined,
+              notes: shot.notes || '',
+              actorInstructions: shot.actorInstructions || '',
+              cameraCrewInstructions: shot.cameraCrewInstructions || '',
+              lightingSetup: shot.lightingSetup || '',
+              audioRequirements: shot.audioRequirements || '',
+              continuityNotes: shot.continuityNotes || '',
+              blockingDescription: shot.blockingDescription || '',
+              storyboardFrameId: storyboardFrameId,
+              setupGroup: shot.setupGroup || '',
+              estimatedSetupTime: shot.estimatedSetupTime || 0,
+              status: 'planned',
+              comments: [],
+              // Inherit AI generation flags from storyboard frame
+              canBeAIGenerated: canBeAIGenerated,
+              aiGenerationPrompt: aiGenerationPrompt,
+              aiGenerationRecommendation: aiGenerationRecommendation
+            }
+          })
         : []
 
       return {

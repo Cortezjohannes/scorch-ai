@@ -19,6 +19,9 @@ import { IntelligentTropeSystem } from '@/services/intelligent-trope-system'
 import { MasterConductorInstance } from '@/services/master-conductor'
 import { logger, ENGINE_CONFIGS } from '@/services/console-logger'
 
+// Set maximum execution time to 30 minutes (1800 seconds) for story bible generation
+export const maxDuration = 1800
+
 // Real Engine Classes (static methods)
 // const premiseEngine = PremiseEngineV2
 // const characterEngine = CharacterEngineV2
@@ -32,7 +35,7 @@ import { logger, ENGINE_CONFIGS } from '@/services/console-logger'
 // const livingWorldEngine = LivingWorldEngine
 // const tropeEngine = IntelligentTropeSystem
 
-// Initialize Gemini AI with API key
+// Helper to validate Gemini API key (used at runtime, not module load)
 const getGeminiKey = () => {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -45,8 +48,6 @@ const getGeminiKey = () => {
   
   return apiKey
 }
-
-const genAI = new GoogleGenerativeAI(getGeminiKey())
 
 // Engine Progress Tracking
 interface EngineProgress {
@@ -63,9 +64,15 @@ class EngineProgressTracker {
   private engines: Map<string, EngineProgress> = new Map()
   private currentEngine: string | null = null
   private overallProgress: number = 0
+  private baseUrl: string = 'http://localhost:3000'
 
-  constructor() {
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl || 'http://localhost:3000'
     this.initializeEngines()
+  }
+  
+  setBaseUrl(baseUrl: string) {
+    this.baseUrl = baseUrl
   }
 
   private initializeEngines() {
@@ -81,7 +88,8 @@ class EngineProgressTracker {
       { id: 'theme', name: 'Theme Engine', message: 'Integrating thematic elements throughout' },
       { id: 'living', name: 'Living World Engine', message: 'Making the world feel alive and reactive' },
       { id: 'trope', name: 'Trope Engine', message: 'Subverting and enhancing genre conventions' },
-      { id: 'cohesion', name: 'Cohesion Engine', message: 'Ensuring story elements connect logically' }
+      { id: 'cohesion', name: 'Cohesion Engine', message: 'Ensuring story elements connect logically' },
+      { id: 'marketing', name: 'Marketing Engine', message: 'Developing comprehensive UGC marketing strategy' }
     ]
 
     engineList.forEach(engine => {
@@ -105,34 +113,32 @@ class EngineProgressTracker {
       this.currentEngine = engineId
       console.log(`🚀 Starting ${engine.name}`)
       
-      // Notify API that engine started (skip in production)
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          await fetch('http://localhost:3000/api/engine-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'update_engine',
-              engineId: engineId,
-              progress: 0,
-              status: 'active',
-              message: engine.message,
-              name: engine.name
-            })
+      // Notify API that engine started (always send updates)
+      try {
+        await fetch(`${this.baseUrl}/api/engine-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_engine',
+            engineId: engineId,
+            progress: 0,
+            status: 'active',
+            message: engine.message,
+            name: engine.name
           })
-          
+        })
+        
           // Update current engine
-          await fetch('http://localhost:3000/api/engine-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'set_current_engine',
-              engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
-            })
+          await fetch(`${this.baseUrl}/api/engine-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'set_current_engine',
+            engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
           })
-        } catch (error) {
-          console.log('Failed to notify engine start:', error)
-        }
+        })
+      } catch (error) {
+        console.log('Failed to notify engine start:', error)
       }
     }
   }
@@ -145,36 +151,34 @@ class EngineProgressTracker {
       this.updateOverallProgress()
       console.log(`📊 ${engine.name}: ${progress}% - ${message || engine.message}`)
       
-      // Send progress update to API (skip in production)
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          await fetch('http://localhost:3000/api/engine-status', {
+      // Send progress update to API (always send updates)
+      try {
+        await fetch(`${this.baseUrl}/api/engine-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_engine',
+            engineId: engineId,
+            progress: progress,
+            status: engine.status,
+            message: message ?? engine.message,
+            name: engine.name
+          })
+        })
+        
+        // Also update current engine
+        if (this.currentEngine === engineId) {
+          await fetch(`${this.baseUrl}/api/engine-status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'update_engine',
-              engineId: engineId,
-              progress: progress,
-              status: engine.status,
-              message: message ?? engine.message,
-              name: engine.name
+              type: 'set_current_engine',
+              engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
             })
           })
-          
-          // Also update current engine
-          if (this.currentEngine === engineId) {
-            await fetch('http://localhost:3000/api/engine-status', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                type: 'set_current_engine',
-                engineIndex: Array.from(this.engines.keys()).indexOf(engineId)
-              })
-            })
-          }
-        } catch (error) {
-          console.log('Failed to send progress update:', error)
         }
+      } catch (error) {
+        console.log('Failed to send progress update:', error)
       }
     }
   }
@@ -189,24 +193,22 @@ class EngineProgressTracker {
       console.log(`✅ Completed ${engine.name}`)
       this.updateOverallProgress()
       
-      // Notify API that engine completed (skip in production)
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          await fetch('http://localhost:3000/api/engine-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'update_engine',
-              engineId: engineId,
-              progress: 100,
-              status: 'completed',
-              message: 'Completed',
-              name: engine.name
-            })
+      // Notify API that engine completed (always send updates)
+      try {
+        await fetch(`${this.baseUrl}/api/engine-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'update_engine',
+            engineId: engineId,
+            progress: 100,
+            status: 'completed',
+            message: 'Completed',
+            name: engine.name
           })
-        } catch (error) {
-          console.log('Failed to notify engine completion:', error)
-        }
+        })
+      } catch (error) {
+        console.log('Failed to notify engine completion:', error)
       }
     }
   }
@@ -448,12 +450,27 @@ const premiseDrivenStoryBibleSchema = {
 }
 
 // REAL ENGINE-BASED STORY BIBLE GENERATION (with actual AI calls)
-async function generateStoryBibleWithEngines(synopsis: string, theme: string, progressTracker: EngineProgressTracker) {
+async function generateStoryBibleWithEngines(synopsis: string, theme: string, progressTracker: EngineProgressTracker, characterInfo?: string[], userSetting?: string, protagonist?: string) {
   console.log('🚀 USING REAL ENGINE-BASED GENERATION - All 12 engines active!')
   
   try {
     const storyType = detectStoryType(synopsis, theme)
     console.log(`🎯 Detected story type: ${storyType} - AI will decide optimal character count dynamically`)
+    
+    // Log character information if provided
+    if (characterInfo && characterInfo.length > 0) {
+      console.log(`👥 Using character information for ${characterInfo.length} character(s) provided by user`)
+    }
+    
+    // Log user setting if provided
+    if (userSetting && userSetting.trim()) {
+      console.log(`🌍 Using user-provided setting: ${userSetting.substring(0, 100)}...`)
+    }
+    
+    // Log protagonist if provided
+    if (protagonist && protagonist.trim()) {
+      console.log(`⭐ Using protagonist information: ${protagonist.substring(0, 100)}...`)
+    }
     
     // 🎯 PHASE 1: Foundation (Premise + Character)
     await progressTracker.startEngine('premise')
@@ -509,21 +526,101 @@ CRITICAL: Base your decision purely on story needs, NOT arbitrary ranges.
 Respond with just the optimal number for THIS specific story. No artificial limits.`
     console.log('🤖 CHARACTER ENGINE: AI determining optimal character count based on story complexity...')
     const characterCountResponse = await generateContentWithGemini(characterPrompt)
-    const optimalCharacterCount = parseInt(characterCountResponse) || 8 // Neutral default
+    let optimalCharacterCount = parseInt(characterCountResponse) || 8 // Neutral default
+    
+    // Check if user specified a character count in advanced settings (via synopsis parsing)
+    // Advanced settings character count is embedded in synopsis context
+    const characterCountMatch = synopsis.match(/Generate exactly (\d+) main characters/i)
+    if (characterCountMatch) {
+      optimalCharacterCount = parseInt(characterCountMatch[1])
+      console.log(`✅ CHARACTER ENGINE: Using user-specified character count: ${optimalCharacterCount}`)
+    } else {
     console.log(`✅ CHARACTER ENGINE: AI determined optimal character count: ${optimalCharacterCount} (fully AI-driven, no hardcoded ranges)`)
+    }
+    
+    // Adjust character count if character information was provided
+    let charactersToGenerate = optimalCharacterCount
+    let characterInfoToUse: string[] = []
+    
+    if (characterInfo && characterInfo.length > 0) {
+      characterInfoToUse = characterInfo
+      charactersToGenerate = Math.max(0, optimalCharacterCount - characterInfo.length)
+      console.log(`👥 CHARACTER ENGINE: Character information provided for ${characterInfo.length} character(s). Generating ${charactersToGenerate} additional character(s).`)
+      
+      if (charactersToGenerate === 0) {
+        console.log(`✅ CHARACTER ENGINE: Character information provided for all characters. AI will use this information to create full profiles.`)
+      }
+    }
     
     progressTracker.updateProgress('character', 30, `Stage 1: Generating character roster...`)
     
-    // STAGE 1: Generate character roster first (prevents duplicates)
+    // Combine character information with generated roster
+    let finalRoster: Array<{name: string, role: string, archetype: string, info?: string}> = []
+    
+    // ALWAYS add protagonist FIRST if provided
+    if (protagonist && protagonist.trim()) {
+      // Try to extract protagonist name from the description
+      // Look for patterns like "Name, description" or "Name - description" or just "Name description"
+      const namePatterns = [
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)[,\s-]/,
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s/,
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/
+      ]
+      
+      let protagonistName = 'The Protagonist'
+      for (const pattern of namePatterns) {
+        const match = protagonist.trim().match(pattern)
+        if (match && match[1]) {
+          protagonistName = match[1]
+          break
+        }
+      }
+      
+      console.log(`⭐ Adding protagonist to roster: ${protagonistName}`)
+      finalRoster.push({
+        name: protagonistName,
+        role: 'protagonist',
+        archetype: 'Protagonist',
+        info: protagonist.trim() // Store the full protagonist description
+      })
+      
+      // Adjust character count since we're adding the protagonist
+      if (charactersToGenerate > 0) {
+        charactersToGenerate = Math.max(0, charactersToGenerate - 1)
+      }
+    }
+    
+    // Add characters from user-provided information (these are supporting characters)
+    characterInfoToUse.forEach((info, idx) => {
+      // Try to extract name from the first line of the character info
+      const firstLine = info.split('\n')[0].trim()
+      const nameMatch = firstLine.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/)
+      const extractedName = nameMatch ? nameMatch[1] : `Character ${idx + 1}`
+      
+      finalRoster.push({
+        name: extractedName,
+        role: 'supporting', // These are supporting characters, protagonist is already added
+        archetype: 'Supporting Character',
+        info: info // Store the full character information
+      })
+    })
+    
+    // STAGE 1: Generate character roster for remaining characters if needed
+    if (charactersToGenerate > 0) {
     console.log('🤖 CHARACTER ENGINE V2: Stage 1 - Generating character roster...')
     
     const rosterPrompt = `You are creating a character roster for a story. 
 
 STORY: ${synopsis}
 THEME: ${theme}
-CHARACTERS NEEDED: ${optimalCharacterCount}
+CHARACTERS NEEDED: ${charactersToGenerate}
+${characterInfoToUse.length > 0 ? `\nEXISTING CHARACTERS (do not duplicate these names):\n${characterInfoToUse.map((info, idx) => {
+  const firstLine = info.split('\n')[0].trim()
+  const nameMatch = firstLine.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/)
+  return `- ${nameMatch ? nameMatch[1] : `Character ${idx + 1}`}`
+}).join('\n')}` : ''}
 
-Generate ${optimalCharacterCount} unique characters with realistic names that fit the story.
+Generate ${charactersToGenerate} unique characters with realistic names that fit the story.
 
 Return ONLY valid JSON in this exact format (no markdown, no extra text):
 [
@@ -535,15 +632,15 @@ Return ONLY valid JSON in this exact format (no markdown, no extra text):
 Requirements:
 - Each character needs a realistic first and last name
 - Names must fit the story setting and genre
-- All ${optimalCharacterCount} names must be completely unique
-- Use diverse, authentic names from different backgrounds
-- Make the first character the protagonist, second the antagonist
+- All ${charactersToGenerate} names must be completely unique
+- ${(protagonist && protagonist.trim()) || characterInfoToUse.length > 0 ? 'DO NOT use any names from the existing characters list above. ' : ''}Use diverse, authentic names from different backgrounds
+- ${(protagonist && protagonist.trim()) ? 'The protagonist is already included. ' : ''}${characterInfoToUse.length === 0 && !protagonist ? 'Make the first character the protagonist, second the antagonist. ' : ''}Assign appropriate roles (${(protagonist && protagonist.trim()) ? 'antagonist, ' : ''}supporting)
 - Return only the JSON array, nothing else`
 
-    console.log(`🎭 Generating roster of ${optimalCharacterCount} unique characters...`)
+      console.log(`🎭 Generating roster of ${charactersToGenerate} unique characters...`)
     
     let rosterResponse
-    let roster = []
+      let roster: Array<{name: string, role: string, archetype: string}> = []
     
     // Try multiple times to get character roster
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -577,12 +674,38 @@ Requirements:
     
     console.log(`📋 Final roster result: ${roster.length} characters`)
     
-    // Ensure we have the right number and dedupe names
-    const usedNames = new Set()
-    const validRoster = []
+      // Ensure we have the right number and dedupe names
+      // Include protagonist name in used names to avoid duplicates
+      const usedNames = new Set<string>()
+      
+      // Add protagonist name if it exists
+      if (protagonist && protagonist.trim()) {
+        const namePatterns = [
+          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)[,\s-]/,
+          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s/,
+          /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/
+        ]
+        for (const pattern of namePatterns) {
+          const match = protagonist.trim().match(pattern)
+          if (match && match[1]) {
+            usedNames.add(match[1].toLowerCase())
+            break
+          }
+        }
+      }
+      
+      // Add character info names
+      characterInfoToUse.forEach((info, idx) => {
+        const firstLine = info.split('\n')[0].trim()
+        const nameMatch = firstLine.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/)
+        if (nameMatch && nameMatch[1]) {
+          usedNames.add(nameMatch[1].toLowerCase())
+        }
+      })
+      const validRoster: Array<{name: string, role: string, archetype: string, info?: string}> = []
     
     // Only use fallbacks if AI completely failed to generate ANY characters
-    if (roster.length === 0) {
+      if (roster.length === 0 && charactersToGenerate > 0) {
       console.error('🚨 AI FAILED TO GENERATE CHARACTER ROSTER - Creating emergency fallbacks')
       
       // Generate story-relevant fallback names based on synopsis keywords
@@ -592,23 +715,23 @@ Requirements:
       const isSchool = storyKeywords.includes('school') || storyKeywords.includes('teacher')
       
       const emergencyRoster = []
-    for (let i = 0; i < optimalCharacterCount; i++) {
+        for (let i = 0; i < charactersToGenerate; i++) {
         let name, archetype
-        if (i === 0) {
+          if (characterInfoToUse.length === 0 && i === 0) {
           name = isDetective ? 'Detective Sarah Chen' : isDoctor ? 'Dr. Maria Rodriguez' : isSchool ? 'Teacher Alex Johnson' : 'Sarah Martinez'
           archetype = 'Protagonist'
-        } else if (i === 1) {
+          } else if (characterInfoToUse.length === 0 && i === 1) {
           name = isDetective ? 'Commissioner Marcus Webb' : isDoctor ? 'Dr. Victor Kane' : isSchool ? 'Principal David Stone' : 'Marcus Thompson'
           archetype = 'Antagonist'
         } else {
           const names = ['Elena Rodriguez', 'Jake Sullivan', 'Lisa Park', 'Tom Rivera', 'Amanda Foster', 'Ryan Chen', 'Sophie Williams', 'Michael Torres', 'Rachel Green', 'James Mitchell', 'Helen Chang', 'Mark Davis', 'Diana Lopez', 'Carlos Smith', 'Nina Patel']
-          name = names[i - 2] || `Character ${i + 1}`
+            name = names[i] || `Character ${i + 1}`
           archetype = 'Supporting Character'
         }
         
         emergencyRoster.push({
           name,
-          role: i === 0 ? 'protagonist' : (i === 1 ? 'antagonist' : 'supporting'),
+            role: (characterInfoToUse.length === 0 && i === 0) ? 'protagonist' : ((characterInfoToUse.length === 0 && i === 1) ? 'antagonist' : 'supporting'),
           archetype
         })
       }
@@ -616,10 +739,11 @@ Requirements:
       console.log('⚠️ Using emergency story-relevant character roster')
     }
     
-    for (let i = 0; i < optimalCharacterCount; i++) {
+      // Process generated roster and add to final roster
+      for (let i = 0; i < charactersToGenerate; i++) {
       const character = roster[i] || {
         name: `FALLBACK_CHARACTER_${i + 1}`,
-        role: i === 0 ? 'protagonist' : (i === 1 ? 'antagonist' : 'supporting'),
+          role: 'supporting',
         archetype: 'Supporting Character'
       }
       
@@ -632,14 +756,18 @@ Requirements:
       }
       usedNames.add(finalName.toLowerCase())
       
-      validRoster.push({
+        finalRoster.push({
         name: finalName,
         role: character.role,
         archetype: character.archetype
       })
+      }
     }
     
-    console.log(`✅ CHARACTER ROSTER: Generated ${validRoster.length} unique characters`)
+    // Use final roster (character info + generated)
+    const validRoster = finalRoster
+    
+    console.log(`✅ CHARACTER ROSTER: ${characterInfoToUse.length > 0 ? `Using info for ${characterInfoToUse.length} character(s) + ` : ''}Generated ${validRoster.length} total unique characters`)
     console.log(`📋 Cast: ${validRoster.map(c => c.name).join(', ')}`)
     
     progressTracker.updateProgress('character', 50, `Stage 2: Expanding to 3D profiles...`)
@@ -649,24 +777,77 @@ Requirements:
     progressTracker.updateProgress('character', 50, `Starting 3D character enhancement for ${validRoster.length} characters...`)
     const characters = []
     
-    for (let i = 0; i < validRoster.length; i++) {
-      const rosterChar = validRoster[i]
+    // 🔥 BATCH PROCESSING: Process characters in batches to handle large rosters (28+ characters)
+    // This prevents the AI from losing context and ensures consistent formatting
+    const BATCH_SIZE = validRoster.length > 10 ? 6 : validRoster.length > 5 ? 5 : validRoster.length
+    const totalBatches = Math.ceil(validRoster.length / BATCH_SIZE)
+    
+    console.log(`📦 Processing ${validRoster.length} characters in ${totalBatches} batch(es) of ${BATCH_SIZE} characters each`)
+    
+    // Create a concise synopsis summary for prompts (to reduce token usage)
+    const synopsisSummary = synopsis.length > 300 ? synopsis.substring(0, 300) + '...' : synopsis
+    
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const batchStart = batchIndex * BATCH_SIZE
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, validRoster.length)
+      const batch = validRoster.slice(batchStart, batchEnd)
       
-      try {
-        console.log(`🎭 Expanding character ${i + 1}/${validRoster.length}: ${rosterChar.name} (${rosterChar.role})...`)
+      console.log(`📦 Processing batch ${batchIndex + 1}/${totalBatches}: characters ${batchStart + 1}-${batchEnd} of ${validRoster.length}`)
+      
+      // Build context summary of already-generated characters (for consistency)
+      const existingCharactersSummary = characters.length > 0 
+        ? `\n\nALREADY GENERATED CHARACTERS (for reference and consistency):\n${characters.slice(0, 10).map((c, idx) => 
+          `${idx + 1}. ${c.name} (${c.archetype || 'Character'}) - ${(c.description || '').substring(0, 100)}...`
+        ).join('\n')}${characters.length > 10 ? `\n... and ${characters.length - 10} more characters` : ''}`
+        : ''
+      
+      // Process batch: generate all characters in this batch
+      for (let i = 0; i < batch.length; i++) {
+        const rosterChar = batch[i]
+        const globalIndex = batchStart + i
         
-        const characterPrompt = `Expand this character from our story roster into a full 3D profile using Egri's method:
+        // Check if this character has user-provided information
+        const hasCharacterInfo = rosterChar.info && rosterChar.info.trim().length > 0
+        
+        try {
+          console.log(`🎭 Expanding character ${globalIndex + 1}/${validRoster.length}: ${rosterChar.name} (${rosterChar.role})...`)
+          
+          const characterPrompt = (hasCharacterInfo
+            ? `Create a full 3D character profile using Egri's method. The user has provided character information that you should use and expand upon:
 
-STORY: ${synopsis}
+USER-PROVIDED CHARACTER INFORMATION:
+${rosterChar.info}
+
+STORY CONTEXT: ${synopsisSummary}
 THEME: ${theme}
 CHARACTER NAME: ${rosterChar.name}
 CHARACTER ROLE: ${rosterChar.role}
 CHARACTER ARCHETYPE: ${rosterChar.archetype}
-CHARACTER NUMBER: ${i + 1} of ${validRoster.length}
+CHARACTER POSITION: ${globalIndex + 1} of ${validRoster.length}${existingCharactersSummary}
 
-IMPORTANT: Use the exact name "${rosterChar.name}" - do not change it.
+CRITICAL INSTRUCTIONS:
+1. Use the EXACT name "${rosterChar.name}" - do not change it
+2. Use the user-provided information above as the foundation, and expand it into a complete 3D profile
+3. If the user provided minimal information, use your creativity to fill in the gaps while staying true to what they described
+4. Ensure this character is unique and distinct from the already-generated characters listed above
+5. Follow the EXACT JSON format below - do not deviate
 
-Generate a complete character in this EXACT JSON format:
+Generate a complete character in this EXACT JSON format:`
+            : `Expand this character from our story roster into a full 3D profile using Egri's method:
+
+STORY CONTEXT: ${synopsisSummary}
+THEME: ${theme}
+CHARACTER NAME: ${rosterChar.name}
+CHARACTER ROLE: ${rosterChar.role}
+CHARACTER ARCHETYPE: ${rosterChar.archetype}
+CHARACTER POSITION: ${globalIndex + 1} of ${validRoster.length}${existingCharactersSummary}
+
+CRITICAL INSTRUCTIONS:
+1. Use the EXACT name "${rosterChar.name}" - do not change it
+2. Ensure this character is unique and distinct from the already-generated characters listed above
+3. Follow the EXACT JSON format below - do not deviate
+
+Generate a complete character in this EXACT JSON format:`) + `
 {
   "name": "Character's full name",
   "archetype": "Character archetype/role",
@@ -701,66 +882,77 @@ Generate a complete character in this EXACT JSON format:
   }
 }
 
-CRITICAL: Create a unique, complex character that serves the theme "${theme}" and fits naturally into the story world. Make sure all three dimensions (physiology, sociology, psychology) are fully developed and interconnected.`
+CRITICAL: Create a unique, complex character that serves the theme "${theme}" and fits naturally into the story world. Make sure all three dimensions (physiology, sociology, psychology) are fully developed and interconnected. Return ONLY valid JSON - no markdown, no commentary, no additional text.`
 
-        // Update progress before starting character generation
-        progressTracker.updateProgress('character', 50 + (i / validRoster.length) * 20, 
-          `Generating ${rosterChar.name} (${rosterChar.role}) - ${i + 1}/${validRoster.length} characters...`)
-        
-        const characterResponse = await generateContentWithGemini(characterPrompt)
-        const parsedCharacter = safeParseJSON(characterResponse)
-        
-        if (parsedCharacter && parsedCharacter.name) {
-          // Ensure the name matches our roster
-          parsedCharacter.name = rosterChar.name
-          characters.push(parsedCharacter)
-          console.log(`✅ Expanded character: ${rosterChar.name}`)
-        } else {
-          throw new Error('Failed to parse character JSON')
-        }
-        
-        // Update progress after successful character generation
-        progressTracker.updateProgress('character', 50 + (i / validRoster.length) * 20, 
-          `Enhanced ${rosterChar.name} (${rosterChar.role}) - ${i + 1}/${validRoster.length} characters`)
-      } catch (error) {
-        console.error(`Failed to generate character ${i + 1}:`, error)
-        // Enhanced fallback character using roster info
-        const fallbackCharacter = {
-          name: rosterChar.name,
-          archetype: rosterChar.archetype,
-          arc: `Character development arc exploring ${theme}`,
-          description: `A complex character for the story about ${synopsis}`,
-          physiology: {
-            age: "Adult",
-            gender: "To be determined",
-            appearance: "Distinctive and memorable appearance",
-            build: "Average build",
-            health: "Good health",
-            physicalTraits: ["Expressive eyes", "Confident posture"]
-          },
-          sociology: {
-            class: "Middle class",
-            occupation: "Relevant to the story world",
-            education: "Well-educated",
-            homeLife: "Complex family dynamics",
-            economicStatus: "Stable",
-            communityStanding: "Respected"
-          },
-          psychology: {
-            coreValue: theme,
-            moralStandpoint: "Principled but conflicted",
-            want: "External goal related to the story",
-            need: "Internal growth and understanding",
-            primaryFlaw: "Pride or fear",
-            temperament: ["Determined", "Complex"],
-            attitude: "Cautiously optimistic",
-            iq: "Above average",
-            fears: ["Failure", "Loss of control"]
+          // Update progress before starting character generation
+          const progressPercent = 50 + ((globalIndex / validRoster.length) * 20)
+          progressTracker.updateProgress('character', progressPercent, 
+            `Generating ${rosterChar.name} (${rosterChar.role}) - ${globalIndex + 1}/${validRoster.length} characters...`)
+          
+          // Use increased token limit for character generation (16384 tokens for large rosters)
+          const characterResponse = await generateContentWithGemini(characterPrompt, { 
+            maxOutputTokens: validRoster.length > 10 ? 16384 : 8192 
+          })
+          const parsedCharacter = safeParseJSON(characterResponse)
+          
+          if (parsedCharacter && parsedCharacter.name) {
+            // Ensure the name matches our roster
+            parsedCharacter.name = rosterChar.name
+            characters.push(parsedCharacter)
+            console.log(`✅ Expanded character: ${rosterChar.name}`)
+          } else {
+            throw new Error('Failed to parse character JSON')
           }
+          
+          // Update progress after successful character generation
+          progressTracker.updateProgress('character', progressPercent, 
+            `Enhanced ${rosterChar.name} (${rosterChar.role}) - ${globalIndex + 1}/${validRoster.length} characters`)
+        } catch (error) {
+          console.error(`Failed to generate character ${globalIndex + 1}:`, error)
+          // Enhanced fallback character using roster info
+          const fallbackCharacter = {
+            name: rosterChar.name,
+            archetype: rosterChar.archetype,
+            arc: `Character development arc exploring ${theme}`,
+            description: `A complex character for the story about ${synopsisSummary}`,
+            physiology: {
+              age: "Adult",
+              gender: "To be determined",
+              appearance: "Distinctive and memorable appearance",
+              build: "Average build",
+              health: "Good health",
+              physicalTraits: ["Expressive eyes", "Confident posture"]
+            },
+            sociology: {
+              class: "Middle class",
+              occupation: "Relevant to the story world",
+              education: "Well-educated",
+              homeLife: "Complex family dynamics",
+              economicStatus: "Stable",
+              communityStanding: "Respected"
+            },
+            psychology: {
+              coreValue: theme,
+              moralStandpoint: "Principled but conflicted",
+              want: "External goal related to the story",
+              need: "Internal growth and understanding",
+              primaryFlaw: "Pride or fear",
+              temperament: ["Determined", "Complex"],
+              attitude: "Cautiously optimistic",
+              iq: "Above average",
+              fears: ["Failure", "Loss of control"]
+            }
+          }
+          characters.push(fallbackCharacter)
+          const progressPercent = 50 + ((globalIndex / validRoster.length) * 20)
+          progressTracker.updateProgress('character', progressPercent, 
+            `Used fallback for ${rosterChar.name} (${rosterChar.role}) - ${globalIndex + 1}/${validRoster.length} characters`)
         }
-        characters.push(fallbackCharacter)
-        progressTracker.updateProgress('character', 50 + (i / validRoster.length) * 20, 
-          `Used fallback for ${rosterChar.name} (${rosterChar.role}) - ${i + 1}/${validRoster.length} characters`)
+      }
+      
+      // Small delay between batches to avoid rate limiting
+      if (batchIndex < totalBatches - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
     }
     
@@ -821,10 +1013,11 @@ Respond with ${optimalArcCount} numbers representing episodes for each arc. Base
 INPUT
 Synopsis: ${synopsis}
 Theme: ${theme}
+${userSetting && userSetting.trim() ? `\nUser-Provided Setting: ${userSetting.trim()}\nIMPORTANT: Use the user's setting description as the foundation. Expand and detail it, but preserve the core elements they described.` : ''}
 
 OUTPUT JSON ONLY (no markdown), exactly in this shape:
 {
-  "setting": "1-2 paragraphs describing the overall setting, concrete and vivid.",
+  "setting": "${userSetting && userSetting.trim() ? `Expand and detail the user's setting: ${userSetting.trim()}. Make it vivid and concrete while preserving their core description.` : '1-2 paragraphs describing the overall setting, concrete and vivid.'}",
   "rules": [
     "High-level world constraint or system rule tied to ${theme}",
     "Social or cultural rule",
@@ -844,7 +1037,8 @@ OUTPUT JSON ONLY (no markdown), exactly in this shape:
 }
 
 Constraints:
-- Provide 8-12 varied locations appropriate to the synopsis.
+- ${userSetting && userSetting.trim() ? 'PRESERVE the user\'s setting description. Expand it with details, but keep their core elements (locations, time period, key features).' : ''}
+- Provide 8-12 varied locations appropriate to the synopsis${userSetting && userSetting.trim() ? ' and the user\'s setting description' : ''}.
 - Use authentic, specific names; no placeholders.
 - Return ONLY valid JSON with no commentary or markdown.`
     console.log('🤖 WORLD ENGINE: Generating world building...')
@@ -1060,6 +1254,255 @@ Return ONLY valid JSON with this exact structure:
     progressTracker.updateProgress('cohesion', 100, 'Story cohesion complete')
     await progressTracker.completeEngine('cohesion')
     
+    // 📢 MARKETING ENGINE
+    await progressTracker.startEngine('marketing')
+    progressTracker.updateProgress('marketing', 10, 'AI analyzing marketing opportunities...')
+    
+    // ACTUAL AI CALL: Generate comprehensive marketing strategy
+    const marketingPrompt = `Create a comprehensive marketing strategy for this actor-driven, AI-assisted episodic series following industry standards for short-form UGC content.
+
+STORY CONTEXT:
+- Synopsis: ${synopsis}
+- Theme: ${theme}
+- Genre: ${storyType || 'drama'}
+- Character Count: ${optimalCharacterCount}
+- Arc Count: ${optimalArcCount}
+- Target Audience: General audience (to be refined)
+
+GREENLIT AI CONTEXT (Critical for Strategy):
+- Platform: Greenlit AI - Decentralized Studio Model
+- Content Type: Short-form episodic series (5-minute episodes)
+- Budget: Ultra-micro-budget ($1k-$20k per series)
+- Marketing Model: Actors market themselves as UGC creators (Full-Stack Creator)
+- Revenue Model: 70% revenue share to creators, 30% to platform
+- IP Ownership: Actors own 100% of IP
+- Production: AI-assisted (30+ Narrative Engines, AI post-production)
+- Growth Strategy: Organic network effects via "Peer Casting Loop" and "Fanbase Activation"
+- Marketing Budget: $0 (Sweat Equity Marketing - Content Density strategy)
+
+INDUSTRY STANDARDS TO APPLY:
+
+1. HOOK-RETENTION-REWARD CYCLE:
+   - Hook (0:00-0:03): Must start in media res with high stakes or visual intrigue
+   - Retention (0:03-1:30): Micro-resolutions every 15-30 seconds
+   - Reward/Cliffhanger: End on unresolved tension compelling action
+
+2. PLATFORM-SPECIFIC STRATEGIES:
+   - TikTok: Interest Graph (Discovery) - 3-5 posts/day, trending audio, text overlays
+   - Instagram Reels: Social Graph (Retention) - Professional grid, broadcast channels, collab posts
+   - YouTube Shorts: Archive/SEO - SEO titles, related video links, longer shelf life
+
+3. ACTOR-DRIVEN MARKETING:
+   - Radical Authenticity: "Underdog Creator" narrative
+   - Container Strategy: Separate Show Profile (in-world) and Actor Profile (BTS/commentary)
+   - Peer Casting Loop: Co-stars as distribution nodes with marketing deliverables
+
+4. MICRO-BUDGET FRAMEWORK:
+   - Content Density: 10 minutes derivative content per 1 minute premium footage
+   - Community-Driven Growth: "1,000 True Fans" model, Velvet Rope Beta, gamified engagement
+   - $0 Marketing Stack: Bloopers, table reads, reaction cams, green screen commentary
+
+5. MARKETING TIMELINES:
+   - Pre-Launch (4 weeks): Build in public, character concept art, waiting list, velvet rope beta
+   - Launch (Week 0): Bulk drop (3-5 episodes), coordinated cast posts, maximum velocity
+   - Post-Launch (Ongoing): Remix marketing, fan theory discussions, interactive voting
+
+6. KPIs AND METRICS:
+   - Completion Rate: >40% for 1-min clips
+   - Velocity: >1,000 views in Hour 1
+   - Share Ratio: >1.5%
+   - Series Conversion Rate: >20% (Ep 1 to Ep 2)
+   - Monetization Conversion: 2-5%
+
+CRITICAL: Generate ready-to-use social media content:
+- For each platform (TikTok, Instagram, YouTube), create 5 unique captions that are immediately usable
+- Each caption should be platform-optimized (TikTok: short/hook-focused, Instagram: professional/engaging, YouTube: SEO-friendly/descriptive)
+- Generate 10-15 hashtags per platform that are relevant and trending-appropriate
+- Create 3 post templates per platform for different content types
+- For each marketing hook, generate 3 variations that can be used in different contexts
+
+Return ONLY valid JSON with this exact structure (no markdown, no code blocks):
+{
+  "marketingStrategy": {
+    "primaryApproach": "Primary marketing approach description tailored to this story",
+    "targetAudience": {
+      "primary": ["Primary audience segment 1", "Primary audience segment 2"],
+      "secondary": ["Secondary audience segment 1", "Secondary audience segment 2"],
+      "demographics": {
+        "age": "Target age range",
+        "interests": "Key interests aligned with story",
+        "platforms": "Primary platforms for this audience"
+      },
+      "persona": "Detailed target audience persona description"
+    },
+    "keySellingPoints": ["Selling point 1", "Selling point 2", "Selling point 3", "Selling point 4", "Selling point 5"],
+    "uniqueValueProposition": "What makes this series unique and marketable in the UGC space"
+  },
+  "platformStrategies": {
+    "tiktok": {
+      "contentFormat": "Recommended content format for TikTok",
+      "postingSchedule": "Optimal posting schedule (3-5 posts/day)",
+      "hashtagStrategy": ["Hashtag 1", "Hashtag 2", "Hashtag 3", "Hashtag 4", "Hashtag 5"],
+      "contentIdeas": ["Content idea 1", "Content idea 2", "Content idea 3"],
+      "trendingAudioStrategy": "How to leverage trending audio while maintaining authenticity",
+      "textOverlayStrategy": "Text overlay approach for algorithm categorization"
+    },
+    "instagram": {
+      "contentFormat": "Recommended content format for Instagram Reels",
+      "postingSchedule": "Optimal posting schedule",
+      "gridAesthetic": "Visual grid strategy for professional press kit look",
+      "broadcastChannelStrategy": "How to use broadcast channels for superfan notifications",
+      "collabPostStrategy": "Peer Casting Loop collab post approach",
+      "storiesStrategy": "Instagram Stories marketing tactics"
+    },
+    "youtube": {
+      "contentFormat": "Recommended content format for YouTube Shorts",
+      "seoTitleStrategy": "SEO-optimized title approach with trope keywords",
+      "relatedVideoStrategy": "How to drive traffic to full episodes",
+      "longevityStrategy": "Long-term discoverability approach"
+    }
+  },
+  "marketingHooks": {
+    "episodeHooks": ["Episode hook 1", "Episode hook 2", "Episode hook 3"],
+    "seriesHooks": ["Series hook 1", "Series hook 2", "Series hook 3"],
+    "characterHooks": ["Character hook 1", "Character hook 2", "Character hook 3"],
+    "viralPotentialScenes": ["Scene description 1 with viral potential", "Scene description 2 with viral potential"]
+  },
+  "distribution": {
+    "preLaunch": [
+      "Pre-launch tactic 1 (4 weeks out)",
+      "Pre-launch tactic 2",
+      "Pre-launch tactic 3",
+      "Pre-launch tactic 4"
+    ],
+    "launch": [
+      "Launch tactic 1 (Week 0 - Bulk Drop)",
+      "Launch tactic 2 (Coordinated cast posts)",
+      "Launch tactic 3 (Maximum velocity strategy)"
+    ],
+    "postLaunch": [
+      "Post-launch tactic 1 (Remix marketing)",
+      "Post-launch tactic 2 (Fan engagement)",
+      "Post-launch tactic 3 (Retention strategy)"
+    ]
+  },
+  "ugcStrategy": {
+    "actorMarketing": [
+      "Actor marketing tactic 1 (Radical Authenticity)",
+      "Actor marketing tactic 2 (Underdog Creator narrative)",
+      "Actor marketing tactic 3 (Personal brand integration)"
+    ],
+    "authenticityMaintenance": [
+      "Authenticity tip 1",
+      "Authenticity tip 2",
+      "Authenticity tip 3"
+    ],
+    "communityBuilding": [
+      "Community tactic 1 (1,000 True Fans)",
+      "Community tactic 2 (Velvet Rope Beta)",
+      "Community tactic 3 (Gamified engagement)"
+    ],
+    "containerStrategy": {
+      "showProfile": "Show profile strategy (in-world, immersive)",
+      "actorProfile": "Actor profile strategy (BTS, commentary, fourth wall breaks)",
+      "permeability": "How to control brand permeability between profiles"
+    }
+  },
+  "peerCastingLoop": {
+    "strategy": "How to leverage co-stars as distribution nodes",
+    "marketingDeliverables": [
+      "1 Main Feed Post (Trailer/Clip)",
+      "3 Story Posts with Direct Links",
+      "1 Collab Post (Shared ownership)"
+    ],
+    "multiplierEffect": "Expected reach calculation and conversion advantage"
+  },
+  "contentDensity": {
+    "derivativeAssets": [
+      "Bloopers (humanizes cast)",
+      "Table Reads (shows creative process)",
+      "Reaction Cams (actors watching final cut)",
+      "Green Screen Commentary (easter eggs)"
+    ],
+    "ratio": "10 minutes derivative content per 1 minute premium footage"
+  },
+  "kpis": {
+    "completionRate": {
+      "target": ">40%",
+      "measurement": "How to track completion rate"
+    },
+    "velocity": {
+      "target": ">1,000 views in Hour 1",
+      "measurement": "How to maximize first-hour velocity"
+    },
+    "shareRatio": {
+      "target": ">1.5%",
+      "measurement": "How to encourage sharing"
+    },
+    "seriesConversion": {
+      "target": ">20%",
+      "measurement": "Ep 1 to Ep 2 conversion tracking"
+    },
+    "monetizationConversion": {
+      "target": "2-5%",
+      "measurement": "Free to paid conversion strategy"
+    }
+  },
+  "compliance": {
+    "aiDisclosure": "How to label AI-generated content transparently",
+    "sponsorshipDisclosure": "FTC guidelines for product placements",
+    "ipOwnership": "How to communicate 70% revenue share and IP ownership in marketing",
+    "unionConsiderations": "SAG-AFTRA implications if applicable"
+  },
+  "competitivePositioning": {
+    "differentiation": "How this series differentiates from ReelShort, DramaBox, etc.",
+    "humanElement": "Emphasizing real actors vs generic AI models",
+    "qualityNarrative": "Studio-level storytelling vs cheap thrills",
+    "communityFocus": "Social sharing and community vs walled gardens"
+  },
+  "readyToUseContent": {
+    "tiktok": {
+      "captions": ["Ready-to-use TikTok caption 1 (engaging, hook-focused, 1-2 sentences)", "Ready-to-use TikTok caption 2 (different angle)", "Ready-to-use TikTok caption 3 (question-based)", "Ready-to-use TikTok caption 4 (dramatic)", "Ready-to-use TikTok caption 5 (curiosity-driven)"],
+      "hashtags": ["Hashtag1", "Hashtag2", "Hashtag3", "Hashtag4", "Hashtag5", "Hashtag6", "Hashtag7", "Hashtag8", "Hashtag9", "Hashtag10"],
+      "templates": ["Template 1: Hook format for TikTok", "Template 2: Story format for TikTok", "Template 3: Question format for TikTok"]
+    },
+    "instagram": {
+      "captions": ["Ready-to-use Instagram caption 1 (professional, engaging, 2-3 sentences)", "Ready-to-use Instagram caption 2 (BTS angle)", "Ready-to-use Instagram caption 3 (character focus)", "Ready-to-use Instagram caption 4 (behind-the-scenes)", "Ready-to-use Instagram caption 5 (community-building)"],
+      "hashtags": ["Hashtag1", "Hashtag2", "Hashtag3", "Hashtag4", "Hashtag5", "Hashtag6", "Hashtag7", "Hashtag8", "Hashtag9", "Hashtag10", "Hashtag11", "Hashtag12", "Hashtag13", "Hashtag14", "Hashtag15"],
+      "templates": ["Template 1: Professional announcement format", "Template 2: BTS storytelling format", "Template 3: Character spotlight format"]
+    },
+    "youtube": {
+      "captions": ["Ready-to-use YouTube caption 1 (SEO-optimized, descriptive, 3-4 sentences)", "Ready-to-use YouTube caption 2 (episode description)", "Ready-to-use YouTube caption 3 (series introduction)", "Ready-to-use YouTube caption 4 (character introduction)", "Ready-to-use YouTube caption 5 (plot summary)"],
+      "hashtags": ["Hashtag1", "Hashtag2", "Hashtag3", "Hashtag4", "Hashtag5", "Hashtag6", "Hashtag7", "Hashtag8", "Hashtag9", "Hashtag10"],
+      "templates": ["Template 1: Episode description format", "Template 2: Series trailer format", "Template 3: Character introduction format"]
+    }
+  },
+  "hookVariations": {
+    "episodeHooks": {
+      "Episode hook 1": ["Variation 1 of episode hook 1", "Variation 2 of episode hook 1", "Variation 3 of episode hook 1"],
+      "Episode hook 2": ["Variation 1 of episode hook 2", "Variation 2 of episode hook 2", "Variation 3 of episode hook 2"],
+      "Episode hook 3": ["Variation 1 of episode hook 3", "Variation 2 of episode hook 3", "Variation 3 of episode hook 3"]
+    },
+    "seriesHooks": {
+      "Series hook 1": ["Variation 1 of series hook 1", "Variation 2 of series hook 1", "Variation 3 of series hook 1"],
+      "Series hook 2": ["Variation 1 of series hook 2", "Variation 2 of series hook 2", "Variation 3 of series hook 2"],
+      "Series hook 3": ["Variation 1 of series hook 3", "Variation 2 of series hook 3", "Variation 3 of series hook 3"]
+    },
+    "characterHooks": {
+      "Character hook 1": ["Variation 1 of character hook 1", "Variation 2 of character hook 1", "Variation 3 of character hook 1"],
+      "Character hook 2": ["Variation 1 of character hook 2", "Variation 2 of character hook 2", "Variation 3 of character hook 2"],
+      "Character hook 3": ["Variation 1 of character hook 3", "Variation 2 of character hook 3", "Variation 3 of character hook 3"]
+    }
+  }
+}`
+
+    console.log('🤖 MARKETING ENGINE: Generating comprehensive marketing strategy...')
+    const marketingStrategy = await generateContentWithGemini(marketingPrompt)
+    console.log('✅ MARKETING ENGINE: Generated marketing strategy')
+    
+    progressTracker.updateProgress('marketing', 100, 'Marketing strategy complete')
+    await progressTracker.completeEngine('marketing')
+    
     // Now generate the final story bible with all the engine insights
     console.log('✅ ALL ENGINES COMPLETE - Now generating final story bible with Gemini!')
     console.log('📊 ENGINE INSIGHTS COLLECTED:')
@@ -1075,13 +1518,42 @@ Return ONLY valid JSON with this exact structure:
     console.log(`   - Living World: ${livingWorld.substring(0, 100)}...`)
     console.log(`   - Trope: ${tropeSystem.substring(0, 100)}...`)
     console.log(`   - Cohesion: ${cohesionAnalysis.substring(0, 100)}...`)
+    console.log(`   - Marketing: ${marketingStrategy.substring(0, 100)}...`)
     
     // Skip redundant synthesis - directly assemble from engine outputs
     console.log('📦 DIRECT ASSEMBLY: Building story bible from engine outputs...')
     
+    // Generate a compelling overview summary from the synopsis
+    console.log('📝 Generating series overview summary...')
+    const overviewPrompt = `Based on the following story synopsis, create a compelling and concise series overview (one paragraph) that summarizes the key elements, themes, and narrative promise. The overview should be engaging and capture the essence of the story without simply repeating the synopsis verbatim.
+
+Synopsis: ${synopsis}
+Theme: ${theme}
+Story Type: ${storyType}
+
+Create a one-paragraph summary that:
+- Captures the core narrative and what makes it compelling
+- Highlights the thematic exploration
+- Suggests the emotional journey and stakes
+- Is written in an engaging, professional tone
+
+Return only the overview text as a single paragraph, no additional formatting or explanations.`
+    
+    let seriesOverview: string
+    try {
+      seriesOverview = await generateContentWithGemini(overviewPrompt)
+      // Clean up any markdown formatting that might be returned
+      seriesOverview = seriesOverview.trim().replace(/^["']|["']$/g, '').replace(/```[\w]*\n?/g, '').trim()
+      console.log('✅ Generated series overview summary')
+    } catch (error) {
+      console.log('⚠️ Failed to generate overview summary, using fallback')
+      // Fallback to a better template than before
+      seriesOverview = `This ${storyType} series explores themes of ${theme} through a compelling narrative that challenges characters to confront their deepest beliefs and desires. The story weaves together complex character arcs, meaningful choices, and emotional depth to create an immersive viewing experience.`
+    }
+    
     const parsedContent: any = {
       seriesTitle: heuristicTitle(synopsis, theme), // Use heuristic first, will be overridden later
-      seriesOverview: `${synopsis} This ${storyType} explores themes of ${theme} through rich character development and compelling narrative arcs.`,
+      seriesOverview: seriesOverview,
       synopsis: synopsis,
       theme: theme,
       mainCharacters: characters
@@ -1114,8 +1586,8 @@ Return ONLY valid JSON with this exact structure:
         ]
     }
     
-    // Add branching paths
-      parsedContent.potentialBranchingPaths = `Viewers will face meaningful choices that explore different aspects of ${theme}, leading to varied character developments and story outcomes.`
+    // Add where the story could go
+      parsedContent.potentialBranchingPaths = `The narrative offers multiple potential directions, exploring different aspects of ${theme} through varied character developments and story outcomes.`
     
     // Add ALL engine outputs to the final story bible - this was the missing piece!
     console.log('📊 Adding all engine outputs to story bible...')
@@ -1223,6 +1695,36 @@ Return ONLY valid JSON with this exact structure:
     parsedContent.cohesionAnalysis = cohesionResult.data || { rawContent: cohesionResult.raw }
     console.log('✅ Added cohesion analysis data')
     
+    // Add marketing strategy from engine with validation
+    const marketingResult = parseIfValid(marketingStrategy, (obj) =>
+      obj && (obj.marketingStrategy || obj.platformStrategies || obj.ugcStrategy)
+    )
+    if (marketingResult.data) {
+      parsedContent.marketing = marketingResult.data
+      console.log('✅ Added comprehensive marketing strategy data')
+    } else {
+      // Fallback marketing structure
+      parsedContent.marketing = {
+        marketingStrategy: {
+          primaryApproach: "Marketing strategy will be developed during pre-production phase",
+          targetAudience: { primary: [], secondary: [], demographics: {}, persona: "" },
+          keySellingPoints: [],
+          uniqueValueProposition: ""
+        },
+        platformStrategies: {},
+        marketingHooks: { episodeHooks: [], seriesHooks: [], characterHooks: [], viralPotentialScenes: [] },
+        distribution: { preLaunch: [], launch: [], postLaunch: [] },
+        ugcStrategy: { actorMarketing: [], authenticityMaintenance: [], communityBuilding: [], containerStrategy: {} },
+        peerCastingLoop: { strategy: "", marketingDeliverables: [], multiplierEffect: "" },
+        contentDensity: { derivativeAssets: [], ratio: "" },
+        kpis: {},
+        compliance: {},
+        competitivePositioning: {},
+        rawContent: marketingResult.raw || marketingStrategy
+      }
+      console.log('⚠️ Using fallback marketing structure (parsing failed)')
+    }
+    
     // Add provisions for future Living World Engine character introductions
     parsedContent.livingWorldProvisions = {
       characterExpansionEnabled: true,
@@ -1251,7 +1753,7 @@ Return ONLY valid JSON with this exact structure:
         'Premise Engine V2', 'Character Engine V2', 'Narrative Engine V2',
         'World Building Engine V2', 'Dialogue Engine V2', 'Tension Engine V2',
         'Genre Mastery Engine V2', 'Choice Engine V2', 'Theme Engine V2',
-        'Living World Engine V2', 'Trope Engine V2', 'Cohesion Engine'
+        'Living World Engine V2', 'Trope Engine V2', 'Cohesion Engine', 'Marketing Engine'
       ],
       multiModelRouting: true,
       storyTypeDetected: storyType,
@@ -1272,13 +1774,27 @@ Return ONLY valid JSON with this exact structure:
 }
 
 // Helper function to generate content with Gemini
-async function generateContentWithGemini(prompt: string): Promise<string> {
+async function generateContentWithGemini(prompt: string, options?: { maxOutputTokens?: number }): Promise<string> {
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+    // Validate API key before use
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey || apiKey.length < 10) {
+      console.error('🚨 GEMINI_API_KEY is not configured or invalid')
+      throw new Error('GEMINI_API_KEY is not configured')
+    }
+    
+    const genAI = new GoogleGenerativeAI(apiKey)
     const geminiModel = GEMINI_CONFIG.getModel('stable')
+    
+    // Use custom maxOutputTokens if provided, otherwise use default from config
+    const generationConfig = {
+      ...GEMINI_CONFIG.GENERATION_CONFIG,
+      ...(options?.maxOutputTokens && { maxOutputTokens: options.maxOutputTokens })
+    }
+    
     const model = genAI.getGenerativeModel({ 
       model: geminiModel,
-      generationConfig: GEMINI_CONFIG.GENERATION_CONFIG
+      generationConfig
     })
     
     const result = await model.generateContent(prompt)
@@ -1286,7 +1802,8 @@ async function generateContentWithGemini(prompt: string): Promise<string> {
     return response.text()
   } catch (error) {
     console.error('🚨 Gemini content generation failed:', error)
-    return 'Content generation failed'
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    throw new Error(`Gemini API call failed: ${errorMessage}`)
   }
 }
 
@@ -1381,9 +1898,15 @@ Theme: ${theme}`
 
 // Fallback to Gemini if engines fail
 async function generateStoryBibleWithGemini(synopsis: string, theme: string) {
-  console.log('🔄 FALLBACK: Using Gemini 2.5 (Advanced Mode)')
+  console.log('🔄 FALLBACK: Using Gemini 3 Pro Preview (Advanced Mode)')
   
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+  // Validate API key before use
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey || apiKey.length < 10) {
+    throw new Error('GEMINI_API_KEY is not configured')
+  }
+  
+  const genAI = new GoogleGenerativeAI(apiKey)
   const geminiModel = GEMINI_CONFIG.getModel('stable')
   const model = genAI.getGenerativeModel({ 
     model: geminiModel,
@@ -1473,7 +1996,7 @@ CRITICAL: Analyze THIS story's specific needs and determine optimal counts dynam
     parsedContent.murphyPillarProcessed = true
     parsedContent.processingSteps = ['gemini-fallback-generation']
     parsedContent.murphyPillarStats = {
-      enginesActivated: ['Gemini 2.5 Pro (Fallback)'],
+      enginesActivated: ['Gemini 3 Pro Preview (Fallback)'],
       multiModelRouting: false,
       storyTypeDetected: storyType,
       charactersGenerated: parsedContent.mainCharacters?.length || 0,
@@ -1493,29 +2016,248 @@ export async function POST(request: Request) {
   
   try {
     const requestData = await request.json()
+    const { generateImages = true, userId } = requestData
     
-    // Handle new 5-question format
-    if (requestData.logline && requestData.protagonist && requestData.stakes && requestData.vibe && requestData.theme) {
-      const { logline, protagonist, stakes, vibe, theme: themeInput } = requestData
+    // Handle new 6-question format with advanced settings
+    if (requestData.logline && requestData.protagonist && requestData.stakes && requestData.vibe && requestData.setting && requestData.theme) {
+      const { logline, protagonist, stakes, vibe, setting, theme: themeInput, additionalInfo, characterInfo } = requestData
       
-      // NOTE: Advanced options (tone, pacing, complexity, focusArea) are accepted but not yet integrated
-      // They will be properly integrated with the Murphy Conductor system in a future update
-      const { tone, pacing, complexity, focusArea } = requestData
-      if (tone || pacing || complexity || focusArea) {
-        console.log('ℹ️ Advanced options received but not yet integrated:', { tone, pacing, complexity, focusArea })
-        console.log('   These will be properly integrated with the narrative engines in a future update')
+      // Extract advanced settings if provided
+      const { useAdvancedSettings, advancedSettings } = requestData
+      
+      // Parse character information if provided (split by "--" separator)
+      if (characterInfo && typeof characterInfo === 'string' && characterInfo.trim()) {
+        const characterTexts = characterInfo
+          .split('--')
+          .map(text => text.trim())
+          .filter(text => text.length > 0)
+        
+        if (characterTexts.length > 0) {
+          console.log(`👥 User provided information for ${characterTexts.length} character(s)`)
+          ;(requestData as any)._characterInfo = characterTexts
+        }
       }
       
-      // Synthesize synopsis from the 5 questions for backward compatibility
-      synopsis = `${logline} The story follows ${protagonist}. ${stakes} The overall vibe is ${vibe}, exploring themes of ${themeInput}.`
+      if (useAdvancedSettings && advancedSettings) {
+        console.log('✨ Advanced Settings ENABLED:', advancedSettings)
+        
+        // Build enhanced synopsis with advanced settings
+        let advancedContext = ''
+        
+        // Initial Character Count
+        if (advancedSettings.initialCharacterCount && advancedSettings.initialCharacterCount > 0) {
+          advancedContext += ` Generate exactly ${advancedSettings.initialCharacterCount} main characters.`
+        }
+        
+        // Genre
+        if (advancedSettings.genre && advancedSettings.genre !== 'default') {
+          advancedContext += ` The genre is ${advancedSettings.genre}.`
+        }
+        
+        // Tone (0 = Gritty, 100 = Lighthearted)
+        if (advancedSettings.tone !== undefined) {
+          const toneDesc = advancedSettings.tone <= 33 ? 'gritty and dark' : 
+                          advancedSettings.tone >= 67 ? 'lighthearted and uplifting' : 'balanced in tone'
+          advancedContext += ` The tone should be ${toneDesc}.`
+        }
+        
+        // Dialogue Language
+        if (advancedSettings.dialogueLanguage && advancedSettings.dialogueLanguage !== 'english') {
+          advancedContext += ` Dialogue should incorporate ${advancedSettings.dialogueLanguage} language/expressions.`
+        }
+        
+        // Mature Themes
+        if (advancedSettings.matureThemes) {
+          advancedContext += ` The story may include mature themes (R16+ content).`
+        }
+        
+        // Series Structure
+        if (advancedSettings.seriesLength) {
+          const seriesLengthMap: Record<string, string> = {
+            'mini': '3 narrative arcs with 24 total episodes',
+            'limited': '4 narrative arcs with 32 total episodes',
+            'full': '5 narrative arcs with 40 total episodes',
+            'anthology': 'anthology-style standalone episodes'
+          }
+          const lengthDesc = seriesLengthMap[advancedSettings.seriesLength] || 'standard series length'
+          advancedContext += ` Structure the series as ${lengthDesc}.`
+        }
+        
+        if (advancedSettings.episodesPerArc && advancedSettings.episodesPerArc !== 8) {
+          advancedContext += ` Target ${advancedSettings.episodesPerArc} episodes per arc.`
+        }
+        
+        // Ending Type
+        if (advancedSettings.endingType) {
+          const endingTypeMap: Record<string, string> = {
+            'open-ended': 'open-ended with potential for continuation',
+            'conclusive': 'conclusive and satisfying',
+            'ambiguous': 'ambiguous, leaving room for interpretation',
+            'cyclical': 'cyclical, returning to where it began'
+          }
+          const endingDesc = endingTypeMap[advancedSettings.endingType] || 'naturally resolved'
+          advancedContext += ` The ending should be ${endingDesc}.`
+        }
+        
+        // POV Style
+        if (advancedSettings.povStyle) {
+          const povStyleMap: Record<string, string> = {
+            'single': 'single protagonist focus',
+            'ensemble': 'ensemble cast with multiple leads',
+            'rotating': 'rotating POV between characters',
+            'unreliable': 'unreliable narrator perspective'
+          }
+          const povDesc = povStyleMap[advancedSettings.povStyle] || 'standard narrative perspective'
+          advancedContext += ` Use ${povDesc}.`
+        }
+        
+        // Timeline Structure
+        if (advancedSettings.timelineStructure && advancedSettings.timelineStructure !== 'linear') {
+          const timelineMap: Record<string, string> = {
+            'non-linear': 'non-linear storytelling with flashbacks',
+            'multiple': 'multiple parallel timelines',
+            'real-time': 'real-time narrative progression'
+          }
+          const timelineDesc = timelineMap[advancedSettings.timelineStructure] || 'non-linear structure'
+          advancedContext += ` Employ ${timelineDesc}.`
+        }
+        
+        // Conflict Type
+        if (advancedSettings.conflictType) {
+          const conflictMap: Record<string, string> = {
+            'internal': 'internal/psychological conflict',
+            'interpersonal': 'interpersonal relationship conflicts',
+            'external': 'external forces (environment/society)',
+            'cosmic': 'cosmic/existential themes'
+          }
+          const conflictDesc = conflictMap[advancedSettings.conflictType] || 'multi-layered conflict'
+          advancedContext += ` Focus on ${conflictDesc}.`
+        }
+        
+        // Protagonist Morality
+        if (advancedSettings.protagonistMorality && advancedSettings.protagonistMorality !== 'heroic') {
+          const moralityMap: Record<string, string> = {
+            'anti-hero': 'anti-hero with questionable methods',
+            'ambiguous': 'morally ambiguous protagonist',
+            'villain': 'villain protagonist'
+          }
+          const moralityDesc = moralityMap[advancedSettings.protagonistMorality] || 'complex moral character'
+          advancedContext += ` The protagonist should be an ${moralityDesc}.`
+        }
+        
+        // Romance Subplot
+        if (advancedSettings.romanceSubplot) {
+          const romanceMap: Record<string, string> = {
+            'none': 'no romance subplot',
+            'light': 'light romance in the background',
+            'central': 'romance as central plot element',
+            'primary': 'romance as primary focus'
+          }
+          const romanceDesc = romanceMap[advancedSettings.romanceSubplot] || 'subtle romantic elements'
+          advancedContext += ` Include ${romanceDesc}.`
+        }
+        
+        // Character Age Range
+        if (advancedSettings.characterAgeRange) {
+          const ageRangeMap: Record<string, string> = {
+            'children': 'child characters (under 12)',
+            'teens': 'teenage characters (13-17)',
+            'young-adults': 'young adult characters (18-25)',
+            'adults': 'adult characters (26+)',
+            'mixed': 'characters across multiple generations'
+          }
+          const ageDesc = ageRangeMap[advancedSettings.characterAgeRange] || 'diverse age range'
+          advancedContext += ` Feature ${ageDesc}.`
+        }
+        
+        // Setting Scope
+        if (advancedSettings.settingScope) {
+          const settingScopeMap: Record<string, string> = {
+            'single': 'single location (bottle show style)',
+            'limited': 'limited locations for budget efficiency',
+            'multiple': 'multiple diverse locations',
+            'epic': 'epic scope with many locations'
+          }
+          const scopeDesc = settingScopeMap[advancedSettings.settingScope] || 'appropriate location scope'
+          advancedContext += ` Design for ${scopeDesc}.`
+        }
+        
+        // Visual Style
+        if (advancedSettings.visualStyle && advancedSettings.visualStyle !== 'realistic') {
+          const visualStyleMap: Record<string, string> = {
+            'stylized': 'stylized visual approach',
+            'surreal': 'surreal/dreamlike visual style',
+            'documentary': 'documentary-style realism'
+          }
+          const styleDesc = visualStyleMap[advancedSettings.visualStyle] || 'distinctive visual style'
+          advancedContext += ` Aim for ${styleDesc}.`
+        }
+        
+        // Humor Level
+        if (advancedSettings.humorLevel) {
+          const humorLevelMap: Record<string, string> = {
+            'serious': 'serious tone with no humor',
+            'occasional': 'occasional moments of levity',
+            'dark-comedy': 'dark comedy elements',
+            'full-comedy': 'full comedy throughout'
+          }
+          const humorDesc = humorLevelMap[advancedSettings.humorLevel] || 'balanced humor'
+          advancedContext += ` Include ${humorDesc}.`
+        }
+        
+        // Violence Level
+        if (advancedSettings.violenceLevel) {
+          const violenceLevelMap: Record<string, string> = {
+            'none': 'no violence',
+            'implied': 'implied/off-screen violence only',
+            'moderate': 'moderate violence when necessary',
+            'graphic': 'graphic violence when story demands'
+          }
+          const violenceDesc = violenceLevelMap[advancedSettings.violenceLevel] || 'appropriate violence levels'
+          advancedContext += ` Feature ${violenceDesc}.`
+        }
+        
+        // Build the enhanced synopsis
+        let baseSynopsis = `${logline} The story follows ${protagonist}. ${stakes} The story is set in ${setting}. The overall vibe is ${vibe}, exploring themes of ${themeInput}.`
+        
+        // Add additional info if provided
+        if (additionalInfo && additionalInfo.trim()) {
+          baseSynopsis += ` Additional context: ${additionalInfo.trim()}.`
+        }
+        
+        synopsis = `${baseSynopsis}${advancedContext}`
+        
+        // Override series title if provided
+        if (advancedSettings.seriesTitle && advancedSettings.seriesTitle.trim()) {
+          console.log(`📝 User-specified series title: "${advancedSettings.seriesTitle}"`)
+        }
+        
+        // Store advanced settings for later use
+        (requestData as any)._advancedSettings = advancedSettings
+        
+      } else {
+        // Default synopsis without advanced settings
+        let baseSynopsis = `${logline} The story follows ${protagonist}. ${stakes} The story is set in ${setting}. The overall vibe is ${vibe}, exploring themes of ${themeInput}.`
+        
+        // Add additional info if provided (even without advanced settings)
+        if (additionalInfo && additionalInfo.trim()) {
+          baseSynopsis += ` Additional context: ${additionalInfo.trim()}.`
+        }
+        
+        synopsis = baseSynopsis
+      }
+      
       theme = themeInput
       
-      console.log('✨ Using 5-Question Format:')
+      console.log('✨ Using 6-Question Format:')
       console.log('📝 Logline:', logline)
       console.log('👤 Protagonist:', protagonist)
       console.log('⚡ Stakes:', stakes)
       console.log('🎭 Vibe:', vibe)
+      console.log('🌍 Setting:', setting)
       console.log('🎯 Theme:', theme)
+      console.log('📋 Additional Info:', additionalInfo ? `${additionalInfo.substring(0, 100)}...` : 'None')
+      console.log('🔧 Advanced Settings:', useAdvancedSettings ? 'ENABLED' : 'Default')
     }
     // Handle legacy format
     else if (requestData.synopsis && requestData.theme) {
@@ -1531,60 +2273,99 @@ export async function POST(request: Request) {
       )
     }
     
-    logger.startNewSession('Story Bible Generation')
-    logger.milestone(`Multi-Model AI: Intelligent Engine Routing`)
+    // Extract generateImages and userId from requestData (may be in either format)
+    const shouldGenerateImages = requestData.generateImages !== false // Default to true
+    const requestUserId = requestData.userId || userId
     
-    // Initialize progress tracker
-    const progressTracker = new EngineProgressTracker()
-    
-    // Start session tracking (skip in production)
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        // First, set the session as active
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'update_session',
-            session: {
-              id: Date.now().toString(),
-              isActive: true,
-              currentPhase: 'Story Bible Generation',
-              startTime: new Date().toISOString()
-            }
-          })
-        })
-
-        // Then seed the engine list to prevent premature completion
-        const initialStatus = progressTracker.getStatus()
-        
-        await fetch('http://localhost:3000/api/engine-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'update_progress',
-            progress: initialStatus
-          })
-        })
-        
-        // Start the first engine immediately to show progress
-        await progressTracker.startEngine('premise')
-        
-        // Show initial progress
-        progressTracker.updateProgress('premise', 10, 'Analyzing story foundation and thematic structure...')
-        
-      } catch (error) {
-        console.error('❌ Failed to start session tracking:', error)
+    // Validate API key early to fail fast with clear error
+    try {
+      const apiKey = process.env.GEMINI_API_KEY?.trim() // Trim whitespace
+      console.log(`🔍 API Key Check: Length=${apiKey?.length}, Starts=${apiKey?.substring(0, 4)}, Ends=${apiKey?.slice(-4)}`)
+      if (!apiKey || apiKey.length < 10) {
+        return NextResponse.json(
+          {
+            error: 'GEMINI_API_KEY is not configured or invalid',
+            details: 'Please configure GEMINI_API_KEY environment variable with a valid key.'
+          },
+          { status: 500 }
+        )
       }
+    } catch (keyError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to validate API key',
+          details: keyError instanceof Error ? keyError.message : String(keyError)
+        },
+        { status: 500 }
+      )
     }
     
-    logger.startPhase({
-      name: 'Story Bible Generation',
-      totalSteps: 12,
-      currentStep: 1,
-      engines: ENGINE_CONFIGS.STORY_BIBLE.engines,
-      overallProgress: 5
-    })
+    // Initialize logger with error handling
+    try {
+      logger.startNewSession('Story Bible Generation')
+      logger.milestone(`Multi-Model AI: Intelligent Engine Routing`)
+    } catch (loggerError) {
+      console.warn('Logger initialization failed, continuing without logger:', loggerError)
+    }
+    
+    // Construct base URL from request headers or use default
+    const host = request.headers.get('host') || 'localhost:3000'
+    const protocol = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+    const baseUrl = `${protocol}://${host}`
+    
+    // Initialize progress tracker with base URL
+    const progressTracker = new EngineProgressTracker(baseUrl)
+    
+    // Start session tracking (always track progress)
+    try {
+      // First, set the session as active
+      await fetch(`${baseUrl}/api/engine-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'update_session',
+          session: {
+            id: Date.now().toString(),
+            isActive: true,
+            currentPhase: 'Story Bible Generation',
+            startTime: new Date().toISOString()
+          }
+        })
+      })
+
+      // Then seed the engine list to prevent premature completion
+      const initialStatus = progressTracker.getStatus()
+      
+      await fetch(`${baseUrl}/api/engine-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'update_progress',
+          progress: initialStatus
+        })
+      })
+      
+      // Start the first engine immediately to show progress
+      await progressTracker.startEngine('premise')
+      
+      // Show initial progress
+      progressTracker.updateProgress('premise', 10, 'Analyzing story foundation and thematic structure...')
+      
+    } catch (error) {
+      console.error('❌ Failed to start session tracking:', error)
+    }
+    
+    try {
+      logger.startPhase({
+        name: 'Story Bible Generation',
+        totalSteps: 12,
+        currentStep: 1,
+        engines: ENGINE_CONFIGS.STORY_BIBLE.engines,
+        overallProgress: 5
+      })
+    } catch (loggerError) {
+      console.warn('Logger startPhase failed, continuing without logger:', loggerError)
+    }
     
     console.log('🔄 USING REAL ENGINE-BASED GENERATION - All 12 engines active!')
     console.log('🎯 Real engines: Premise V2, Character V2, Narrative V2, World V2, Dialogue V2, Tension V2, Genre V2, Choice V2, Theme V2, Living World V2, Trope V2, Cohesion')
@@ -1592,8 +2373,17 @@ export async function POST(request: Request) {
     let enhancedStoryBible
     
     try {
+      // Get character information if provided
+      const characterInfo = (requestData as any)._characterInfo || null
+      
+      // Extract user setting from request if available (for world building engine)
+      const userSetting = requestData.setting || undefined
+      
+      // Extract protagonist from request (CRITICAL - must be included in characters)
+      const protagonist = requestData.protagonist || undefined
+      
       // Try real engine-based generation first
-      enhancedStoryBible = await generateStoryBibleWithEngines(synopsis, theme, progressTracker)
+      enhancedStoryBible = await generateStoryBibleWithEngines(synopsis, theme, progressTracker, characterInfo, userSetting, protagonist)
       console.log('✅ REAL ENGINE GENERATION SUCCESSFUL!')
     } catch (engineError) {
       console.error('🚨 Engine-based generation failed, falling back to Gemini:', engineError)
@@ -1614,10 +2404,19 @@ export async function POST(request: Request) {
     if (enhancedStoryBible) {
       const detectedStoryType = detectStoryType(synopsis, theme)
       
-      // Generate better series title
+      // Check if user specified a custom series title via advanced settings
+      const userSpecifiedTitle = requestData.useAdvancedSettings && 
+        requestData.advancedSettings?.seriesTitle?.trim()
+      
+      if (userSpecifiedTitle) {
+        enhancedStoryBible.seriesTitle = requestData.advancedSettings.seriesTitle.trim()
+        console.log(`🎬 Using user-specified series title: "${enhancedStoryBible.seriesTitle}"`)
+      } else {
+        // Generate AI series title
       const finalTitle = await generateSeriesTitle(synopsis, theme, detectedStoryType)
       enhancedStoryBible.seriesTitle = finalTitle
       console.log(`🎬 Generated series title: "${finalTitle}"`)
+      }
       
       enhancedStoryBible.murphyPillarProcessed = true
       enhancedStoryBible.processingSteps = enhancedStoryBible.processingSteps || ['real-ai-generation']
@@ -1628,12 +2427,34 @@ export async function POST(request: Request) {
         charactersGenerated: enhancedStoryBible.mainCharacters?.length || 0,
         processingTime: Date.now()
       }
+      
+      // Store dialogue language setting from advanced settings
+      if (requestData.useAdvancedSettings && requestData.advancedSettings?.dialogueLanguage) {
+        enhancedStoryBible.dialogueLanguage = requestData.advancedSettings.dialogueLanguage
+        console.log(`🗣️ Dialogue language set: "${enhancedStoryBible.dialogueLanguage}"`)
+      } else {
+        // Default to English if not specified
+        enhancedStoryBible.dialogueLanguage = 'english'
+      }
+      
+      // Store all generation settings for reference in episode generation
+      if (requestData.useAdvancedSettings && requestData.advancedSettings) {
+        enhancedStoryBible.generationSettings = {
+          dialogueLanguage: requestData.advancedSettings.dialogueLanguage || 'english',
+          tone: requestData.advancedSettings.tone,
+          genre: requestData.advancedSettings.genre,
+          matureThemes: requestData.advancedSettings.matureThemes,
+          seriesLength: requestData.advancedSettings.seriesLength,
+          povStyle: requestData.advancedSettings.povStyle
+        }
+      }
+      
       console.log('✅ Story bible generation complete')
 
-      // Mark session as complete (skip in production)
-      if (process.env.NODE_ENV === 'development') {
+      // Mark session as complete (always update)
+      try {
         const sessionId = Date.now().toString()
-        await fetch('http://localhost:3000/api/engine-status', {
+        await fetch(`${baseUrl}/api/engine-status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1648,9 +2469,44 @@ export async function POST(request: Request) {
             }
           })
         })
+      } catch (error) {
+        console.error('Failed to mark session as complete:', error)
       }
     } else {
       console.log('⚠️ No story bible generated')
+    }
+    
+    // Auto-generate images if requested and userId is provided
+    if (enhancedStoryBible && shouldGenerateImages && requestUserId) {
+      try {
+        console.log('🎨 Auto-generating Story Bible images...')
+        
+        // Import the image generator
+        const { generateStoryBibleImages } = await import('@/services/ai-generators/story-bible-image-generator')
+        
+        // Generate all images
+        const bibleWithImages = await generateStoryBibleImages(
+          enhancedStoryBible,
+          requestUserId,
+          {
+            sections: ['hero', 'characters', 'arcs', 'world'],
+            regenerate: false
+          }
+        )
+        
+        // Update the story bible with images
+        enhancedStoryBible = bibleWithImages
+        enhancedStoryBible.visualAssets = {
+          ...enhancedStoryBible.visualAssets,
+          generatedAt: new Date().toISOString()
+        }
+        
+        console.log('✅ Story Bible images auto-generated successfully')
+      } catch (imageError: any) {
+        console.error('⚠️ Failed to auto-generate images:', imageError.message)
+        // Don't fail the entire request if image generation fails
+        // The story bible is still valid without images
+      }
     }
     
     return NextResponse.json({ storyBible: enhancedStoryBible })

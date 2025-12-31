@@ -2,7 +2,7 @@
  * API Route: Generate Casting Profiles
  * 
  * Generates comprehensive casting profiles for all characters based on script breakdown and screenplay
- * Uses EngineAIRouter with Gemini 2.5 Pro for analytical + creative casting analysis
+ * Uses EngineAIRouter with Gemini 3 Pro Preview for analytical + creative casting analysis
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,26 +11,75 @@ import { generateCasting } from '@/services/ai-generators/casting-generator'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { preProductionId, storyBibleId, episodeNumber, userId, breakdownData, scriptData, storyBibleData } = body
+    const { preProductionId, storyBibleId, episodeNumber, arcPreProductionId, episodeNumbers, userId, breakdownData, scriptData, storyBibleData, episodePreProdData } = body
 
     console.log('🎭 Casting Profiles Generation API called')
     console.log('  Pre-Production ID:', preProductionId)
     console.log('  Story Bible ID:', storyBibleId)
     console.log('  Episode Number:', episodeNumber)
+    console.log('  Production Assistant ID:', arcPreProductionId)
+    console.log('  Episode Numbers:', episodeNumbers)
     console.log('  User ID:', userId || 'GUEST MODE')
 
-    // Validate required parameters
-    if (!preProductionId || !storyBibleId || episodeNumber === undefined) {
+    const isArcContext = !!arcPreProductionId
+    const effectivePreProductionId = preProductionId || arcPreProductionId
+
+    // Validate required parameters - accept either preProductionId or arcPreProductionId
+    if (!effectivePreProductionId || !storyBibleId) {
       console.error('❌ Missing required parameters')
       return NextResponse.json(
-        { error: 'Missing required parameters: preProductionId, storyBibleId, episodeNumber' },
+        { error: 'Missing required parameters: preProductionId (or arcPreProductionId) and storyBibleId' },
+        { status: 400 }
+      )
+    }
+
+    // For episode context, episodeNumber is required
+    // For arc context, arcPreProductionId and episodeNumbers are required
+    if (!isArcContext && episodeNumber === undefined) {
+      console.error('❌ Missing episodeNumber for episode context')
+      return NextResponse.json(
+        { error: 'Missing required parameter: episodeNumber' },
+        { status: 400 }
+      )
+    }
+
+    if (isArcContext && (!episodeNumbers || episodeNumbers.length === 0)) {
+      console.error('❌ Missing episodeNumbers for arc context')
+      return NextResponse.json(
+        { error: 'Missing required parameter: episodeNumbers for arc context' },
         { status: 400 }
       )
     }
 
     // 1. Validate Script Breakdown exists
     console.log('\n📋 Validating Script Breakdown data...')
-    if (!breakdownData) {
+    
+    // For arc context, try to aggregate from episodePreProdData if breakdownData is missing
+    let finalBreakdownData = breakdownData
+    if (isArcContext && !breakdownData && episodePreProdData) {
+      console.log('📊 No breakdown data provided, aggregating from episodes...')
+      const aggregatedBreakdown: any = {
+        scenes: [],
+        totalScenes: 0
+      }
+      
+      Object.entries(episodePreProdData).forEach(([epNumStr, epPreProd]: [string, any]) => {
+        const epNum = parseInt(epNumStr)
+        const breakdown = epPreProd.scriptBreakdown
+        if (breakdown?.scenes && Array.isArray(breakdown.scenes) && breakdown.scenes.length > 0) {
+          console.log(`  ✅ Episode ${epNum}: Found ${breakdown.scenes.length} scenes in breakdown`)
+          aggregatedBreakdown.scenes.push(...breakdown.scenes)
+          aggregatedBreakdown.totalScenes += breakdown.scenes.length
+        }
+      })
+      
+      if (aggregatedBreakdown.scenes.length > 0) {
+        finalBreakdownData = aggregatedBreakdown
+        console.log(`✅ Aggregated ${aggregatedBreakdown.scenes.length} scenes from episodes`)
+      }
+    }
+    
+    if (!finalBreakdownData) {
       console.error('❌ Script breakdown data not provided')
       return NextResponse.json(
         { 
@@ -42,10 +91,10 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Script Breakdown data received')
-    console.log('  Total scenes:', breakdownData.totalScenes || breakdownData.scenes?.length)
+    console.log('  Total scenes:', finalBreakdownData.totalScenes || finalBreakdownData.scenes?.length)
     
     // Check if breakdown has characters
-    const hasCharacters = breakdownData.scenes?.some((scene: any) => 
+    const hasCharacters = finalBreakdownData.scenes?.some((scene: any) => 
       scene.characters && scene.characters.length > 0
     )
     if (!hasCharacters) {
@@ -61,7 +110,29 @@ export async function POST(request: NextRequest) {
 
     // 2. Validate Script exists
     console.log('\n📝 Validating Script data...')
-    if (!scriptData) {
+    
+    // For arc context, try to aggregate from episodePreProdData if scriptData is missing
+    let finalScriptData = scriptData
+    if (isArcContext && !scriptData && episodePreProdData) {
+      console.log('📊 No script data provided, aggregating from episodes...')
+      const aggregatedScripts: any[] = []
+      
+      Object.entries(episodePreProdData).forEach(([epNumStr, epPreProd]: [string, any]) => {
+        const epNum = parseInt(epNumStr)
+        const scripts = epPreProd.scripts
+        if (scripts?.fullScript) {
+          console.log(`  ✅ Episode ${epNum}: Found script`)
+          aggregatedScripts.push(scripts.fullScript)
+        }
+      })
+      
+      if (aggregatedScripts.length > 0) {
+        finalScriptData = aggregatedScripts[0]
+        console.log(`✅ Using script from Episode ${Object.entries(episodePreProdData).find(([_, ep]: [string, any]) => ep.scripts?.fullScript)?.[0] || 'unknown'}`)
+      }
+    }
+    
+    if (!finalScriptData) {
       console.error('❌ Script data not provided')
       return NextResponse.json(
         { 
@@ -72,7 +143,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ Script data received:', scriptData.title || `Episode ${episodeNumber}`)
+    console.log('✅ Script data received:', finalScriptData.title || (isArcContext ? `Arc (${episodeNumbers?.length || 0} episodes)` : `Episode ${episodeNumber}`))
 
     // 3. Validate Story Bible
     console.log('\n📖 Validating Story Bible data...')
@@ -88,16 +159,16 @@ export async function POST(request: NextRequest) {
 
     // 4. Generate casting profiles with AI
     console.log('\n🤖 Generating casting profiles with AI...')
-    console.log('  Provider: Gemini 2.5 Pro (via EngineAIRouter)')
+    console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: Comprehensive profiles for all characters')
     console.log('  Includes: Archetypes, actor templates, requirements, casting notes')
 
     const castingData = await generateCasting({
-      breakdownData,
-      scriptData,
+      breakdownData: finalBreakdownData,
+      scriptData: finalScriptData,
       storyBible: storyBibleData,
-      episodeNumber,
-      episodeTitle: scriptData.title || `Episode ${episodeNumber}`
+      episodeNumber: isArcContext ? 0 : episodeNumber, // Use 0 for arc context
+      episodeTitle: finalScriptData.title || (isArcContext ? `Arc (${episodeNumbers?.length || 0} episodes)` : `Episode ${episodeNumber}`)
     })
 
     console.log('\n✅ Casting profiles generated successfully!')

@@ -40,6 +40,13 @@ export function StoryboardsTab({
   const [bulkGenerationElapsedTime, setBulkGenerationElapsedTime] = useState(0)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmModalData, setConfirmModalData] = useState<{ framesCount: number; onConfirm: () => void } | null>(null)
+  const [isAnalyzingAI, setIsAnalyzingAI] = useState(false)
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`ai-disclaimer-dismissed-storyboards-${preProductionData.storyBibleId}-ep${(preProductionData as EpisodePreProductionData).episodeNumber}`) === 'true'
+    }
+    return false
+  })
   
   const episodeData = preProductionData as EpisodePreProductionData
   
@@ -780,9 +787,10 @@ export function StoryboardsTab({
       // 3. Call generation API with extended timeout
       console.log('🤖 Calling storyboard generation API...')
       
-      // Create AbortController with 3-minute timeout (storyboards can take 80+ seconds)
+      // Create AbortController with 5-minute timeout (batched generation can take 3+ minutes)
+      // Batched generation (when truncation occurs) makes 2 API calls sequentially
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minutes
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes for batched generation
       
       let response
       try {
@@ -864,219 +872,9 @@ export function StoryboardsTab({
       await onUpdate('storyboards', updatedStoryboards)
 
       console.log('✅ Storyboards saved to Firestore')
-
-      // 6. Generate images for all frames
-      console.log('🎨 Starting image generation for all frames...')
-      const allFrames: Array<{ frame: StoryboardFrame; sceneNumber: number }> = []
-      result.storyboards.scenes?.forEach((scene: any) => {
-        scene.frames?.forEach((frame: StoryboardFrame) => {
-          if (frame.imagePrompt) {
-            allFrames.push({ frame, sceneNumber: scene.sceneNumber })
-          }
-        })
-      })
-
-      console.log(`📸 Found ${allFrames.length} frames with image prompts`)
-
-      if (allFrames.length > 0) {
-        setImageGenerationProgress({ current: 0, total: allFrames.length })
-        
-        // Get art style from storyboards data if available
-        const artStyle = result.storyboards.artStyle || updatedStoryboards?.artStyle
-        
-        // Generate images sequentially to avoid overwhelming the API
-        for (let i = 0; i < allFrames.length; i++) {
-          const { frame, sceneNumber } = allFrames[i]
-          try {
-            console.log(`🎨 Generating image ${i + 1}/${allFrames.length} for frame ${frame.id} (Scene ${sceneNumber}, Shot ${frame.shotNumber})`)
-            
-            setGeneratingImageFrameId(frame.id)
-            setImageGenerationProgress({ current: i + 1, total: allFrames.length })
-            
-            // Get reference images (character images + recent storyboard images) and character descriptions
-            let referenceImages: string[] = []
-            let characterDescriptions: Array<{ name: string; description: string }> = []
-            let characterImageMap: Record<string, string> = {}
-            if (storyBible && episodeData.storyBibleId) {
-              try {
-                const refData = await getStoryboardReferenceImages(
-                  frame,
-                  storyBible,
-                  episodeData.storyBibleId,
-                  currentUserId,
-                  episodeData.episodeNumber
-                )
-                referenceImages = refData.images
-                characterDescriptions = refData.characterDescriptions
-                characterImageMap = refData.characterImageMap || {}
-                console.log(`🎨 Frame ${frame.id}: Using ${referenceImages.length} reference image(s), ${characterDescriptions.length} character description(s), ${Object.keys(characterImageMap).length} character image mapping(s)`)
-                if (referenceImages.length === 0) {
-                  console.error(`⚠️⚠️⚠️ WARNING: NO REFERENCE IMAGES FOR FRAME ${frame.id}! Images will NOT match story bible characters! ⚠️⚠️⚠️`)
-                } else {
-                  console.log(`✅ Frame ${frame.id}: Reference images found - first image: ${referenceImages[0]?.substring(0, 80)}...`)
-                  if (Object.keys(characterImageMap).length > 0) {
-                    console.log(`✅ Frame ${frame.id}: Character mappings: ${Object.keys(characterImageMap).join(', ')}`)
-                  }
-                }
-              } catch (refError: any) {
-                console.warn(`⚠️ Failed to get reference images for frame ${frame.id}:`, refError.message)
-                // Continue without reference images - graceful degradation
-              }
-            }
-            
-            const imageResponse = await fetch('/api/generate-image', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                prompt: frame.imagePrompt,
-                artStyle: artStyle || undefined,
-                userId: currentUserId,
-                referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-                characterDescriptions: characterDescriptions.length > 0 ? characterDescriptions : undefined,
-                characterImageMap: Object.keys(characterImageMap).length > 0 ? characterImageMap : undefined
-              })
-            })
-
-            if (!imageResponse.ok) {
-              const contentType = imageResponse.headers.get('content-type') || ''
-              const isJSON = contentType.includes('application/json')
-              const text = await imageResponse.text()
-              
-              if (!isJSON && (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html'))) {
-                console.error(`❌ Frame ${frame.id}: Server returned HTML error page`)
-                continue // Skip this frame and continue with others
-              }
-              
-              let errorMessage = 'Image generation failed'
-              if (isJSON && text) {
-                try {
-                  const errorData = JSON.parse(text)
-                  errorMessage = errorData.error || errorData.message || errorMessage
-                } catch {
-                  errorMessage = text.substring(0, 200) || `Server error: ${imageResponse.status}`
-                }
-              } else {
-                errorMessage = text.substring(0, 200) || `Server error: ${imageResponse.status}`
-              }
-              console.error(`❌ Frame ${frame.id}: ${errorMessage}`)
-              continue // Skip this frame and continue with others
-            }
-
-            const imageText = await imageResponse.text()
-            if (!imageText) {
-              console.error(`❌ Frame ${frame.id}: Empty response from server`)
-              continue
-            }
-
-            // Check if response is HTML (error page)
-            if (imageText.trim().startsWith('<!DOCTYPE') || imageText.trim().startsWith('<html')) {
-              console.error(`❌ Frame ${frame.id}: Server returned HTML instead of JSON`)
-              continue
-            }
-
-            let imageResult
-            try {
-              imageResult = JSON.parse(imageText)
-            } catch (e) {
-              console.error(`❌ Frame ${frame.id}: Failed to parse JSON response`)
-              continue
-            }
-
-            let imageUrl = imageResult.imageUrl || imageResult.url
-            if (!imageUrl) {
-              console.error(`❌ Frame ${frame.id}: No image URL in response`)
-              continue
-            }
-
-            // SIMPLIFIED: Always upload to Storage (same as single image generation)
-            let finalImageUrl: string
-            const isAlreadyStorageUrl = imageUrl.includes('firebasestorage.googleapis.com') || 
-                                         imageUrl.startsWith('https://storage.googleapis.com/')
-            
-            if (isAlreadyStorageUrl) {
-              finalImageUrl = imageUrl
-              console.log(`✅ Frame ${frame.id}: API returned Storage URL`)
-            } else {
-              // Upload to Storage client-side
-              console.log(`📤 Uploading frame ${frame.id} to Firebase Storage...`)
-              try {
-                const { uploadImageToStorage } = await import('@/services/image-storage-service')
-                const { hashPrompt } = await import('@/services/image-cache-service')
-                
-                // Convert external URLs to base64 if needed
-                let imageDataToUpload = imageUrl
-                if (!imageUrl.startsWith('data:')) {
-                  const imageResponse = await fetch(imageUrl)
-                  if (!imageResponse.ok) {
-                    throw new Error(`Failed to fetch external image: ${imageResponse.statusText}`)
-                  }
-                  const imageBlob = await imageResponse.blob()
-                  imageDataToUpload = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader()
-                    reader.onloadend = () => resolve(reader.result as string)
-                    reader.onerror = reject
-                    reader.readAsDataURL(imageBlob)
-                  })
-                }
-                
-                const promptHash = await hashPrompt(frame.imagePrompt || `frame-${frame.id}`, artStyle || undefined)
-                finalImageUrl = await uploadImageToStorage(currentUserId, imageDataToUpload, promptHash)
-                console.log(`✅ Frame ${frame.id} uploaded to Storage: ${finalImageUrl.substring(0, 50)}...`)
-                // Log FULL URL separately so it's not truncated
-                console.log(`🔗 Frame ${frame.id} FULL Storage URL:`, finalImageUrl)
-              } catch (uploadError: any) {
-                console.error(`❌ Failed to upload frame ${frame.id} to Storage:`, uploadError.message)
-                throw new Error(`Failed to upload frame ${frame.id} to Storage: ${uploadError.message}`)
-              }
-            }
-
-            // Validate Storage URL before saving
-            if (finalImageUrl.startsWith('data:') || 
-                (!finalImageUrl.startsWith('https://firebasestorage.googleapis.com/') && 
-                 !finalImageUrl.startsWith('https://storage.googleapis.com/'))) {
-              console.error(`❌ Frame ${frame.id}: Invalid URL format - not a Storage URL!`)
-              throw new Error(`Invalid URL format for frame ${frame.id}`)
-            }
-
-            // Update local state with Storage URL
-            setLocalStoryboardsData(prev => {
-              if (!prev) return prev
-              return {
-                ...prev,
-                scenes: prev.scenes.map(scene => ({
-                  ...scene,
-                  frames: scene.frames.map(f => 
-                    f.id === frame.id ? { ...f, frameImage: finalImageUrl } : f
-                  )
-                }))
-              }
-            })
-            
-            // Then save to Firestore (with Storage URL!)
-            await handleFrameUpdate(frame.id, {
-              frameImage: finalImageUrl
-            })
-
-            console.log(`✅ Image ${i + 1}/${allFrames.length} generated successfully for frame ${frame.id}`)
-            
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 500))
-          } catch (error: any) {
-            console.error(`❌ Error generating image for frame ${frame.id}:`, error.message)
-            // Continue with next frame even if one fails
-          } finally {
-            setGeneratingImageFrameId(null)
-          }
-        }
-
-        console.log('✅ Image generation completed for all frames')
-        setImageGenerationProgress(null)
-      } else {
-        console.log('ℹ️ No frames with image prompts found, skipping image generation')
-        setImageGenerationProgress(null)
-      }
+      
+      // Note: Images are NOT auto-generated when manually triggering storyboard generation.
+      // Users can generate images separately using the "Generate All Images" button or individual frame generation buttons.
     } catch (error: any) {
       console.error('❌ Error generating storyboards:', error)
       
@@ -1092,7 +890,7 @@ export function StoryboardsTab({
           try {
             // Reload the preproduction data to see if storyboards were saved
             const { getPreProduction } = await import('@/services/preproduction-service')
-            const updatedData = await getPreProduction(episodeData.id, currentUserId)
+            const updatedData = await getPreProduction(episodeData.storyBibleId, episodeData.episodeNumber, currentUserId)
             
             if (updatedData?.storyboards && updatedData.storyboards.scenes?.length > 0) {
               console.log('✅ Storyboards were saved successfully despite network error!')
@@ -1166,7 +964,7 @@ export function StoryboardsTab({
           console.log(`🎨 [Single Frame] Frame ${frame.id}: Extracted ${sceneCharacters.length} scene characters: ${sceneCharacters.join(', ')}`)
         }
       }
-
+      
       // Get reference images (character images + recent storyboard images) and character descriptions
       let referenceImages: string[] = []
       let characterDescriptions: Array<{ name: string; description: string }> = []
@@ -1205,12 +1003,15 @@ export function StoryboardsTab({
         },
         body: JSON.stringify({
           prompt: frame.imagePrompt,
+          scriptContext: frame.scriptContext || undefined, // Pass scriptContext for validation
           artStyle: artStyle || undefined,
           userId: currentUserId,
           referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
           characterDescriptions: characterDescriptions.length > 0 ? characterDescriptions : undefined,
           characterImageMap: Object.keys(characterImageMap).length > 0 ? characterImageMap : undefined,
-          artStyleDescription: artStyleDescription || undefined
+          artStyleDescription: artStyleDescription || undefined,
+          aspectRatio: '1:1', // SQUARE orientation for storyboard frames
+          model: 'nano-banana-pro' // High quality for storyboards
         })
       })
       const requestDuration = Date.now() - requestStartTime
@@ -1546,8 +1347,8 @@ export function StoryboardsTab({
         frameUpdateCallback,
         {
           onProgress: (progress) => {
-            setBulkImageProgress({
-              current: progress.current,
+            setBulkImageProgress({ 
+              current: progress.current, 
               total: progress.total,
               frameId: progress.frameId || null
             })
@@ -1655,8 +1456,121 @@ export function StoryboardsTab({
     )
   }
 
+  const handleCheckAIGeneratable = async () => {
+    if (!storyboardsData) {
+      alert('No storyboards available')
+      return
+    }
+
+    setIsAnalyzingAI(true)
+    try {
+      const allFrames = storyboardsData.scenes.flatMap(scene => scene.frames || [])
+      
+      const response = await fetch('/api/analyze/ai-generatable-shots', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storyboardFrames: allFrames,
+          breakdownData: episodeData.scriptBreakdown,
+          storyBibleId: episodeData.storyBibleId,
+          episodeNumber: episodeData.episodeNumber
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze shots')
+      }
+
+      const result = await response.json()
+      
+      if (result.success && result.results) {
+        // Update frames with AI flags
+        const updatedScenes = storyboardsData.scenes.map(scene => ({
+          ...scene,
+          frames: scene.frames.map(frame => {
+            const analysis = result.results.find((r: any) => r.id === frame.id)
+            if (analysis) {
+              return {
+                ...frame,
+                canBeAIGenerated: analysis.canBeAIGenerated,
+                aiGenerationPrompt: analysis.aiGenerationPrompt || frame.aiGenerationPrompt,
+                aiGenerationRecommendation: analysis.recommendation || frame.aiGenerationRecommendation
+              }
+            }
+            return frame
+          })
+        }))
+
+        const updatedStoryboards: StoryboardsData = {
+          ...storyboardsData,
+          scenes: updatedScenes,
+          lastUpdated: Date.now(),
+          updatedBy: currentUserId
+        }
+
+        await onUpdate('storyboards', updatedStoryboards)
+        setLocalStoryboardsData(updatedStoryboards)
+        
+        alert(`Analysis complete! Found ${result.results.filter((r: any) => r.canBeAIGenerated).length} AI-generatable frames.`)
+      }
+    } catch (error: any) {
+      console.error('Error analyzing AI-generatable shots:', error)
+      alert(error.message || 'Failed to analyze shots')
+    } finally {
+      setIsAnalyzingAI(false)
+    }
+  }
+
+  const handleDismissDisclaimer = () => {
+    setDisclaimerDismissed(true)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`ai-disclaimer-dismissed-storyboards-${episodeData.storyBibleId}-ep${episodeData.episodeNumber}`, 'true')
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* AI Disclaimer Banner */}
+      {!disclaimerDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#10B981]/20 border border-[#10B981]/40 rounded-lg p-4 flex items-start justify-between gap-4"
+        >
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[#10B981] text-lg">🤖</span>
+              <h3 className="text-[#10B981] font-semibold">AI Generation Available</h3>
+            </div>
+            <p className="text-[#e7e7e7]/80 text-sm mb-2">
+              Some shots in this episode can be generated by AI in case you want to save on time and budget.
+            </p>
+            <div className="text-xs text-[#e7e7e7]/60 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#10B981]/30 border border-[#10B981] text-[#10B981] rounded text-[10px]">🤖 AI Highly</span>
+                <span>Strongly recommend AI (establishing shots, landscapes, B-roll)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#F59E0B]/20 border border-[#F59E0B]/40 text-[#F59E0B] rounded text-[10px]">🤖 AI Recommended</span>
+                <span>Can use AI (transitions, background plates)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280] rounded text-[10px]">🤖 AI Optional</span>
+                <span>Actors should probably shoot, but AI can save time</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleDismissDisclaimer}
+            className="text-[#e7e7e7]/50 hover:text-[#e7e7e7] transition-colors flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </motion.div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -1678,25 +1592,44 @@ export function StoryboardsTab({
 
         <div className="flex items-center gap-3">
           {totalFrames > 0 && (
-            <button
-              onClick={handleGenerateAllImages}
-              disabled={isGeneratingAllImages || isGenerating}
-              className="px-4 py-2 bg-gradient-to-r from-[#10B981] to-[#059669] text-white rounded-lg font-medium hover:from-[#059669] hover:to-[#047857] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isGeneratingAllImages ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  {bulkImageProgress 
-                    ? `Generating ${bulkImageProgress.current}/${bulkImageProgress.total}...`
-                    : 'Generating images...'}
-                </>
-              ) : (
-                <>
-                  <span>🎨</span>
-                  <span>Generate All Images</span>
-                </>
-              )}
-            </button>
+            <>
+              <button
+                onClick={handleCheckAIGeneratable}
+                disabled={isAnalyzingAI || isGenerating || isGeneratingAllImages}
+                className="px-4 py-2 bg-[#10B981] text-black rounded-lg font-medium hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isAnalyzingAI ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <span>🤖</span>
+                    <span>Check AI-Generatable Shots</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleGenerateAllImages}
+                disabled={isGeneratingAllImages || isGenerating}
+                className="px-4 py-2 bg-gradient-to-r from-[#10B981] to-[#059669] text-white rounded-lg font-medium hover:from-[#059669] hover:to-[#047857] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isGeneratingAllImages ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    {bulkImageProgress 
+                      ? `Generating ${bulkImageProgress.current}/${bulkImageProgress.total}...`
+                      : 'Generating images...'}
+                  </>
+                ) : (
+                  <>
+                    <span>🎨</span>
+                    <span>Generate All Images</span>
+                  </>
+                )}
+              </button>
+            </>
           )}
           <button
             onClick={handleGenerateStoryboards}
@@ -2074,10 +2007,14 @@ function StoryboardImage({ src, alt }: { src: string; alt: string }) {
   }
 
   return (
-    <img 
+    <motion.img 
       src={displayUrl} 
       alt={alt || 'Storyboard frame'} 
-      className="w-full h-full object-cover"
+      className="w-full h-auto object-cover"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      whileHover={{ scale: 1.02 }}
       onError={(e) => {
         console.error('StoryboardImage: Image failed to load:', {
           displayUrl: displayUrl.substring(0, 100),
@@ -2208,14 +2145,20 @@ function StoryboardFrameCard({
   return (
     <div className="bg-[#1a1a1a] border border-[#36393f] rounded-lg overflow-hidden">
       {/* Image/Video */}
-      <div className="w-full h-48 bg-[#2a2a2a] flex items-center justify-center relative overflow-hidden">
+      <div className="w-full bg-[#2a2a2a] flex items-center justify-center relative group overflow-hidden">
         {/* Show video if available, otherwise show image */}
         {frame.referenceVideos && frame.referenceVideos.length > 0 ? (
-          <div className="w-full h-full">
+          <motion.div 
+            className="w-full"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            whileHover={{ scale: 1.02 }}
+          >
             <video
               src={frame.referenceVideos[0]}
               controls
-              className="w-full h-full object-cover"
+              className="w-full h-auto object-cover"
               preload="metadata"
               onError={(e) => {
                 console.error('Video load error:', e)
@@ -2225,15 +2168,40 @@ function StoryboardFrameCard({
               Your browser does not support the video tag.
             </video>
             {frame.referenceVideos.length > 1 && (
-              <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded z-10">
                 +{frame.referenceVideos.length - 1} more
               </div>
             )}
-          </div>
+          </motion.div>
         ) : imageUrl ? (
+          <>
           <StoryboardImage src={imageUrl} alt={`Shot ${frame.shotNumber}`} />
+            {/* Regeneration button - shows on hover/tap when image exists */}
+            {frame.imagePrompt && (
+              <button
+                onClick={onGenerateImage}
+                disabled={isGeneratingImage}
+                className={`absolute top-2 right-2 bg-[#10B981]/90 hover:bg-[#059669] active:bg-[#059669] text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed z-10 flex items-center gap-1.5 shadow-lg backdrop-blur-sm ${
+                  isGeneratingImage ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+                title="Regenerate this image"
+              >
+                {isGeneratingImage ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Regenerating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    <span>Regenerate</span>
+                  </>
+                )}
+              </button>
+            )}
+          </>
         ) : (
-          <div className="text-center p-4">
+          <div className="w-full h-48 text-center p-4 flex flex-col items-center justify-center">
             <span className="text-4xl">📷</span>
             <p className="text-xs text-[#e7e7e7]/50 mt-2">No image</p>
             {frame.imagePrompt && (
@@ -2248,7 +2216,7 @@ function StoryboardFrameCard({
           </div>
         )}
         {isGeneratingImage && (
-          <div className="absolute inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm z-10">
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm z-20">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               <div className="text-white text-sm font-medium">Generating image...</div>
@@ -2260,8 +2228,30 @@ function StoryboardFrameCard({
 
       {/* Content */}
       <div className="p-4">
-        <div className="text-xs font-medium mb-2 text-[#e7e7e7]/50">
-          Scene {frame.sceneNumber} • Shot {frame.shotNumber}
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-[#e7e7e7]/50">
+            Scene {frame.sceneNumber} • Shot {frame.shotNumber}
+          </div>
+          {frame.canBeAIGenerated && (
+            <div 
+              className={`px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
+                frame.aiGenerationRecommendation === 'high' 
+                  ? 'bg-[#10B981]/30 border border-[#10B981] text-[#10B981] hover:bg-[#10B981]/40' 
+                  : frame.aiGenerationRecommendation === 'medium'
+                    ? 'bg-[#F59E0B]/20 border border-[#F59E0B]/40 text-[#F59E0B] hover:bg-[#F59E0B]/30'
+                    : 'bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280] hover:bg-[#6B7280]/30'
+              }`}
+              title={
+                frame.aiGenerationRecommendation === 'high' 
+                  ? `Highly Recommended: Strongly recommend using AI for this shot (establishing shots, landscapes, B-roll)\n\n${frame.aiGenerationPrompt ? `Prompt: ${frame.aiGenerationPrompt.substring(0, 100)}...` : ''}`
+                  : frame.aiGenerationRecommendation === 'medium'
+                    ? `Recommended: Can use AI generation for this shot (transitions, background plates)\n\n${frame.aiGenerationPrompt ? `Prompt: ${frame.aiGenerationPrompt.substring(0, 100)}...` : ''}`
+                    : `Optional: Actors should probably shoot this, but AI can save time if needed\n\n${frame.aiGenerationPrompt ? `Prompt: ${frame.aiGenerationPrompt.substring(0, 100)}...` : ''}`
+              }
+            >
+              🤖 AI {frame.aiGenerationRecommendation === 'high' ? 'Highly' : frame.aiGenerationRecommendation === 'medium' ? 'Recommended' : 'Optional'}
+            </div>
+          )}
         </div>
         
         {/* Narrative-first blurb */}
@@ -2269,11 +2259,11 @@ function StoryboardFrameCard({
           <div className="mb-2">
             <div className="text-[11px] uppercase tracking-wide text-[#e7e7e7]/50 mb-1">Story beat</div>
             <p className="text-sm text-[#e7e7e7] leading-snug line-clamp-3">
-              {frame.notes
-                ? frame.notes.length > 160
-                  ? `${frame.notes.substring(0, 160)}...`
+              {frame.notes 
+                ? frame.notes.length > 160 
+                  ? `${frame.notes.substring(0, 160)}...` 
                   : frame.notes
-                : frame.imagePrompt
+                : frame.imagePrompt 
                   ? frame.imagePrompt.length > 160
                     ? `${frame.imagePrompt.substring(0, 160)}...`
                     : frame.imagePrompt
@@ -2291,7 +2281,7 @@ function StoryboardFrameCard({
             </p>
           </div>
         )}
-
+        
         {/* Dialogue snippet if available */}
         {frame.dialogueSnippet && frame.dialogueSnippet.trim() && (
           <div className="mb-2 p-2 bg-[#2a2a2a] rounded border-l-2 border-[#10B981]/50">

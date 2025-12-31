@@ -225,14 +225,17 @@ export default function EpisodeStudioPage() {
       )}
       
       {/* Legacy Episode Studio - Still functional for backward compatibility */}
-      <div className={showDeprecationNotice ? 'pt-16' : ''}>
-    <EpisodeStudio
-      storyBible={storyBible}
-      episodeNumber={episodeNumber}
-      previousChoice={getPreviousChoice()}
-      storyBibleId={storyBibleId || undefined}
-    />
-      </div>
+      {episodeNumber !== null && (
+        <div className={showDeprecationNotice ? 'pt-16' : ''}>
+          <EpisodeStudio
+            storyBible={storyBible}
+            episodeNumber={episodeNumber}
+            previousChoice={getPreviousChoice()}
+            storyBibleId={storyBibleId || undefined}
+            isRewrite={searchParams.get('rewrite') === 'true'}
+          />
+        </div>
+      )}
     </div>
   )
 }

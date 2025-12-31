@@ -76,3 +76,11 @@ I'll update the code to automatically detect and use Application Default Credent
 
 
 
+
+
+
+
+
+
+
+

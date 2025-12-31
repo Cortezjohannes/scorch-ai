@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeContext } from '@/context/ThemeContext'
 import { useContext } from 'react'
+import { SafariBanner } from '@/components/SafariBanner'
+import { ChatProvider } from '@/context/ChatContext'
+import ChatWidget from '@/components/chat/ChatWidget'
 
 // Custom error boundary component
 function ErrorBoundary({
@@ -91,6 +94,8 @@ function ClientLayoutContent({ children }: ClientLayoutProps) {
       <div className="mobile-safe-area mx-auto min-h-screen w-full overflow-x-hidden">
         {children}
       </div>
+      <SafariBanner />
+      <ChatWidget />
     </div>
   )
 }
@@ -100,9 +105,11 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
   return (
     <ErrorBoundary fallback={(error) => <AuthErrorFallback error={error} />}>
       <AuthProvider>
-        <ClientLayoutContent>
-          {children}
-        </ClientLayoutContent>
+        <ChatProvider>
+          <ClientLayoutContent>
+            {children}
+          </ClientLayoutContent>
+        </ChatProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

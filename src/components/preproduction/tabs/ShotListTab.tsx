@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import type { PreProductionData, EpisodePreProductionData, ShotListData, Shot, ShotListScene } from '@/types/preproduction'
@@ -25,9 +25,24 @@ export function ShotListTab({
   const router = useRouter()
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set([0]))
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterAIGeneratable, setFilterAIGeneratable] = useState<string>('all') // 'all' | 'ai-generatable' | 'requires-actors'
   const [viewMode, setViewMode] = useState<'narrative' | 'efficiency'>('narrative')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
+  const [isGeneratingSample, setIsGeneratingSample] = useState<string | null>(null) // shotId being generated
+  const [selectedShotForGeneration, setSelectedShotForGeneration] = useState<Shot | null>(null) // Selected shot for video generation
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`ai-disclaimer-dismissed-${preProductionData.storyBibleId}-ep${(preProductionData as EpisodePreProductionData).episodeNumber}`) !== 'true'
+    }
+    return true
+  })
+  const [showSampleDisclaimer, setShowSampleDisclaimer] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`ai-sample-disclaimer-dismissed-${preProductionData.storyBibleId}-ep${(preProductionData as EpisodePreProductionData).episodeNumber}`) !== 'true'
+    }
+    return true
+  })
   const episodeData = preProductionData as EpisodePreProductionData
   const shotListData = episodeData.shotList
 
@@ -159,6 +174,20 @@ export function ShotListTab({
     }
   }
 
+  // Sync selectedShotForGeneration with shotListData when it updates (from Firestore subscription)
+  // This must be before any early returns to maintain hook call order
+  useEffect(() => {
+    if (selectedShotForGeneration && shotListData) {
+      const updatedShot = shotListData.scenes
+        ?.flatMap(s => s.shots)
+        .find(s => s.id === selectedShotForGeneration.id)
+      
+      if (updatedShot && updatedShot.aiGeneratedVideoUrl && !selectedShotForGeneration.aiGeneratedVideoUrl) {
+        setSelectedShotForGeneration(updatedShot)
+      }
+    }
+  }, [shotListData, selectedShotForGeneration])
+
   // If no data, show initialize prompt
   if (!shotListData) {
     const hasBreakdown = breakdownData && breakdownData.scenes && breakdownData.scenes.length > 0
@@ -278,13 +307,145 @@ export function ShotListTab({
     })
   }
 
-  // Filter shots by status
+  // Check if any sample has been generated for this episode
+  const hasGeneratedSample = shotListData?.scenes?.some(scene =>
+    scene.shots.some(shot => shot.aiGenerationSampleGenerated === true)
+  ) || false
+
+  // Filter shots by status and AI-generatability
   const filteredScenes = shotListData.scenes.map(scene => ({
     ...scene,
-    shots: filterStatus === 'all' 
-      ? scene.shots 
-      : scene.shots.filter(shot => shot.status === filterStatus)
+    shots: scene.shots.filter(shot => {
+      // Status filter
+      const statusMatch = filterStatus === 'all' || shot.status === filterStatus
+      
+      // AI-generatability filter
+      let aiMatch = true
+      if (filterAIGeneratable === 'ai-generatable') {
+        aiMatch = shot.canBeAIGenerated === true
+      } else if (filterAIGeneratable === 'requires-actors') {
+        aiMatch = shot.canBeAIGenerated !== true
+      }
+      
+      return statusMatch && aiMatch
+    })
   })).filter(scene => scene.shots.length > 0)
+
+  const handleDismissDisclaimer = () => {
+    setShowDisclaimerModal(false)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`ai-disclaimer-dismissed-${episodeData.storyBibleId}-ep${episodeData.episodeNumber}`, 'true')
+    }
+  }
+
+  const handleDismissSampleDisclaimer = () => {
+    setShowSampleDisclaimer(false)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`ai-sample-disclaimer-dismissed-${episodeData.storyBibleId}-ep${episodeData.episodeNumber}`, 'true')
+    }
+  }
+
+  const handleSelectShotForGeneration = (shot: Shot) => {
+    if (!shot.canBeAIGenerated) {
+      alert('This shot is not marked as AI-generatable.')
+      return
+    }
+    setSelectedShotForGeneration(shot)
+    // Scroll to top to show video player section
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleGenerateSample = async () => {
+    if (!selectedShotForGeneration) {
+      alert('Please select a shot first')
+      return
+    }
+
+    const shot = selectedShotForGeneration
+    if (hasGeneratedSample) {
+      alert('A sample video has already been generated for this episode. Only one sample per episode is allowed.')
+      return
+    }
+
+    setIsGeneratingSample(shot.id)
+    try {
+      const response = await fetch('/api/generate/filler-scene-sample', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shotId: shot.id,
+          preProductionId: episodeData.id,
+          storyBibleId: episodeData.storyBibleId,
+          episodeNumber: episodeData.episodeNumber,
+          userId: currentUserId,
+          shotDescription: shot.description,
+          sceneContext: `Scene ${shot.sceneNumber}: ${shot.description}`,
+          aiGenerationPrompt: shot.aiGenerationPrompt,
+          preProductionData: episodeData // Pass pre-production data to avoid Firestore auth issues
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        // Check if it was blocked by content policy
+        if (result.contentPolicyBlocked) {
+          throw new Error('Video generation blocked by content policy. This shot description may contain content that violates safety policies. Please try a different shot or modify the description.')
+        }
+        throw new Error(result.error || 'Failed to generate sample video')
+      }
+
+      // Save video URL to Firestore (client-side, following image pattern)
+      // VEO already provides a URL (via proxy), so we just save it directly - no Storage upload needed
+      if (result.videoUrl) {
+        // Find the shot in the shot list and update it
+        const shotList = episodeData.shotList
+        if (shotList?.scenes) {
+          // Update the shot with video URL
+          const updatedScenes = shotList.scenes.map(scene => ({
+            ...scene,
+            shots: scene.shots.map(s => {
+              if (s.id === shot.id) {
+                return {
+                  ...s,
+                  aiGeneratedVideoUrl: result.videoUrl,
+                  aiGenerationSampleGenerated: true,
+                  aiGenerationPrompt: shot.aiGenerationPrompt || s.aiGenerationPrompt
+                }
+              }
+              return s
+            })
+          }))
+
+          // Save to Firestore via onUpdate (client-side, like images)
+          await onUpdate('shotList', {
+            ...shotList,
+            scenes: updatedScenes,
+            lastUpdated: Date.now(),
+            updatedBy: currentUserId
+          })
+        }
+
+        // Update the selected shot state with the video URL
+        setSelectedShotForGeneration(prev => prev ? {
+          ...prev,
+          aiGeneratedVideoUrl: result.videoUrl,
+          aiGenerationSampleGenerated: true,
+          aiGenerationPrompt: prev.aiGenerationPrompt || shot.aiGenerationPrompt
+        } : null)
+      }
+
+      // Scroll to top to show the video player
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error: any) {
+      console.error('Error generating sample:', error)
+      alert(error.message || 'Failed to generate sample video')
+    } finally {
+      setIsGeneratingSample(null)
+    }
+  }
 
   const getSortedShots = (shots: Shot[]) => {
     if (viewMode === 'narrative') return shots
@@ -301,8 +462,178 @@ export function ShotListTab({
 
   const completionPercent = (shotListData.completedShots / shotListData.totalShots) * 100
 
+  // Find the shot with generated video (if any) - prioritize selected shot if it has video
+  const shotWithVideo = selectedShotForGeneration?.aiGeneratedVideoUrl 
+    ? selectedShotForGeneration
+    : shotListData?.scenes
+      ?.flatMap(s => s.shots)
+      .find(s => s.aiGeneratedVideoUrl)
+
   return (
     <div className="space-y-6">
+      {/* Disclaimer Modal */}
+      <AnimatePresence>
+        {showDisclaimerModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={handleDismissDisclaimer}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-6 max-w-md w-full"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-[#10B981] text-2xl">🤖</span>
+                <h3 className="text-xl font-bold text-[#e7e7e7]">AI Generation Available</h3>
+              </div>
+              <p className="text-[#e7e7e7]/80 mb-6">
+                Some shots in this episode can be generated by AI in case you want to save on time and budget.
+              </p>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleDismissDisclaimer}
+                  className="px-6 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sample Selection Disclaimer Banner */}
+      {showSampleDisclaimer && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="bg-[#10B981]/20 border border-[#10B981]/40 rounded-lg p-4 flex items-start justify-between gap-4"
+        >
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[#10B981] text-lg">✨</span>
+              <h3 className="text-[#10B981] font-semibold">Try AI Video Generation</h3>
+            </div>
+            <p className="text-[#e7e7e7]/80 text-sm mb-2">
+              You can select one AI-generatable shot to generate a sample video. Look for shots with the "AI" badge and click "Select for Generation" to try it out.
+            </p>
+            <div className="text-xs text-[#e7e7e7]/60 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#10B981]/30 border border-[#10B981] text-[#10B981] rounded text-[10px]">🤖 AI Highly</span>
+                <span>Strongly recommend AI (establishing shots, landscapes, B-roll)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#F59E0B]/20 border border-[#F59E0B]/40 text-[#F59E0B] rounded text-[10px]">🤖 AI Recommended</span>
+                <span>Can use AI (transitions, background plates)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280] rounded text-[10px]">🤖 AI Optional</span>
+                <span>Actors should probably shoot, but AI can save time</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleDismissSampleDisclaimer}
+            className="text-[#e7e7e7]/50 hover:text-[#e7e7e7] transition-colors flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </motion.div>
+      )}
+
+      {/* Video Player Section - At the Top */}
+      {(selectedShotForGeneration || shotWithVideo) && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#1a1a1a] border border-[#36393f] rounded-lg p-6"
+        >
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-[#e7e7e7] mb-2">AI-Generated Video Sample</h3>
+              <p className="text-sm text-[#e7e7e7]/70">
+                {shotWithVideo 
+                  ? `Sample video for Shot ${shotWithVideo.shotNumber} (Scene ${shotWithVideo.sceneNumber})`
+                  : selectedShotForGeneration 
+                    ? `Selected: Shot ${selectedShotForGeneration.shotNumber} (Scene ${selectedShotForGeneration.sceneNumber})`
+                    : ''}
+              </p>
+            </div>
+            {selectedShotForGeneration && !shotWithVideo && (
+              <button
+                onClick={() => setSelectedShotForGeneration(null)}
+                className="text-[#e7e7e7]/50 hover:text-[#e7e7e7] transition-colors"
+                aria-label="Clear selection"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {(shotWithVideo?.aiGeneratedVideoUrl || selectedShotForGeneration?.aiGeneratedVideoUrl) ? (
+            <div className="space-y-4">
+              <div className="relative w-full" style={{ aspectRatio: '9/16', maxWidth: '400px', margin: '0 auto' }}>
+                <video
+                  src={(shotWithVideo?.aiGeneratedVideoUrl || selectedShotForGeneration?.aiGeneratedVideoUrl) || ''}
+                  controls
+                  className="w-full h-full rounded-lg border border-[#36393f]"
+                  style={{ aspectRatio: '9/16' }}
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+              <p className="text-xs text-[#e7e7e7]/50 text-center">
+                The rest can be generated in post-production
+              </p>
+            </div>
+          ) : selectedShotForGeneration ? (
+            <div className="space-y-4">
+              <div className="bg-[#2a2a2a] border border-[#36393f] rounded-lg p-4">
+                <p className="text-sm text-[#e7e7e7] mb-2">{selectedShotForGeneration.description}</p>
+                <div className="flex items-center gap-4 text-xs text-[#e7e7e7]/50 mb-4">
+                  <span>📷 {selectedShotForGeneration.cameraAngle}</span>
+                  <span>🎬 {selectedShotForGeneration.cameraMovement}</span>
+                  <span>⏱️ {selectedShotForGeneration.durationEstimate}s</span>
+                </div>
+                {selectedShotForGeneration.aiGenerationPrompt && (
+                  <div className="bg-[#1a1a1a] border border-[#36393f] rounded p-3 mb-4">
+                    <label className="text-xs text-[#e7e7e7]/60 uppercase mb-2 block">AI Generation Prompt</label>
+                    <p className="text-xs text-[#e7e7e7]/70 whitespace-pre-wrap">
+                      {selectedShotForGeneration.aiGenerationPrompt}
+                    </p>
+                  </div>
+                )}
+                <button
+                  onClick={handleGenerateSample}
+                  disabled={isGeneratingSample !== null || hasGeneratedSample}
+                  className="w-full px-4 py-3 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingSample === selectedShotForGeneration.id ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin inline-block mr-2" />
+                      Generating...
+                    </>
+                  ) : hasGeneratedSample ? (
+                    'Sample Already Generated'
+                  ) : (
+                    '✨ Try a Sample'
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </motion.div>
+      )}
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <ShotListStatCard
@@ -371,7 +702,7 @@ export function ShotListTab({
             {shotListData.totalShots} shots across {shotListData.scenes.length} scenes
           </span>
           
-          {/* Filter */}
+          {/* Status Filter */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -382,6 +713,17 @@ export function ShotListTab({
             <option value="got-it">Got It</option>
             <option value="need-pickup">Need Pickup</option>
             <option value="cut">Cut</option>
+          </select>
+
+          {/* AI Generatability Filter */}
+          <select
+            value={filterAIGeneratable}
+            onChange={(e) => setFilterAIGeneratable(e.target.value)}
+            className="px-4 py-2 bg-[#2a2a2a] border border-[#36393f] rounded-lg text-[#e7e7e7] text-sm focus:outline-none focus:border-[#10B981]"
+          >
+            <option value="all">All Shots</option>
+            <option value="ai-generatable">AI Generatable</option>
+            <option value="requires-actors">Requires Actors</option>
           </select>
 
           {/* View toggle */}
@@ -446,6 +788,11 @@ export function ShotListTab({
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               storyboardsData={storyboardsData}
+              hasGeneratedSample={hasGeneratedSample}
+              onGenerateSample={handleGenerateSample}
+              isGeneratingSample={isGeneratingSample}
+              selectedShotForGeneration={selectedShotForGeneration}
+              onSelectShotForGeneration={handleSelectShotForGeneration}
             />
           )
         })}
@@ -517,7 +864,12 @@ function SceneSection({
   onAddComment,
   currentUserId,
   currentUserName,
-  storyboardsData
+  storyboardsData,
+  hasGeneratedSample,
+  onGenerateSample,
+  isGeneratingSample,
+  selectedShotForGeneration,
+  onSelectShotForGeneration
 }: {
   scene: ShotListScene
   isExpanded: boolean
@@ -527,6 +879,11 @@ function SceneSection({
   currentUserId: string
   currentUserName: string
   storyboardsData: any
+  hasGeneratedSample: boolean
+  onGenerateSample?: (shot: Shot) => void
+  isGeneratingSample: string | null
+  selectedShotForGeneration: Shot | null
+  onSelectShotForGeneration: (shot: Shot) => void
 }) {
   const completionPercent = (scene.completedShots / scene.totalShots) * 100
   const getStoryboardFrame = (shot: Shot) => {
@@ -590,6 +947,11 @@ function SceneSection({
                   currentUserId={currentUserId}
                   currentUserName={currentUserName}
                   storyboardFrame={getStoryboardFrame(shot)}
+                  hasGeneratedSample={hasGeneratedSample}
+                  onGenerateSample={onGenerateSample}
+                  isGeneratingSample={isGeneratingSample === shot.id}
+                  selectedShotForGeneration={selectedShotForGeneration}
+                  onSelectShotForGeneration={onSelectShotForGeneration}
                 />
               ))}
             </div>
@@ -607,7 +969,12 @@ function ShotItem({
   onAddComment,
   currentUserId,
   currentUserName,
-  storyboardFrame
+  storyboardFrame,
+  hasGeneratedSample,
+  onGenerateSample,
+  isGeneratingSample,
+  selectedShotForGeneration,
+  onSelectShotForGeneration
 }: {
   shot: Shot
   onUpdate: (field: string, value: any) => void
@@ -615,6 +982,11 @@ function ShotItem({
   currentUserId: string
   currentUserName: string
   storyboardFrame?: any
+  hasGeneratedSample: boolean
+  onGenerateSample?: (shot: Shot) => void
+  isGeneratingSample: boolean
+  selectedShotForGeneration: Shot | null
+  onSelectShotForGeneration: (shot: Shot) => void
 }) {
   const [isImageOpen, setIsImageOpen] = useState(false)
   const priorityColors = {
@@ -648,6 +1020,43 @@ function ShotItem({
             {shot.estimatedSetupTime !== undefined && (
               <div className="text-xs text-[#e7e7e7]/60">
                 Setup ~{shot.estimatedSetupTime}m
+              </div>
+            )}
+            {shot.canBeAIGenerated && (
+              <div className="flex items-center gap-2">
+                <div 
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    shot.manuallyShot
+                      ? 'bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280] opacity-50'
+                      : shot.aiGenerationRecommendation === 'high' 
+                        ? 'bg-[#10B981]/30 border border-[#10B981] text-[#10B981]' 
+                        : shot.aiGenerationRecommendation === 'medium'
+                          ? 'bg-[#F59E0B]/20 border border-[#F59E0B]/40 text-[#F59E0B]'
+                          : 'bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280]'
+                  }`}
+                  title={
+                    shot.manuallyShot
+                      ? 'This shot was shot manually - AI recommendation disabled'
+                      : shot.aiGenerationRecommendation === 'high' 
+                        ? 'Highly Recommended: Strongly recommend using AI for this shot (establishing shots, landscapes, B-roll)' 
+                        : shot.aiGenerationRecommendation === 'medium'
+                          ? 'Recommended: Can use AI generation for this shot (transitions, background plates)'
+                          : 'Low Priority: Actors should probably shoot this, but AI can save time if needed'
+                  }
+                >
+                  🤖 AI {shot.aiGenerationRecommendation === 'high' ? 'Highly' : shot.aiGenerationRecommendation === 'medium' ? 'Recommended' : 'Optional'}
+                </div>
+                <button
+                  onClick={() => onUpdate('manuallyShot', !shot.manuallyShot)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    shot.manuallyShot
+                      ? 'bg-[#10B981]/20 border border-[#10B981]/40 text-[#10B981] hover:bg-[#10B981]/30'
+                      : 'bg-[#6B7280]/20 border border-[#6B7280]/40 text-[#6B7280] hover:bg-[#6B7280]/30'
+                  }`}
+                  title={shot.manuallyShot ? 'Click to enable AI recommendation' : 'Mark this shot as already shot manually'}
+                >
+                  {shot.manuallyShot ? '✓ Shot Manually' : 'Mark as Shot'}
+                </button>
               </div>
             )}
           </div>
@@ -684,6 +1093,73 @@ function ShotItem({
           rows={2}
           placeholder="Shot coverage description..."
         />
+
+        {/* AI Generation Section */}
+        {shot.canBeAIGenerated && (
+          <div className={`rounded-lg p-4 space-y-3 transition-opacity ${
+            shot.manuallyShot
+              ? 'opacity-50 bg-[#6B7280]/5 border border-[#6B7280]/20'
+              : shot.aiGenerationRecommendation === 'high' 
+                ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
+                : shot.aiGenerationRecommendation === 'medium'
+                  ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/30'
+                  : 'bg-[#6B7280]/10 border border-[#6B7280]/30'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <div>
+                  <h4 className={`font-semibold text-sm ${
+                    shot.aiGenerationRecommendation === 'high' 
+                      ? 'text-[#10B981]' 
+                      : shot.aiGenerationRecommendation === 'medium'
+                        ? 'text-[#F59E0B]'
+                        : 'text-[#6B7280]'
+                  }`}>
+                    AI-Generatable Shot
+                  </h4>
+                  <p className="text-xs text-[#e7e7e7]/60 mt-0.5">
+                    {shot.aiGenerationRecommendation === 'high' && '⭐ Highly Recommended: Strongly recommend using AI (establishing shots, landscapes, B-roll)'}
+                    {shot.aiGenerationRecommendation === 'medium' && '✓ Recommended: Can use AI generation (transitions, background plates)'}
+                    {shot.aiGenerationRecommendation === 'low' && '~ Optional: Actors should probably shoot, but AI can save time'}
+                    {!shot.aiGenerationRecommendation && 'Can be AI-generated'}
+                  </p>
+                </div>
+              </div>
+              {!shot.aiGeneratedVideoUrl && !shot.manuallyShot && (
+                <button
+                  onClick={() => onSelectShotForGeneration(shot)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+                    selectedShotForGeneration?.id === shot.id
+                      ? 'bg-[#10B981] text-black'
+                      : 'bg-[#2a2a2a] text-[#e7e7e7] hover:bg-[#36393f] border border-[#36393f]'
+                  }`}
+                >
+                  {selectedShotForGeneration?.id === shot.id ? '✓ Selected' : 'Select for Generation'}
+                </button>
+              )}
+              {shot.manuallyShot && (
+                <div className="px-3 py-1 bg-[#6B7280]/20 border border-[#6B7280]/40 rounded text-xs text-[#6B7280]">
+                  Shot Manually
+                </div>
+              )}
+              {shot.aiGeneratedVideoUrl && (
+                <div className="px-3 py-1 bg-[#10B981]/20 border border-[#10B981]/40 rounded text-xs text-[#10B981]">
+                  Sample Generated
+                </div>
+              )}
+            </div>
+            
+            {shot.aiGenerationPrompt && (
+              <div className="space-y-1">
+                <label className="text-xs text-[#e7e7e7]/60 uppercase">AI Generation Prompt</label>
+                <div className="text-xs text-[#e7e7e7]/70 bg-[#1a1a1a] border border-[#36393f] rounded p-2 max-h-32 overflow-y-auto">
+                  {shot.aiGenerationPrompt}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Camera & crew */}

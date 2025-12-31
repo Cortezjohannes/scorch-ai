@@ -22,6 +22,7 @@ export default function InvestorMaterialsPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!linkId) return
@@ -44,6 +45,7 @@ export default function InvestorMaterialsPage() {
         const data = await response.json()
         if (data.success && data.materials) {
           setMaterials(data.materials)
+          setHeroImageUrl(data.heroImageUrl || null)
         } else {
           setError('Invalid response format')
         }
@@ -137,8 +139,8 @@ export default function InvestorMaterialsPage() {
     {
       id: 'story',
       icon: '📖',
-      title: 'The Story',
-      description: '8-episode arc breakdown',
+      title: 'Narrative foundation',
+      description: 'Raw unenhanced narrative used to write the script',
       stats: `${pitchPackage.story.episodes.length} episodes`,
       component: (
         <EpisodesList
@@ -151,8 +153,8 @@ export default function InvestorMaterialsPage() {
     {
       id: 'pilot',
       icon: '🎬',
-      title: 'Pilot Script',
-      description: 'Full Episode 1 script with navigation',
+      title: 'Screenplay',
+      description: 'Complete screenplay collection spanning all episodes',
       stats: `${pitchPackage.pilot.sceneStructure.totalPages} pages`,
       component: (
         <ScreenplayViewer
@@ -167,7 +169,7 @@ export default function InvestorMaterialsPage() {
     {
       id: 'visuals',
       icon: '🎨',
-      title: 'Visual Proof',
+      title: 'Visual Narrative',
       description: 'Storyboard frames organized by scene',
       stats: `${pitchPackage.visuals.totalFrames} frames`,
       component: <SceneBreakdownGallery visuals={pitchPackage.visuals} />
@@ -175,53 +177,340 @@ export default function InvestorMaterialsPage() {
     {
       id: 'characters',
       icon: '👥',
-      title: 'Characters',
-      description: 'Interactive character relationship web',
+      title: 'Character study',
+      description: 'Get to know the characters and how to prepare for the role',
       stats: `${pitchPackage.characters.mainCharacters.length} characters`,
-      component: <CharacterWeb characters={pitchPackage.characters} />
+      component: <CharacterWeb characters={pitchPackage.characters} linkId={linkId} visuals={pitchPackage.visuals} />
     },
     {
       id: 'depth',
       icon: '🧠',
-      title: 'The Depth',
-      description: 'World Building',
+      title: 'Worldbuilding',
+      description: 'Learn more about the world the series is set in',
       stats: `${pitchPackage.depth.world.locations.length} locations`,
       component: <DepthTabs depth={pitchPackage.depth} />
     },
     {
       id: 'production',
       icon: '🎥',
-      title: 'Production',
-      description: 'Budget, locations, props, and casting',
+      title: 'Production Assistant',
+      description: 'Everything you need to start filming (AI as your 1st, 2nd, and 3rd AD)',
       stats: '6 categories',
       component: <ProductionDashboard production={pitchPackage.production} characters={pitchPackage.characters.mainCharacters} />
     },
     {
       id: 'marketing',
       icon: '📊',
-      title: 'Marketing',
-      description: 'Strategy and campaign preview',
+      title: 'Promotional Guide',
+      description: 'Everything you\'ll need to promote and make this series go viral',
       stats: 'Complete',
       component: <CampaignPreview marketing={pitchPackage.marketing} />
     },
     {
       id: 'cta',
       icon: '🚀',
-      title: 'Get Involved',
-      description: 'Contact and next steps',
+      title: 'Get in contact with Greenlit',
+      description: 'Just click me for a surprise',
       stats: 'Let\'s talk',
       component: <GreenlitCTA callToAction={pitchPackage.callToAction} ownerName={materials.ownerName} />
     }
   ]
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <>
+      {/* CRT Aesthetic & Particle Effects Styles */}
+      <style dangerouslySetInnerHTML={{__html: `
+        /* CRT Screen Container */
+        .crt-screen {
+          position: fixed;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        
+        /* CRT Scanlines */
+        .crt-scanlines {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            transparent 50%,
+            rgba(0, 0, 0, 0.03) 50%
+          );
+          background-size: 100% 4px;
+          animation: scanline-move 0.1s linear infinite;
+          pointer-events: none;
+        }
+        
+        @keyframes scanline-move {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(4px); }
+        }
+        
+        /* CRT Screen Curvature */
+        .crt-curvature {
+          position: absolute;
+          inset: 0;
+          border-radius: 0;
+          box-shadow: 
+            inset 0 0 60px rgba(0, 0, 0, 0.5),
+            inset 0 0 100px rgba(0, 0, 0, 0.3);
+          pointer-events: none;
+        }
+        
+        /* CRT Flicker Effect */
+        .crt-flicker {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0);
+          animation: crt-flicker 0.15s infinite;
+          pointer-events: none;
+        }
+        
+        @keyframes crt-flicker {
+          0% { opacity: 1; }
+          50% { opacity: 0.98; }
+          100% { opacity: 1; }
+        }
+        
+        /* CRT Glow Effect */
+        .crt-glow {
+          position: absolute;
+          inset: -2px;
+          background: 
+            radial-gradient(ellipse at center, rgba(16, 185, 129, 0.1) 0%, transparent 70%),
+            radial-gradient(ellipse at top, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+          filter: blur(1px);
+          pointer-events: none;
+          z-index: -1;
+        }
+        
+        /* CRT Vignette */
+        .crt-vignette {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse at center,
+            transparent 0%,
+            transparent 40%,
+            rgba(0, 0, 0, 0.3) 100%
+          );
+          pointer-events: none;
+        }
+        
+        /* CRT Screen Border/Frame */
+        .crt-frame {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          pointer-events: none;
+          border: 8px solid #0a0a0a;
+          box-shadow: 
+            inset 0 0 20px rgba(0, 0, 0, 0.8),
+            inset 0 0 40px rgba(0, 0, 0, 0.4),
+            0 0 0 2px rgba(16, 185, 129, 0.1),
+            0 0 20px rgba(16, 185, 129, 0.05);
+        }
+        
+        /* CRT Color Shift (Phosphor Glow) */
+        .crt-content-wrapper {
+          filter: contrast(1.05) brightness(0.98);
+          position: relative;
+        }
+        
+        /* CRT Noise Texture */
+        .crt-noise {
+          position: absolute;
+          inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+          pointer-events: none;
+          opacity: 0.15;
+          mix-blend-mode: overlay;
+        }
+        
+        /* Enhanced CRT Glow for Cards */
+        .crt-card-glow {
+          box-shadow: 
+            0 0 10px rgba(16, 185, 129, 0.1),
+            0 0 20px rgba(16, 185, 129, 0.05),
+            inset 0 0 20px rgba(16, 185, 129, 0.02);
+        }
+        
+        /* CRT Text Glow */
+        .crt-text-glow {
+          text-shadow: 
+            0 0 5px rgba(16, 185, 129, 0.3),
+            0 0 10px rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Card Hover Animation */
+        @keyframes card-pulse {
+          0%, 100% {
+            box-shadow: 
+              0 4px 6px rgba(0, 0, 0, 0.3),
+              0 0 20px rgba(16, 185, 129, 0.08);
+          }
+          50% {
+            box-shadow: 
+              0 8px 12px rgba(0, 0, 0, 0.4),
+              0 0 30px rgba(16, 185, 129, 0.15),
+              0 0 50px rgba(16, 185, 129, 0.08);
+          }
+        }
+        
+        /* Particle Effects */
+        .investor-particles {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 1;
+          pointer-events: none;
+          overflow: hidden;
+        }
+        .investor-particle {
+          position: absolute;
+          background: rgba(16, 185, 129, 0.3);
+          border-radius: 50%;
+          animation: float-particle-investor 6s linear infinite;
+        }
+        .investor-particle:nth-child(1) {
+          width: 4px;
+          height: 4px;
+          left: 10%;
+          animation-delay: 0s;
+          animation-duration: 8s;
+        }
+        .investor-particle:nth-child(2) {
+          width: 6px;
+          height: 6px;
+          left: 20%;
+          animation-delay: -2s;
+          animation-duration: 10s;
+        }
+        .investor-particle:nth-child(3) {
+          width: 3px;
+          height: 3px;
+          left: 30%;
+          animation-delay: -4s;
+          animation-duration: 12s;
+        }
+        .investor-particle:nth-child(4) {
+          width: 5px;
+          height: 5px;
+          left: 40%;
+          animation-delay: -1s;
+          animation-duration: 9s;
+        }
+        .investor-particle:nth-child(5) {
+          width: 4px;
+          height: 4px;
+          left: 50%;
+          animation-delay: -3s;
+          animation-duration: 11s;
+        }
+        .investor-particle:nth-child(6) {
+          width: 7px;
+          height: 7px;
+          left: 60%;
+          animation-delay: -5s;
+          animation-duration: 13s;
+        }
+        .investor-particle:nth-child(7) {
+          width: 3px;
+          height: 3px;
+          left: 70%;
+          animation-delay: -2.5s;
+          animation-duration: 7s;
+        }
+        .investor-particle:nth-child(8) {
+          width: 5px;
+          height: 5px;
+          left: 80%;
+          animation-delay: -1.5s;
+          animation-duration: 10s;
+        }
+        .investor-particle:nth-child(9) {
+          width: 4px;
+          height: 4px;
+          left: 90%;
+          animation-delay: -3.5s;
+          animation-duration: 8s;
+        }
+        @keyframes float-particle-investor {
+          from {
+            transform: translateY(100vh) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          to {
+            transform: translateY(-100px) rotate(360deg);
+            opacity: 0;
+          }
+        }
+      `}} />
+      
+      <div className="min-h-screen bg-[#0A0A0A] text-white relative">
+        {/* Hero Image Background with Dark Overlay */}
+        {heroImageUrl && (
+          <div className="fixed inset-0 z-0">
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url(${heroImageUrl})`,
+                filter: 'brightness(0.25)',
+              }}
+            />
+            <div className="absolute inset-0 bg-[#0A0A0A]/45" />
+          </div>
+        )}
+        
+        {/* Floating Particles */}
+        <div className="investor-particles">
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+          <div className="investor-particle"></div>
+        </div>
+
+        {/* CRT Screen Effects */}
+        <div className="crt-screen">
+          <div className="crt-scanlines"></div>
+          <div className="crt-curvature"></div>
+          <div className="crt-flicker"></div>
+          <div className="crt-glow"></div>
+          <div className="crt-vignette"></div>
+          <div className="crt-noise"></div>
+        </div>
+        
+        {/* CRT Frame Border */}
+        <div className="crt-frame"></div>
+
+      {/* Content */}
+      <div className="relative z-10 crt-content-wrapper">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-[#10B981]/20">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] to-[#059669]">
+              <h1 
+                className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#10B981] to-[#059669] crt-text-glow"
+                style={{
+                  textShadow: '0 0 10px rgba(16, 185, 129, 0.4), 0 0 20px rgba(16, 185, 129, 0.2)',
+                  filter: 'drop-shadow(0 0 5px rgba(16, 185, 129, 0.3))'
+                }}
+              >
                 {pitchPackage.hook.seriesTitle}
               </h1>
               <p className="text-sm text-white/70 mt-1">Pitch Materials Package</p>
@@ -259,7 +548,13 @@ export default function InvestorMaterialsPage() {
       <main className="max-w-7xl mx-auto px-6 py-12">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
+          <h2 
+            className="text-4xl md:text-5xl font-bold mb-6 text-white crt-text-glow"
+            style={{
+              textShadow: '0 0 15px rgba(16, 185, 129, 0.5), 0 0 30px rgba(16, 185, 129, 0.3), 0 0 45px rgba(16, 185, 129, 0.1)',
+              filter: 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.4))'
+            }}
+          >
             {pitchPackage.hook.seriesTitle}
           </h2>
           
@@ -322,13 +617,25 @@ export default function InvestorMaterialsPage() {
 
       {/* Footer */}
       <footer className="border-t border-[#10B981]/20 mt-16 py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-white/50 text-sm">
-            {materials.ownerName && `Shared by ${materials.ownerName} • `}
-            Powered by Greenlit
-          </p>
+        <div className="max-w-7xl mx-auto px-6 space-y-4">
+          {/* Disclaimer */}
+          <div className="text-center pb-4 border-b border-[#10B981]/10">
+            <p className="text-white/60 text-xs leading-relaxed max-w-3xl mx-auto">
+              <strong className="text-white/80">Disclaimer:</strong> The events in this series are 100% fictional. Any references to real people are purely for narrative and satirical purposes.
+            </p>
+          </div>
+          
+          {/* Footer Info */}
+          <div className="text-center">
+            <p className="text-white/50 text-sm">
+              {materials.ownerName && `Shared by ${materials.ownerName} • `}
+              Powered by Greenlit
+            </p>
+          </div>
         </div>
       </footer>
     </div>
+      </div>
+    </>
   )
 }

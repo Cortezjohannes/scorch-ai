@@ -76,7 +76,7 @@ export default function ActorMaterialsGenerationModal({
   const currentCharacter = progress?.currentCharacter || '...'
   const currentPhase = progress?.currentPhase || 'Initializing...'
   const characterIndex = progress?.characterIndex || 0
-  const totalCharacters = progress?.totalCharacters || 5
+  const totalCharacters = progress?.totalCharacters || 0
 
   // Determine which phase we're in for status indicators
   const isCore = currentPhase.includes('study guide') || currentPhase.includes('scene analysis')
@@ -139,7 +139,7 @@ export default function ActorMaterialsGenerationModal({
             <div className="mb-6">
               <div className="text-center mb-4">
                 <div className="text-[#e7e7e7]/60 text-xs sm:text-sm mb-1">
-                  Character {characterIndex + 1} of {totalCharacters}
+                  {totalCharacters > 0 ? `Character ${characterIndex + 1} of ${totalCharacters}` : `Character ${characterIndex + 1}`}
                 </div>
                 <motion.div
                   key={currentCharacter}

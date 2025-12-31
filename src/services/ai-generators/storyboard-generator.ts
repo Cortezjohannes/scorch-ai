@@ -20,6 +20,7 @@ import {
   getDefaultArtStyle,
   applyArtStyleToPrompt
 } from '@/services/storyboard-art-style'
+import { detectAIGeneratableShotClientSide } from '@/services/ai-shot-detector'
 
 interface GeneratedScript {
   title: string
@@ -71,9 +72,19 @@ export async function generateStoryboards(params: StoryboardGenerationParams): P
 
   console.log('🖼️ Generating storyboards for Episode', episodeNumber)
   console.log('📋 Analyzing', breakdownData.scenes.length, 'scenes')
+  
+  // Log all scene numbers for debugging
+  const sceneNumbers = breakdownData.scenes.map(s => s.sceneNumber).sort((a, b) => a - b)
+  console.log('📋 Scene numbers in breakdown:', sceneNumbers.join(', '))
+  console.log('📋 Breakdown totalScenes field:', breakdownData.totalScenes)
 
   if (breakdownData.scenes.length === 0) {
     throw new Error('No scenes found in script breakdown. Please generate script breakdown first.')
+  }
+
+  // Validate scene count consistency
+  if (breakdownData.totalScenes && breakdownData.totalScenes !== breakdownData.scenes.length) {
+    console.warn(`⚠️ Scene count mismatch: breakdown.totalScenes=${breakdownData.totalScenes} but breakdown.scenes.length=${breakdownData.scenes.length}`)
   }
 
   // Extract or generate art style for consistent image generation
@@ -107,6 +118,26 @@ export async function generateStoryboards(params: StoryboardGenerationParams): P
     })
 
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
+    console.log('📊 Response metadata:', {
+      truncated: response.metadata.truncated,
+      finishReason: response.metadata.finishReason,
+      provider: response.provider,
+      model: response.model
+    })
+
+    // Check if response was truncated
+    const isTruncated = response.metadata.truncated || response.metadata.finishReason === 'MAX_TOKENS' || response.metadata.finishReason === 'LENGTH'
+    
+    if (isTruncated) {
+      const sceneCount = breakdownData.scenes.length
+      const numBatches = sceneCount > 15 ? 4 : sceneCount > 10 ? 3 : 2
+      console.warn(`⚠️ Response was truncated. Falling back to batched generation (${numBatches} batches)...`)
+      console.warn('   Truncation detected via:', {
+        truncated: response.metadata.truncated,
+        finishReason: response.metadata.finishReason
+      })
+      return await generateStoryboardsBatched(params, artStyle, systemPrompt)
+    }
 
     // Parse AI response into structured storyboard data
     const storyboardsData = parseStoryboards(response.content, breakdownData, episodeNumber, episodeTitle, userId, artStyle)
@@ -121,6 +152,25 @@ export async function generateStoryboards(params: StoryboardGenerationParams): P
 
     return storyboardsData
   } catch (error) {
+    // If parsing fails (JSON errors, incomplete responses), try batching as fallback
+    const isParseError = error instanceof Error && (
+      error.message.includes('parse') || 
+      error.message.includes('JSON') || 
+      error.message.includes('Expected') ||
+      error.message.includes('truncated')
+    )
+    
+    if (isParseError) {
+      console.warn('⚠️ Parsing failed, attempting batched generation as fallback...')
+      try {
+        return await generateStoryboardsBatched(params, artStyle, systemPrompt)
+      } catch (batchError) {
+        console.error('❌ Batched generation also failed:', batchError)
+        // Re-throw the original error if batching fails
+        throw error
+      }
+    }
+    
     console.error('❌ Error generating storyboards:', error)
     throw new Error(`Storyboard generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
@@ -208,7 +258,7 @@ Your job is to create detailed storyboard frames that break down each scene into
    - **ABSOLUTELY NO dialog bubbles, speech bubbles, text overlays, or written words should appear in the images**
    - Art Style: ${artStyle.name} - ${artStyle.description}
    - Style Specification: ${styleDescription}
-
+   
    **What to Include in imagePrompt (IN THIS ORDER):**
    1. Setting/location (from script)
    2. Shot type and camera angle
@@ -217,7 +267,7 @@ Your job is to create detailed storyboard frames that break down each scene into
    5. Visual composition and framing (cinematic, narrative-driven)
    6. Lighting mood (supporting the emotional tone)
    7. Art style specification (mandatory ending)
-
+   
    **Examples of SCRIPT-ACCURATE imagePrompts (using scriptContext for tight visual storytelling):**
    - GOOD: "Living room at dawn, wide shot from high angle, Niko's eyes widen in shock as Julian enters the room, Niko's body tenses with clenched fists showing anger, Julian framed menacingly in doorway backlit by hallway light, dramatic composition emphasizing threat through body language and positioning, natural window light creating atmospheric tension, ${styleDescription}, consistent storyboard art style"
    - GOOD: "Office interior, medium close-up from side angle, Julian steps closer with threatening posture, his face intense and intimidating as he speaks in low threatening whisper, Johannes pressed against wall with fearful defensive expression, tense composition with shallow depth emphasizing confrontation, harsh overhead lighting casting dramatic shadows on faces, ${styleDescription}, consistent storyboard art style"
@@ -227,7 +277,7 @@ Your job is to create detailed storyboard frames that break down each scene into
    - BAD: "Medium shot of interior" (no character action, no script context, no emotional storytelling)
 
    **Format:** "[Location], [shot type] shot from [angle], [SCRIPT ACTION FROM scriptContext with character body language and expressions], [character positions and emotional states shown through visual elements], [cinematic composition emphasizing the story moment], [lighting mood supporting emotional tone], ${styleDescription}, consistent storyboard art style"
-
+   
    - **MANDATORY: Every imagePrompt MUST end with: "${styleDescription}, consistent storyboard art style"**
    - **CRITICAL: Use the EXACT same style specification in every imagePrompt to ensure visual consistency**
    - **CRITICAL: imagePrompt MUST accurately depict what's in scriptContext - no generic placeholders**
@@ -344,8 +394,11 @@ function buildUserPrompt(
   // Process each scene with full script content
   prompt += `**SCENES TO STORYBOARD:**\n\n`
   prompt += `**CRITICAL: For each scene below, you MUST carefully read and analyze the FULL SCRIPT CONTENT before generating frame descriptions. Frame descriptions MUST accurately reflect what is ACTUALLY happening in the script - character actions, dialogue, reactions, and interactions. Do NOT create generic or vague descriptions that don't match the script.**\n\n`
+  prompt += `**ABSOLUTELY CRITICAL: You MUST generate storyboards for ALL ${breakdown.scenes.length} scenes listed below. Do NOT skip any scenes. Every scene from Scene ${breakdown.scenes[0]?.sceneNumber} to Scene ${breakdown.scenes[breakdown.scenes.length - 1]?.sceneNumber} must be included in your response.**\n\n`
   
+  console.log(`📝 Building prompt with ${breakdown.scenes.length} scenes`)
   for (const scene of breakdown.scenes) {
+    console.log(`  ✅ Including Scene ${scene.sceneNumber}: ${scene.sceneTitle}`)
     prompt += `**SCENE ${scene.sceneNumber}: ${scene.sceneTitle}**\n`
     prompt += `Location: ${scene.location}\n`
     prompt += `Time of Day: ${scene.timeOfDay}\n`
@@ -490,6 +543,7 @@ function buildUserPrompt(
 
   prompt += `**CRITICAL REMINDERS:**\n`
   prompt += `- **MOST IMPORTANT: READ THE FULL SCRIPT CONTENT for each scene before generating frames. Every frame description MUST accurately match what is written in the script.**\n`
+  prompt += `- **ABSOLUTELY CRITICAL: You MUST generate storyboards for ALL ${breakdown.scenes.length} scenes. The scenes are numbered from ${breakdown.scenes[0]?.sceneNumber} to ${breakdown.scenes[breakdown.scenes.length - 1]?.sceneNumber}. Every single scene must appear in your JSON response with its sceneNumber matching exactly.**\n`
   prompt += `- Frame descriptions must include SPECIFIC character actions, reactions, and interactions as written in the script (e.g., "Niko sees Julian and reacts violently", "Julian threatens Johannes", "Johannes fights back")\n`
   prompt += `- DO NOT create vague, generic, or placeholder descriptions - every description must reflect actual script content\n`
   prompt += `- Analyze character interactions carefully: Who is doing what? How are they reacting? What is the specific action happening in this shot?\n`
@@ -499,7 +553,7 @@ function buildUserPrompt(
   prompt += `  * NO trailing commas before closing braces/brackets\n`
   prompt += `  * NO markdown, NO code blocks, NO explanations outside the JSON\n`
   prompt += `  * Test your JSON - it must parse without errors\n`
-  prompt += `- Generate storyboard frames for ALL scenes listed above\n`
+  prompt += `- **REQUIRED: Generate storyboard frames for ALL ${breakdown.scenes.length} scenes listed above. Missing scenes will cause the generation to fail.**\n`
   prompt += `- VARY shot counts per scene based on complexity - simple scenes (2-3 shots), medium (4-5 shots), complex (6-8 shots)\n`
   prompt += `- DO NOT use the same shot count for every scene - analyze each scene independently\n`
   prompt += `- **Keep descriptions concise but SPECIFIC** - focus on the exact action happening in THIS shot from the script\n`
@@ -641,14 +695,24 @@ function parseStoryboards(
     const storyboardScenes: StoryboardScene[] = []
     let globalShotCounter = 1
 
+    // Track which scenes from breakdown are processed
+    const processedSceneNumbers = new Set<number>()
+    const breakdownSceneNumbers = new Set(breakdown.scenes.map(s => s.sceneNumber))
+    
+    console.log(`📊 Parsing ${parsed.scenes.length} scenes from AI response`)
+    console.log(`📊 Breakdown has ${breakdown.scenes.length} scenes:`, Array.from(breakdownSceneNumbers).sort((a, b) => a - b))
+
     for (const sceneData of parsed.scenes) {
       const sceneNumber = sceneData.sceneNumber
       const breakdownScene = breakdown.scenes.find(s => s.sceneNumber === sceneNumber)
       
       if (!breakdownScene) {
-        console.warn(`Scene ${sceneNumber} not found in breakdown, skipping`)
+        console.warn(`⚠️ Scene ${sceneNumber} from AI response not found in breakdown, skipping`)
+        console.warn(`   Available breakdown scenes:`, Array.from(breakdownSceneNumbers).sort((a, b) => a - b).join(', '))
         continue
       }
+
+      processedSceneNumbers.add(sceneNumber)
 
       const frames: StoryboardFrame[] = []
       
@@ -721,6 +785,20 @@ function parseStoryboards(
             comments: []
           }
           
+          // Automatically detect if this frame can be AI-generated
+          try {
+            const aiAnalysis = detectAIGeneratableShotClientSide(frame, breakdown)
+            if (aiAnalysis.canBeAIGenerated) {
+              frame.canBeAIGenerated = true
+              frame.aiGenerationPrompt = aiAnalysis.aiGenerationPrompt
+              frame.aiGenerationRecommendation = aiAnalysis.recommendation
+              console.log(`🤖 Frame ${frame.id} (Scene ${sceneNumber}, Shot ${shot.shotNumber}) marked as AI-generatable (${aiAnalysis.recommendation || 'medium'} recommendation)`)
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error detecting AI-generatability for frame ${frame.id}:`, error)
+            // Continue without AI detection if it fails
+          }
+          
           frames.push(frame)
           globalShotCounter++
         }
@@ -733,11 +811,27 @@ function parseStoryboards(
       })
     }
 
+    // Validate that all breakdown scenes were processed
+    const missingScenes = Array.from(breakdownSceneNumbers).filter(num => !processedSceneNumbers.has(num))
+    if (missingScenes.length > 0) {
+      console.warn(`⚠️ WARNING: ${missingScenes.length} scene(s) from breakdown were not generated by AI:`)
+      missingScenes.forEach(sceneNum => {
+        const missingScene = breakdown.scenes.find(s => s.sceneNumber === sceneNum)
+        console.warn(`   - Scene ${sceneNum}: ${missingScene?.sceneTitle || 'Untitled'}`)
+      })
+      console.warn(`   This may indicate the AI response was incomplete or truncated.`)
+    }
+
     // Calculate totals
     const totalFrames = storyboardScenes.reduce((sum, scene) => sum + scene.frames.length, 0)
     const finalizedFrames = storyboardScenes.reduce((sum, scene) => 
       sum + scene.frames.filter(f => f.status === 'final').length, 0
     )
+
+    console.log(`✅ Parsed ${storyboardScenes.length} scenes (expected ${breakdown.scenes.length} from breakdown)`)
+    if (storyboardScenes.length !== breakdown.scenes.length) {
+      console.warn(`⚠️ Scene count mismatch: Generated ${storyboardScenes.length} scenes, but breakdown has ${breakdown.scenes.length} scenes`)
+    }
 
     return {
       episodeNumber,
@@ -753,6 +847,99 @@ function parseStoryboards(
     console.error('❌ Error parsing AI response:', error)
     console.error('Response:', aiResponse.substring(0, 500))
     throw new Error(`Failed to parse storyboards: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+/**
+ * Generate storyboards in batches when response is truncated
+ * Dynamically splits scenes into 2 or 3 batches based on scene count
+ */
+async function generateStoryboardsBatched(
+  params: StoryboardGenerationParams,
+  artStyle: StoryboardArtStyle,
+  systemPrompt: string
+): Promise<StoryboardsData> {
+  const { breakdownData, scriptData, storyBible, episodeNumber, episodeTitle, userId } = params
+
+  const totalScenes = breakdownData.scenes.length
+  // Use 4 batches if more than 15 scenes, 3 batches if more than 10 scenes, otherwise 2 batches
+  const numBatches = totalScenes > 15 ? 4 : totalScenes > 10 ? 3 : 2
+  
+  console.log(`🔄 Generating storyboards in ${numBatches} batches...`)
+  console.log('📋 Total scenes:', totalScenes)
+
+  // Split scenes into batches
+  const scenesPerBatch = Math.ceil(totalScenes / numBatches)
+  const batches: ScriptBreakdownData[] = []
+  
+  for (let i = 0; i < numBatches; i++) {
+    const start = i * scenesPerBatch
+    const end = Math.min(start + scenesPerBatch, totalScenes)
+    const batchScenes = breakdownData.scenes.slice(start, end)
+    
+    if (batchScenes.length > 0) {
+      batches.push({
+        ...breakdownData,
+        scenes: batchScenes,
+        totalScenes: batchScenes.length
+      })
+      
+      console.log(`  Batch ${i + 1}: Scenes ${batchScenes[0]?.sceneNumber} to ${batchScenes[batchScenes.length - 1]?.sceneNumber} (${batchScenes.length} scenes)`)
+    }
+  }
+
+  // Generate storyboards for each batch sequentially
+  const batchResults: StoryboardsData[] = []
+  
+  for (let i = 0; i < batches.length; i++) {
+    const batchBreakdown = batches[i]
+    console.log(`🤖 Generating Batch ${i + 1}/${numBatches}...`)
+    
+    const batchPrompt = buildUserPrompt(batchBreakdown, scriptData, storyBible, episodeTitle, artStyle)
+    const batchResponse = await EngineAIRouter.generateContent({
+      prompt: batchPrompt,
+      systemPrompt: systemPrompt,
+      temperature: 0.8,
+      maxTokens: 12000,
+      engineId: 'storyboard-generator',
+      forceProvider: 'gemini'
+    })
+
+    console.log(`✅ Batch ${i + 1} response received:`, batchResponse.metadata.contentLength, 'characters')
+    
+    // Check if this batch was also truncated
+    const isBatchTruncated = batchResponse.metadata.truncated || batchResponse.metadata.finishReason === 'MAX_TOKENS' || batchResponse.metadata.finishReason === 'LENGTH'
+    if (isBatchTruncated) {
+      console.warn(`⚠️ Batch ${i + 1} was also truncated. This batch may be incomplete.`)
+    }
+    
+    const batchData = parseStoryboards(batchResponse.content, batchBreakdown, episodeNumber, episodeTitle, userId, artStyle)
+    batchResults.push(batchData)
+  }
+
+  // Merge results from all batches
+  const mergedScenes = batchResults
+    .flatMap(batch => batch.scenes)
+    .sort((a, b) => a.sceneNumber - b.sceneNumber)
+  const totalFrames = mergedScenes.reduce((sum, scene) => sum + scene.frames.length, 0)
+  const finalizedFrames = mergedScenes.reduce((sum, scene) => 
+    sum + scene.frames.filter(f => f.status === 'final').length, 0
+  )
+
+  console.log('✅ Batched storyboards generated:')
+  console.log('  Total frames:', totalFrames)
+  console.log('  Scenes:', mergedScenes.length)
+  console.log('  Art style:', artStyle.name)
+
+  return {
+    episodeNumber,
+    episodeTitle,
+    totalFrames,
+    finalizedFrames,
+    scenes: mergedScenes,
+    lastUpdated: Date.now(),
+    updatedBy: userId,
+    artStyle: artStyle
   }
 }
 

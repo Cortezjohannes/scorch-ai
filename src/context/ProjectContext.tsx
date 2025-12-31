@@ -4,6 +4,7 @@ import { createContext, useState, useContext, ReactNode, useEffect } from 'react
 import { collection, doc, getDoc, updateDoc, serverTimestamp, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { extendSeriesWithArc } from '@/services/story-bible-service';
 
 // Types
 export type Character = {
@@ -177,6 +178,7 @@ type ProjectContextType = {
   generateMarketingGuide: () => Promise<void>;
   generatePostProductionBrief: () => Promise<void>;
   isGeneratingAsset: (assetType: 'props_wardrobe' | 'marketing' | 'post_production_brief') => boolean;
+  extendSeries: (episodesPerArc?: number) => Promise<void>;
 };
 
 // Update the default context with new functions
@@ -195,7 +197,8 @@ const defaultContext: ProjectContextType = {
   generatePropsAndWardrobe: async () => {},
   generateMarketingGuide: async () => {},
   generatePostProductionBrief: async () => {},
-  isGeneratingAsset: () => false
+  isGeneratingAsset: () => false,
+  extendSeries: async () => {}
 };
 
 const ProjectContext = createContext<ProjectContextType>(defaultContext);
@@ -568,6 +571,44 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
         return false;
     }
   };
+
+  // Extend series by adding a new arc
+  const extendSeries = async (episodesPerArc: number = 8): Promise<void> => {
+    if (!storyBible) {
+      setError('No story bible available to extend');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Use the service function to extend the series
+      const updatedBible = await extendSeriesWithArc(storyBible, user?.id, episodesPerArc);
+      
+      // Update state
+      setStoryBible(updatedBible);
+      
+      // Also update localStorage for consistency
+      if (typeof window !== 'undefined') {
+        const storyBibleData = localStorage.getItem('scorched-story-bible') || localStorage.getItem('reeled-story-bible') || localStorage.getItem('greenlit-story-bible');
+        if (storyBibleData) {
+          const parsed = JSON.parse(storyBibleData);
+          localStorage.setItem('scorched-story-bible', JSON.stringify({
+            ...parsed,
+            storyBible: updatedBible
+          }));
+        }
+      }
+
+      console.log('✅ Series extended with new arc');
+    } catch (err: any) {
+      console.error('Error extending series:', err);
+      setError(`Failed to extend series: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Helper function to combine all episode scripts
   const getCombinedScript = (): string => {
@@ -771,7 +812,8 @@ export const ProjectProvider = ({ children, projectId }: { children: ReactNode; 
     generatePropsAndWardrobe,
     generateMarketingGuide,
     generatePostProductionBrief,
-    isGeneratingAsset
+    isGeneratingAsset,
+    extendSeries
   };
 
   return (
