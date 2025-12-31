@@ -31,8 +31,10 @@ steps:
       - '10'
       - '--port'
       - '8080'
+      - '--set-secrets'
+      - 'GEMINI_API_KEY=gemini-api-key:latest'
       - '--set-env-vars'
-      - 'GEMINI_API_KEY=AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo,NODE_ENV=production'
+      - 'NODE_ENV=production'
 
 images:
   - 'us-central1-docker.pkg.dev/reeled-ai-production/reeled-ai-repo/reeled-ai-v2'

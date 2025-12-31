@@ -78,7 +78,9 @@ Create/verify these environment variables for deployment:
 
 ```bash
 # AI Services
-GEMINI_API_KEY=AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo
+# Use Secret Manager for API keys - DO NOT hardcode them here
+# GEMINI_API_KEY should be stored in Google Cloud Secret Manager as 'gemini-api-key'
+# AZURE_OPENAI_API_KEY should be stored in Google Cloud Secret Manager as 'azure-openai-api-key'
 AZURE_OPENAI_ENDPOINT=https://reeled-ai-alpha.openai.azure.com/
 AZURE_OPENAI_API_KEY=[your-key]
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
@@ -130,9 +132,9 @@ gcloud services enable \
 ### Option A: Using Secret Manager (Recommended)
 ```bash
 # Store Gemini API Key
-echo -n "AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo" | gcloud secrets create GEMINI_API_KEY \
+echo -n "AIzaSyAvLsvx7Dm-cUZfhE1ikVp7t1jT1iCxJ_c" | gcloud secrets create GEMINI_API_KEY \
   --data-file=- --replication-policy="automatic" || \
-echo -n "AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
+echo -n "AIzaSyAvLsvx7Dm-cUZfhE1ikVp7t1jT1iCxJ_c" | gcloud secrets versions add GEMINI_API_KEY --data-file=-
 
 # Store Azure OpenAI credentials
 echo -n "$AZURE_OPENAI_API_KEY" | gcloud secrets create AZURE_OPENAI_API_KEY \

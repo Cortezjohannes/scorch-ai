@@ -13,7 +13,8 @@ gcloud run deploy reeled-ai-v2 \
   --min-instances 0 \
   --max-instances 10 \
   --port 8080 \
-  --set-env-vars "GEMINI_API_KEY=AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo,NODE_ENV=production" \
+  --set-secrets "GEMINI_API_KEY=gemini-api-key:latest" \
+  --set-env-vars "NODE_ENV=production" \
   --timeout 3600 \
   --quiet
 

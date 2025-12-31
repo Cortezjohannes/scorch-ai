@@ -36,8 +36,15 @@ yarn-error.log*
 .env.local
 .env.production
 .env.development
-# BUT DO commit .env.example (template file)
+.env.build
+.env.docker
+.env.phase2
+.env.yaml
+.env.local.bak
+# BUT DO commit .env.example and template files
 !.env.example
+!.env*.template
+!.env.template
 
 # Deployment files with secrets (use .template versions instead)
 service.yaml
@@ -69,6 +76,49 @@ lib/firebase-admin/serviceAccountKey.json
 **/serviceAccountKey.json
 *.serviceAccountKey.json
 
+# API Keys and Secrets - Comprehensive patterns
+# Files containing API keys
+*api*key*
+*api*secret*
+*secret*
+*credential*
+*credentials*
+*.key
+*.keys
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Common API key file names
+api-keys.json
+api_keys.json
+apikeys.json
+secrets.json
+credentials.json
+config.json
+config.local.json
+config.production.json
+config.development.json
+
+# Environment variable files with keys
+.env.local
+.env.production
+.env.development
+.env.build
+.env.docker
+.env.phase2
+.env.yaml
+.env.local.bak
+production.env
+local.env
+development.env
+
 # Exclude API and config directories
 src/app/api/
 config/
+
+# Deployment scripts that may contain secrets (use .template versions)
+# Note: These are tracked but should use Secret Manager, not hardcoded keys
+# update-gemini-secret.sh (now uses env vars, but keep monitoring)

@@ -26,12 +26,11 @@ async function testGeminiAPI() {
     process.exit(1);
   }
 
-  // Check which API key we're using
-  const expectedKey = 'AIzaSyDJEnINiuvI0SULRTqb5O1xgDYUZu_NwQo';
-  if (apiKey === expectedKey) {
-    console.log('✅ Using NEW API key (AIzaSyDJEn...)\n');
+  // Check API key format (but don't hardcode expected values)
+  if (apiKey.startsWith('AIzaSy')) {
+    console.log('✅ Using Gemini API key (format: AIzaSy...)\n');
   } else {
-    console.log('⚠️  Using DIFFERENT API key than expected');
+    console.log('⚠️  API key format may be incorrect');
     console.log(`   Expected: ${expectedKey.substring(0, 10)}...`);
     console.log(`   Got: ${apiKey.substring(0, 10)}...\n`);
   }
