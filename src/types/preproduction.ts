@@ -484,8 +484,8 @@ export interface Location {
   email?: string
   
   // Enhanced sourcing metadata
-  sourcing?: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'other'
-  sourcingUrl?: string // Link to Airbnb listing, etc.
+  sourcing?: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'google-maps' | 'agoda' | 'booking-com' | 'expedia' | 'venue-website' | 'other'
+  sourcingUrl?: string // Link to Airbnb listing, Google Maps, booking platform, etc.
   listingId?: string // External platform listing ID
   
   // Financial
@@ -538,7 +538,7 @@ export interface LocationOption {
     permitCost?: number
     notes: string
   }
-  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'other'
+  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'actor-owned' | 'rental' | 'google-maps' | 'agoda' | 'booking-com' | 'expedia' | 'venue-website' | 'other'
   sourcingPlatform?: string // Platform suggestion text
   address?: string  // Example/generic address
   scoutingReport?: LocationScoutingReport // Supports both simplified and legacy formats
@@ -638,8 +638,8 @@ export interface ShootingLocationSuggestion {
     permitCost?: number
     notes: string
   }
-  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'rental' | 'specific-venue' | 'other'
-  searchGuidance?: string // e.g., "Search Peerspace for 'modern loft' in LA"
+  sourcing: 'airbnb' | 'peerspace' | 'giggster' | 'public-space' | 'rental' | 'specific-venue' | 'google-maps' | 'agoda' | 'booking-com' | 'expedia' | 'venue-website' | 'other'
+  searchGuidance?: string // e.g., "Search Airbnb for 'modern loft' in LA"
   specificVenueUrl?: string // If suggesting actual venue
   isPreferred: boolean // User selection
   permitCost?: number

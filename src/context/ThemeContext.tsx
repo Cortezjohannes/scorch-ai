@@ -16,21 +16,19 @@ interface ThemeContextType {
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light')
+  const [theme, setThemeState] = useState<Theme>('dark')
   const [mounted, setMounted] = useState(false)
   const { user, isAuthenticated } = useAuth()
 
   // Load theme from Firestore if authenticated, otherwise from localStorage
   useEffect(() => {
     const loadTheme = async () => {
-      let initialTheme: Theme = 'light'
+      let initialTheme: Theme = 'dark'
 
       // Try to load from localStorage first (for instant UI)
       const savedTheme = localStorage.getItem('theme') as Theme | null
       if (savedTheme) {
         initialTheme = savedTheme
-        setThemeState(initialTheme)
-        document.documentElement.setAttribute('data-theme', initialTheme)
       }
 
       // If authenticated, fetch from Firestore and override
@@ -43,8 +41,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
             const userData = userDoc.data()
             if (userData.preferences?.theme) {
               initialTheme = userData.preferences.theme
-              setThemeState(initialTheme)
-              document.documentElement.setAttribute('data-theme', initialTheme)
               // Sync localStorage with Firestore value
               localStorage.setItem('theme', initialTheme)
             }
@@ -55,6 +51,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // Always set the theme state and document attribute (defaults to 'dark' if no saved preference)
+      setThemeState(initialTheme)
+      document.documentElement.setAttribute('data-theme', initialTheme)
       setMounted(true)
     }
 
@@ -123,7 +122,7 @@ export function useTheme() {
     // Return default theme instead of throwing
     // This allows components to work even if ThemeProvider isn't available yet
     return {
-      theme: 'light' as Theme,
+      theme: 'dark' as Theme,
       toggleTheme: () => {},
       setTheme: () => {}
     }

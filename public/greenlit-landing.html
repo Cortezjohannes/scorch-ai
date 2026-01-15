@@ -78,8 +78,8 @@
             <h1 class="hero-headline">Stop Waiting for the Call.<br>Make the Show.</h1>
             <p class="hero-subheadline">We built a Showrunner for professional actors ready to take control. You bring the talent and the audience; we handle the production grind. Launch your series, own your IP.</p>
             <div class="cta-buttons">
-                <button class="cta-primary glow-effect">Apply to the Producer Program →</button>
-                <button class="cta-secondary demo-button" id="hero-cta-button" onclick="window.location.href='/demo'">Try the Demo</button>
+                <button class="cta-primary glow-effect" onclick="openActorApplicationModal()">BE A GREENLIT ACTOR</button>
+                <button class="cta-secondary demo-button" id="hero-cta-button" onclick="window.location.href='/demo'">Co-write your first show</button>
             </div>
             <p class="micro-copy">Response within 72 hours.</p>
         </div>
@@ -478,7 +478,7 @@
         <div class="spotlight-background"></div>
         <div class="container">
             <h2 class="final-headline">You're Already Greenlit.</h2>
-            <button class="cta-primary glow-effect maximum-glow" id="footer-cta-button" onclick="window.location.href='/demo'">Try the Demo →</button>
+            <button class="cta-primary glow-effect maximum-glow" id="footer-cta-button" onclick="window.location.href='/demo'">Co-write your first show →</button>
             <button class="faq-link-final" onclick="openFAQModal()">FAQ</button>
         </div>
     </section>
@@ -520,6 +520,130 @@
                 <div class="faq-item">
                     <h3 class="faq-question">Is this platform going to replace human actors or writers?</h3>
                     <p class="faq-answer">Hell no. Greenlit is built specifically to empower human talent. The platform acts as your production crew—handling the bureaucratic grind so you can focus on the performance and the vision.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actor Application Modal -->
+    <div id="actorApplicationModal" class="faq-modal">
+        <div class="faq-modal-overlay" onclick="closeActorApplicationModal()"></div>
+        <div class="faq-modal-content" style="max-width: 600px;">
+            <div class="faq-modal-header">
+                <h2 class="faq-modal-title">BE A GREENLIT ACTOR</h2>
+                <button class="faq-close-btn" onclick="closeActorApplicationModal()">&times;</button>
+            </div>
+            <div class="faq-modal-body" style="max-height: 80vh; overflow-y: auto; padding-right: 10px;">
+                <p style="margin-bottom: 20px; color: #E7E7E7; opacity: 0.7;">Join our community of professional actors ready to take control of their careers.</p>
+                
+                <form id="actorApplicationForm" onsubmit="submitActorApplication(event)" style="display: block;">
+                    <!-- Name -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #E7E7E7; font-weight: 500; font-size: 14px;">
+                            Name <span style="color: #ff4444;">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="actorName" 
+                            name="name" 
+                            required
+                            style="width: 100%; padding: 12px; background: #121212; border: 1px solid rgba(0, 255, 153, 0.2); border-radius: 8px; color: #E7E7E7; font-size: 14px; box-sizing: border-box;"
+                            placeholder="Your full name"
+                        />
+                    </div>
+
+                    <!-- Email -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #E7E7E7; font-weight: 500; font-size: 14px;">
+                            Email <span style="color: #ff4444;">*</span>
+                        </label>
+                        <input 
+                            type="email" 
+                            id="actorEmail" 
+                            name="email" 
+                            required
+                            style="width: 100%; padding: 12px; background: #121212; border: 1px solid rgba(0, 255, 153, 0.2); border-radius: 8px; color: #E7E7E7; font-size: 14px; box-sizing: border-box;"
+                            placeholder="your@email.com"
+                        />
+                    </div>
+
+                    <!-- Why Partner -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #E7E7E7; font-weight: 500; font-size: 14px;">
+                            Why you want to partner with Greenlit <span style="color: #ff4444;">*</span>
+                        </label>
+                        <textarea 
+                            id="actorWhyPartner" 
+                            name="whyPartner" 
+                            required
+                            rows="4"
+                            style="width: 100%; padding: 12px; background: #121212; border: 1px solid rgba(0, 255, 153, 0.2); border-radius: 8px; color: #E7E7E7; font-size: 14px; box-sizing: border-box; resize: vertical; font-family: inherit;"
+                            placeholder="Tell us about your goals, what you're looking for, and why you want to work with Greenlit..."
+                        ></textarea>
+                    </div>
+
+                    <!-- Experienced Actor Checkbox -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: flex; align-items: center; gap: 10px; color: #E7E7E7; cursor: pointer;">
+                            <input 
+                                type="checkbox" 
+                                id="actorIsExperienced" 
+                                name="isExperienced"
+                                onchange="toggleImdbField()"
+                                style="width: 18px; height: 18px; cursor: pointer; accent-color: #00FF99;"
+                            />
+                            <span style="font-size: 14px; font-weight: 500;">Are you an experienced actor?</span>
+                        </label>
+                    </div>
+
+                    <!-- IMDb/Portfolio Field (conditional) -->
+                    <div id="imdbFieldContainer" style="margin-bottom: 20px; display: none;">
+                        <label style="display: block; margin-bottom: 8px; color: #E7E7E7; font-weight: 500; font-size: 14px;">
+                            IMDb Link or Portfolio URL
+                        </label>
+                        <input 
+                            type="url" 
+                            id="actorImdbOrPortfolio" 
+                            name="imdbOrPortfolio"
+                            style="width: 100%; padding: 12px; background: #121212; border: 1px solid rgba(0, 255, 153, 0.2); border-radius: 8px; color: #E7E7E7; font-size: 14px; box-sizing: border-box;"
+                            placeholder="https://www.imdb.com/name/... or your portfolio URL"
+                        />
+                    </div>
+
+                    <!-- Error Message -->
+                    <div id="actorApplicationError" style="display: none; padding: 12px; background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 8px; color: #ff4444; margin-bottom: 20px; font-size: 14px;"></div>
+
+                    <!-- Submit Button -->
+                    <button 
+                        type="submit" 
+                        id="actorApplicationSubmitBtn"
+                        style="width: 100%; padding: 14px; background: linear-gradient(135deg, #00FF99, #00CC77); color: #121212; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: all 0.3s;"
+                        onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 20px rgba(0, 255, 153, 0.3)'"
+                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                    >
+                        Submit Application
+                    </button>
+                </form>
+
+                <!-- Success Message -->
+                <div id="actorApplicationSuccess" style="display: none; text-align: center; padding: 40px 20px;">
+                    <div style="width: 64px; height: 64px; background: rgba(0, 255, 153, 0.2); border: 2px solid rgba(0, 255, 153, 0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00FF99" stroke-width="3">
+                            <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3 style="color: #E7E7E7; font-size: 24px; font-weight: bold; margin-bottom: 12px;">Application Submitted!</h3>
+                    <p style="color: #E7E7E7; opacity: 0.7; font-size: 14px; margin-bottom: 24px;">
+                        Thank you for your interest in partnering with Greenlit. You will receive a response within 72 hours.
+                    </p>
+                    <button 
+                        onclick="closeActorApplicationModal()"
+                        style="padding: 12px 32px; background: linear-gradient(135deg, #00FF99, #00CC77); color: #121212; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: all 0.3s;"
+                        onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 0 20px rgba(0, 255, 153, 0.3)'"
+                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -585,11 +709,11 @@
                 
                 // Update CTA buttons for guests
                 if (heroCTA) {
-                    heroCTA.textContent = 'Try the Demo';
+                    heroCTA.textContent = 'Co-write your first show';
                     heroCTA.onclick = () => window.location.href = '/demo';
                 }
                 if (footerCTA) {
-                    footerCTA.textContent = 'Try the Demo →';
+                    footerCTA.textContent = 'Co-write your first show →';
                     footerCTA.onclick = () => window.location.href = '/demo';
                 }
             }
@@ -683,6 +807,116 @@
         window.toggleTheme = function() {
             originalToggleTheme();
             setTimeout(replaceGreenWithGold, 50);
+        };
+
+        // Actor Application Modal Functions
+        window.openActorApplicationModal = function() {
+            const modal = document.getElementById('actorApplicationModal');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.closeActorApplicationModal = function() {
+            const modal = document.getElementById('actorApplicationModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = 'auto';
+                // Reset form
+                const form = document.getElementById('actorApplicationForm');
+                const success = document.getElementById('actorApplicationSuccess');
+                const error = document.getElementById('actorApplicationError');
+                if (form) form.style.display = 'block';
+                if (success) success.style.display = 'none';
+                if (error) {
+                    error.style.display = 'none';
+                    error.textContent = '';
+                }
+                form?.reset();
+                toggleImdbField();
+            }
+        };
+
+        window.toggleImdbField = function() {
+            const checkbox = document.getElementById('actorIsExperienced');
+            const container = document.getElementById('imdbFieldContainer');
+            if (checkbox && container) {
+                container.style.display = checkbox.checked ? 'block' : 'none';
+                if (!checkbox.checked) {
+                    const input = document.getElementById('actorImdbOrPortfolio');
+                    if (input) input.value = '';
+                }
+            }
+        };
+
+        window.submitActorApplication = async function(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById('actorApplicationSubmitBtn');
+            const errorDiv = document.getElementById('actorApplicationError');
+            const form = document.getElementById('actorApplicationForm');
+            const success = document.getElementById('actorApplicationSuccess');
+            
+            // Get form data
+            const formData = {
+                name: document.getElementById('actorName').value.trim(),
+                email: document.getElementById('actorEmail').value.trim(),
+                whyPartner: document.getElementById('actorWhyPartner').value.trim(),
+                isExperienced: document.getElementById('actorIsExperienced').checked,
+                imdbOrPortfolio: document.getElementById('actorImdbOrPortfolio').value.trim()
+            };
+
+            // Validate
+            if (!formData.name || !formData.email || !formData.whyPartner) {
+                if (errorDiv) {
+                    errorDiv.textContent = 'Please fill in all required fields.';
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+
+            // Disable submit button
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+            }
+
+            // Hide error
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+
+            try {
+                const response = await fetch('/api/actor-application', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to submit application');
+                }
+
+                // Show success message
+                if (form) form.style.display = 'none';
+                if (success) success.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error submitting application:', error);
+                if (errorDiv) {
+                    errorDiv.textContent = error.message || 'Failed to submit application. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Application';
+                }
+            }
         };
     </script>
 </body>

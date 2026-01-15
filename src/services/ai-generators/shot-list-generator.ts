@@ -195,7 +195,7 @@ export async function generateShotList(params: ShotListGenerationParams): Promis
       console.log(`✅ Batch ${batchIdx + 1} response received:`, response.metadata.contentLength, 'characters')
 
       // Parse AI response for this batch
-      const batchShotListData = parseShotList(response.content, batchBreakdownData, episodeNumber, episodeTitle, userId, batchStoryboardsData)
+      const batchShotListData = parseShotList(response.content, batchBreakdownData, episodeNumber, episodeTitle, userId, batchStoryboardsData, storyBible, scriptData)
       
       // Add scenes from this batch to the combined result
       allShotListScenes.push(...batchShotListData.scenes)
@@ -274,7 +274,7 @@ async function generateShotListSingleBatch(params: ShotListGenerationParams): Pr
     console.log('✅ AI Response received:', response.metadata.contentLength, 'characters')
 
     // Parse AI response into structured shot list data
-    const shotListData = parseShotList(response.content, breakdownData, episodeNumber, episodeTitle, userId, storyboardsData)
+    const shotListData = parseShotList(response.content, breakdownData, episodeNumber, episodeTitle, userId, storyboardsData, params.storyBible, params.scriptData)
 
     console.log('✅ Shot list generated:')
     console.log('  Total shots:', shotListData.totalShots)
@@ -603,7 +603,9 @@ function parseShotList(
   episodeNumber: number,
   episodeTitle: string,
   userId: string,
-  storyboardsData?: StoryboardsData
+  storyboardsData?: StoryboardsData,
+  storyBible?: any,
+  scriptData?: GeneratedScript
 ): ShotListData {
   console.log('📊 Parsing shot list data...')
   console.log('   Raw response length:', aiResponse.length)
@@ -793,7 +795,19 @@ function parseShotList(
                 aiGenerationPrompt = storyboardFrame.aiGenerationPrompt
                 aiGenerationRecommendation = storyboardFrame.aiGenerationRecommendation
                 
-                if (canBeAIGenerated) {
+                // Enhance the prompt with story bible, episode, and script context
+                if (canBeAIGenerated && aiGenerationPrompt) {
+                  aiGenerationPrompt = enhanceAIGenerationPrompt(
+                    aiGenerationPrompt,
+                    shot,
+                    breakdownScene,
+                    storyBible,
+                    scriptData,
+                    episodeNumber,
+                    episodeTitle
+                  )
+                  console.log(`🤖 Shot ${shot.shotNumber || shotIdx + 1} (Scene ${scene.sceneNumber}) inheriting and enhancing AI prompt from storyboard frame ${storyboardFrameId} (${aiGenerationRecommendation || 'medium'} recommendation)`)
+                } else if (canBeAIGenerated) {
                   console.log(`🤖 Shot ${shot.shotNumber || shotIdx + 1} (Scene ${scene.sceneNumber}) inheriting AI flags from storyboard frame ${storyboardFrameId} (${aiGenerationRecommendation || 'medium'} recommendation)`)
                 }
               }
@@ -881,5 +895,58 @@ function findSceneDialogue(script: GeneratedScript, sceneNumber: number): string
   }
 
   return dialogueLines.length > 0 ? dialogueLines.join('\n') : null
+}
+
+/**
+ * Enhance AI generation prompt with scene context and relevant story bible tone/style elements
+ * Focused on the particular scene and tone adjustments, not the entire story bible
+ */
+function enhanceAIGenerationPrompt(
+  basePrompt: string,
+  shot: any,
+  breakdownScene: any,
+  storyBible?: any,
+  scriptData?: GeneratedScript,
+  episodeNumber?: number,
+  episodeTitle?: string
+): string {
+  let enhancedPrompt = basePrompt
+  
+  // Add scene-specific context (compact format)
+  if (breakdownScene) {
+    const sceneParts: string[] = []
+    if (breakdownScene.location) sceneParts.push(breakdownScene.location)
+    if (breakdownScene.timeOfDay) sceneParts.push(breakdownScene.timeOfDay)
+    if (breakdownScene.emotionalTone) sceneParts.push(breakdownScene.emotionalTone)
+    
+    if (sceneParts.length > 0) {
+      enhancedPrompt = `[${sceneParts.join(', ')}] ${enhancedPrompt}`
+    }
+  }
+  
+  // Add story bible visual style (most important tone element)
+  if (storyBible?.genreEnhancement?.visualStyle) {
+    enhancedPrompt = `${enhancedPrompt} [Style: ${storyBible.genreEnhancement.visualStyle}]`
+  }
+  
+  // Add color palette if available
+  if (storyBible?.genreEnhancement?.colorPalette) {
+    enhancedPrompt = `${enhancedPrompt} [Colors: ${storyBible.genreEnhancement.colorPalette}]`
+  }
+  
+  // Ensure prompt doesn't exceed reasonable length (keep under 1200 chars for stored prompt)
+  if (enhancedPrompt.length > 1200) {
+    // Prioritize: base prompt, scene context, then truncate style
+    const baseLength = basePrompt.length
+    const availableSpace = 1200 - baseLength - 50
+    if (availableSpace > 0) {
+      const contextPart = enhancedPrompt.substring(basePrompt.length)
+      enhancedPrompt = basePrompt + contextPart.substring(0, availableSpace)
+    } else {
+      enhancedPrompt = basePrompt.substring(0, 1200)
+    }
+  }
+  
+  return enhancedPrompt.trim()
 }
 

@@ -39,7 +39,11 @@ interface ChatContextType {
     userId?: string,
     currentEpisode?: any,
     currentEpisodeNumber?: number | null,
-    preProductionData?: any
+    preProductionData?: any,
+    arcPreProductionData?: Record<number, any>,
+    actorMaterialsData?: Record<number, any>,
+    postProductionData?: Record<number, any>,
+    pageContent?: string | null
   ) => Promise<void>
   clearHistory: () => void
   loadSession: (storyBibleId: string) => void
@@ -127,7 +131,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     userId?: string,
     currentEpisode?: any,
     currentEpisodeNumber?: number | null,
-    preProductionData?: any
+    preProductionData?: any,
+    arcPreProductionData?: Record<number, any>,
+    actorMaterialsData?: Record<number, any>,
+    postProductionData?: Record<number, any>,
+    pageContent?: string | null
   ) => {
     if (!message.trim() || !storyBibleId) return
 
@@ -226,7 +234,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             wardrobe: preProductionData.wardrobe,
             casting: preProductionData.casting,
             marketing: preProductionData.marketing
-          } : null
+          } : null,
+          arcPreProductionData: arcPreProductionData || {},
+          actorMaterialsData: actorMaterialsData || {},
+          postProductionData: postProductionData || {},
+          pageContent: pageContent || null
         })
       })
 

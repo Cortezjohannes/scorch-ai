@@ -27,6 +27,7 @@ import GlobalThemeToggle from '@/components/navigation/GlobalThemeToggle'
 import StoryBibleImage from '@/components/story-bible/StoryBibleImage'
 import GenerateImagesModal from '@/components/story-bible/GenerateImagesModal'
 import MarketingSection from '@/components/story-bible/MarketingSection'
+import { EditableField } from '@/components/preproduction/shared/EditableField'
 
 export default function StoryBiblePage() {
   const router = useRouter()
@@ -2114,23 +2115,11 @@ export default function StoryBiblePage() {
                 </button>
               </div>
             ) : (
-              <>
-                <h1 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
-                  {typeof storyBible?.seriesTitle === 'string' ? storyBible.seriesTitle : getContentOrFallback(storyBible, 'seriesTitle') || "Story Bible"}
-                </h1>
-                {!isStoryBibleLocked && (
-                <button
-                    onClick={() => startEditing('seriesTitle', 'seriesTitle', storyBible?.seriesTitle || '')}
-                    className={`text-sm transition-colors ${prefix}-text-secondary hover:${prefix}-text-accent`}
-                    title="Edit series title"
-                >
-                  ✏️
-                </button>
-                )}
-              </>
+              <h1 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
+                {typeof storyBible?.seriesTitle === 'string' ? storyBible.seriesTitle : getContentOrFallback(storyBible, 'seriesTitle') || "Story Bible"}
+              </h1>
             )}
           </div>
-              </div>
         
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -2284,7 +2273,7 @@ export default function StoryBiblePage() {
               )}
             </div>
           </div>
-                </div>
+        </div>
 
       {/* Split Panel Layout */}
       <div className="flex-1 flex overflow-hidden">
@@ -2386,10 +2375,57 @@ export default function StoryBiblePage() {
                 
                 <div className={`${prefix}-card ${prefix}-border rounded-lg p-6 border-l-4 ${prefix}-border-accent`}>
                   <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>
-                      "{getContentOrFallback(storyBible.premise, 'premiseStatement')}"
+                    <EditableField
+                      value={storyBible.premise?.premiseStatement || ''}
+                      onSave={async (newValue) => {
+                        const updated = { ...storyBible }
+                        if (!updated.premise) updated.premise = {}
+                        updated.premise.premiseStatement = newValue as string
+                        await saveStoryBibleData(updated)
+                      }}
+                      multiline
+                      rows={2}
+                      placeholder="Enter premise statement..."
+                      className="font-bold"
+                    />
                   </h3>
                     <p className={`${prefix}-text-tertiary`}>
-                      <strong>Egri's Equation:</strong> {getContentOrFallback(storyBible.premise, 'character')} + {getContentOrFallback(storyBible.premise, 'conflict')} → {getContentOrFallback(storyBible.premise, 'resolution')}
+                      <strong>Egri's Equation:</strong>{' '}
+                      <EditableField
+                        value={storyBible.premise?.character || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.premise) updated.premise = {}
+                          updated.premise.character = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        placeholder="Character..."
+                        className="inline-block min-w-[100px]"
+                      />
+                      {' + '}
+                      <EditableField
+                        value={storyBible.premise?.conflict || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.premise) updated.premise = {}
+                          updated.premise.conflict = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        placeholder="Conflict..."
+                        className="inline-block min-w-[100px]"
+                      />
+                      {' → '}
+                      <EditableField
+                        value={storyBible.premise?.resolution || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.premise) updated.premise = {}
+                          updated.premise.resolution = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        placeholder="Resolution..."
+                        className="inline-block min-w-[100px]"
+                      />
                     </p>
                   </div>
 
@@ -2399,11 +2435,31 @@ export default function StoryBiblePage() {
                       <div className="space-y-3">
                       <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                         <p className={`text-sm ${prefix}-text-tertiary mb-1`}>Theme</p>
-                        <p className={`font-semibold ${prefix}-text-primary`}>{getContentOrFallback(storyBible.premise, 'theme')}</p>
+                        <EditableField
+                          value={storyBible.premise?.theme || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.premise) updated.premise = {}
+                            updated.premise.theme = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          placeholder="Enter theme..."
+                          className="font-semibold"
+                        />
                         </div>
                       <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                         <p className={`text-sm ${prefix}-text-tertiary mb-1`}>Premise Type</p>
-                        <p className={`font-semibold ${prefix}-text-primary`}>{getContentOrFallback(storyBible.premise, 'premiseType')}</p>
+                        <EditableField
+                          value={storyBible.premise?.premiseType || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.premise) updated.premise = {}
+                            updated.premise.premiseType = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          placeholder="Enter premise type..."
+                          className="font-semibold"
+                        />
                         </div>
                       </div>
                     </div>
@@ -2461,15 +2517,34 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 
                 <div>
                   <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Series Overview</h3>
-                  <p className={`text-lg ${prefix}-text-secondary leading-relaxed`}>
-{typeof storyBible.seriesOverview === 'string' ? storyBible.seriesOverview : getContentOrFallback(storyBible, 'seriesOverview') || "A compelling series spanning multiple episodes, crafted to engage audiences and tell meaningful stories."}
-                  </p>
+                  <EditableField
+                    value={storyBible.seriesOverview || ''}
+                    onSave={async (newValue) => {
+                      const updated = { ...storyBible }
+                      updated.seriesOverview = newValue as string
+                      await saveStoryBibleData(updated)
+                    }}
+                    multiline
+                    rows={6}
+                    placeholder="Enter series overview..."
+                    className="text-lg leading-relaxed"
+                  />
                 </div>
                 
                 {storyBible.potentialBranchingPaths && (
                   <div>
                     <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>Where the Story Could Go</h3>
-                    <p className={`${prefix}-text-secondary`}>{storyBible.potentialBranchingPaths}</p>
+                    <EditableField
+                      value={storyBible.potentialBranchingPaths || ''}
+                      onSave={async (newValue) => {
+                        const updated = { ...storyBible }
+                        updated.potentialBranchingPaths = newValue as string
+                        await saveStoryBibleData(updated)
+                      }}
+                      multiline
+                      rows={4}
+                      placeholder="Enter potential branching paths..."
+                    />
                   </div>
                 )}
                 
@@ -2531,97 +2606,89 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     </div>
                     
                 {storyBible.mainCharacters && storyBible.mainCharacters.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {storyBible.mainCharacters.map((character: any, index: number) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => openCharacterModal(index)}
-                        className={`p-5 rounded-lg ${prefix}-card ${prefix}-border cursor-pointer hover:${prefix}-border-accent transition-all duration-200 hover:shadow-lg`}
-                      >
-                        {/* Character Image */}
-                        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
-                          {(() => {
-                            // Debug logging
-                            if (character.visualReference?.imageUrl) {
-                              console.log(`🖼️ [Character ${index}] Rendering with image:`, character.visualReference.imageUrl.substring(0, 60))
-                            } else {
-                              console.log(`🖼️ [Character ${index}] No visualReference or imageUrl`)
-                            }
-                            return (
-                              <StoryBibleImage
-                                imageAsset={character.visualReference}
-                                placeholderIcon="👤"
-                                placeholderText=""
-                                onRegenerate={() => handleRegenerateImage('character', index)}
-                                isGenerating={generatingImageFor?.type === 'character' && generatingImageFor?.index === index}
-                                aspectRatio="1:1"
-                                className="w-full"
-                              />
-                            )
-                          })()}
-                        </div>
-                        
-                        <div className="flex items-center gap-4 mb-3">
-                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/40 flex items-center justify-center text-xl font-bold text-[#10B981] flex-shrink-0">
-                            {getInitials(character.name)}
-                                </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
-                              {character.name}
-                            </h3>
-                            <p className={`text-xs ${prefix}-text-tertiary`}>
-                              {character.premiseFunction || character.archetype || character.premiseRole || 'Character'}
-                            </p>
+                  <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {storyBible.mainCharacters.map((character: any, index: number) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => openCharacterModal(index)}
+                          className={`p-5 rounded-lg ${prefix}-card ${prefix}-border cursor-pointer hover:${prefix}-border-accent transition-all duration-200 hover:shadow-lg`}
+                        >
+                          {/* Character Image */}
+                          <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                            {(() => {
+                              // Debug logging
+                              if (character.visualReference?.imageUrl) {
+                                console.log(`🖼️ [Character ${index}] Rendering with image:`, character.visualReference.imageUrl.substring(0, 60))
+                              } else {
+                                console.log(`🖼️ [Character ${index}] No visualReference or imageUrl`)
+                              }
+                              return (
+                                <StoryBibleImage
+                                  imageAsset={character.visualReference}
+                                  placeholderIcon="👤"
+                                  placeholderText=""
+                                  onRegenerate={() => handleRegenerateImage('character', index)}
+                                  isGenerating={generatingImageFor?.type === 'character' && generatingImageFor?.index === index}
+                                  aspectRatio="1:1"
+                                  className="w-full"
+                                />
+                              )
+                            })()}
+                          </div>
+                          
+                          <div className="flex items-center gap-4 mb-3">
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/40 flex items-center justify-center text-xl font-bold text-[#10B981] flex-shrink-0">
+                              {getInitials(character.name)}
                             </div>
-                              </div>
-                        <p className={`text-sm ${prefix}-text-secondary line-clamp-3`}>
-                          {getCharacterBriefDescription(character)}
-                        </p>
-                      </motion.div>
-                    ))}
-                                      </div>
-                                    ) : (
-                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-12 text-center`}>
-                    <div className={`text-4xl mb-4`}>👥</div>
-                    <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>No Characters Yet</h3>
-                    <p className={`${prefix}-text-secondary mb-6`}>
-                      Start building your cast by adding your first character.
-                    </p>
-                                        <button
-                      onClick={addNewCharacter}
-                      className={`px-6 py-3 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2 mx-auto`}
-                                        >
-                      ➕ Add Your First Character
-                                        </button>
-                                  </div>
-                )}
-
-                {/* Character Relationships (if available) */}
-                {storyBible.characterRelationships && storyBible.characterRelationships.length > 0 && (
-                  <div className="mt-8">
-                    <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>🔗 Character Relationships</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {storyBible.characterRelationships.map((rel: any, index: number) => (
-                        <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
-                          <h5 className={`font-semibold ${prefix}-text-primary mb-2`}>
-                            {rel.character1} & {rel.character2}
-                          </h5>
-                          <p className={`text-sm ${prefix}-text-secondary mb-2`}>
-                            <strong className={`${prefix}-text-primary`}>Type:</strong> {rel.relationshipType}
+                            <div className="flex-1 min-w-0">
+                              <h3 className={`text-lg font-bold ${prefix}-text-primary truncate`}>
+                                {character.name}
+                              </h3>
+                              <p className={`text-xs ${prefix}-text-tertiary`}>
+                                {character.premiseFunction || character.archetype || character.premiseRole || 'Character'}
+                              </p>
+                            </div>
+                          </div>
+                          <p className={`text-sm ${prefix}-text-secondary line-clamp-3`}>
+                            {getCharacterBriefDescription(character)}
                           </p>
-                          <p className={`text-sm ${prefix}-text-secondary mb-2`}>
-                            <strong className={`${prefix}-text-primary`}>Dynamic:</strong> {rel.dynamic}
-                          </p>
-                          <p className={`text-xs ${prefix}-text-accent`}>
-                            <strong>Premise Relevance:</strong> {rel.premiseRelevance}
-                          </p>
-                  </div>
+                        </motion.div>
                       ))}
+                    </div>
+
+                    {/* Character Relationships (if available) */}
+                    {storyBible.characterRelationships && storyBible.characterRelationships.length > 0 && (
+                      <div className="mt-8">
+                        <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-4`}>🔗 Character Relationships</h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {storyBible.characterRelationships.map((rel: any, index: number) => (
+                            <div key={index} className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
+                              <h5 className={`font-semibold ${prefix}-text-primary mb-2`}>
+                                {rel.character1} & {rel.character2}
+                              </h5>
+                              <p className={`text-sm ${prefix}-text-secondary mb-2`}>
+                                <strong className={`${prefix}-text-primary`}>Type:</strong> {rel.relationshipType}
+                              </p>
+                              <p className={`text-sm ${prefix}-text-secondary mb-2`}>
+                                <strong className={`${prefix}-text-primary`}>Dynamic:</strong> {rel.dynamic}
+                              </p>
+                              <p className={`text-xs ${prefix}-text-accent`}>
+                                <strong>Premise Relevance:</strong> {rel.premiseRelevance}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-              </div>
+                ) : (
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-8 text-center`}>
+                    <p className={`${prefix}-text-secondary`}>No characters yet. Add your first character to get started!</p>
+                  </div>
                 )}
               </motion.div>
             )}
@@ -2675,7 +2742,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 </div>
                 
                 {storyBible.narrativeArcs && storyBible.narrativeArcs.length > 0 ? (
-                  <div className="space-y-8">
+                  <div className="space-y-8" key="arcs-content">
                     {/* Arc Navigation */}
                     <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap gap-2">
@@ -2767,25 +2834,25 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                 <button onClick={cancelEditing} className={`bg-red-500 ${prefix}-text-primary px-3 py-2 rounded-lg font-bold hover:bg-red-600 text-sm`}>✕</button>
                               </div>
                             ) : (
-                              <>
-                                <h3 className={`text-2xl font-bold ${prefix}-text-primary`}>
-                                  {storyBible.narrativeArcs[currentArcIndex].title}
-                                </h3>
-                                {!isStoryBibleLocked && (
-                                <button
-                                  onClick={() => startEditing('arc', 'title', storyBible.narrativeArcs[currentArcIndex].title, currentArcIndex)}
-                                  className={`${prefix}-text-tertiary hover:${prefix}-text-accent transition-colors`}
-                                  title="Edit arc title"
-                                >
-                                  ✏️
-                                </button>
-                                )}
-                              </>
+                              <h3 className={`text-2xl font-bold ${prefix}-text-primary`}>
+                                {storyBible.narrativeArcs[currentArcIndex].title}
+                              </h3>
                             )}
                           </div>
-                          <p className={`${prefix}-text-secondary mb-6 text-sm leading-relaxed`}>
-                            {storyBible.narrativeArcs[currentArcIndex].summary}
-                          </p>
+                          <div className="mb-6">
+                            <EditableField
+                              value={storyBible.narrativeArcs[currentArcIndex].summary || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...storyBible }
+                                updated.narrativeArcs[currentArcIndex].summary = newValue as string
+                                await saveStoryBibleData(updated)
+                              }}
+                              multiline
+                              rows={4}
+                              placeholder="Enter arc summary..."
+                              className="text-sm leading-relaxed"
+                            />
+                          </div>
                           
                           {/* Episodes in this arc */}
                           {storyBible.narrativeArcs[currentArcIndex].episodes && 
@@ -2854,22 +2921,68 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                           <button onClick={cancelEditing} className={`bg-red-500 ${prefix}-text-primary px-2 py-1 rounded text-xs font-bold hover:bg-red-600`}>✕</button>
                                         </div>
                                       ) : (
-                                        <>
-                                          <h6 className={`font-medium flex-1 ${prefix}-text-primary`}>{episode.title || `Episode ${episode.number || episodeIndex + 1}`}</h6>
-                                          {!isStoryBibleLocked && (
-                                          <button
-                                              onClick={() => startEditing('episode', 'title', episode.title || '', `${currentArcIndex}-${episodeIndex}` as string)}
-                                              className={`opacity-0 group-hover:opacity-100 ${prefix}-text-tertiary hover:${prefix}-text-accent transition-all text-xs`}
-                                            title="Edit episode title"
-                                          >
-                                            ✏️
-                                          </button>
-                                          )}
-                                        </>
+                                        <h4 className={`text-sm font-medium ${prefix}-text-primary`}>
+                                          {episode.title}
+                                        </h4>
                                       )}
                                     </div>
-                                    {episode.summary && (
-                                      <p className={`text-sm ${prefix}-text-secondary mt-2`}>{episode.summary}</p>
+                                    <div className="mt-2">
+                                      <EditableField
+                                        value={episode.summary || ''}
+                                        onSave={async (newValue) => {
+                                          const updated = { ...storyBible }
+                                          updated.narrativeArcs[currentArcIndex].episodes[episodeIndex].summary = newValue as string
+                                          await saveStoryBibleData(updated)
+                                        }}
+                                        multiline
+                                        rows={3}
+                                        placeholder="Enter episode summary..."
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                    {episode.keyEvents && Array.isArray(episode.keyEvents) && episode.keyEvents.length > 0 && (
+                                      <div className="mt-2">
+                                        <strong className={`text-xs ${prefix}-text-primary`}>Key Events:</strong>
+                                        <ul className={`text-xs ${prefix}-text-secondary mt-1 list-disc list-inside`}>
+                                          {episode.keyEvents.map((event: string, eventIndex: number) => (
+                                            <li key={eventIndex}>{event}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {episode.characterDevelopment && (
+                                      <div className="mt-2">
+                                        <strong className={`text-xs ${prefix}-text-primary`}>Character Development:</strong>
+                                          <EditableField
+                                            value={episode.characterDevelopment || ''}
+                                            onSave={async (newValue) => {
+                                              const updated = { ...storyBible }
+                                              updated.narrativeArcs[currentArcIndex].episodes[episodeIndex].characterDevelopment = newValue as string
+                                              await saveStoryBibleData(updated)
+                                            }}
+                                            multiline
+                                            rows={2}
+                                            placeholder="Enter character development..."
+                                            className="text-xs mt-1"
+                                          />
+                                      </div>
+                                    )}
+                                    {episode.thematicElements && (
+                                      <div className="mt-2">
+                                        <strong className={`text-xs ${prefix}-text-primary`}>Thematic Elements:</strong>
+                                          <EditableField
+                                            value={episode.thematicElements || ''}
+                                            onSave={async (newValue) => {
+                                              const updated = { ...storyBible }
+                                              updated.narrativeArcs[currentArcIndex].episodes[episodeIndex].thematicElements = newValue as string
+                                              await saveStoryBibleData(updated)
+                                            }}
+                                            multiline
+                                            rows={2}
+                                            placeholder="Enter thematic elements..."
+                                            className="text-xs mt-1"
+                                          />
+                                      </div>
                                     )}
                                   </div>
                                 ))}
@@ -2881,21 +2994,9 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     )}
                   </div>
                 ) : (
-                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-12 text-center`}>
-                    <div className={`text-4xl mb-4`}>📚</div>
-                    <h3 className={`text-xl font-bold ${prefix}-text-primary mb-2`}>No Story Arcs Yet</h3>
-                    <p className={`${prefix}-text-secondary mb-6`}>
-                      Start building your narrative structure by adding your first arc.
-                    </p>
-                    {!isStoryBibleLocked && (
-                      <button
-                        onClick={addNewArc}
-                        className={`px-6 py-3 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2 mx-auto`}
-                      >
-                        ➕ Add Your First Arc
-                      </button>
-                )}
-              </div>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-8 text-center`}>
+                    <p className={`${prefix}-text-secondary`}>No arcs yet. Add your first arc to get started!</p>
+                  </div>
                 )}
               </motion.div>
             )}
@@ -2948,29 +3049,40 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       <div>
                         <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-3`}>Setting</h3>
                         <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
-                          <p className={`${prefix}-text-secondary`}>
-                        {getContentOrFallback(storyBible.worldBuilding, 'setting')}
-                        </p>
+                            <EditableField
+                              value={storyBible.worldBuilding.setting || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...storyBible }
+                                if (!updated.worldBuilding) updated.worldBuilding = {}
+                                updated.worldBuilding.setting = newValue as string
+                                await saveStoryBibleData(updated)
+                              }}
+                              multiline
+                              rows={4}
+                              placeholder="Enter setting description..."
+                            />
                         </div>
                       </div>
                     
                       <div>
                         <h3 className={`text-xl font-semibold ${prefix}-text-primary mb-3`}>Rules of the World</h3>
-                        {Array.isArray(storyBible.worldBuilding.rules) ? (
-                          <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
-                            <ul className={`list-disc pl-6 ${prefix}-text-secondary space-y-1`}>
-                            {storyBible.worldBuilding.rules.map((r: string, i: number) => (
-                              <li key={i}>{r}</li>
-                            ))}
-                          </ul>
-                          </div>
-                        ) : (
-                          <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
-                            <p className={`${prefix}-text-secondary`}>
-                            {getContentOrFallback(storyBible.worldBuilding, 'rules')}
-                          </p>
-                          </div>
-                        )}
+                        <div className={`${prefix}-card ${prefix}-border p-4 rounded-lg`}>
+                          <EditableField
+                            value={Array.isArray(storyBible.worldBuilding.rules) 
+                              ? storyBible.worldBuilding.rules.join('\n')
+                              : (storyBible.worldBuilding.rules || '')}
+                            onSave={async (newValue) => {
+                              const updated = { ...storyBible }
+                              if (!updated.worldBuilding) updated.worldBuilding = {}
+                              // Convert newline-separated string to array
+                              updated.worldBuilding.rules = (newValue as string).split('\n').filter(r => r.trim())
+                              await saveStoryBibleData(updated)
+                            }}
+                            multiline
+                            rows={6}
+                            placeholder="Enter rules (one per line)..."
+                          />
+                        </div>
                       </div>
                     
                     {storyBible.worldBuilding.locations && storyBible.worldBuilding.locations.length > 0 && (
@@ -3004,8 +3116,17 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                 />
                               </div>
                               
-                              <div className="flex items-center justify-between">
-                                <h4 className={`font-medium ${prefix}-text-primary`}>{location.name}</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                  <EditableField
+                                    value={location.name || ''}
+                                    onSave={async (newValue) => {
+                                      const updated = { ...storyBible }
+                                      updated.worldBuilding.locations[index].name = newValue as string
+                                      await saveStoryBibleData(updated)
+                                    }}
+                                    placeholder="Location name..."
+                                    className="font-medium flex-1"
+                                  />
                                 {!isStoryBibleLocked && (
                                   <button
                                     onClick={() => deleteWorldElement('locations', index)}
@@ -3021,11 +3142,52 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                                   </span>
                                 )}
                               </div>
-                              {location.significance && (
-                                <p className={`text-xs ${prefix}-text-tertiary`}>{location.significance}</p>
-                              )}
-                              {location.description && (
-                                <p className={`text-sm ${prefix}-text-secondary`}>{location.description}</p>
+                              <div className="mb-2">
+                                <strong className={`text-xs ${prefix}-text-primary`}>Significance:</strong>
+                                  <EditableField
+                                    value={location.significance || ''}
+                                    onSave={async (newValue) => {
+                                      const updated = { ...storyBible }
+                                      updated.worldBuilding.locations[index].significance = newValue as string
+                                      await saveStoryBibleData(updated)
+                                    }}
+                                    multiline
+                                    rows={2}
+                                    placeholder="Enter significance..."
+                                    className="text-xs mt-1"
+                                  />
+                              </div>
+                              <div>
+                                <strong className={`text-xs ${prefix}-text-primary`}>Description:</strong>
+                                  <EditableField
+                                    value={location.description || ''}
+                                    onSave={async (newValue) => {
+                                      const updated = { ...storyBible }
+                                      updated.worldBuilding.locations[index].description = newValue as string
+                                      await saveStoryBibleData(updated)
+                                    }}
+                                    multiline
+                                    rows={3}
+                                    placeholder="Enter description..."
+                                    className="text-sm mt-1"
+                                  />
+                              </div>
+                              {location.atmosphere && (
+                                <div className="mt-2">
+                                  <strong className={`text-xs ${prefix}-text-primary`}>Atmosphere:</strong>
+                                    <EditableField
+                                      value={location.atmosphere || ''}
+                                      onSave={async (newValue) => {
+                                        const updated = { ...storyBible }
+                                        updated.worldBuilding.locations[index].atmosphere = newValue as string
+                                        await saveStoryBibleData(updated)
+                                      }}
+                                      multiline
+                                      rows={2}
+                                      placeholder="Enter atmosphere..."
+                                      className="text-xs mt-1"
+                                    />
+                                </div>
                               )}
                               {Array.isArray(location.recurringEvents) && location.recurringEvents.length > 0 && (
                                 <div className={`text-xs ${prefix}-text-tertiary`}>
@@ -3049,11 +3211,7 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className={`text-center py-8 ${prefix}-text-tertiary`}>
-                    No world building information available
-                  </div>
-                )}
+                ) : null}
               </motion.div>
             )}
 
@@ -3194,11 +3352,8 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className={`${prefix}-text-tertiary mb-4`}>No episodes generated yet</div>
-                    <p className={`text-sm ${prefix}-text-tertiary`}>
-                      Start generating episodes to see how your choices shape the story!
-                    </p>
+                  <div className={`${prefix}-card ${prefix}-border rounded-lg p-8 text-center`}>
+                    <p className={`${prefix}-text-secondary`}>No choices yet. Generate episodes to see your story choices!</p>
                   </div>
                 )}
               </motion.div>
@@ -3221,24 +3376,79 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Tension Curve</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'tensionCurve')}</p>
+                      <EditableField
+                        value={storyBible.tensionStrategy?.tensionCurve || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tensionStrategy) updated.tensionStrategy = {}
+                          updated.tensionStrategy.tensionCurve = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter tension curve..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Climax Points</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'climaxPoints')}</p>
+                      <EditableField
+                        value={storyBible.tensionStrategy?.climaxPoints || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tensionStrategy) updated.tensionStrategy = {}
+                          updated.tensionStrategy.climaxPoints = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter climax points..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Release Moments</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'releaseMoments')}</p>
+                      <EditableField
+                        value={storyBible.tensionStrategy?.releaseMoments || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tensionStrategy) updated.tensionStrategy = {}
+                          updated.tensionStrategy.releaseMoments = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter release moments..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Escalation Techniques</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'escalationTechniques')}</p>
+                      <EditableField
+                        value={storyBible.tensionStrategy?.escalationTechniques || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tensionStrategy) updated.tensionStrategy = {}
+                          updated.tensionStrategy.escalationTechniques = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter escalation techniques..."
+                      />
                   </div>
                 </div>
                 <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                   <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Emotional Beats</h3>
-                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tensionStrategy, 'emotionalBeats')}</p>
+                    <EditableField
+                      value={storyBible.tensionStrategy?.emotionalBeats || ''}
+                      onSave={async (newValue) => {
+                        const updated = { ...storyBible }
+                        if (!updated.tensionStrategy) updated.tensionStrategy = {}
+                        updated.tensionStrategy.emotionalBeats = newValue as string
+                        await saveStoryBibleData(updated)
+                      }}
+                      multiline
+                      rows={4}
+                      placeholder="Enter emotional beats..."
+                    />
                 </div>
               </motion.div>
             )}
@@ -3259,24 +3469,79 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
               <div className="space-y-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Key Decisions</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'keyDecisions')}</p>
+                      <EditableField
+                        value={storyBible.choiceArchitecture?.keyDecisions || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.choiceArchitecture) updated.choiceArchitecture = {}
+                          updated.choiceArchitecture.keyDecisions = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter key decisions..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Moral Choices</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'moralChoices')}</p>
+                      <EditableField
+                        value={storyBible.choiceArchitecture?.moralChoices || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.choiceArchitecture) updated.choiceArchitecture = {}
+                          updated.choiceArchitecture.moralChoices = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter moral choices..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Consequence Mapping</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'consequenceMapping')}</p>
+                      <EditableField
+                        value={storyBible.choiceArchitecture?.consequenceMapping || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.choiceArchitecture) updated.choiceArchitecture = {}
+                          updated.choiceArchitecture.consequenceMapping = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter consequence mapping..."
+                      />
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                       <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Growth</h3>
-                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'characterGrowth')}</p>
+                        <EditableField
+                          value={storyBible.choiceArchitecture?.characterGrowth || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.choiceArchitecture) updated.choiceArchitecture = {}
+                            updated.choiceArchitecture.characterGrowth = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          multiline
+                          rows={3}
+                          placeholder="Enter character growth..."
+                        />
                     </div>
                     <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                       <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Thematic Choices</h3>
-                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.choiceArchitecture, 'thematicChoices')}</p>
+                        <EditableField
+                          value={storyBible.choiceArchitecture?.thematicChoices || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.choiceArchitecture) updated.choiceArchitecture = {}
+                            updated.choiceArchitecture.thematicChoices = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          multiline
+                          rows={3}
+                          placeholder="Enter thematic choices..."
+                        />
                     </div>
                   </div>
                 </div>
@@ -3299,24 +3564,79 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Background Events</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'backgroundEvents')}</p>
+                      <EditableField
+                        value={storyBible.livingWorldDynamics?.backgroundEvents || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.livingWorldDynamics) updated.livingWorldDynamics = {}
+                          updated.livingWorldDynamics.backgroundEvents = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter background events..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Social Dynamics</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'socialDynamics')}</p>
+                      <EditableField
+                        value={storyBible.livingWorldDynamics?.socialDynamics || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.livingWorldDynamics) updated.livingWorldDynamics = {}
+                          updated.livingWorldDynamics.socialDynamics = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter social dynamics..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Economic Factors</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'economicFactors')}</p>
+                      <EditableField
+                        value={storyBible.livingWorldDynamics?.economicFactors || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.livingWorldDynamics) updated.livingWorldDynamics = {}
+                          updated.livingWorldDynamics.economicFactors = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter economic factors..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Political Undercurrents</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'politicalUndercurrents')}</p>
+                      <EditableField
+                        value={storyBible.livingWorldDynamics?.politicalUndercurrents || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.livingWorldDynamics) updated.livingWorldDynamics = {}
+                          updated.livingWorldDynamics.politicalUndercurrents = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter political undercurrents..."
+                      />
                   </div>
                 </div>
                 <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                   <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Cultural Shifts</h3>
-                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.livingWorldDynamics, 'culturalShifts')}</p>
+                    <EditableField
+                      value={storyBible.livingWorldDynamics?.culturalShifts || ''}
+                      onSave={async (newValue) => {
+                        const updated = { ...storyBible }
+                        if (!updated.livingWorldDynamics) updated.livingWorldDynamics = {}
+                        updated.livingWorldDynamics.culturalShifts = newValue as string
+                        await saveStoryBibleData(updated)
+                      }}
+                      multiline
+                      rows={4}
+                      placeholder="Enter cultural shifts..."
+                    />
                 </div>
               </motion.div>
             )}
@@ -3337,24 +3657,79 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Genre Tropes Used</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'genreTropes')}</p>
+                      <EditableField
+                        value={storyBible.tropeAnalysis?.genreTropes || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tropeAnalysis) updated.tropeAnalysis = {}
+                          updated.tropeAnalysis.genreTropes = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter genre tropes..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Subverted Tropes</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'subvertedTropes')}</p>
+                      <EditableField
+                        value={storyBible.tropeAnalysis?.subvertedTropes || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tropeAnalysis) updated.tropeAnalysis = {}
+                          updated.tropeAnalysis.subvertedTropes = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter subverted tropes..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Original Elements</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'originalElements')}</p>
+                      <EditableField
+                        value={storyBible.tropeAnalysis?.originalElements || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tropeAnalysis) updated.tropeAnalysis = {}
+                          updated.tropeAnalysis.originalElements = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter original elements..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Audience Expectations</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'audienceExpectations')}</p>
+                      <EditableField
+                        value={storyBible.tropeAnalysis?.audienceExpectations || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.tropeAnalysis) updated.tropeAnalysis = {}
+                          updated.tropeAnalysis.audienceExpectations = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter audience expectations..."
+                      />
                   </div>
                 </div>
                 <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                   <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Innovative Twists</h3>
-                  <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.tropeAnalysis, 'innovativeTwists')}</p>
+                    <EditableField
+                      value={storyBible.tropeAnalysis?.innovativeTwists || ''}
+                      onSave={async (newValue) => {
+                        const updated = { ...storyBible }
+                        if (!updated.tropeAnalysis) updated.tropeAnalysis = {}
+                        updated.tropeAnalysis.innovativeTwists = newValue as string
+                        await saveStoryBibleData(updated)
+                      }}
+                      multiline
+                      rows={4}
+                      placeholder="Enter innovative twists..."
+                    />
                 </div>
               </motion.div>
             )}
@@ -3375,24 +3750,79 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
               <div className="space-y-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Narrative Cohesion</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'narrativeCohesion')}</p>
+                      <EditableField
+                        value={storyBible.cohesionAnalysis?.narrativeCohesion || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.cohesionAnalysis) updated.cohesionAnalysis = {}
+                          updated.cohesionAnalysis.narrativeCohesion = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter narrative cohesion..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Thematic Continuity</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'thematicContinuity')}</p>
+                      <EditableField
+                        value={storyBible.cohesionAnalysis?.thematicContinuity || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.cohesionAnalysis) updated.cohesionAnalysis = {}
+                          updated.cohesionAnalysis.thematicContinuity = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter thematic continuity..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Arcs</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'characterArcs')}</p>
+                      <EditableField
+                        value={storyBible.cohesionAnalysis?.characterArcs || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.cohesionAnalysis) updated.cohesionAnalysis = {}
+                          updated.cohesionAnalysis.characterArcs = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter character arcs..."
+                      />
                   </div>
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                       <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Plot Consistency</h3>
-                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'plotConsistency')}</p>
+                        <EditableField
+                          value={storyBible.cohesionAnalysis?.plotConsistency || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.cohesionAnalysis) updated.cohesionAnalysis = {}
+                            updated.cohesionAnalysis.plotConsistency = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          multiline
+                          rows={3}
+                          placeholder="Enter plot consistency..."
+                        />
                     </div>
                     <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                       <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Emotional Journey</h3>
-                      <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.cohesionAnalysis, 'emotionalJourney')}</p>
+                        <EditableField
+                          value={storyBible.cohesionAnalysis?.emotionalJourney || ''}
+                          onSave={async (newValue) => {
+                            const updated = { ...storyBible }
+                            if (!updated.cohesionAnalysis) updated.cohesionAnalysis = {}
+                            updated.cohesionAnalysis.emotionalJourney = newValue as string
+                            await saveStoryBibleData(updated)
+                          }}
+                          multiline
+                          rows={3}
+                          placeholder="Enter emotional journey..."
+                        />
                     </div>
                   </div>
                 </div>
@@ -3467,19 +3897,63 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Voice</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'characterVoice')}</p>
+                      <EditableField
+                        value={storyBible.dialogueStrategy?.characterVoice || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.dialogueStrategy) updated.dialogueStrategy = {}
+                          updated.dialogueStrategy.characterVoice = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter character voice..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Conflict Dialogue</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'conflictDialogue')}</p>
+                      <EditableField
+                        value={storyBible.dialogueStrategy?.conflictDialogue || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.dialogueStrategy) updated.dialogueStrategy = {}
+                          updated.dialogueStrategy.conflictDialogue = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter conflict dialogue..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Subtext</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'subtext')}</p>
+                      <EditableField
+                        value={storyBible.dialogueStrategy?.subtext || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.dialogueStrategy) updated.dialogueStrategy = {}
+                          updated.dialogueStrategy.subtext = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter subtext..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Speech Patterns</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.dialogueStrategy, 'speechPatterns')}</p>
+                      <EditableField
+                        value={storyBible.dialogueStrategy?.speechPatterns || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.dialogueStrategy) updated.dialogueStrategy = {}
+                          updated.dialogueStrategy.speechPatterns = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter speech patterns..."
+                      />
                   </div>
                 </div>
                 )}
@@ -3502,19 +3976,63 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Visual Style</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'visualStyle')}</p>
+                      <EditableField
+                        value={storyBible.genreEnhancement?.visualStyle || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.genreEnhancement) updated.genreEnhancement = {}
+                          updated.genreEnhancement.visualStyle = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter visual style..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Pacing</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'pacing')}</p>
+                      <EditableField
+                        value={storyBible.genreEnhancement?.pacing || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.genreEnhancement) updated.genreEnhancement = {}
+                          updated.genreEnhancement.pacing = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter pacing..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Tropes</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'tropes')}</p>
+                      <EditableField
+                        value={storyBible.genreEnhancement?.tropes || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.genreEnhancement) updated.genreEnhancement = {}
+                          updated.genreEnhancement.tropes = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter tropes..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Audience Expectations</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.genreEnhancement, 'audienceExpectations')}</p>
+                      <EditableField
+                        value={storyBible.genreEnhancement?.audienceExpectations || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.genreEnhancement) updated.genreEnhancement = {}
+                          updated.genreEnhancement.audienceExpectations = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={3}
+                        placeholder="Enter audience expectations..."
+                      />
                   </div>
                 </div>
               </motion.div>
@@ -3536,28 +4054,72 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
               <div className="space-y-6">
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Character Integration</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'characterIntegration')}</p>
+                      <EditableField
+                        value={storyBible.themeIntegration?.characterIntegration || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.themeIntegration) updated.themeIntegration = {}
+                          updated.themeIntegration.characterIntegration = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter character integration..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Plot Integration</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'plotIntegration')}</p>
+                      <EditableField
+                        value={storyBible.themeIntegration?.plotIntegration || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.themeIntegration) updated.themeIntegration = {}
+                          updated.themeIntegration.plotIntegration = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter plot integration..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Symbolic Elements</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'symbolicElements')}</p>
+                      <EditableField
+                        value={storyBible.themeIntegration?.symbolicElements || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.themeIntegration) updated.themeIntegration = {}
+                          updated.themeIntegration.symbolicElements = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter symbolic elements..."
+                      />
                   </div>
                   <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                     <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-3`}>Resolution Strategy</h3>
-                    <p className={`${prefix}-text-secondary`}>{getContentOrFallback(storyBible.themeIntegration, 'resolutionStrategy')}</p>
+                      <EditableField
+                        value={storyBible.themeIntegration?.resolutionStrategy || ''}
+                        onSave={async (newValue) => {
+                          const updated = { ...storyBible }
+                          if (!updated.themeIntegration) updated.themeIntegration = {}
+                          updated.themeIntegration.resolutionStrategy = newValue as string
+                          await saveStoryBibleData(updated)
+                        }}
+                        multiline
+                        rows={4}
+                        placeholder="Enter resolution strategy..."
+                      />
                   </div>
                 </div>
               </motion.div>
             )}
           </motion.div>
         </AnimatePresence>
-            </div>
-              </div>
-            </div>
+          </div>
+        </div>
+      </div>
       
       {/* Share Modal */}
       {user && storyBible && (
@@ -3682,4 +4244,4 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
       )}
     </div>
   )
-} 
+}

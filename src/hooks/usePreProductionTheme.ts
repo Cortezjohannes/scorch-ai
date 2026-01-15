@@ -5,7 +5,7 @@ import { PreProductionTheme, ThemeConfig } from '@/types/preproduction'
  * Pre-Production Theme Hook
  * 
  * Manages light/dark mode for pre-production pages.
- * Defaults to light mode, persists in localStorage.
+ * Defaults to dark mode, persists in localStorage.
  */
 
 const STORAGE_KEY = 'preproduction-theme'
@@ -39,7 +39,7 @@ const darkTheme: ThemeConfig = {
 }
 
 export const usePreProductionTheme = () => {
-  const [theme, setTheme] = useState<PreProductionTheme>('light') // Default to light
+  const [theme, setTheme] = useState<PreProductionTheme>('dark') // Default to dark
   
   // Load theme from localStorage on mount
   useEffect(() => {

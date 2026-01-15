@@ -89,11 +89,15 @@ export function EditableField({
     return (
       <motion.div
         onClick={() => setIsEditing(true)}
-        className={`px-3 py-2 rounded cursor-pointer hover:bg-[#2a2a2a]/50 transition-colors min-h-[40px] flex items-center ${className}`}
+        className={`px-3 py-2 rounded cursor-pointer hover:bg-[#2a2a2a]/50 transition-colors min-h-[40px] flex items-center gap-2 group relative ${className}`}
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
+        title="Click to edit"
       >
-        {value || <span className="text-[#e7e7e7]/40">{placeholder}</span>}
+        <span className="flex-1">{value || <span className="text-[#e7e7e7]/40">{placeholder}</span>}</span>
+        <span className="opacity-60 group-hover:opacity-100 transition-opacity text-[#10B981] text-sm flex-shrink-0" title="Click to edit">
+          ✏️
+        </span>
       </motion.div>
     )
   }

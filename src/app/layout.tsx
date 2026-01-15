@@ -20,8 +20,23 @@ export default function RootLayout({
         <link rel="icon" href="/Greenlit.ico" sizes="any" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
         <meta name="theme-color" content="#10B981" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const savedTheme = localStorage.getItem('theme');
+                  const theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {
+                  document.documentElement.setAttribute('data-theme', 'dark');
+                }
+              })();
+            `,
+          }}
+        />
       </head>
-      <body className="antialiased light-bg-primary" style={{ fontFamily: 'League Spartan, sans-serif' }}>
+      <body className="antialiased dark-bg-primary" style={{ fontFamily: 'League Spartan, sans-serif' }}>
         <ThemeProvider>
           <ClientLayout>
             <div className="relative min-h-screen">

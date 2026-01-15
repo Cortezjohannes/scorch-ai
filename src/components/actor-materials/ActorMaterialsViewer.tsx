@@ -22,15 +22,33 @@ import GuidedTooltip from './GuidedTooltip'
 interface ActorMaterialsViewerProps {
   materials: ActorPreparationMaterials
   storyBible: any
-  onRegenerate: (technique?: ActingTechnique) => void
+  onRegenerate: (technique?: ActingTechnique, characterName?: string, characterId?: string) => void
+  onRegenerateCharacter?: (characterName: string, characterId: string) => void
   shareLink?: string | null
+  onGenerateCharacter?: (characterName: string, characterId: string) => void
+  allCharacters?: Array<{ id: string; name: string; description: string }>
+  generatingCharacter?: string | null
+  generating?: boolean
+  selectedTechnique?: ActingTechnique
+  onOpenGenerationModal?: (characterId?: string) => void
+  remainingCharacters?: Array<{ id: string; name: string; description: string; imageUrl?: string }>
+  onDeleteAllMaterials?: () => void // DEBUG: Delete all materials
 }
 
 export default function ActorMaterialsViewer({
   materials,
   storyBible,
   onRegenerate,
-  shareLink
+  onRegenerateCharacter,
+  shareLink,
+  onGenerateCharacter,
+  allCharacters,
+  generatingCharacter,
+  generating,
+  selectedTechnique,
+  onOpenGenerationModal,
+  remainingCharacters,
+  onDeleteAllMaterials
 }: ActorMaterialsViewerProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -39,10 +57,10 @@ export default function ActorMaterialsViewer({
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(
     materials.characters[0]?.characterName || null
   )
-  const [selectedTechnique, setSelectedTechnique] = useState<ActingTechnique | undefined>(
-    materials.technique
+  const [currentTechnique, setCurrentTechnique] = useState<ActingTechnique | undefined>(
+    selectedTechnique || materials.technique
   )
-  const [activeSection, setActiveSection] = useState<'overview' | 'scene-work' | 'physical-voice' | 'practice'>('overview')
+  const [activeSection, setActiveSection] = useState<'overview' | 'relationships' | 'scene-work' | 'physical-voice' | 'practice'>('overview')
   const [readingMode, setReadingMode] = useState<'professional' | 'guided'>('professional')
   const [goteViewMode, setGoteViewMode] = useState<'table' | 'cards'>('cards')
   const [searchQuery, setSearchQuery] = useState('')
@@ -64,9 +82,15 @@ export default function ActorMaterialsViewer({
   const character = materials.characters.find(c => c.characterName === selectedCharacter)
   
   const handleTechniqueChange = (technique: ActingTechnique | undefined) => {
-    setSelectedTechnique(technique)
-    if (technique !== materials.technique) {
-      onRegenerate(technique)
+    setCurrentTechnique(technique)
+    if (technique !== materials.technique && selectedCharacter) {
+      // Find the character ID
+      const char = materials.characters.find(c => c.characterName === selectedCharacter)
+      const charId = allCharacters?.find(c => c.name === selectedCharacter)?.id
+      if (char && charId) {
+        // Regenerate only the selected character with new technique
+        onRegenerate(technique, selectedCharacter, charId)
+      }
     }
   }
   
@@ -97,6 +121,11 @@ export default function ActorMaterialsViewer({
     overview: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+    relationships: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     ),
     'scene-work': (
@@ -146,7 +175,7 @@ export default function ActorMaterialsViewer({
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-2 h-12 ${isDark ? 'bg-[#10B981]' : 'bg-[#C9A961]'} rounded-full`} />
                   <h1 className={`text-3xl md:text-4xl font-bold ${prefix}-text-primary tracking-tight`}>
-                    🎭 Actor Materials
+                    🎭 Actor Performance Preparation Guide
                   </h1>
                 </div>
                 <p className={`text-sm md:text-base ${prefix}-text-secondary ml-5 flex items-center gap-2 flex-wrap`}>
@@ -163,20 +192,40 @@ export default function ActorMaterialsViewer({
                   )}
                 </p>
               </div>
+              <div className="flex items-center gap-3">
+                {remainingCharacters && remainingCharacters.length > 0 && onOpenGenerationModal && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onRegenerate(materials.technique)}
-                className={`px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${isDark ? 'bg-[#10B981] text-black hover:bg-[#10B981]/90' : 'bg-[#C9A961] text-white hover:bg-[#C9A961]/90'} shadow-lg whitespace-nowrap`}
+                    onClick={onOpenGenerationModal}
+                    className={`px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-all ${isDark ? 'bg-[#10B981] text-black hover:bg-[#059669]' : 'bg-[#10B981] text-black hover:bg-[#059669]'} shadow-lg whitespace-nowrap`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Regenerate
+                    Generate More ({remainingCharacters.length})
               </motion.button>
+                )}
+                {/* DEBUG: Delete All Materials Button */}
+                {onDeleteAllMaterials && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onDeleteAllMaterials}
+                    className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-all ${isDark ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/50' : 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-300'} shadow-lg whitespace-nowrap text-sm`}
+                    title="DEBUG: Delete all actor materials for this arc"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    🐛 Delete All
+                  </motion.button>
+                )}
+              </div>
             </div>
           </div>
         </motion.div>
+
 
         {/* Character Selector - Visual Cards */}
         <motion.div
@@ -245,7 +294,7 @@ export default function ActorMaterialsViewer({
                 {char.characterName}
                       </h3>
                       
-                      <div className={`flex items-center gap-3 text-xs ${prefix}-text-secondary`}>
+                      <div className={`flex items-center gap-3 text-xs ${prefix}-text-secondary mb-2`}>
                         <span className="flex items-center gap-1">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
@@ -259,6 +308,25 @@ export default function ActorMaterialsViewer({
                           {charStats.relationships} connections
                         </span>
                       </div>
+                      {onOpenGenerationModal && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const charData = allCharacters?.find(c => c.name === char.characterName)
+                            if (charData) {
+                              onOpenGenerationModal(charData.id)
+                            }
+                          }}
+                          disabled={generating}
+                          className={`w-full mt-2 px-3 py-1.5 text-xs rounded-lg font-medium transition-all ${
+                            isDark
+                              ? 'bg-[#10B981]/20 text-[#10B981] hover:bg-[#10B981]/30 border border-[#10B981]/30'
+                              : 'bg-[#C9A961]/20 text-[#C9A961] hover:bg-[#C9A961]/30 border border-[#C9A961]/30'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          🔄 Regenerate
+                        </button>
+                      )}
                     </div>
                   </motion.button>
                 )
@@ -368,7 +436,7 @@ export default function ActorMaterialsViewer({
           transition={{ delay: 0.35 }}
         >
         <TechniqueSelector
-          selectedTechnique={selectedTechnique}
+          selectedTechnique={currentTechnique}
           onTechniqueChange={handleTechniqueChange}
           currentTechnique={materials.technique}
         />
@@ -385,7 +453,7 @@ export default function ActorMaterialsViewer({
           {/* Tab Navigation with Icons */}
             <div className={`border-2 rounded-xl overflow-hidden ${isDark ? 'border-[#10B981]/30 bg-black/40' : 'border-[#C9A961]/30 bg-white/80'} backdrop-blur-sm`}>
               <div className="flex overflow-x-auto">
-              {(['overview', 'scene-work', 'physical-voice', 'practice'] as const).map((tab) => (
+              {(['overview', 'relationships', 'scene-work', 'physical-voice', 'practice'] as const).map((tab) => (
             <button
                   key={tab}
                     onClick={() => setActiveSection(tab)}
@@ -401,10 +469,10 @@ export default function ActorMaterialsViewer({
                 >
                     {sectionIcons[tab]}
                   <span className="hidden sm:inline">
-                  {tab === 'overview' ? 'Overview' : tab === 'scene-work' ? 'Scene Work' : tab === 'physical-voice' ? 'Physical & Voice' : 'Practice'}
+                  {tab === 'overview' ? 'Overview' : tab === 'relationships' ? 'Relationships' : tab === 'scene-work' ? 'Scene Work' : tab === 'physical-voice' ? 'Physical & Voice' : 'Practice'}
                     </span>
                     <span className="sm:hidden">
-                      {tab === 'overview' ? 'Overview' : tab === 'scene-work' ? 'Scenes' : tab === 'physical-voice' ? 'Physical' : 'Practice'}
+                      {tab === 'overview' ? 'Overview' : tab === 'relationships' ? 'Relations' : tab === 'scene-work' ? 'Scenes' : tab === 'physical-voice' ? 'Physical' : 'Practice'}
                     </span>
                 </button>
               ))}
@@ -421,18 +489,7 @@ export default function ActorMaterialsViewer({
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6"
               >
-                {/* Print Button */}
-                <div className="flex justify-end">
-              <button
-                    onClick={() => window.print()}
-                      className={`px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 ${isDark ? 'bg-[#10B981] text-black hover:bg-[#10B981]/90' : 'bg-[#C9A961] text-white hover:bg-[#C9A961]/90'} transition-all`}
-                  >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
-                    Print Overview
-                  </button>
-                </div>
+                {/* Print Button - Removed */}
                 
                 {/* Character Study Guide */}
                 {shouldShowSection(character.studyGuide.background + character.studyGuide.motivations.join(' ')) && (
@@ -490,15 +547,39 @@ export default function ActorMaterialsViewer({
                     <ThroughLine throughLine={character.throughLine} readingMode={readingMode} />
                   </div>
           )}
-          
+            </motion.div>
+            )}
+            
+            {activeSection === 'relationships' && (
+              <motion.div
+                key="relationships"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="space-y-6"
+              >
           {/* Relationship Map */}
-          {character.relationshipMap && character.relationshipMap.length > 0 && (
+                {character.relationshipMap && character.relationshipMap.length > 0 ? (
                     <div className={`p-6 rounded-xl border-2 ${isDark ? 'border-[#10B981]/30 bg-black/40' : 'border-[#C9A961]/30 bg-white/80'} backdrop-blur-sm`}>
                       <h3 className={`text-2xl font-bold mb-5 ${prefix}-text-primary flex items-center gap-3`}>
                         <span className="text-3xl">🤝</span>
                       Relationship Map
+                      {readingMode === 'guided' && (
+                        <GuidedTooltip
+                          term="Relationship Map"
+                          explanation="A detailed breakdown of your character's relationships with every other character in the story. This includes power dynamics, emotional dependencies, conflict patterns, and how relationships evolve scene-by-scene."
+                        >
+                          <span className="text-base">ℹ️</span>
+                        </GuidedTooltip>
+                      )}
                     </h3>
                     <RelationshipMap relationships={character.relationshipMap} />
+                  </div>
+                ) : (
+                  <div className={`p-6 rounded-xl border-2 ${isDark ? 'border-[#10B981]/30 bg-black/40' : 'border-[#C9A961]/30 bg-white/80'} backdrop-blur-sm text-center`}>
+                    <p className={`${prefix}-text-secondary`}>
+                      No relationship data available. Relationships are generated during the actor materials generation process.
+                    </p>
                   </div>
                 )}
             </motion.div>

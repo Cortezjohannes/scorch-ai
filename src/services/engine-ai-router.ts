@@ -10,8 +10,14 @@ import { generateContent as generateContentWithAzure } from './azure-openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { ENGINE_MODELS, GEMINI_CONFIG, AZURE_CONFIG, FALLBACK_CONFIG } from './model-config'
 
-// Initialize Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+// Initialize Gemini - get API key at runtime
+const getGeminiInstance = () => {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured')
+  }
+  return new GoogleGenerativeAI(apiKey)
+}
 
 export interface EngineRequest {
   prompt: string
@@ -132,6 +138,7 @@ export class EngineAIRouter {
     
     // Helper to generate with a specific model
     const generateWithModel = async (modelName: string): Promise<EngineResponse> => {
+    const genAI = getGeminiInstance()
     const model = genAI.getGenerativeModel({ 
         model: modelName,
       generationConfig: {

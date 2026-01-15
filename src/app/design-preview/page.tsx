@@ -22,7 +22,7 @@ import ThemeToggle from '@/components/design-preview/ThemeToggle'
 
 export default function DesignPreviewPage() {
   const [activeSection, setActiveSection] = useState('colors')
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
 
   // Apply theme to document
   useEffect(() => {

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import CollapsibleSection, { isSectionEmpty } from '@/components/ui/CollapsibleSection'
+import { EditableField } from '@/components/preproduction/shared/EditableField'
 
 interface CharacterDetailModalProps {
   isOpen: boolean
@@ -186,7 +187,21 @@ export default function CharacterDetailModal({
                       {character.description && (
                         <div>
                           <h3 className={`text-lg font-semibold ${prefix}-text-primary mb-2`}>Description</h3>
-                          <p className={`${prefix}-text-secondary text-sm whitespace-pre-wrap`}>{character.description}</p>
+                          {!isLocked ? (
+                            <EditableField
+                              value={character.description || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...character, description: newValue as string }
+                                await onSave(updated)
+                              }}
+                              multiline
+                              rows={4}
+                              placeholder="Enter character description..."
+                              className="text-sm"
+                            />
+                          ) : (
+                            <p className={`${prefix}-text-secondary text-sm whitespace-pre-wrap`}>{character.description}</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -207,104 +222,77 @@ export default function CharacterDetailModal({
                           {/* Age and Gender in Grid */}
                           <div className="grid grid-cols-2 gap-4">
                             {/* Editable Age */}
-                            <div className="flex items-center gap-2 group">
+                            <div className="flex items-center gap-2">
                               <strong className={`${prefix}-text-primary text-sm`}>Age:</strong>
-                              {editingField?.type === 'character' && editingField?.index === characterIndex && editingField?.field === 'physiology.age' ? (
-                                <div className="flex items-center gap-1 flex-1">
-                                  <input
-                                    value={editValue}
-                                    onChange={(e) => onEditValueChange(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') onSaveEdit()
-                                      if (e.key === 'Escape') onCancelEditing()
-                                    }}
-                                    className={`${prefix}-bg-secondary border ${prefix}-border-accent rounded px-2 py-1 ${prefix}-text-primary text-sm flex-1`}
-                                    autoFocus
-                                  />
-                                  <button onClick={onSaveEdit} className={`${prefix}-btn-primary px-2 py-1 rounded text-xs font-bold`}>✓</button>
-                                  <button onClick={onCancelEditing} className={`bg-red-500 ${prefix}-text-primary px-2 py-1 rounded text-xs font-bold`}>✕</button>
-                                </div>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.physiology?.age || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      physiology: {
+                                        ...character.physiology,
+                                        age: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter age..."
+                                  className="text-sm flex-1"
+                                />
                               ) : (
-                                <>
-                                  <span className={`${prefix}-text-secondary`}>{character.physiology.age || 'N/A'}</span>
-                                  {!isLocked && (
-                                    <button
-                                      onClick={() => onStartEditing('character', 'physiology.age', character.physiology.age || '', characterIndex)}
-                                      className={`opacity-0 group-hover:opacity-100 ${prefix}-text-tertiary hover:${prefix}-text-accent transition-all text-xs ml-1`}
-                                    >
-                                      ✏️
-                                    </button>
-                                  )}
-                                </>
+                                <span className={`${prefix}-text-secondary`}>{character.physiology?.age || 'N/A'}</span>
                               )}
                             </div>
                             
                             {/* Editable Gender */}
-                            <div className="flex items-center gap-2 group">
+                            <div className="flex items-center gap-2">
                               <strong className={`${prefix}-text-primary text-sm`}>Gender:</strong>
-                              {editingField?.type === 'character' && editingField?.index === characterIndex && editingField?.field === 'physiology.gender' ? (
-                                <div className="flex items-center gap-1 flex-1">
-                                  <input
-                                    value={editValue}
-                                    onChange={(e) => onEditValueChange(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') onSaveEdit()
-                                      if (e.key === 'Escape') onCancelEditing()
-                                    }}
-                                    className={`${prefix}-bg-secondary border ${prefix}-border-accent rounded px-2 py-1 ${prefix}-text-primary text-sm flex-1`}
-                                    autoFocus
-                                  />
-                                  <button onClick={onSaveEdit} className={`${prefix}-btn-primary px-2 py-1 rounded text-xs font-bold`}>✓</button>
-                                  <button onClick={onCancelEditing} className={`bg-red-500 ${prefix}-text-primary px-2 py-1 rounded text-xs font-bold`}>✕</button>
-                                </div>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.physiology?.gender || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      physiology: {
+                                        ...character.physiology,
+                                        gender: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter gender..."
+                                  className="text-sm flex-1"
+                                />
                               ) : (
-                                <>
-                                  <span className={`${prefix}-text-secondary`}>{character.physiology.gender || 'N/A'}</span>
-                                  {!isLocked && (
-                                    <button
-                                      onClick={() => onStartEditing('character', 'physiology.gender', character.physiology.gender || '', characterIndex)}
-                                      className={`opacity-0 group-hover:opacity-100 ${prefix}-text-tertiary hover:${prefix}-text-accent transition-all text-xs ml-1`}
-                                    >
-                                      ✏️
-                                    </button>
-                                  )}
-                                </>
+                                <span className={`${prefix}-text-secondary`}>{character.physiology?.gender || 'N/A'}</span>
                               )}
                             </div>
                           </div>
                           
                           {/* Editable Appearance */}
                           <div>
-                            <strong className={`${prefix}-text-primary text-sm`}>Appearance:</strong>
-                            {editingField?.type === 'character' && editingField?.index === characterIndex && editingField?.field === 'physiology.appearance' ? (
-                              <div className="flex items-start gap-1 mt-1">
-                                <textarea
-                                  value={editValue}
-                                  onChange={(e) => onEditValueChange(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && e.ctrlKey) onSaveEdit()
-                                    if (e.key === 'Escape') onCancelEditing()
-                                  }}
-                                  className={`${prefix}-bg-secondary border ${prefix}-border-accent rounded px-2 py-1 ${prefix}-text-primary text-sm flex-1 min-h-[60px]`}
-                                  autoFocus
-                                />
-                                <div className="flex flex-col gap-1">
-                                  <button onClick={onSaveEdit} className={`${prefix}-btn-primary px-2 py-1 rounded text-xs font-bold`}>✓</button>
-                                  <button onClick={onCancelEditing} className={`bg-red-500 ${prefix}-text-primary px-2 py-1 rounded text-xs font-bold`}>✕</button>
-                                </div>
-                              </div>
+                            <strong className={`${prefix}-text-primary text-sm mb-1 block`}>Appearance:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.physiology?.appearance || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    physiology: {
+                                      ...character.physiology,
+                                      appearance: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={3}
+                                placeholder="Enter appearance description..."
+                                className="text-sm"
+                              />
                             ) : (
-                              <div className="flex items-start gap-2 group mt-1">
-                                <p className={`${prefix}-text-secondary text-sm flex-1`}>{character.physiology.appearance || 'N/A'}</p>
-                                {!isLocked && (
-                                  <button
-                                    onClick={() => onStartEditing('character', 'physiology.appearance', character.physiology.appearance || '', characterIndex)}
-                                    className={`opacity-0 group-hover:opacity-100 ${prefix}-text-tertiary hover:${prefix}-text-accent transition-all text-xs`}
-                                  >
-                                    ✏️
-                                  </button>
-                                )}
-                              </div>
+                              <p className={`${prefix}-text-secondary text-sm`}>{character.physiology?.appearance || 'N/A'}</p>
                             )}
                           </div>
                           
@@ -329,44 +317,163 @@ export default function CharacterDetailModal({
                         isEmptyDefault={isSectionEmpty(character.sociology || {})}
                       >
                         <div className="space-y-4 text-sm">
-                          {character.sociology.class && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Class:</strong> {character.sociology.class}</p>
-                          )}
-                          {character.sociology.occupation && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Occupation:</strong> {character.sociology.occupation}</p>
-                          )}
-                          {character.sociology.education && (
-                            <div className={`${prefix}-text-secondary`}>
+                          <div>
+                            <strong className={`${prefix}-text-primary`}>Class:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.sociology?.class || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    sociology: {
+                                      ...character.sociology,
+                                      class: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                placeholder="Enter class..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`${prefix}-text-secondary`}>{character.sociology?.class || 'N/A'}</p>
+                            )}
+                          </div>
+                          <div>
+                            <strong className={`${prefix}-text-primary`}>Occupation:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.sociology?.occupation || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    sociology: {
+                                      ...character.sociology,
+                                      occupation: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                placeholder="Enter occupation..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`${prefix}-text-secondary`}>{character.sociology?.occupation || 'N/A'}</p>
+                            )}
+                          </div>
+                          {character.sociology?.education && (
+                            <div>
                               <strong className={`${prefix}-text-primary`}>Education:</strong>
-                              {typeof character.sociology.education === 'string' ? (
-                                <p className="mt-1">{character.sociology.education}</p>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={typeof character.sociology.education === 'string' ? character.sociology.education : JSON.stringify(character.sociology.education)}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      sociology: {
+                                        ...character.sociology,
+                                        education: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  multiline
+                                  rows={3}
+                                  placeholder="Enter education..."
+                                  className="text-sm mt-1"
+                                />
                               ) : (
-                                <div className="mt-1 space-y-1">
-                                  {character.sociology.education.level && (
-                                    <p><strong>Level:</strong> {character.sociology.education.level}</p>
-                                  )}
-                                  {character.sociology.education.institutions && Array.isArray(character.sociology.education.institutions) && character.sociology.education.institutions.length > 0 && (
-                                    <p><strong>Institutions:</strong> {character.sociology.education.institutions.join(', ')}</p>
-                                  )}
-                                  {character.sociology.education.learningStyle && (
-                                    <p><strong>Learning Style:</strong> {character.sociology.education.learningStyle}</p>
-                                  )}
-                                  {character.sociology.education.knowledgeAreas && Array.isArray(character.sociology.education.knowledgeAreas) && character.sociology.education.knowledgeAreas.length > 0 && (
-                                    <p><strong>Knowledge Areas:</strong> {character.sociology.education.knowledgeAreas.join(', ')}</p>
+                                <div className={`${prefix}-text-secondary mt-1`}>
+                                  {typeof character.sociology.education === 'string' ? (
+                                    <p>{character.sociology.education}</p>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      {character.sociology.education.level && (
+                                        <p><strong>Level:</strong> {character.sociology.education.level}</p>
+                                      )}
+                                      {character.sociology.education.institutions && Array.isArray(character.sociology.education.institutions) && character.sociology.education.institutions.length > 0 && (
+                                        <p><strong>Institutions:</strong> {character.sociology.education.institutions.join(', ')}</p>
+                                      )}
+                                      {character.sociology.education.learningStyle && (
+                                        <p><strong>Learning Style:</strong> {character.sociology.education.learningStyle}</p>
+                                      )}
+                                      {character.sociology.education.knowledgeAreas && Array.isArray(character.sociology.education.knowledgeAreas) && character.sociology.education.knowledgeAreas.length > 0 && (
+                                        <p><strong>Knowledge Areas:</strong> {character.sociology.education.knowledgeAreas.join(', ')}</p>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               )}
                             </div>
                           )}
-                          {character.sociology.homeLife && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Home Life:</strong> {character.sociology.homeLife}</p>
-                          )}
-                          {character.sociology.economicStatus && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Economic Status:</strong> {character.sociology.economicStatus}</p>
-                          )}
-                          {character.sociology.communityStanding && (
-                            <p className={`${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Community Standing:</strong> {character.sociology.communityStanding}</p>
-                          )}
+                          <div>
+                            <strong className={`${prefix}-text-primary`}>Home Life:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.sociology?.homeLife || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    sociology: {
+                                      ...character.sociology,
+                                      homeLife: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={2}
+                                placeholder="Enter home life..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`${prefix}-text-secondary`}>{character.sociology?.homeLife || 'N/A'}</p>
+                            )}
+                          </div>
+                          <div>
+                            <strong className={`${prefix}-text-primary`}>Economic Status:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.sociology?.economicStatus || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    sociology: {
+                                      ...character.sociology,
+                                      economicStatus: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                placeholder="Enter economic status..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`${prefix}-text-secondary`}>{character.sociology?.economicStatus || 'N/A'}</p>
+                            )}
+                          </div>
+                          <div>
+                            <strong className={`${prefix}-text-primary`}>Community Standing:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.sociology?.communityStanding || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    sociology: {
+                                      ...character.sociology,
+                                      communityStanding: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                placeholder="Enter community standing..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`${prefix}-text-secondary`}>{character.sociology?.communityStanding || 'N/A'}</p>
+                            )}
+                          </div>
                         </div>
                       </CollapsibleSection>
                     
@@ -379,84 +486,222 @@ export default function CharacterDetailModal({
                         isEmptyDefault={isSectionEmpty(character.psychology || {})}
                       >
                         <div className="space-y-3">
-                          {character.psychology.coreValue && (
-                            <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-green-400`}>
-                              <p className={`text-sm ${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Core Value:</strong> {character.psychology.coreValue}</p>
-                              {character.psychology.moralStandpoint && (
-                                <p className={`text-sm ${prefix}-text-secondary mt-1`}><strong className={`${prefix}-text-primary`}>Moral Standpoint:</strong> {character.psychology.moralStandpoint}</p>
-                              )}
-                            </div>
-                          )}
-                          
-                          {character.psychology.want && (
-                            <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-blue-400`}>
-                              <p className="text-blue-400 font-bold text-xs mb-1">WANT (External Goal)</p>
-                              {typeof character.psychology.want === 'string' ? (
-                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.want}</p>
+                          <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-green-400`}>
+                            <strong className={`${prefix}-text-primary text-sm`}>Core Value:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.psychology?.coreValue || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    psychology: {
+                                      ...character.psychology,
+                                      coreValue: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                placeholder="Enter core value..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology?.coreValue || 'N/A'}</p>
+                            )}
+                            <div className="mt-2">
+                              <strong className={`${prefix}-text-primary text-sm`}>Moral Standpoint:</strong>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.psychology?.moralStandpoint || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      psychology: {
+                                        ...character.psychology,
+                                        moralStandpoint: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter moral standpoint..."
+                                  className="text-sm mt-1"
+                                />
                               ) : (
-                                <div className={`text-sm ${prefix}-text-secondary space-y-1 mt-2`}>
-                                  {character.psychology.want.consciousGoal && (
-                                    <p><strong>Conscious Goal:</strong> {character.psychology.want.consciousGoal}</p>
-                                  )}
-                                  {character.psychology.want.externalObjective && (
-                                    <p><strong>External Objective:</strong> {character.psychology.want.externalObjective}</p>
-                                  )}
-                                  {character.psychology.want.whatTheyThinkWillMakeThemHappy && (
-                                    <p><strong>What They Think Will Make Them Happy:</strong> {character.psychology.want.whatTheyThinkWillMakeThemHappy}</p>
-                                  )}
-                                  {character.psychology.want.pursuitStrategy && (
-                                    <p><strong>Pursuit Strategy:</strong> {character.psychology.want.pursuitStrategy}</p>
-                                  )}
-                                </div>
+                                <p className={`text-sm ${prefix}-text-secondary mt-1`}>{character.psychology?.moralStandpoint || 'N/A'}</p>
                               )}
                             </div>
-                          )}
+                          </div>
                           
-                          {character.psychology.need && (
-                            <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-purple-400`}>
-                              <p className="text-purple-400 font-bold text-xs mb-1">NEED (Internal Lesson)</p>
-                              {typeof character.psychology.need === 'string' ? (
-                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.need}</p>
+                          <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-blue-400`}>
+                            <p className="text-blue-400 font-bold text-xs mb-1">WANT (External Goal)</p>
+                            {!isLocked ? (
+                              <EditableField
+                                value={typeof character.psychology?.want === 'string' ? character.psychology.want : (character.psychology?.want?.consciousGoal || '')}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    psychology: {
+                                      ...character.psychology,
+                                      want: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={3}
+                                placeholder="Enter want (external goal)..."
+                                className="text-sm"
+                              />
+                            ) : (
+                              <p className={`text-sm ${prefix}-text-secondary`}>
+                                {typeof character.psychology?.want === 'string' ? character.psychology.want : (character.psychology?.want?.consciousGoal || 'N/A')}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-purple-400`}>
+                            <p className="text-purple-400 font-bold text-xs mb-1">NEED (Internal Lesson)</p>
+                            {!isLocked ? (
+                              <EditableField
+                                value={typeof character.psychology?.need === 'string' ? character.psychology.need : (character.psychology?.need?.internalLesson || '')}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    psychology: {
+                                      ...character.psychology,
+                                      need: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={3}
+                                placeholder="Enter need (internal lesson)..."
+                                className="text-sm"
+                              />
+                            ) : (
+                              <p className={`text-sm ${prefix}-text-secondary`}>
+                                {typeof character.psychology?.need === 'string' ? character.psychology.need : (character.psychology?.need?.internalLesson || 'N/A')}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-red-400`}>
+                            <p className="text-red-400 font-bold text-xs mb-1">PRIMARY FLAW</p>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.psychology?.primaryFlaw || ''}
+                                onSave={async (newValue) => {
+                                  const updated = {
+                                    ...character,
+                                    psychology: {
+                                      ...character.psychology,
+                                      primaryFlaw: newValue as string
+                                    }
+                                  }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={2}
+                                placeholder="Enter primary flaw..."
+                                className="text-sm"
+                              />
+                            ) : (
+                              <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology?.primaryFlaw || 'N/A'}</p>
+                            )}
+                            <p className={`text-xs mt-1 ${prefix}-text-tertiary`}>*Creates obstacles until growth occurs</p>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div>
+                              <strong className={`${prefix}-text-primary text-sm`}>Temperament:</strong>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={Array.isArray(character.psychology?.temperament) ? character.psychology.temperament.join(', ') : (character.psychology?.temperament || '')}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      psychology: {
+                                        ...character.psychology,
+                                        temperament: (newValue as string).split(',').map(t => t.trim()).filter(Boolean)
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter temperament (comma-separated)..."
+                                  className="text-sm mt-1"
+                                />
                               ) : (
-                                <div className={`text-sm ${prefix}-text-secondary space-y-1 mt-2`}>
-                                  {character.psychology.need.unconsciousTruth && (
-                                    <p><strong>Unconscious Truth:</strong> {character.psychology.need.unconsciousTruth}</p>
-                                  )}
-                                  {character.psychology.need.internalLesson && (
-                                    <p><strong>Internal Lesson:</strong> {character.psychology.need.internalLesson}</p>
-                                  )}
-                                  {character.psychology.need.whatTheyActuallyNeedForFulfillment && (
-                                    <p><strong>What They Actually Need:</strong> {character.psychology.need.whatTheyActuallyNeedForFulfillment}</p>
-                                  )}
-                                  {character.psychology.need.thematicSignificance && (
-                                    <p><strong>Thematic Significance:</strong> {character.psychology.need.thematicSignificance}</p>
-                                  )}
-                                </div>
+                                <p className={`text-sm ${prefix}-text-secondary`}>
+                                  {Array.isArray(character.psychology?.temperament) ? character.psychology.temperament.join(', ') : (character.psychology?.temperament || 'N/A')}
+                                </p>
                               )}
                             </div>
-                          )}
-                          
-                          {character.psychology.primaryFlaw && (
-                            <div className={`${prefix}-card-secondary rounded-lg p-3 border-l-4 border-red-400`}>
-                              <p className="text-red-400 font-bold text-xs mb-1">PRIMARY FLAW</p>
-                              <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology.primaryFlaw}</p>
-                              <p className={`text-xs mt-1 ${prefix}-text-tertiary`}>*Creates obstacles until growth occurs</p>
+                            <div>
+                              <strong className={`${prefix}-text-primary text-sm`}>Attitude:</strong>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.psychology?.attitude || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      psychology: {
+                                        ...character.psychology,
+                                        attitude: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter attitude..."
+                                  className="text-sm mt-1"
+                                />
+                              ) : (
+                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology?.attitude || 'N/A'}</p>
+                              )}
                             </div>
-                          )}
-                          
-                          <div className="space-y-1">
-                            {character.psychology.temperament?.length > 0 && (
-                              <p className={`text-sm ${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Temperament:</strong> {character.psychology.temperament.join(', ')}</p>
-                            )}
-                            {character.psychology.attitude && (
-                              <p className={`text-sm ${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Attitude:</strong> {character.psychology.attitude}</p>
-                            )}
-                            {character.psychology.iq && (
-                              <p className={`text-sm ${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>IQ:</strong> {character.psychology.iq}</p>
-                            )}
-                            {character.psychology.fears?.[0] && (
-                              <p className={`text-sm ${prefix}-text-secondary`}><strong className={`${prefix}-text-primary`}>Top Fear:</strong> {character.psychology.fears[0]}</p>
-                            )}
+                            <div>
+                              <strong className={`${prefix}-text-primary text-sm`}>IQ:</strong>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.psychology?.iq || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      psychology: {
+                                        ...character.psychology,
+                                        iq: newValue as string
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter IQ..."
+                                  className="text-sm mt-1"
+                                />
+                              ) : (
+                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology?.iq || 'N/A'}</p>
+                              )}
+                            </div>
+                            <div>
+                              <strong className={`${prefix}-text-primary text-sm`}>Top Fear:</strong>
+                              {!isLocked ? (
+                                <EditableField
+                                  value={character.psychology?.fears?.[0] || ''}
+                                  onSave={async (newValue) => {
+                                    const updated = {
+                                      ...character,
+                                      psychology: {
+                                        ...character.psychology,
+                                        fears: [newValue as string, ...(character.psychology?.fears?.slice(1) || [])]
+                                      }
+                                    }
+                                    await onSave(updated)
+                                  }}
+                                  placeholder="Enter top fear..."
+                                  className="text-sm mt-1"
+                                />
+                              ) : (
+                                <p className={`text-sm ${prefix}-text-secondary`}>{character.psychology?.fears?.[0] || 'N/A'}</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CollapsibleSection>
@@ -466,12 +711,77 @@ export default function CharacterDetailModal({
                     <div className="space-y-4">
                       <div className={`${prefix}-card ${prefix}-border rounded-lg p-4`}>
                         <h5 className={`${prefix}-text-accent font-bold mb-2`}>Character Overview</h5>
-                        <p className={`${prefix}-text-secondary mb-3`}>{character.description || 'No description available'}</p>
-                        {character.archetype && (
-                          <p className="text-sm"><strong className={`${prefix}-text-primary`}>Archetype:</strong> <span className={`${prefix}-text-secondary`}>{character.archetype}</span></p>
-                        )}
-                        {character.arc && (
-                          <p className="text-sm"><strong className={`${prefix}-text-primary`}>Character Arc:</strong> <span className={`${prefix}-text-secondary`}>{character.arc}</span></p>
+                        <div className="mb-3">
+                          <strong className={`${prefix}-text-primary text-sm`}>Description:</strong>
+                          {!isLocked ? (
+                            <EditableField
+                              value={character.description || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...character, description: newValue as string }
+                                await onSave(updated)
+                              }}
+                              multiline
+                              rows={4}
+                              placeholder="Enter character description..."
+                              className="text-sm mt-1"
+                            />
+                          ) : (
+                            <p className={`${prefix}-text-secondary`}>{character.description || 'No description available'}</p>
+                          )}
+                        </div>
+                        <div>
+                          <strong className={`${prefix}-text-primary text-sm`}>Archetype:</strong>
+                          {!isLocked ? (
+                            <EditableField
+                              value={character.archetype || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...character, archetype: newValue as string }
+                                await onSave(updated)
+                              }}
+                              placeholder="Enter archetype..."
+                              className="text-sm mt-1"
+                            />
+                          ) : (
+                            <p className="text-sm"><span className={`${prefix}-text-secondary`}>{character.archetype || 'N/A'}</span></p>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <strong className={`${prefix}-text-primary text-sm`}>Character Arc:</strong>
+                          {!isLocked ? (
+                            <EditableField
+                              value={character.arc || ''}
+                              onSave={async (newValue) => {
+                                const updated = { ...character, arc: newValue as string }
+                                await onSave(updated)
+                              }}
+                              multiline
+                              rows={3}
+                              placeholder="Enter character arc..."
+                              className="text-sm mt-1"
+                            />
+                          ) : (
+                            <p className="text-sm"><span className={`${prefix}-text-secondary`}>{character.arc || 'N/A'}</span></p>
+                          )}
+                        </div>
+                        {character.backstory && (
+                          <div className="mt-2">
+                            <strong className={`${prefix}-text-primary text-sm`}>Backstory:</strong>
+                            {!isLocked ? (
+                              <EditableField
+                                value={character.backstory || ''}
+                                onSave={async (newValue) => {
+                                  const updated = { ...character, backstory: newValue as string }
+                                  await onSave(updated)
+                                }}
+                                multiline
+                                rows={4}
+                                placeholder="Enter backstory..."
+                                className="text-sm mt-1"
+                              />
+                            ) : (
+                              <p className={`text-sm ${prefix}-text-secondary mt-1`}>{character.backstory}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

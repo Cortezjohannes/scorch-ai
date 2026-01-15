@@ -8,6 +8,7 @@ import { RecentStories } from '@/components/RecentStories'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import PitchPlaybookModal from '@/components/PitchPlaybookModal'
 import { useAuth } from '@/context/AuthContext'
+import DemoAuthModal from '@/components/auth/DemoAuthModal'
 import { saveStoryBible } from '@/services/story-bible-service'
 import { 
   saveGenerationPreferences, 
@@ -1684,6 +1685,9 @@ Robin Scherbatsky - Canadian news anchor and Ted's on-again-off-again love inter
         isOpen={showPitchPlaybook} 
         onClose={() => setShowPitchPlaybook(false)} 
       />
+      
+      {/* Demo Authentication Modal - Shows when user is not authenticated */}
+      <DemoAuthModal />
       
     </div>
   )

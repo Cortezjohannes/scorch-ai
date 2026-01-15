@@ -25,7 +25,7 @@ export function SafariBanner() {
   const [isDismissed, setIsDismissed] = useState(false)
   
   // Safely get theme context
-  let prefix = 'light'
+  let prefix = 'dark'
   try {
     const themeContext = useContext(ThemeContext)
     if (themeContext) {
@@ -33,7 +33,7 @@ export function SafariBanner() {
     }
   } catch (e) {
     // Context not available, use default
-    prefix = 'light'
+    prefix = 'dark'
   }
 
   useEffect(() => {

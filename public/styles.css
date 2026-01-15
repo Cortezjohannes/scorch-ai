@@ -469,7 +469,7 @@ h4 {
 .cta-buttons {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.25rem;
     justify-content: center;
     align-items: center;
     margin-bottom: 1rem;

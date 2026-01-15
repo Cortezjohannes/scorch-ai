@@ -10,7 +10,22 @@ import { generateShotList } from '@/services/ai-generators/shot-list-generator'
 import { getStoryBible } from '@/services/story-bible-service'
 import { getPreProduction } from '@/services/preproduction-service'
 
+// Ensure this route is always dynamic (no caching) for deployment
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs' // AI generation requires Node.js runtime
+
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400', // 24 hours
+    },
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {

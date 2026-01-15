@@ -144,7 +144,7 @@ export default function QuickAccessCards({ storyBibleId, storyBible, episodes, t
       }
     },
     { 
-      icon: '⚡', 
+      icon: '📝', 
       title: 'Episode Studio', 
       desc: getEpisodeStudioSubtitle(),
       onClick: handleEpisodeStudioClick,
@@ -160,14 +160,14 @@ export default function QuickAccessCards({ storyBibleId, storyBible, episodes, t
 
   const productionTools = [
     { 
-      icon: '🎬', 
+      icon: '📋', 
       title: 'Pre-Production', 
       desc: 'View scripts, storyboards, breakdown, and more',
       selector: true,
       onClick: () => setShowEpisodeSelector(true)
     },
     { 
-      icon: '📐', 
+      icon: '💼', 
       title: 'Production Assistant', 
       desc: 'Key locations, props, budget, scheduling, and more',
       selector: true,

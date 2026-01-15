@@ -8,9 +8,9 @@ interface LandingPageExamplesProps {
 }
 
 export default function LandingPageExamples({ theme }: LandingPageExamplesProps) {
-  // Force light mode for this mockup
-  const isLight = true
-  const prefix = 'light'
+  // Use theme prop for this mockup
+  const isLight = theme === 'light'
+  const prefix = theme === 'dark' ? 'dark' : 'light'
 
   // Gold color values
   const goldPrimary = '#C9A961'

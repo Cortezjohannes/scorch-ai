@@ -9,6 +9,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc,
+  deleteDoc,
   query,
   where,
   getDocs,
@@ -88,6 +89,24 @@ export async function saveActorMaterials(
     console.log('✅ Actor materials saved:', `arc-${arcIndex}`)
   } catch (error) {
     console.error('❌ Error saving actor materials:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete actor materials from Firestore (DEBUG ONLY)
+ */
+export async function deleteActorMaterials(
+  userId: string,
+  storyBibleId: string,
+  arcIndex: number
+): Promise<void> {
+  try {
+    const docRef = getActorMaterialsDocRef(userId, storyBibleId, arcIndex)
+    await deleteDoc(docRef)
+    console.log('🗑️ Actor materials deleted (DEBUG):', `arc-${arcIndex}`)
+  } catch (error) {
+    console.error('❌ Error deleting actor materials:', error)
     throw error
   }
 }

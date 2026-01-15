@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import GlobalThemeToggle from '@/components/navigation/GlobalThemeToggle'
+import ActorApplicationModal from '@/components/landing/ActorApplicationModal'
 
 interface GreenlitLandingProps {}
 
@@ -13,6 +14,7 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
   const { user, isAuthenticated, signOut } = useAuth()
   const { theme } = useTheme()
   const [showFAQModal, setShowFAQModal] = useState(false)
+  const [showActorApplicationModal, setShowActorApplicationModal] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [currentSlide, setCurrentSlide] = useState(0)
 
@@ -673,13 +675,18 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
             We built a Showrunner for professional actors ready to take control. You bring the talent and the audience; we handle the production grind. Launch your series, own your IP.
           </p>
           <div className="cta-buttons">
-            <button className="cta-primary glow-effect">Apply to the Producer Program →</button>
+            <button 
+              className="cta-primary glow-effect"
+              onClick={() => setShowActorApplicationModal(true)}
+            >
+              BE A GREENLIT ACTOR
+            </button>
             <button 
               className="cta-secondary demo-button" 
               id="hero-cta-button" 
               onClick={() => window.location.href = isAuthenticated && user ? '/profile' : '/demo'}
             >
-              {isAuthenticated && user ? 'Go to Dashboard' : 'Try the Demo'}
+              {isAuthenticated && user ? 'Go to Dashboard' : 'Co-write your first show'}
             </button>
           </div>
           <p className="micro-copy">Response within 72 hours.</p>
@@ -1041,7 +1048,7 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
             id="footer-cta-button" 
             onClick={() => window.location.href = isAuthenticated && user ? '/profile' : '/demo'}
           >
-            {isAuthenticated && user ? 'Go to Dashboard →' : 'Try the Demo →'}
+            {isAuthenticated && user ? 'Go to Dashboard →' : 'Co-write your first show →'}
           </button>
           <button className="faq-link-final" onClick={openFAQModal}>FAQ</button>
         </div>
@@ -1100,6 +1107,12 @@ export default function GreenlitLanding({}: GreenlitLandingProps) {
           </div>
         </div>
       </div>
+      
+      {/* Actor Application Modal */}
+      <ActorApplicationModal 
+        isOpen={showActorApplicationModal}
+        onClose={() => setShowActorApplicationModal(false)}
+      />
     </div>
   )
 }

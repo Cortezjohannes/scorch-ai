@@ -630,18 +630,18 @@ export default function EpisodePage() {
   const [editingSceneContent, setEditingSceneContent] = useState<string>('')
   const [isSceneLocked, setIsSceneLocked] = useState<boolean>(false)
 
-  // Theme state (light mode default)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  // Theme state (dark mode default)
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark')
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set([0])) // First scene open by default
 
   // Effect to set client-side flag and load theme
   useEffect(() => {
     setIsClient(true)
-    // Load theme preference from localStorage
+    // Load theme preference from localStorage, default to dark
     const savedTheme = localStorage.getItem('episode-viewer-theme') as 'light' | 'dark' | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    }
+    const initialTheme = savedTheme || 'dark'
+    setTheme(initialTheme)
+    document.documentElement.setAttribute('data-theme', initialTheme)
   }, [])
 
   // Toggle theme
@@ -649,6 +649,7 @@ export default function EpisodePage() {
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setTheme(newTheme)
     localStorage.setItem('episode-viewer-theme', newTheme)
+    document.documentElement.setAttribute('data-theme', newTheme)
   }
   
   // Toggle scene expansion
@@ -1370,7 +1371,7 @@ export default function EpisodePage() {
     setEditingSceneContent('')
   }
   
-  const saveSceneEdit = () => {
+  const saveSceneEdit = async () => {
     if (!episodeData || editingScene === null) return
     
     // Update the scene content
@@ -1389,7 +1390,27 @@ export default function EpisodePage() {
     
     setEpisodeData(updatedEpisodeData)
     
-    // Save to localStorage
+    // Save to Firestore if user is authenticated
+    if (user?.id && storyBibleId) {
+      try {
+        const { saveEpisode } = await import('@/services/episode-service')
+        await saveEpisode(
+          {
+            ...updatedEpisodeData,
+            episodeNumber: episodeId,
+            id: episodeData.id || `ep_${storyBibleId}_${episodeId}`
+          },
+          storyBibleId,
+          user.id
+        )
+        console.log(`✅ Scene ${editingScene + 1} edited and saved to Firestore`)
+      } catch (error) {
+        console.error('❌ Error saving scene edit to Firestore:', error)
+        // Fall back to localStorage if Firestore save fails
+      }
+    }
+    
+    // Also save to localStorage as backup
     try {
       const savedEpisodes = localStorage.getItem('scorched-episodes') || localStorage.getItem('reeled-episodes') || localStorage.getItem('greenlit-episodes')
       const episodes = savedEpisodes ? JSON.parse(savedEpisodes) : {}
@@ -1400,9 +1421,11 @@ export default function EpisodePage() {
                   localStorage.getItem('reeled-episodes') ? 'reeled-episodes' : 'greenlit-episodes'
       localStorage.setItem(key, JSON.stringify(episodes))
       
-      console.log(`✅ Scene ${editingScene + 1} edited and saved`)
+      if (!user?.id) {
+        console.log(`✅ Scene ${editingScene + 1} edited and saved to localStorage (not authenticated)`)
+      }
     } catch (error) {
-      console.error('Error saving scene edit:', error)
+      console.error('Error saving scene edit to localStorage:', error)
     }
     
     // Clear editing state

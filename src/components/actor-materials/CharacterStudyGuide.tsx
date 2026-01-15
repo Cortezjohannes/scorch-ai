@@ -46,8 +46,8 @@ export default function CharacterStudyGuide({ studyGuide, readingMode = 'profess
         </ul>
       </div>
       
-      {/* Relationships */}
-      {studyGuide.relationships && studyGuide.relationships.length > 0 && (
+      {/* Relationships - Hidden (available in Relationships tab) */}
+      {false && studyGuide.relationships && studyGuide.relationships.length > 0 && (
         <div>
           <h4 className={`font-medium mb-2 ${prefix}-text-primary`}>
             Relationships

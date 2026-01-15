@@ -8,6 +8,7 @@ import { StatusBadge } from '../shared/StatusBadge'
 import { CollaborativeNotes } from '../shared/CollaborativeNotes'
 import { LocationGenerationProgressOverlay } from '../shared/LocationGenerationProgressOverlay'
 import { getStoryBible } from '@/services/story-bible-service'
+import { generateGoogleMapsUrl } from '@/services/location-url-resolver'
 
 interface LocationsTabProps {
   preProductionData: PreProductionData
@@ -364,64 +365,76 @@ export function LocationsTab({
   const handleSaveSelectedLocations = async () => {
     if (!locationOptions) return
 
-    // Import normalizeLocationName for generating recurringLocationKey
+    // Import services
     const { normalizeLocationName } = await import('@/services/location-matcher')
+    const { resolveLocationUrlSync } = await import('@/services/location-url-resolver')
 
-    // Convert selected LocationOptions to Location[] format
-    const selectedLocations: Location[] = (locationOptions?.sceneRequirements || [])
-      .flatMap((req: any) => 
-        (req.options || [])
-          .filter((opt: LocationOption) => opt.selected)
-          .map((opt: LocationOption) => {
-            const recurringKey = normalizeLocationName(req.sceneTitle)
-            const isReuse = opt.isReuse || false
-            
-            return {
-              id: opt.id,
-              name: opt.name,
-              address: opt.address || '',
-              type: opt.type || 'interior',
-              scenes: Array.isArray(req.sceneNumber) ? req.sceneNumber : [req.sceneNumber],
-              requirements: [],
-              contact: '',
-              phone: '',
-              email: '',
-              sourcing: opt.sourcing || 'other',
-              sourcingUrl: opt.sourcingPlatform ? (opt.sourcingPlatform.includes('Airbnb') ? 'https://airbnb.com' : 
-                                                     opt.sourcingPlatform.includes('Peerspace') ? 'https://peerspace.com' :
-                                                     opt.sourcingPlatform.includes('Giggster') ? 'https://giggster.com' : undefined) : undefined,
-              permitCost: opt.logistics.permitCost,
-              insuranceRequired: false,
-              status: 'scouted' as const,
-              secured: false,
-              cost: opt.estimatedCost || 0,
-              scoutingReport: opt.scoutingReport,
-              availability: [],
-              imageUrls: [],
-              notes: '',
-              comments: [],
-              // Location reuse tracking
-              recurringLocationKey: recurringKey,
-              originalEpisode: isReuse ? undefined : (isEpisodeContext ? preProductionData.episodeNumber : undefined), // Only set if not a reuse
-              reusedFromLocationId: isReuse ? opt.reusedFromLocationId : undefined,
-              // Legacy fields for backward compatibility
-              contactPerson: '',
-              contactPhone: '',
-              contactEmail: '',
-              permitInfo: {
-                required: opt.logistics.permitRequired,
-                cost: opt.logistics.permitCost || 0,
-                status: opt.logistics.permitRequired ? 'pending' : 'not-needed',
-                notes: opt.logistics.notes,
-                expirationDate: undefined
-              },
-              availableDays: [],
-              powerAccess: opt.logistics.powerAccess,
-              parkingAvailable: opt.logistics.parkingAvailable,
-              restroomAccess: opt.logistics.restroomAccess
-            }
-          })
-      )
+    // Convert selected LocationOptions to Location[] format with resolved URLs
+    const selectedLocations: Location[] = await Promise.all(
+      (locationOptions?.sceneRequirements || [])
+        .flatMap((req: any) => 
+          (req.options || [])
+            .filter((opt: LocationOption) => opt.selected)
+            .map(async (opt: LocationOption) => {
+              const recurringKey = normalizeLocationName(req.sceneTitle)
+              const isReuse = opt.isReuse || false
+              
+              // Resolve URL using the location URL resolver
+              // First check if there's a specificVenueUrl in scoutingReport or other fields
+              const locationForResolver = {
+                ...opt,
+                venueName: opt.name,
+                specificVenueUrl: (opt as any).specificVenueUrl || (opt.scoutingReport as any)?.specificVenueUrl
+              }
+              
+              const resolvedUrl = resolveLocationUrlSync(locationForResolver)
+              
+              return {
+                id: opt.id,
+                name: opt.name,
+                address: opt.address || '',
+                type: opt.type || 'interior',
+                scenes: Array.isArray(req.sceneNumber) ? req.sceneNumber : [req.sceneNumber],
+                requirements: [],
+                contact: '',
+                phone: '',
+                email: '',
+                sourcing: resolvedUrl?.platform || opt.sourcing || 'other',
+                sourcingUrl: resolvedUrl?.primaryUrl || (opt as any).specificVenueUrl || undefined,
+                listingId: (opt as any).listingId,
+                permitCost: opt.logistics.permitCost,
+                insuranceRequired: false,
+                status: 'scouted' as const,
+                secured: false,
+                cost: opt.estimatedCost || 0,
+                scoutingReport: opt.scoutingReport,
+                availability: [],
+                imageUrls: [],
+                notes: '',
+                comments: [],
+                // Location reuse tracking
+                recurringLocationKey: recurringKey,
+                originalEpisode: isReuse ? undefined : (isEpisodeContext ? preProductionData.episodeNumber : undefined), // Only set if not a reuse
+                reusedFromLocationId: isReuse ? opt.reusedFromLocationId : undefined,
+                // Legacy fields for backward compatibility
+                contactPerson: '',
+                contactPhone: '',
+                contactEmail: '',
+                permitInfo: {
+                  required: opt.logistics.permitRequired,
+                  cost: opt.logistics.permitCost || 0,
+                  status: opt.logistics.permitRequired ? 'pending' : 'not-needed',
+                  notes: opt.logistics.notes,
+                  expirationDate: undefined
+                },
+                availableDays: [],
+                powerAccess: opt.logistics.powerAccess,
+                parkingAvailable: opt.logistics.parkingAvailable,
+                restroomAccess: opt.logistics.restroomAccess
+              }
+            })
+        )
+    )
 
     if (selectedLocations.length === 0) {
       setGenerationError('Please select at least one location option to save')
@@ -829,33 +842,79 @@ export function LocationsTab({
 
 // Sourcing Section Component
 function SourcingSection({ location }: { location: Location }) {
-  if (!location.sourcing) return null
+  if (!location.sourcing && !location.sourcingUrl && !location.address) return null
+
+  // Generate Google Maps URL if we have an address
+  const getGoogleMapsUrl = () => {
+    if (!location.address) return null
+    return generateGoogleMapsUrl(location.address, location.name)
+  }
+
+  const googleMapsUrl = getGoogleMapsUrl()
+  const platformName = location.sourcing 
+    ? location.sourcing
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase())
+        .replace('Google Maps', 'Google Maps')
+        .replace('Booking Com', 'Booking.com')
+    : 'Location'
+
+  const getPlatformIcon = () => {
+    switch (location.sourcing) {
+      case 'google-maps':
+        return '🗺️'
+      case 'airbnb':
+        return '🏠'
+      case 'agoda':
+        return '🏨'
+      case 'booking-com':
+        return '📅'
+      case 'expedia':
+        return '✈️'
+      case 'venue-website':
+        return '🌐'
+      default:
+        return '📍'
+    }
+  }
 
   return (
     <div className="mt-3 pt-3 border-t border-[#36393f]">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[#e7e7e7]/50">Source:</span>
-          <span className="text-xs font-medium text-[#e7e7e7] capitalize">
-            {location.sourcing.replace('-', ' ')}
-          </span>
-        </div>
-        
-        {location.sourcingUrl && (
-          <a 
-            href={location.sourcingUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-xs text-[#10B981] hover:text-[#059669] transition-colors flex items-center gap-1"
-          >
-            View on {
-              location.sourcing === 'airbnb' ? 'Airbnb' : 
-              location.sourcing === 'peerspace' ? 'Peerspace' : 
-              location.sourcing === 'giggster' ? 'Giggster' : 
-              'Platform'
-            } →
-          </a>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        {location.sourcing && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#e7e7e7]/50">Source:</span>
+            <span className="text-xs font-medium text-[#e7e7e7] flex items-center gap-1">
+              {getPlatformIcon()} {platformName}
+            </span>
+          </div>
         )}
+        
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Google Maps link - always show if address available */}
+          {googleMapsUrl && (
+            <a 
+              href={googleMapsUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-[#4285F4] hover:text-[#1a73e8] transition-colors flex items-center gap-1 font-medium"
+            >
+              🗺️ View on Maps →
+            </a>
+          )}
+          
+          {/* Primary sourcing URL (booking platform, venue, etc.) */}
+          {location.sourcingUrl && location.sourcing !== 'google-maps' && (
+            <a 
+              href={location.sourcingUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-[#10B981] hover:text-[#059669] transition-colors flex items-center gap-1 font-medium"
+            >
+              {getPlatformIcon()} View on {platformName} →
+            </a>
+          )}
+        </div>
       </div>
       
       {location.listingId && (

@@ -209,7 +209,26 @@ export function ScriptsTab({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <ScriptRenderer script={fullScript} />
+            <ScriptRenderer 
+              script={fullScript} 
+              onUpdate={async (updatedScript) => {
+                console.log('💾 Script edit detected, saving to Firestore...', {
+                  title: updatedScript.title,
+                  pageCount: updatedScript.pages.length,
+                  elementCount: updatedScript.pages.reduce((sum, p) => sum + p.elements.length, 0)
+                })
+                try {
+                  await onUpdate('scripts', {
+                    ...scriptData,
+                    fullScript: updatedScript
+                  })
+                  console.log('✅ Script edit saved to Firestore successfully')
+                } catch (error) {
+                  console.error('❌ Error saving script edit:', error)
+                  throw error
+                }
+              }}
+            />
           </motion.div>
         ) : (
           <motion.div

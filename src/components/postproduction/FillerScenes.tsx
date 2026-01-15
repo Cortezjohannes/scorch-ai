@@ -116,6 +116,11 @@ export function FillerScenes({ storyBibleId, episodeNumber, arcIndex, arcEpisode
 
     setGeneratingShots(prev => new Set(prev).add(shot.id))
     try {
+      // Ensure EmptyRanges is defined (Safari/iOS compatibility)
+      if (typeof window !== 'undefined' && typeof (window as any).EmptyRanges === 'undefined') {
+        (window as any).EmptyRanges = Object.freeze([])
+      }
+
       const response = await fetch('/api/generate/filler-scene-sample', {
         method: 'POST',
         headers: {
@@ -133,60 +138,116 @@ export function FillerScenes({ storyBibleId, episodeNumber, arcIndex, arcEpisode
         })
       })
 
-      const result = await response.json()
+      // Handle response safely - check status first
+      let result
+      try {
+        const text = await response.text()
+        if (!text) {
+          throw new Error('Empty response from server')
+        }
+        result = JSON.parse(text)
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError)
+        throw new Error(`Invalid response from server: ${response.status} ${response.statusText}`)
+      }
 
       if (!response.ok || !result.success) {
         if (result.contentPolicyBlocked) {
           throw new Error('Video generation blocked by content policy. Please try a different shot or modify the description.')
         }
-        throw new Error(result.error || 'Failed to generate video')
+        throw new Error(result.error || `Failed to generate video: ${response.status} ${response.statusText}`)
       }
+
+      // Validate that we have a video URL
+      if (!result.videoUrl) {
+        console.error('Response missing videoUrl:', result)
+        throw new Error('Video generation succeeded but no video URL was returned')
+      }
+
+      // Validate URL format (should be proxy URL or valid HTTP/HTTPS URL)
+      if (typeof result.videoUrl !== 'string' || result.videoUrl.trim() === '') {
+        console.error('Invalid videoUrl format:', result.videoUrl)
+        throw new Error('Invalid video URL format returned from server')
+      }
+
+      console.log('✅ Video generation successful:', {
+        shotId: shot.id,
+        videoUrl: result.videoUrl.substring(0, 100) + '...',
+        isProxyUrl: result.videoUrl.includes('/api/veo3-video-proxy')
+      })
 
       // Save video URL to Firestore
-      if (result.videoUrl && preProductionData && user.id) {
-        const shotList = preProductionData.shotList
-        if (shotList?.scenes) {
-          const updatedScenes = shotList.scenes.map(scene => ({
-            ...scene,
-            shots: scene.shots.map(s => {
-              if (s.id === shot.id) {
-                return {
-                  ...s,
-                  aiGeneratedVideoUrl: result.videoUrl,
-                  aiGenerationSampleGenerated: true,
-                  aiGenerationPrompt: s.aiGenerationPrompt || shot.aiGenerationPrompt
-                }
-              }
-              return s
-            })
-          }))
+      if (!result.videoUrl) {
+        throw new Error('No video URL in response')
+      }
 
-          await updatePreProduction(
-            preProductionData.id,
-            {
-              shotList: {
-                ...shotList,
-                scenes: updatedScenes,
-                lastUpdated: Date.now(),
-                updatedBy: user.id
-              }
-            },
-            user.id,
-            storyBibleId
-          )
+      if (!preProductionData || !user.id) {
+        throw new Error('Missing pre-production data or user ID')
+      }
 
-          // Update local state
-          setPreProductionData({
-            ...preProductionData,
-            shotList: {
-              ...shotList,
-              scenes: updatedScenes
+      const shotList = preProductionData.shotList
+      if (!shotList?.scenes) {
+        throw new Error('Shot list data not found in pre-production data')
+      }
+
+      const updatedScenes = shotList.scenes.map(scene => ({
+        ...scene,
+        shots: scene.shots.map(s => {
+          if (s.id === shot.id) {
+            return {
+              ...s,
+              aiGeneratedVideoUrl: result.videoUrl,
+              aiGenerationSampleGenerated: true,
+              aiGenerationPrompt: s.aiGenerationPrompt || shot.aiGenerationPrompt
             }
-          })
+          }
+          return s
+        })
+      }))
+
+      await updatePreProduction(
+        preProductionData.id,
+        {
+          shotList: {
+            ...shotList,
+            scenes: updatedScenes,
+            lastUpdated: Date.now(),
+            updatedBy: user.id
+          }
+        },
+        user.id,
+        storyBibleId
+      )
+
+      // Update local state - ensure we're updating the correct structure
+      const updatedPreProductionData = {
+        ...preProductionData,
+        shotList: {
+          ...shotList,
+          scenes: updatedScenes,
+          lastUpdated: Date.now(),
+          updatedBy: user.id
         }
       }
+      
+      setPreProductionData(updatedPreProductionData)
+
+      console.log('✅ Video URL saved to Firestore and local state updated:', {
+        shotId: shot.id,
+        videoUrl: result.videoUrl.substring(0, 50) + '...',
+        updatedScenesCount: updatedScenes.length
+      })
     } catch (error: any) {
       console.error('Error generating video:', error)
+      // Handle EmptyRanges error specifically
+      if (error.message?.includes('EmptyRanges') || (error.name === 'ReferenceError' && error.message?.includes('EmptyRanges'))) {
+        console.warn('EmptyRanges error detected, fixing and showing user-friendly message...')
+        if (typeof window !== 'undefined') {
+          (window as any).EmptyRanges = Object.freeze([])
+        }
+        alert('A browser compatibility issue was detected and fixed. Please try generating the video again.')
+        return
+      }
       alert(error.message || 'Failed to generate video')
     } finally {
       setGeneratingShots(prev => {
@@ -585,16 +646,32 @@ export function FillerScenes({ storyBibleId, episodeNumber, arcIndex, arcEpisode
                             </div>
 
                             {/* Video Player */}
-                            {hasVideo && (
+                            {hasVideo && shot.aiGeneratedVideoUrl && (
                               <div className="mb-4">
                                 <label className="text-xs text-[#e7e7e7]/60 uppercase mb-2 block">Generated Video</label>
                                 <div className="relative w-full" style={{ aspectRatio: '9/16', maxWidth: '300px' }}>
                                   <video
+                                    key={shot.aiGeneratedVideoUrl} // Force re-render on URL change
                                     src={shot.aiGeneratedVideoUrl}
                                     controls
                                     preload="metadata"
                                     className="w-full h-full rounded-lg border border-[#36393f]"
                                     style={{ aspectRatio: '9/16' }}
+                                    onError={(e) => {
+                                      console.error('Video load error:', {
+                                        url: shot.aiGeneratedVideoUrl,
+                                        error: e
+                                      })
+                                      // Show error message to user
+                                      const videoElement = e.currentTarget
+                                      const errorMsg = document.createElement('div')
+                                      errorMsg.className = 'absolute inset-0 flex items-center justify-center bg-red-900/50 rounded-lg text-red-200 text-xs p-2 text-center'
+                                      errorMsg.textContent = 'Failed to load video. Please try regenerating.'
+                                      videoElement.parentElement?.appendChild(errorMsg)
+                                    }}
+                                    onLoadedData={() => {
+                                      console.log('Video loaded successfully:', shot.aiGeneratedVideoUrl)
+                                    }}
                                   >
                                     Your browser does not support the video tag.
                                   </video>
@@ -637,7 +714,7 @@ export function FillerScenes({ storyBibleId, episodeNumber, arcIndex, arcEpisode
                                         >
                                           Copy
                                         </button>
-                                        <p className="text-xs text-[#e7e7e7]/70 whitespace-pre-wrap pr-16">
+                                        <p className="text-xs text-[#e7e7e7]/70 whitespace-pre-wrap break-words pr-16 max-h-96 overflow-y-auto">
                                           {shot.aiGenerationPrompt}
                                         </p>
                                       </div>

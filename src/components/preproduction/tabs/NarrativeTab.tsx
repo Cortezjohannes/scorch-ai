@@ -2,20 +2,65 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
+import { EditableField } from '../shared/EditableField'
+import { saveEpisode } from '@/services/episode-service'
+import { useAuth } from '@/context/AuthContext'
 
 interface NarrativeTabProps {
   episodeData: any
   storyBible: any
   episodeNumber: number
   episodeTitle: string
+  storyBibleId: string
+  onUpdate?: (updates: any) => Promise<void>
 }
 
 export function NarrativeTab({
   episodeData,
   storyBible,
   episodeNumber,
-  episodeTitle
+  episodeTitle,
+  storyBibleId,
+  onUpdate
 }: NarrativeTabProps) {
+  const { user } = useAuth()
+  
+  // Save episode data to Firestore
+  const saveEpisodeData = async (updatedData: any) => {
+    if (!user?.id || !storyBibleId) {
+      console.error('Cannot save: missing user or storyBibleId')
+      return
+    }
+    
+    try {
+      // Merge with existing episode data
+      const episodeToSave = {
+        ...episodeData,
+        ...updatedData,
+        episodeNumber,
+        storyBibleId,
+        lastModified: new Date().toISOString()
+      }
+      
+      console.log('💾 Saving episode data to Firestore:', {
+        episodeNumber,
+        storyBibleId,
+        hasSynopsis: !!episodeToSave.synopsis,
+        scenesCount: episodeToSave.scenes?.length || 0
+      })
+      
+      await saveEpisode(episodeToSave, storyBibleId, user.id)
+      console.log('✅ Episode data saved to Firestore successfully')
+      
+      // Also call onUpdate if provided (for pre-production data sync)
+      if (onUpdate) {
+        await onUpdate(updatedData)
+      }
+    } catch (error) {
+      console.error('❌ Error saving episode data:', error)
+      throw error
+    }
+  }
   // Helper to get arc info for episode (similar to workspace)
   const getArcInfoForEpisodeHelper = (epNum: number) => {
     if (!storyBible || !storyBible.narrativeArcs) {
@@ -159,9 +204,26 @@ export function NarrativeTab({
           </div>
         </div>
         
-        <p className="text-[#e7e7e7]/80 text-base leading-relaxed mb-6">
-          {synopsis}
-        </p>
+        <div className="mb-6">
+          {user ? (
+            <EditableField
+              value={synopsis}
+              onSave={async (newValue) => {
+                await saveEpisodeData({
+                  synopsis: newValue as string
+                })
+              }}
+              multiline
+              rows={4}
+              placeholder="Enter episode synopsis..."
+              className="text-base leading-relaxed"
+            />
+          ) : (
+            <p className="text-[#e7e7e7]/80 text-base leading-relaxed">
+              {synopsis}
+            </p>
+          )}
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-4 mt-6">
@@ -224,10 +286,29 @@ export function NarrativeTab({
                     <div className="w-8 h-8 rounded-lg bg-[#10B981]/20 flex items-center justify-center text-[#10B981] font-bold text-sm">
                       {scene.sceneNumber || idx + 1}
                     </div>
-                    <div>
-                      <div className="font-medium text-[#e7e7e7]">
-                        {scene.title || scene.heading || `Scene ${scene.sceneNumber || idx + 1}`}
-                      </div>
+                    <div className="flex-1">
+                      {user ? (
+                        <EditableField
+                          value={scene.title || scene.heading || `Scene ${scene.sceneNumber || idx + 1}`}
+                          onSave={async (newValue) => {
+                            const updatedScenes = [...scenes]
+                            updatedScenes[idx] = {
+                              ...updatedScenes[idx],
+                              title: newValue as string,
+                              heading: newValue as string
+                            }
+                            await saveEpisodeData({
+                              scenes: updatedScenes
+                            })
+                          }}
+                          placeholder="Enter scene title..."
+                          className="font-medium"
+                        />
+                      ) : (
+                        <div className="font-medium text-[#e7e7e7]">
+                          {scene.title || scene.heading || `Scene ${scene.sceneNumber || idx + 1}`}
+                        </div>
+                      )}
                       <div className="text-xs text-[#e7e7e7]/50 mt-1">
                         {scene.location || scene.setting || 'Location TBD'}
                         {scene.timeOfDay && ` • ${scene.timeOfDay}`}
@@ -236,11 +317,33 @@ export function NarrativeTab({
                   </div>
                 </div>
                 
-                {scene.summary && (
-                  <p className="text-sm text-[#e7e7e7]/70 mt-2">
-                    {scene.summary}
-                  </p>
-                )}
+                <div className="mt-2">
+                  {user ? (
+                    <EditableField
+                      value={scene.summary || ''}
+                      onSave={async (newValue) => {
+                        const updatedScenes = [...scenes]
+                        updatedScenes[idx] = {
+                          ...updatedScenes[idx],
+                          summary: newValue as string
+                        }
+                        await saveEpisodeData({
+                          scenes: updatedScenes
+                        })
+                      }}
+                      multiline
+                      rows={3}
+                      placeholder="Enter scene summary..."
+                      className="text-sm"
+                    />
+                  ) : (
+                    scene.summary && (
+                      <p className="text-sm text-[#e7e7e7]/70">
+                        {scene.summary}
+                      </p>
+                    )
+                  )}
+                </div>
               </div>
             ))}
           </div>

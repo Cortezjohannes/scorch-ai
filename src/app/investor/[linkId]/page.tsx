@@ -10,9 +10,12 @@ import ScreenplayViewer from '@/components/investor/ScreenplayViewer'
 import SceneBreakdownGallery from '@/components/investor/SceneBreakdownGallery'
 import CharacterWeb from '@/components/investor/CharacterWeb'
 import DepthTabs from '@/components/investor/DepthTabs'
+import NarrativeTechnicalities from '@/components/investor/NarrativeTechnicalities'
 import ProductionDashboard from '@/components/investor/ProductionDashboard'
 import CampaignPreview from '@/components/investor/CampaignPreview'
 import GreenlitCTA from '@/components/investor/GreenlitCTA'
+import BehindTheScenes from '@/components/investor/BehindTheScenes'
+import ChatWidget from '@/components/chat/ChatWidget'
 
 export default function InvestorMaterialsPage() {
   const params = useParams()
@@ -46,6 +49,12 @@ export default function InvestorMaterialsPage() {
         if (data.success && data.materials) {
           setMaterials(data.materials)
           setHeroImageUrl(data.heroImageUrl || null)
+          // Store in sessionStorage for ChatWidget to access
+          try {
+            sessionStorage.setItem(`investor-materials-${linkId}`, JSON.stringify(data.materials))
+          } catch (e) {
+            console.warn('Could not store investor materials in sessionStorage:', e)
+          }
         } else {
           setError('Invalid response format')
         }
@@ -191,6 +200,14 @@ export default function InvestorMaterialsPage() {
       component: <DepthTabs depth={pitchPackage.depth} />
     },
     {
+      id: 'narrative-technicalities',
+      icon: '📐',
+      title: 'Narrative Technicalities',
+      description: 'Technical aspects of the story used as reference by the AI in writing episodes',
+      stats: 'AI Reference',
+      component: <NarrativeTechnicalities pitchPackage={pitchPackage} linkId={linkId} />
+    },
+    {
       id: 'production',
       icon: '🎥',
       title: 'Production Assistant',
@@ -207,10 +224,18 @@ export default function InvestorMaterialsPage() {
       component: <CampaignPreview marketing={pitchPackage.marketing} />
     },
     {
+      id: 'behind-the-scenes',
+      icon: '🎥',
+      title: 'Greenlit Demo',
+      description: 'Watch our demo of how we produce shows using Greenlit',
+      stats: 'Watch Demo',
+      component: <BehindTheScenes videoUrl="https://www.youtube.com/watch?v=97_oXWwxYvI&si=Hbm3UiFHWVR7lsm3&themeRefresh=1" />
+    },
+    {
       id: 'cta',
       icon: '🚀',
-      title: 'Get in contact with Greenlit',
-      description: 'Just click me for a surprise',
+      title: 'Greenlit Pitch Deck',
+      description: 'We\'re raising Pre-seed, click me for a surprise!',
       stats: 'Let\'s talk',
       component: <GreenlitCTA callToAction={pitchPackage.callToAction} ownerName={materials.ownerName} />
     }
@@ -454,6 +479,260 @@ export default function InvestorMaterialsPage() {
             opacity: 0;
           }
         }
+        
+        /* Behind the Scenes Card Animations */
+        @keyframes pulse-glow {
+          0%, 100% {
+            box-shadow: 
+              0 0 20px rgba(16, 185, 129, 0.3),
+              0 0 40px rgba(16, 185, 129, 0.1),
+              0 0 60px rgba(16, 185, 129, 0.05);
+          }
+          50% {
+            box-shadow: 
+              0 0 30px rgba(16, 185, 129, 0.5),
+              0 0 60px rgba(16, 185, 129, 0.2),
+              0 0 90px rgba(16, 185, 129, 0.1);
+          }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+        
+        @keyframes scan-line {
+          0% {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(400%);
+            opacity: 0;
+          }
+        }
+        
+        /* Behind the Scenes Card Special Animations */
+        .behind-scenes-card-wrapper {
+          position: relative;
+        }
+        
+        /* Animated particles leading to the card */
+        .behind-scenes-card-wrapper::before {
+          content: '';
+          position: absolute;
+          top: -20px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 100%;
+          height: 20px;
+          pointer-events: none;
+          z-index: 1;
+          background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.4) 0%, transparent 70%);
+          animation: particle-float-down 3s ease-in-out infinite;
+        }
+        
+        @keyframes particle-float-down {
+          0% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-10px) scale(0.8);
+          }
+          50% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(10px) scale(0.8);
+          }
+        }
+        
+        /* Pulsing glow and border animation on the card itself */
+        .behind-scenes-card-wrapper div.group {
+          animation: behind-scenes-pulse 3s ease-in-out infinite, border-pulse 2s ease-in-out infinite;
+          position: relative;
+          border-color: rgba(16, 185, 129, 0.5) !important;
+        }
+        
+        @keyframes behind-scenes-pulse {
+          0%, 100% {
+            box-shadow: 
+              0 4px 6px rgba(0, 0, 0, 0.2),
+              0 0 20px rgba(16, 185, 129, 0.15),
+              0 0 40px rgba(16, 185, 129, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              inset 0 0 30px rgba(16, 185, 129, 0.05);
+          }
+          50% {
+            box-shadow: 
+              0 4px 6px rgba(0, 0, 0, 0.2),
+              0 0 30px rgba(16, 185, 129, 0.3),
+              0 0 60px rgba(16, 185, 129, 0.2),
+              0 0 90px rgba(16, 185, 129, 0.1),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              inset 0 0 30px rgba(16, 185, 129, 0.1);
+          }
+        }
+        
+        @keyframes border-pulse {
+          0%, 100% {
+            border-color: rgba(16, 185, 129, 0.5) !important;
+          }
+          50% {
+            border-color: rgba(16, 185, 129, 0.9) !important;
+          }
+        }
+        
+        /* Animated border sweep */
+        .behind-scenes-card-wrapper div.group::before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: 1rem;
+          background: linear-gradient(
+            45deg,
+            transparent 30%,
+            rgba(16, 185, 129, 0.5) 50%,
+            transparent 70%
+          );
+          background-size: 200% 200%;
+          opacity: 0;
+          animation: border-sweep 4s linear infinite;
+          pointer-events: none;
+          z-index: -1;
+        }
+        
+        @keyframes border-sweep {
+          0% {
+            background-position: 200% 0;
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          40% {
+            opacity: 1;
+          }
+          50% {
+            background-position: -200% 0;
+            opacity: 0;
+          }
+          100% {
+            background-position: -200% 0;
+            opacity: 0;
+          }
+        }
+        
+        /* Icon animation */
+        .behind-scenes-card-wrapper .text-5xl {
+          animation: icon-float 4s ease-in-out infinite;
+        }
+        
+        @keyframes icon-float {
+          0%, 100% {
+            transform: translateY(0) rotate(0deg) scale(1);
+            filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.3));
+          }
+          25% {
+            transform: translateY(-5px) rotate(2deg) scale(1.05);
+            filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.5));
+          }
+          50% {
+            transform: translateY(-8px) rotate(0deg) scale(1.1);
+            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.6));
+          }
+          75% {
+            transform: translateY(-5px) rotate(-2deg) scale(1.05);
+            filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.5));
+          }
+        }
+        
+        /* Title glow pulse */
+        .behind-scenes-card-wrapper h3 {
+          animation: title-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes title-glow {
+          0%, 100% {
+            text-shadow: 
+              0 0 8px rgba(16, 185, 129, 0.4),
+              0 0 16px rgba(16, 185, 129, 0.2),
+              0 2px 8px rgba(0, 0, 0, 0.8),
+              0 4px 12px rgba(0, 0, 0, 0.6);
+          }
+          50% {
+            text-shadow: 
+              0 0 12px rgba(16, 185, 129, 0.6),
+              0 0 24px rgba(16, 185, 129, 0.4),
+              0 0 36px rgba(16, 185, 129, 0.2),
+              0 2px 8px rgba(0, 0, 0, 0.8),
+              0 4px 12px rgba(0, 0, 0, 0.6);
+          }
+        }
+        
+        /* Scanning line effect */
+        .behind-scenes-card-wrapper div.group::after {
+          content: '';
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          right: -2px;
+          height: 2px;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(16, 185, 129, 0.8),
+            transparent
+          );
+          border-radius: 1rem;
+          animation: scan-sweep 3s linear infinite;
+          pointer-events: none;
+          z-index: 1;
+        }
+        
+        @keyframes scan-sweep {
+          0% {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          5% {
+            opacity: 1;
+          }
+          95% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(calc(100% + 4px));
+            opacity: 0;
+          }
+        }
+        
+        /* Enhanced corner glow */
+        .behind-scenes-card-wrapper .absolute.top-0.right-0 {
+          opacity: 0.6 !important;
+          animation: corner-glow-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes corner-glow-pulse {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.2);
+          }
+        }
       `}} />
       
       <div className="min-h-screen bg-[#0A0A0A] text-white relative">
@@ -590,14 +869,18 @@ export default function InvestorMaterialsPage() {
         {/* Section Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section) => (
-            <InvestorCard
+            <div 
               key={section.id}
-              icon={section.icon}
-              title={section.title}
-              description={section.description}
-              stats={section.stats}
-              onClick={() => setActiveSection(section.id)}
-            />
+              className={section.id === 'behind-the-scenes' ? 'behind-scenes-card-wrapper' : ''}
+            >
+              <InvestorCard
+                icon={section.icon}
+                title={section.title}
+                description={section.description}
+                stats={section.stats}
+                onClick={() => setActiveSection(section.id)}
+              />
+            </div>
           ))}
         </div>
       </main>
@@ -636,6 +919,9 @@ export default function InvestorMaterialsPage() {
       </footer>
     </div>
       </div>
+      
+      {/* Chat Widget for Investor Materials */}
+      <ChatWidget />
     </>
   )
 }

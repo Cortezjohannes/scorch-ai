@@ -1095,20 +1095,35 @@ function ShootingSuggestionCard({ suggestion, isSelected, onSelect }: { suggesti
         )}
       </div>
 
-      {/* Search Guidance & Venue Link */}
-      {(suggestion.searchGuidance || suggestion.specificVenueUrl) && (
+      {/* Search Guidance & Links */}
+      {(suggestion.searchGuidance || suggestion.specificVenueUrl || suggestion.address) && (
         <div className="mt-3 pt-3 border-t border-[#36393f] flex flex-wrap items-center gap-3 text-xs">
       {suggestion.searchGuidance && (
             <span className="text-[#e7e7e7]/60">
               🔍 {suggestion.searchGuidance}
             </span>
       )}
+      {/* Google Maps link - always show if address available */}
+      {suggestion.address && (() => {
+        const mapsUrl = generateGoogleMapsUrl(suggestion.address, suggestion.venueName)
+        return (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 bg-[#4285F4] text-white font-semibold rounded-md border border-[#1a73e8] shadow-md shadow-[#4285F4]/30 hover:bg-[#1a73e8] transition-colors flex items-center gap-1"
+          >
+            🗺️ View on Maps
+          </a>
+        )
+      })()}
+      {/* Specific venue URL */}
       {suggestion.specificVenueUrl && (
         <a
           href={suggestion.specificVenueUrl}
           target="_blank"
           rel="noopener noreferrer"
-              className="px-3 py-2 bg-[#10B981] text-[#0b1c14] font-semibold rounded-md border border-[#0ea56a] shadow-md shadow-[#10B981]/30 hover:bg-[#0ea56a] hover:text-black transition-colors"
+              className="px-3 py-1.5 bg-[#10B981] text-[#0b1c14] font-semibold rounded-md border border-[#0ea56a] shadow-md shadow-[#10B981]/30 hover:bg-[#0ea56a] hover:text-black transition-colors flex items-center gap-1"
         >
               🔗 Open Venue
         </a>

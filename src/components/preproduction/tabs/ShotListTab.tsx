@@ -55,6 +55,11 @@ export function ShotListTab({
     setGenerationError(null)
 
     try {
+      // Ensure EmptyRanges is defined (Safari/iOS compatibility)
+      if (typeof window !== 'undefined' && typeof (window as any).EmptyRanges === 'undefined') {
+        (window as any).EmptyRanges = Object.freeze([])
+      }
+
       console.log('🎬 Generating shot list...')
 
       // 1. Check prerequisites
@@ -151,7 +156,18 @@ export function ShotListTab({
         throw new Error(`Invalid response format: ${e instanceof Error ? e.message : 'Unknown error'}`)
       }
 
-      console.log('✅ Shot list generated:', result.shotList.totalShots, 'shots')
+      // Validate response structure
+      if (!result || !result.shotList) {
+        console.error('Invalid response structure:', result)
+        throw new Error('Invalid response: shotList data not found')
+      }
+
+      if (!result.shotList.scenes || !Array.isArray(result.shotList.scenes)) {
+        console.error('Invalid shotList structure:', result.shotList)
+        throw new Error('Invalid response: shotList scenes not found or not an array')
+      }
+
+      console.log('✅ Shot list generated:', result.shotList.totalShots, 'shots across', result.shotList.scenes.length, 'scenes')
 
       await onUpdate('shotList', {
         ...result.shotList,
@@ -162,6 +178,17 @@ export function ShotListTab({
       console.log('✅ Shot list saved to Firestore')
     } catch (error: any) {
       console.error('❌ Error generating shot list:', error)
+      
+      // Handle EmptyRanges error specifically
+      if (error.message?.includes('EmptyRanges') || (error.name === 'ReferenceError' && error.message?.includes('EmptyRanges'))) {
+        console.warn('EmptyRanges error detected, fixing...')
+        if (typeof window !== 'undefined') {
+          (window as any).EmptyRanges = Object.freeze([])
+        }
+        setGenerationError('A browser compatibility issue was detected and fixed. Please try generating the shot list again.')
+        return
+      }
+      
       setGenerationError(error.message || 'Failed to generate shot list')
       
       if (error.message?.includes('breakdown') || error.message?.includes('Script breakdown')) {
@@ -607,7 +634,7 @@ export function ShotListTab({
                 {selectedShotForGeneration.aiGenerationPrompt && (
                   <div className="bg-[#1a1a1a] border border-[#36393f] rounded p-3 mb-4">
                     <label className="text-xs text-[#e7e7e7]/60 uppercase mb-2 block">AI Generation Prompt</label>
-                    <p className="text-xs text-[#e7e7e7]/70 whitespace-pre-wrap">
+                    <p className="text-xs text-[#e7e7e7]/70 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
                       {selectedShotForGeneration.aiGenerationPrompt}
                     </p>
                   </div>
@@ -1153,7 +1180,7 @@ function ShotItem({
             {shot.aiGenerationPrompt && (
               <div className="space-y-1">
                 <label className="text-xs text-[#e7e7e7]/60 uppercase">AI Generation Prompt</label>
-                <div className="text-xs text-[#e7e7e7]/70 bg-[#1a1a1a] border border-[#36393f] rounded p-2 max-h-32 overflow-y-auto">
+                <div className="text-xs text-[#e7e7e7]/70 bg-[#1a1a1a] border border-[#36393f] rounded p-2 max-h-48 overflow-y-auto whitespace-pre-wrap break-words">
                   {shot.aiGenerationPrompt}
                 </div>
               </div>

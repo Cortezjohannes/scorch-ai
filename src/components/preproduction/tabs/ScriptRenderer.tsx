@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { EditableField } from '../shared/EditableField'
 
 interface ScriptElement {
   type: 'slug' | 'action' | 'character' | 'dialogue' | 'parenthetical' | 'transition' | 'page-break'
@@ -32,9 +33,10 @@ interface GeneratedScript {
 interface ScriptRendererProps {
   script: GeneratedScript
   showPageNumbers?: boolean
+  onUpdate?: (updatedScript: GeneratedScript) => Promise<void>
 }
 
-export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendererProps) {
+export function ScriptRenderer({ script, showPageNumbers = true, onUpdate }: ScriptRendererProps) {
   return (
     <div 
       className="screenplay-container bg-[#1a1a1a] text-[#e7e7e7] p-12 rounded-lg border border-[#36393f] max-w-4xl mx-auto"
@@ -42,7 +44,23 @@ export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendere
     >
       {/* Title Page */}
       <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-[#36393f]">
-        <h1 className="text-4xl font-bold mb-4 uppercase text-[#e7e7e7]">{script.title}</h1>
+        {onUpdate ? (
+          <EditableField
+            value={script.title}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...script,
+                  title: newValue as string
+                })
+              }
+            }}
+            placeholder="Enter script title..."
+            className="text-4xl font-bold mb-4 uppercase text-center"
+          />
+        ) : (
+          <h1 className="text-4xl font-bold mb-4 uppercase text-[#e7e7e7]">{script.title}</h1>
+        )}
         <div className="text-xl mb-8 text-[#e7e7e7]">Episode {script.episodeNumber}</div>
         <div className="text-sm text-[#e7e7e7]/70 space-y-2">
           <div>{script.metadata.sceneCount} Scenes</div>
@@ -62,7 +80,30 @@ export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendere
           
           <div className="space-y-4">
             {page.elements.map((element, idx) => (
-              <ScriptElementRenderer key={idx} element={element} />
+              <ScriptElementRenderer 
+                key={idx} 
+                element={element} 
+                onUpdate={onUpdate ? async (updatedElement: ScriptElement) => {
+                  console.log('📝 Script element edited:', {
+                    type: updatedElement.type,
+                    contentPreview: updatedElement.content.substring(0, 50),
+                    pageNumber: page.pageNumber,
+                    elementIndex: idx
+                  })
+                  const updatedPages = [...script.pages]
+                  const pageIndex = script.pages.findIndex(p => p.pageNumber === page.pageNumber)
+                  if (pageIndex >= 0) {
+                    updatedPages[pageIndex] = {
+                      ...updatedPages[pageIndex],
+                      elements: updatedPages[pageIndex].elements.map((el, i) => i === idx ? updatedElement : el)
+                    }
+                    await onUpdate({
+                      ...script,
+                      pages: updatedPages
+                    })
+                  }
+                } : undefined}
+              />
             ))}
           </div>
         </div>
@@ -76,10 +117,32 @@ export function ScriptRenderer({ script, showPageNumbers = true }: ScriptRendere
   )
 }
 
-function ScriptElementRenderer({ element }: { element: ScriptElement }) {
+function ScriptElementRenderer({ 
+  element, 
+  onUpdate 
+}: { 
+  element: ScriptElement
+  onUpdate?: (updatedElement: ScriptElement) => Promise<void>
+}) {
   switch (element.type) {
     case 'slug':
-      return (
+      return onUpdate ? (
+        <div className="screenplay-slug font-bold uppercase tracking-wide text-base py-2">
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string
+                })
+              }
+            }}
+            placeholder="Enter scene heading..."
+            className="font-bold uppercase"
+          />
+        </div>
+      ) : (
         <div className="screenplay-slug font-bold uppercase tracking-wide text-base py-2">
           {element.content}
         </div>
@@ -87,35 +150,123 @@ function ScriptElementRenderer({ element }: { element: ScriptElement }) {
 
     case 'action':
       if (!element.content.trim()) return <div className="h-4" />
-      return (
+      return onUpdate ? (
+        <div className="screenplay-action leading-relaxed">
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string
+                })
+              }
+            }}
+            multiline
+            rows={2}
+            placeholder="Enter action..."
+            className="leading-relaxed"
+          />
+        </div>
+      ) : (
         <div className="screenplay-action leading-relaxed">
           {element.content}
         </div>
       )
 
     case 'character':
-      return (
+      return onUpdate ? (
+        <div className="screenplay-character font-bold uppercase mb-1" style={{ marginLeft: '3.7in', width: '2.5in' }}>
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string,
+                  metadata: {
+                    ...element.metadata,
+                    characterName: newValue as string
+                  }
+                })
+              }
+            }}
+            placeholder="Enter character name..."
+            className="font-bold uppercase"
+          />
+        </div>
+      ) : (
         <div className="screenplay-character font-bold uppercase mb-1" style={{ marginLeft: '3.7in', width: '2.5in' }}>
           {element.content}
         </div>
       )
 
     case 'dialogue':
-      return (
+      return onUpdate ? (
+        <div className="screenplay-dialogue" style={{ marginLeft: '2.5in', width: '3.5in', textAlign: 'justify' }}>
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string
+                })
+              }
+            }}
+            multiline
+            rows={3}
+            placeholder="Enter dialogue..."
+            className="text-justify"
+          />
+        </div>
+      ) : (
         <div className="screenplay-dialogue" style={{ marginLeft: '2.5in', width: '3.5in', textAlign: 'justify' }}>
           {element.content}
         </div>
       )
 
     case 'parenthetical':
-      return (
+      return onUpdate ? (
+        <div className="screenplay-parenthetical text-center max-w-xs mx-auto italic text-sm">
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string
+                })
+              }
+            }}
+            placeholder="Enter parenthetical..."
+            className="text-center italic"
+          />
+        </div>
+      ) : (
         <div className="screenplay-parenthetical text-center max-w-xs mx-auto italic text-sm">
           {element.content}
         </div>
       )
 
     case 'transition':
-      return (
+      return onUpdate ? (
+        <div className="screenplay-transition text-right font-bold uppercase my-4">
+          <EditableField
+            value={element.content}
+            onSave={async (newValue) => {
+              if (onUpdate) {
+                await onUpdate({
+                  ...element,
+                  content: newValue as string
+                })
+              }
+            }}
+            placeholder="Enter transition..."
+            className="text-right font-bold uppercase"
+          />
+        </div>
+      ) : (
         <div className="screenplay-transition text-right font-bold uppercase my-4">
           {element.content}
         </div>

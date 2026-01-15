@@ -48,16 +48,16 @@ export class StoryBibleLockService {
     if (isLocked) {
       return {
         isLocked: true,
-        reason: `Story Bible is locked because ${episodeCount} episode${episodeCount !== 1 ? 's have' : ' has'} been generated. To maintain consistency with generated content, you can only add new characters. Use Episode Reflection to update the story bible.`,
+        reason: `Story Bible is locked because ${episodeCount} episode${episodeCount !== 1 ? 's have' : ' has'} been generated. You can still edit content, but structural changes are restricted.`,
         episodeCount,
         allowedActions: {
-          canEditContent: false,      // Cannot edit existing content
+          canEditContent: true,       // CAN edit existing content (text fields)
           canAddCharacters: true,      // CAN add new characters
-          canAddLocations: false,      // Cannot add locations manually
-          canEditCharacters: false,    // Cannot edit existing characters
-          canEditWorld: false,         // Cannot edit world building
-          canEditArcs: false,          // Cannot edit story arcs
-          canDeleteContent: false      // Cannot delete anything
+          canAddLocations: true,        // CAN add locations manually
+          canEditCharacters: true,     // CAN edit existing characters
+          canEditWorld: true,          // CAN edit world building
+          canEditArcs: true,           // CAN edit story arcs
+          canDeleteContent: false      // Cannot delete anything (prevents breaking references)
         }
       }
     }

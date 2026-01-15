@@ -101,14 +101,18 @@ function buildSystemPrompt(): string {
    - **Exterior (EXT)**: Outdoor spaces (parks, streets, parking lots, rooftops)
    - **Both**: Spaces that can serve as both interior and exterior
 
-4. **SOURCING PLATFORMS**:
-   - **Airbnb**: Short-term rentals, often affordable ($50-$200/day)
-   - **Peerspace**: Professional filming spaces ($100-$300/day)
-   - **Giggster**: Location marketplace ($50-$500/day)
-   - **Public Space**: Free parks, streets, libraries (FREE)
+4. **SOURCING PLATFORMS** (PRIORITIZE IN THIS ORDER):
+   - **Google Maps**: For ALL locations with addresses - provides reliable links to actual locations (FREE to link)
+   - **Airbnb**: Short-term rentals, global platform, often affordable ($50-$200/day) - PREFERRED over Peerspace/Giggster
+   - **Agoda**: Global hotel/booking platform, good for international locations ($50-$300/day)
+   - **Booking.com**: Global booking platform, wide availability ($50-$300/day)
+   - **Expedia**: Global booking platform, good coverage ($50-$300/day)
+   - **Public Space**: Free parks, streets, libraries (FREE) - use "google-maps" sourcing
    - **Actor-Owned**: Cast member's property (FREE or minimal cost)
    - **Rental**: Traditional location rental ($200-$500/day)
-   - **Specific-Venue**: Actual real-world location (cost varies)
+   - **Specific-Venue**: Actual real-world location (cost varies) - use "venue-website" or "google-maps" sourcing
+   - **Peerspace**: Professional filming spaces ($100-$300/day) - use only if Airbnb/booking platforms unavailable
+   - **Giggster**: Location marketplace ($50-$500/day) - use only if Airbnb/booking platforms unavailable
 
 5. **LOGISTICS REQUIREMENTS**:
    - Parking: Essential for crew/equipment
@@ -127,8 +131,8 @@ Provide STRICTLY valid JSON array of 2-3 location options. Each option must have
 - pros (array of 3-4 advantages, keep each item concise and on a single line)
 - cons (array of 2-3 challenges, keep each item concise and on a single line)
 - logistics (object with parking, power, restrooms, permitRequired, permitCost, notes)
-- sourcing ("airbnb", "peerspace", "giggster", "public-space", "actor-owned", "rental", "specific-venue", or "other")
-- searchGuidance (if not specific venue, e.g., "Search Peerspace for 'modern loft' in [city]")
+- sourcing ("google-maps", "airbnb", "agoda", "booking-com", "expedia", "public-space", "actor-owned", "rental", "specific-venue", "venue-website", "peerspace", "giggster", or "other")
+- searchGuidance (if not specific venue, e.g., "Search Airbnb for 'modern loft' in [city]" or "Find on Google Maps")
 - specificVenueUrl (if suggesting actual venue, provide website URL if known)
 - isPreferred (false)
 - costBreakdown (object: dayRate, permitCost, insuranceRequired, depositAmount, notes)

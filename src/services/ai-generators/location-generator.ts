@@ -344,7 +344,7 @@ function buildSystemPrompt(): string {
 
 1. **BUDGET IS PARAMOUNT**: Generate 2-3 location options per scene, prioritizing:
    - FREE locations (public spaces, actor-owned properties) - $0
-   - LOW-COST locations (Airbnb, Peerspace, Giggster) - $0-$150/day
+   - LOW-COST locations (Airbnb, Agoda, Booking.com, Expedia) - $0-$150/day
    - MODERATE locations (rentals) - $150-$500/day
    - Avoid expensive locations ($500+/day) unless absolutely necessary
 
@@ -353,13 +353,17 @@ function buildSystemPrompt(): string {
    - **Exterior (EXT)**: Outdoor spaces (parks, streets, parking lots, rooftops)
    - **Both**: Spaces that can serve as both interior and exterior
 
-3. **SOURCING PLATFORMS**:
-   - **Airbnb**: Short-term rentals, often affordable ($50-$200/day)
-   - **Peerspace**: Professional filming spaces ($100-$300/day)
-   - **Giggster**: Location marketplace ($50-$500/day)
-   - **Public Space**: Free parks, streets, libraries (FREE)
+3. **SOURCING PLATFORMS** (PRIORITIZE IN THIS ORDER):
+   - **Google Maps**: For ALL locations with addresses - provides reliable links to actual locations (FREE to link)
+   - **Airbnb**: Short-term rentals, global platform, often affordable ($50-$200/day) - PREFERRED
+   - **Agoda**: Global hotel/booking platform, good for international locations ($50-$300/day)
+   - **Booking.com**: Global booking platform, wide availability ($50-$300/day)
+   - **Expedia**: Global booking platform, good coverage ($50-$300/day)
+   - **Public Space**: Free parks, streets, libraries (FREE) - use "google-maps" sourcing
    - **Actor-Owned**: Cast member's property (FREE or minimal cost)
    - **Rental**: Traditional location rental ($200-$500/day)
+   - **Peerspace**: Professional filming spaces ($100-$300/day) - use only if Airbnb/booking platforms unavailable
+   - **Giggster**: Location marketplace ($50-$500/day) - use only if Airbnb/booking platforms unavailable
 
 4. **LOGISTICS REQUIREMENTS**:
    - Parking: Essential for crew/equipment
@@ -377,8 +381,8 @@ Provide STRICTLY valid JSON array of 2-3 location options. Each option must have
 - pros (array of 3-5 advantages)
 - cons (array of 2-3 challenges)
 - logistics (object with parkingAvailable, powerAccess, restroomAccess, permitRequired, permitCost, notes)
-- sourcing ("airbnb", "peerspace", "giggster", "public-space", "actor-owned", "rental", or "other")
-- sourcingPlatform (suggested platform text, e.g., "Search Airbnb for 'modern apartment' in [city]")
+- sourcing ("google-maps", "airbnb", "agoda", "booking-com", "expedia", "public-space", "actor-owned", "rental", "venue-website", "peerspace", "giggster", or "other")
+- sourcingPlatform (suggested platform text, e.g., "Search Airbnb for 'modern apartment' in [city]" or "Find on Google Maps")
 - address (example/generic address or "TBD")
 - status ("suggested")
 - selected (false)

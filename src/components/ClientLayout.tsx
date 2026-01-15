@@ -8,6 +8,12 @@ import { SafariBanner } from '@/components/SafariBanner'
 import { ChatProvider } from '@/context/ChatContext'
 import ChatWidget from '@/components/chat/ChatWidget'
 
+// Polyfill for EmptyRanges to prevent Safari/iOS errors
+// This variable may be referenced by video player libraries or range APIs
+if (typeof window !== 'undefined' && typeof (window as any).EmptyRanges === 'undefined') {
+  (window as any).EmptyRanges = Object.freeze([])
+}
+
 // Custom error boundary component
 function ErrorBoundary({
   children,
@@ -37,9 +43,9 @@ function ErrorBoundary({
 
 // Error fallback component - theme-aware with fallback
 function AuthErrorFallback({ error }: { error: Error }) {
-  // Safely get theme context, default to light if not available
-  let theme: 'light' | 'dark' = 'light'
-  let prefix = 'light'
+  // Safely get theme context, default to dark if not available
+  let theme: 'light' | 'dark' = 'dark'
+  let prefix = 'dark'
   
   try {
     const themeContext = useContext(ThemeContext)
@@ -49,7 +55,7 @@ function AuthErrorFallback({ error }: { error: Error }) {
     }
   } catch (e) {
     // Context not available, use default
-    prefix = 'light'
+    prefix = 'dark'
   }
   
   return (
@@ -74,9 +80,9 @@ interface ClientLayoutProps {
 
 // Client layout wrapper with error handling and theme support
 function ClientLayoutContent({ children }: ClientLayoutProps) {
-  // Safely get theme context, default to light if not available
-  let theme: 'light' | 'dark' = 'light'
-  let prefix = 'light'
+  // Safely get theme context, default to dark if not available
+  let theme: 'light' | 'dark' = 'dark'
+  let prefix = 'dark'
   
   try {
     const themeContext = useContext(ThemeContext)
@@ -86,7 +92,7 @@ function ClientLayoutContent({ children }: ClientLayoutProps) {
     }
   } catch (e) {
     // Context not available, use default
-    prefix = 'light'
+    prefix = 'dark'
   }
   
   return (

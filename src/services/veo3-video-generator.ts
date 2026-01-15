@@ -551,7 +551,8 @@ export class VEO3VideoGenerator {
 
   /**
    * Create optimized prompt for VEO 3.1 video generation
-   * VEO 3.1 works best with concise, descriptive prompts
+   * Now supports comprehensive, context-heavy prompts from story bible, storyboards, and scripts
+   * VEO 3.1 can handle longer prompts (up to ~1000 tokens / ~4000 characters)
    */
   private createVideoPrompt(request: VEO3VideoRequest): string {
     const {
@@ -563,57 +564,125 @@ export class VEO3VideoGenerator {
       aspectRatio = '16:9'
     } = request;
     
-    // Build a concise, descriptive prompt for VEO 3.1
-    // VEO 3.1 excels with clear visual descriptions
+    // Check if sceneDescription is already a comprehensive enhanced prompt
+    // (contains structured sections like "**SERIES CONTEXT:**" or "**EPISODE CONTEXT:**")
+    const isEnhancedPrompt = sceneDescription.includes('**') && (
+      sceneDescription.includes('**SERIES CONTEXT:**') ||
+      sceneDescription.includes('**EPISODE CONTEXT:**') ||
+      sceneDescription.includes('**SCENE SCRIPT CONTENT:**') ||
+      sceneDescription.includes('**STORYBOARD FRAME DETAILS:**')
+    )
+    
     let prompt = '';
     
-    // For storyboard videos, combine scene context with shot description
-    if (characterName === 'Storyboard Shot') {
-      // Start with scene context to provide overall context
-      if (characterDescription && characterDescription.trim()) {
-        prompt = `Scene context: ${characterDescription}. `;
-      }
+    if (isEnhancedPrompt) {
+      // Use the enhanced prompt as-is (it's already comprehensive)
+      // Just ensure it's properly formatted and within limits
+      prompt = sceneDescription;
       
-      // Add the specific shot description
-      prompt += sceneDescription;
-      
-      // Add style context if provided
-      if (videoStyle === 'cinematic') {
-        prompt += ', cinematic lighting, dramatic composition';
-      } else if (videoStyle === 'documentary') {
-        prompt += ', documentary style, natural lighting';
-      } else {
-        prompt += ', realistic, natural lighting';
+      // Add final style directives if not already present
+      if (!prompt.includes('cinematic quality') && !prompt.includes('professional cinematography')) {
+        if (videoStyle === 'cinematic') {
+          prompt += '\n\nCinematic quality, professional cinematography, dramatic composition';
+        } else if (videoStyle === 'documentary') {
+          prompt += '\n\nDocumentary style, natural lighting, authentic feel';
+        } else {
+          prompt += '\n\nRealistic, natural lighting, professional quality';
+        }
       }
     } else {
-      // For character videos, combine character and scene
-      prompt = `${sceneDescription}`;
-      
-      if (characterDescription) {
-        prompt += `, featuring ${characterDescription}`;
-      }
-      
-      if (performanceNotes) {
-        prompt += `. ${performanceNotes}`;
-      }
-      
-      // Add style context
-      if (videoStyle === 'cinematic') {
-        prompt += ', cinematic quality, professional cinematography';
-    } else if (videoStyle === 'documentary') {
-        prompt += ', documentary style, natural and authentic';
+      // Build a prompt for storyboard videos (legacy behavior for non-enhanced prompts)
+      if (characterName === 'Storyboard Shot') {
+        // Start with scene context to provide overall context
+        if (characterDescription && characterDescription.trim()) {
+          prompt = `Scene context: ${characterDescription}. `;
+        }
+        
+        // Add the specific shot description
+        prompt += sceneDescription;
+        
+        // Add style context if provided
+        if (videoStyle === 'cinematic') {
+          prompt += ', cinematic lighting, dramatic composition';
+        } else if (videoStyle === 'documentary') {
+          prompt += ', documentary style, natural lighting';
+        } else {
+          prompt += ', realistic, natural lighting';
+        }
       } else {
-        prompt += ', realistic and natural';
+        // For character videos, combine character and scene
+        prompt = `${sceneDescription}`;
+        
+        if (characterDescription) {
+          prompt += `, featuring ${characterDescription}`;
+        }
+        
+        if (performanceNotes) {
+          prompt += `. ${performanceNotes}`;
+        }
+        
+        // Add style context
+        if (videoStyle === 'cinematic') {
+          prompt += ', cinematic quality, professional cinematography';
+        } else if (videoStyle === 'documentary') {
+          prompt += ', documentary style, natural and authentic';
+        } else {
+          prompt += ', realistic and natural';
+        }
       }
     }
     
     // Sanitize prompt to avoid content policy violations
     prompt = this.sanitizePromptForContentPolicy(prompt);
     
-    // Ensure prompt is within token limit (1024 tokens for VEO 3.1)
-    // Truncate if too long (rough estimate: 1 token ≈ 4 characters)
-    if (prompt.length > 4000) {
-      prompt = prompt.substring(0, 4000);
+    // Ensure prompt is within token limit (VEO 3.1 supports up to ~1000 tokens)
+    // Rough estimate: 1 token ≈ 4 characters, so 4000 chars ≈ 1000 tokens (safe limit)
+    // For enhanced prompts, we want to preserve as much context as possible
+    if (prompt.length > 3800) {
+      // Smart truncation: try to preserve key sections
+      if (isEnhancedPrompt) {
+        // For enhanced prompts, try to keep the most important parts
+        const sections = prompt.split(/\n\*\*/)
+        let truncated = ''
+        let charCount = 0
+        
+        // Priority order: shot description, scene context, visual style, series context
+        const priorityKeywords = [
+          'SHOT DESCRIPTION',
+          'SCENE CONTEXT',
+          'VISUAL STYLE DIRECTIVES',
+          'STORYBOARD FRAME DETAILS',
+          'SCENE SCRIPT CONTENT',
+          'EPISODE CONTEXT',
+          'SERIES CONTEXT'
+        ]
+        
+        for (const keyword of priorityKeywords) {
+          const section = sections.find(s => s.includes(keyword))
+          if (section && charCount + section.length < 3500) {
+            truncated += (truncated ? '\n**' : '') + section
+            charCount += section.length
+          }
+        }
+        
+        // If we still have room, add remaining sections
+        for (const section of sections) {
+          if (!truncated.includes(section) && charCount + section.length < 3500) {
+            truncated += (truncated ? '\n**' : '') + section
+            charCount += section.length
+          }
+        }
+        
+        if (truncated) {
+          prompt = truncated
+        } else {
+          // Fallback: just truncate the original
+          prompt = prompt.substring(0, 3800)
+        }
+      } else {
+        // For simple prompts, just truncate
+        prompt = prompt.substring(0, 3800)
+      }
     }
     
     return prompt.trim();
@@ -907,7 +976,20 @@ export class VEO3VideoGenerator {
     
     console.log(`🔄 Polling Gemini API operation ${operationName}...`);
     
+    // Flag to track if we've detected a permanent error
+    let permanentErrorDetected = false;
+    let permanentErrorMessage: string | null = null;
+    
+    // Limit for transient error retries (to prevent excessive retries)
+    const maxTransientErrorRetries = 3; // Only retry transient errors 3 times max
+    let transientErrorCount = 0;
+    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Check if permanent error was detected in previous iteration
+      if (permanentErrorDetected) {
+        console.error(`❌ Stopping polling loop - permanent error already detected: ${permanentErrorMessage}`);
+        throw new Error(permanentErrorMessage || 'Video generation failed');
+      }
       if (attempt > 0) {
         // Poll every 10 seconds as per documentation recommendation
         await new Promise(resolve => setTimeout(resolve, 10000));
@@ -922,11 +1004,90 @@ export class VEO3VideoGenerator {
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.warn(`⚠️ Poll attempt ${attempt + 1} failed: ${response.status} - ${errorText.substring(0, 100)}`);
-          continue;
+          const errorMessage = errorText.substring(0, 200);
+          
+          // Parse error response if it's JSON
+          let errorDetails: any = null;
+          try {
+            errorDetails = JSON.parse(errorText);
+          } catch {
+            // Not JSON, use text as-is
+          }
+          
+          const errorCode = errorDetails?.error?.code;
+          const apiErrorMessage = errorDetails?.error?.message || errorMessage;
+          
+          // Check for permanent/fatal errors that should stop retrying immediately
+          // 404 = operation not found (permanent)
+          // 400 = bad request (permanent - won't fix with retry)
+          const isNotFound = response.status === 404;
+          const isBadRequest = response.status === 400;
+          
+          // Check for specific error codes that indicate permanent failure
+          const permanentErrorCodes = ['NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED', 'FAILED_PRECONDITION'];
+          const hasPermanentErrorCode = permanentErrorCodes.includes(errorCode);
+          
+          // Check error message for permanent failure indicators
+          const hasPermanentErrorMessage = apiErrorMessage.includes('internal server issue') ||
+                                          apiErrorMessage.includes('permanent') ||
+                                          apiErrorMessage.includes('fatal') ||
+                                          apiErrorMessage.includes('not found') ||
+                                          apiErrorMessage.includes('invalid');
+          
+          // For 5xx errors, only treat as permanent if:
+          // 1. We've already tried multiple times (attempt > 5)
+          // 2. OR the error message explicitly says it's permanent
+          const isPersistent5xx = response.status >= 500 && response.status < 600 && 
+                                 (attempt > 5 || hasPermanentErrorMessage);
+          
+          if (isNotFound || isBadRequest || hasPermanentErrorCode || hasPermanentErrorMessage || isPersistent5xx) {
+            console.error(`❌ PERMANENT ERROR DETECTED (${response.status}): ${apiErrorMessage}`);
+            console.error(`   Error code: ${errorCode || 'none'}`);
+            console.error(`   Stopping polling immediately - this error will not resolve with retries`);
+            
+            // Format user-friendly error message
+            const userFriendlyMessage = apiErrorMessage.includes('internal server issue')
+              ? 'Video generation failed due to an internal server issue. Please try again in a few minutes. If the problem persists, please contact Gemini API support.'
+              : apiErrorMessage || `Video generation failed: ${response.status}`;
+            
+            // Set flag and message, then throw to exit immediately
+            permanentErrorDetected = true;
+            permanentErrorMessage = userFriendlyMessage;
+            throw new Error(userFriendlyMessage);
+          }
+          
+          console.warn(`⚠️ Poll attempt ${attempt + 1} failed: ${response.status} - ${errorMessage}`);
+          
+          // For transient errors, continue polling
+          if (attempt < maxAttempts - 1) {
+            continue;
+          } else {
+            // Last attempt failed
+            throw new Error(errorDetails?.error?.message || errorMessage || `Polling failed after ${maxAttempts} attempts: ${response.status}`);
+          }
         }
         
         const result = await response.json();
+        
+        // Check for errors in the result object
+        if (result.error) {
+          const errorCode = result.error.code;
+          const errorMessage = result.error.message || JSON.stringify(result.error);
+          
+          // Permanent errors that shouldn't be retried
+          const permanentErrorCodes = ['INTERNAL', 'NOT_FOUND', 'INVALID_ARGUMENT', 'PERMISSION_DENIED'];
+          if (permanentErrorCodes.includes(errorCode)) {
+            console.error(`❌ Permanent API error detected: ${errorCode} - ${errorMessage}`);
+            throw new Error(errorMessage || `API error: ${errorCode}`);
+          }
+          
+          // For other errors, log and continue (might be transient)
+          console.warn(`⚠️ API returned error in result: ${errorCode} - ${errorMessage}`);
+          if (attempt === maxAttempts - 1) {
+            throw new Error(errorMessage || `API error: ${errorCode}`);
+          }
+          continue;
+        }
         
         // Verify we're polling the correct operation (ignore old operations)
         if (result.name && result.name !== operationName) {
@@ -1005,17 +1166,80 @@ export class VEO3VideoGenerator {
           console.log(`⏳ Task still processing... (attempt ${attempt + 1}/${maxAttempts})`);
         }
       } catch (error: any) {
+        const errorMessage = error?.message || String(error) || 'Unknown error';
+        
         // Check if it's a content policy error - stop immediately
-        if (error.message?.includes('Video generation blocked') || error.message?.includes('safety policies')) {
+        if (errorMessage.includes('Video generation blocked') || errorMessage.includes('safety policies')) {
           console.error(`❌ Content policy violation detected during polling - stopping immediately`);
           return null;
         }
         
-        console.warn(`⚠️ Poll error:`, error.message);
-        if (attempt === maxAttempts - 1) {
-          throw error; // Re-throw on last attempt
+        // Check if it's a permanent error that was thrown intentionally
+        // These errors should NOT be retried - they indicate a permanent failure
+        const permanentErrorIndicators = [
+          'internal server issue',
+          'Video generation failed',
+          'NOT_FOUND',
+          'INTERNAL',
+          'INVALID_ARGUMENT',
+          'PERMISSION_DENIED',
+          'FAILED_PRECONDITION',
+          'Permanent error',
+          'permanent',
+          'fatal'
+        ];
+        
+        const isPermanentError = permanentErrorIndicators.some(indicator => 
+          errorMessage.includes(indicator)
+        );
+        
+        if (isPermanentError) {
+          console.error(`❌ PERMANENT ERROR DETECTED - STOPPING POLLING IMMEDIATELY`);
+          console.error(`   Error message: ${errorMessage}`);
+          console.error(`   Attempt: ${attempt + 1}/${maxAttempts}`);
+          console.error(`   This error will not resolve with retries - stopping now`);
+          
+          // Format error message for user
+          const userFriendlyMessage = errorMessage.includes('internal server issue') 
+            ? 'Video generation failed due to an internal server issue. Please try again in a few minutes. If the problem persists, please contact Gemini API support.'
+            : errorMessage;
+          
+          // Set flag and message, then throw to exit immediately
+          permanentErrorDetected = true;
+          permanentErrorMessage = userFriendlyMessage;
+          throw new Error(userFriendlyMessage);
+        }
+        
+        // For transient errors, log and potentially retry (with limit)
+        transientErrorCount++;
+        console.warn(`⚠️ Transient poll error (attempt ${attempt + 1}/${maxAttempts}, transient error #${transientErrorCount}): ${errorMessage}`);
+        
+        // Check if we've exceeded the transient error retry limit
+        if (transientErrorCount > maxTransientErrorRetries) {
+          console.error(`❌ Too many transient errors (${transientErrorCount} > ${maxTransientErrorRetries}) - stopping polling`);
+          throw new Error(`Video generation failed after ${transientErrorCount} transient errors. Please try again later.`);
+        }
+        
+        // Only continue if we have more attempts left AND haven't exceeded transient error limit
+        if (attempt < maxAttempts - 1) {
+          // Wait before retrying (exponential backoff for transient errors)
+          const retryDelay = Math.min(5000 * transientErrorCount, 15000); // Max 15 seconds, shorter delays
+          console.log(`   Retrying in ${retryDelay}ms... (${maxTransientErrorRetries - transientErrorCount} transient retries remaining)`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        } else {
+          // Last attempt failed - throw to exit
+          console.error(`❌ All ${maxAttempts} polling attempts exhausted`);
+          throw new Error(errorMessage || 'Video generation polling failed after maximum attempts');
         }
       }
+    }
+    
+    // If we get here, we've exhausted all attempts without success
+    // Check if we detected a permanent error but somehow continued
+    if (permanentErrorDetected && permanentErrorMessage) {
+      console.error(`❌ Polling loop ended but permanent error was detected earlier: ${permanentErrorMessage}`);
+      throw new Error(permanentErrorMessage);
     }
     
     console.warn(`⚠️ Polling timed out after ${maxAttempts} attempts`);
