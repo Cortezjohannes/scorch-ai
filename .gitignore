@@ -122,3 +122,33 @@ config/
 # Deployment scripts that may contain secrets (use .template versions)
 # Note: These are tracked but should use Secret Manager, not hardcoded keys
 # update-gemini-secret.sh (now uses env vars, but keep monitoring)
+
+# Files with API configurations and secrets
+# Deployment configuration files
+build-vars.yaml
+deploy.yaml
+cloudbuild.yaml
+cloudbuild-artifact.yaml
+service.yaml
+vercel.json
+
+# Deployment scripts with API configurations
+deploy-final.sh
+deploy-simple.sh
+deploy-production.sh
+deploy-prod.sh
+deploy-to-cloud-run.sh
+deploy-docker-to-cloud-run.sh
+continue-deployment.sh
+fix-repo.sh
+verify-deployment-env.sh
+update-secret-now.sh
+
+# Test files that may contain API keys
+test-gemini-api.js
+test-gemini-api-comprehensive.js
+test-gemini-image-direct.js
+test-gemini-image-generation.js
+test-gemini-connection.js
+test-azure-deployment.js
+test-nano-banana.js
