@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateContent } from '@/services/azure-openai'
+import { EngineAIRouter } from '@/services/engine-ai-router'
 import { logger } from '@/services/console-logger'
 
-// Set maximum execution time to 5 minutes (300 seconds)
-export const maxDuration = 300
+// Set maximum execution time to 10 minutes (600 seconds)
+// Episode generation with comprehensive story bible context and all previous episodes can take longer
+export const maxDuration = 600
 
 interface VibeSettings {
   tone: number // 0-100: Dark/Gritty <---> Light/Comedic
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
       vibeSettings, 
       directorsNotes, 
       previousChoice,
+      previousEpisode,
+      allPreviousEpisodes,
       editedScenes 
     } = body
     
@@ -82,6 +85,8 @@ export async function POST(request: NextRequest) {
       vibeSettings, 
       directorsNotes, 
       previousChoice,
+      previousEpisode,
+      allPreviousEpisodes,
       editedScenes
     )
     
@@ -92,23 +97,40 @@ export async function POST(request: NextRequest) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 The user has spent time crafting:
-1. A BEAT SHEET - This is your structural blueprint. Follow it closely.
+1. A BEAT SHEET - This is your structural blueprint. Follow it closely. **EVERY BEAT MUST APPEAR.**
 2. VIBE SETTINGS - Tone, pacing, and dialogue style. Apply these precisely.
 3. DIRECTOR'S NOTES - Specific creative vision. These are mandatory, not suggestions.
 
 If the director says "focus on the sound of rain," you MUST include rain sounds.
-The beat sheet provides story structure - you decide how many scenes best serve the 5-minute episode (typically 2-3 substantial scenes).
+The beat sheet provides story structure - **COUNT THE BEATS, then create AT LEAST that many scenes (one scene per beat minimum).**
+**Scene count is UNLIMITED - if there are 9 beats, create 9+ scenes. If there are 6 beats, create 6+ scenes.**
+**DO NOT REMOVE SCENES - DO NOT SKIP BEATS - EVERY BEAT MUST HAVE ITS OWN SCENE.**
 If tone is set to 20 (dark), the episode MUST feel dark - not balanced, not light.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🎬 NARRATIVE ARCHITECTURE:
 - Create multi-layered conflicts (internal vs external, character vs world, ideal vs reality)
-- Ensure character consistency using full story context
-- Build tension naturally through escalating stakes and challenges
-- Structure scenes for maximum emotional impact and pacing
-- Connect episodes through callbacks and character development arcs
-- **FOLLOW THE BEAT SHEET as structural guidance - adapt beats into 2-3 substantial scenes for 5-minute runtime**
+- **CRITICAL: Use the COMPLETE story bible context provided above - including ALL technical sections (Tension Strategy, Choice Architecture, Living World, Trope Analysis, Cohesion, Dialogue Strategy, Genre Enhancement, Theme Integration, Premise Integration)**
+- **CRITICAL: Reference ALL previous episodes provided - use specific events, character development, plot threads, and consequences from past episodes**
+- Ensure character consistency using full story context from story bible AND previous episodes
+- Build tension naturally using the TENSION STRATEGY from the story bible technical sections
+- Structure scenes for maximum emotional impact and pacing according to story bible guidance
+- Connect episodes through callbacks, character development arcs, and continuity from previous episodes
+- **FOLLOW THE BEAT SHEET as structural guidance - ALL beats must be represented in the episode**
+- **COUNT THE BEATS in the beat sheet - CREATE AT LEAST THAT MANY SCENES (one scene per beat)**
+- **NO BEATS CAN BE SKIPPED - if you skip even one beat, you have failed**
+- **NO SCENES CAN BE REMOVED - if the beat sheet has 9 beats, create 9+ scenes**
+- **Scene count is UNLIMITED - if there are 9 beats, create 9 scenes minimum**
+- **EACH BEAT DESERVES ITS OWN SCENE - DO NOT COMBINE BEATS UNLESS ABSOLUTELY NECESSARY**
+- **DO NOT DEFAULT TO 3 SCENES - COUNT THE BEATS AND CREATE THAT MANY SCENES**
+- Apply CHOICE ARCHITECTURE from story bible when building toward meaningful decisions
+- Incorporate LIVING WORLD DYNAMICS to make the world feel reactive and alive
+- Use TROPE ANALYSIS to balance genre expectations with fresh storytelling
+- Follow COHESION ANALYSIS to maintain consistency with previous episodes
+- Apply DIALOGUE STRATEGY for authentic character voices
+- Use GENRE ENHANCEMENT for visual style and pacing
+- Integrate THEME throughout using THEME INTEGRATION guidance
 
 ✍️ PROSE & DIALOGUE:
 - Write rich narrative prose that reads like a great novel (NOT screenplay format)
@@ -154,41 +176,65 @@ If tone is set to 20 (dark), the episode MUST feel dark - not balanced, not ligh
 ✅ QUALITY CHECK BEFORE RETURNING:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Ask yourself:
-1. Are there 2-3 substantial scenes appropriate for a 5-minute episode?
-2. Does the tone match the vibe setting? (Check: is it too light/dark compared to setting?)
-3. Is the pacing appropriate? (Check: are scenes too rushed/slow for the setting?)
-4. Did I include ALL elements from the director's notes?
-5. Does the dialogue style match the requested style?
-6. Is each scene deep and fully developed rather than rushed?
+⚠️ MANDATORY VERIFICATION CHECKLIST - ANSWER EACH QUESTION:
 
-If NO to any question, revise before returning.
+1. **BEAT COUNT VERIFICATION:**
+   - How many beats are in the beat sheet? (Count them)
+   - How many beats did I include in my episode? (Count them)
+   - Are these numbers EXACTLY the same? If NO, you MUST add the missing beats.
+
+2. **BEAT-BY-BEAT VERIFICATION:**
+   - Beat 1: Is it in the episode? Where? (List the scene number)
+   - Beat 2: Is it in the episode? Where? (List the scene number)
+   - Beat 3: Is it in the episode? Where? (List the scene number)
+   - [Continue for ALL beats in the beat sheet]
+   - If ANY beat is missing, you MUST add it before returning.
+
+3. **SCENE COUNT VERIFICATION:**
+   - How many scenes did I create?
+   - Is this enough to include ALL beats properly?
+   - If beats are missing, create more scenes to include them.
+   - There is NO limit on scene count - use as many as needed.
+
+4. **QUALITY VERIFICATION:**
+   - Does the tone match the vibe setting? (Check: is it too light/dark compared to setting?)
+   - Is the pacing appropriate? (Check: are scenes too rushed/slow for the setting?)
+   - Did I include ALL elements from the director's notes?
+   - Does the dialogue style match the requested style?
+   - Is each scene deep and fully developed rather than rushed?
+
+**IF YOU ANSWERED "NO" OR "MISSING" TO ANY BEAT QUESTION, YOU MUST REVISE AND INCLUDE ALL BEATS BEFORE RETURNING.**
 
 You create episodes that are enjoyable to READ and REVIEW, making the narrative prose engaging before it becomes a script.`
 
     console.log('🎬 Generating script from beat sheet with vibe settings:', vibeSettings)
+    console.log('🚀 Using Gemini 3 Pro Preview for episode generation...')
     
-    const result = await generateContent(scriptPrompt, {
-      model: 'gpt-4.1',
+    const result = await EngineAIRouter.generateContent({
+      prompt: scriptPrompt,
       systemPrompt,
       temperature: 0.9, // Maximum creativity for final script
-      maxTokens: 8000 // Large token count for detailed episodes
+      maxTokens: 8000, // Large token count for detailed episodes
+      engineId: 'episode-generator',
+      forceProvider: 'gemini' // Use Gemini 3 Pro Preview for creative writing
     })
+    
+    console.log(`✅ [GEMINI] Episode generated: ${result.metadata.contentLength} chars using ${result.model}`)
     
     // Parse the generated episode with robust fallback handling
     let parsedEpisode
     try {
       // First try: Direct JSON parsing
-      parsedEpisode = JSON.parse(result)
+      parsedEpisode = JSON.parse(result.content)
     } catch (directParseError) {
       try {
         // Second try: Extract JSON from markdown code blocks
-        const jsonMatch = result.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+        const jsonMatch = result.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
         if (jsonMatch && jsonMatch[1]) {
           parsedEpisode = JSON.parse(jsonMatch[1])
         } else {
           // Third try: Find any JSON-like structure
-          const anyJsonMatch = result.match(/\{[\s\S]*\}/)
+          const anyJsonMatch = result.content.match(/\{[\s\S]*\}/)
           if (anyJsonMatch) {
             parsedEpisode = JSON.parse(anyJsonMatch[0])
           } else {
@@ -197,12 +243,12 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
         }
       } catch (parseError) {
         console.error('Failed to parse episode JSON:', parseError)
-        console.log('Raw AI response:', result.substring(0, 500) + '...')
+        console.log('Raw AI response:', result.content.substring(0, 500) + '...')
         
-        // Enhanced fallback structure based on beat sheet
+        // Enhanced fallback structure based on beat sheet - include ALL beats
         const beatLines = beatSheet.split('\n').filter((line: string) => line.trim().length > 0)
         const fallbackContent = beatLines.length > 0 ? 
-          beatLines.slice(0, 3).join('\n\n') : 
+          beatLines.join('\n\n') : 
           'The episode unfolds according to the beat sheet structure.'
         
         parsedEpisode = {
@@ -493,6 +539,136 @@ function buildComprehensiveStoryBibleContext(storyBible: any): string {
     });
   }
   
+  // ===== TECHNICAL SECTIONS (CRITICAL - MUST BE USED) =====
+  
+  // Tension Strategy (from Technical Tab)
+  if (storyBible.tensionStrategy) {
+    sections.push('\n=== TENSION STRATEGY (TECHNICAL) ===');
+    const tension = storyBible.tensionStrategy;
+    if (tension.rawContent) {
+      sections.push(typeof tension.rawContent === 'string' ? tension.rawContent : JSON.stringify(tension.rawContent));
+    } else {
+      if (tension.tensionCurve) sections.push(`Tension Curve: ${tension.tensionCurve}`);
+      if (tension.climaxPoints) sections.push(`Climax Points: ${tension.climaxPoints}`);
+      if (tension.releaseMoments) sections.push(`Release Moments: ${tension.releaseMoments}`);
+      if (tension.escalationTechniques) sections.push(`Escalation Techniques: ${tension.escalationTechniques}`);
+      if (tension.emotionalBeats) sections.push(`Emotional Beats: ${tension.emotionalBeats}`);
+    }
+  }
+  
+  // Choice Architecture (from Technical Tab)
+  if (storyBible.choiceArchitecture) {
+    sections.push('\n=== CHOICE ARCHITECTURE (TECHNICAL) ===');
+    const choice = storyBible.choiceArchitecture;
+    if (choice.rawContent) {
+      sections.push(typeof choice.rawContent === 'string' ? choice.rawContent : JSON.stringify(choice.rawContent));
+    } else {
+      if (choice.keyDecisions) sections.push(`Key Decisions: ${choice.keyDecisions}`);
+      if (choice.moralChoices) sections.push(`Moral Choices: ${choice.moralChoices}`);
+      if (choice.consequenceMapping) sections.push(`Consequence Mapping: ${choice.consequenceMapping}`);
+      if (choice.branchingStructure) sections.push(`Branching Structure: ${choice.branchingStructure}`);
+      if (choice.characterGrowth) sections.push(`Character Growth: ${choice.characterGrowth}`);
+      if (choice.thematicChoices) sections.push(`Thematic Choices: ${choice.thematicChoices}`);
+    }
+  }
+  
+  // Living World Dynamics (from Technical Tab)
+  if (storyBible.livingWorldDynamics) {
+    sections.push('\n=== LIVING WORLD DYNAMICS (TECHNICAL) ===');
+    const living = storyBible.livingWorldDynamics;
+    if (living.rawContent) {
+      sections.push(typeof living.rawContent === 'string' ? living.rawContent : JSON.stringify(living.rawContent));
+    } else {
+      if (living.backgroundEvents) sections.push(`Background Events: ${living.backgroundEvents}`);
+      if (living.socialDynamics) sections.push(`Social Dynamics: ${living.socialDynamics}`);
+      if (living.economicFactors) sections.push(`Economic Factors: ${living.economicFactors}`);
+      if (living.culturalEvolution) sections.push(`Cultural Evolution: ${living.culturalEvolution}`);
+    }
+  }
+  
+  // Trope Analysis (from Technical Tab)
+  if (storyBible.tropeAnalysis) {
+    sections.push('\n=== TROPE ANALYSIS (TECHNICAL) ===');
+    const trope = storyBible.tropeAnalysis;
+    if (trope.rawContent) {
+      sections.push(typeof trope.rawContent === 'string' ? trope.rawContent : JSON.stringify(trope.rawContent));
+    } else {
+      if (trope.genreTropes) sections.push(`Genre Tropes: ${trope.genreTropes}`);
+      if (trope.subvertedTropes) sections.push(`Subverted Tropes: ${trope.subvertedTropes}`);
+      if (trope.originalElements) sections.push(`Original Elements: ${trope.originalElements}`);
+      if (trope.tropeMashups) sections.push(`Trope Mashups: ${trope.tropeMashups}`);
+    }
+  }
+  
+  // Cohesion Analysis (from Technical Tab)
+  if (storyBible.cohesionAnalysis) {
+    sections.push('\n=== COHESION ANALYSIS (TECHNICAL) ===');
+    const cohesion = storyBible.cohesionAnalysis;
+    if (cohesion.rawContent) {
+      sections.push(typeof cohesion.rawContent === 'string' ? cohesion.rawContent : JSON.stringify(cohesion.rawContent));
+    } else {
+      if (cohesion.plotConsistency) sections.push(`Plot Consistency: ${cohesion.plotConsistency}`);
+      if (cohesion.characterConsistency) sections.push(`Character Consistency: ${cohesion.characterConsistency}`);
+      if (cohesion.thematicConsistency) sections.push(`Thematic Consistency: ${cohesion.thematicConsistency}`);
+      if (cohesion.emotionalJourney) sections.push(`Emotional Journey: ${cohesion.emotionalJourney}`);
+    }
+  }
+  
+  // Dialogue Strategy (from Technical Tab)
+  if (storyBible.dialogueStrategy) {
+    sections.push('\n=== DIALOGUE STRATEGY (TECHNICAL) ===');
+    const dialogue = storyBible.dialogueStrategy;
+    if (dialogue.rawContent) {
+      sections.push(typeof dialogue.rawContent === 'string' ? dialogue.rawContent : JSON.stringify(dialogue.rawContent));
+    } else {
+      if (dialogue.characterVoice) sections.push(`Character Voice: ${dialogue.characterVoice}`);
+      if (dialogue.conflictDialogue) sections.push(`Conflict Dialogue: ${dialogue.conflictDialogue}`);
+      if (dialogue.subtext) sections.push(`Subtext: ${dialogue.subtext}`);
+      if (dialogue.speechPatterns) sections.push(`Speech Patterns: ${dialogue.speechPatterns}`);
+    }
+  }
+  
+  // Genre Enhancement (from Technical Tab)
+  if (storyBible.genreEnhancement) {
+    sections.push('\n=== GENRE ENHANCEMENT (TECHNICAL) ===');
+    const genre = storyBible.genreEnhancement;
+    if (genre.rawContent) {
+      sections.push(typeof genre.rawContent === 'string' ? genre.rawContent : JSON.stringify(genre.rawContent));
+    } else {
+      if (genre.visualStyle) sections.push(`Visual Style: ${genre.visualStyle}`);
+      if (genre.pacing) sections.push(`Genre Pacing: ${genre.pacing}`);
+      if (genre.tropes) sections.push(`Genre Tropes: ${typeof genre.tropes === 'string' ? genre.tropes : JSON.stringify(genre.tropes)}`);
+      if (genre.audienceExpectations) sections.push(`Audience Expectations: ${genre.audienceExpectations}`);
+    }
+  }
+  
+  // Theme Integration (from Technical Tab)
+  if (storyBible.themeIntegration) {
+    sections.push('\n=== THEME INTEGRATION (TECHNICAL) ===');
+    const themeInt = storyBible.themeIntegration;
+    if (themeInt.rawContent) {
+      sections.push(typeof themeInt.rawContent === 'string' ? themeInt.rawContent : JSON.stringify(themeInt.rawContent));
+    } else {
+      if (themeInt.characterIntegration) sections.push(`Character Integration: ${themeInt.characterIntegration}`);
+      if (themeInt.plotIntegration) sections.push(`Plot Integration: ${themeInt.plotIntegration}`);
+      if (themeInt.symbolicElements) sections.push(`Symbolic Elements: ${themeInt.symbolicElements}`);
+      if (themeInt.thematicArcs) sections.push(`Thematic Arcs: ${themeInt.thematicArcs}`);
+    }
+  }
+  
+  // Premise Integration (from Premise Tab)
+  if (storyBible.premiseIntegration) {
+    sections.push('\n=== PREMISE INTEGRATION (TECHNICAL) ===');
+    const premiseInt = storyBible.premiseIntegration;
+    if (premiseInt.rawContent) {
+      sections.push(typeof premiseInt.rawContent === 'string' ? premiseInt.rawContent : JSON.stringify(premiseInt.rawContent));
+    } else {
+      if (premiseInt.coreQuestion) sections.push(`Core Question: ${premiseInt.coreQuestion}`);
+      if (premiseInt.episodicExpression) sections.push(`Episodic Expression: ${premiseInt.episodicExpression}`);
+      if (premiseInt.consistencyChecks) sections.push(`Consistency Checks: ${premiseInt.consistencyChecks}`);
+    }
+  }
+  
   return sections.join('\n');
 }
 
@@ -503,6 +679,8 @@ function buildScriptPrompt(
   vibeSettings: VibeSettings,
   directorsNotes: string,
   previousChoice?: string,
+  previousEpisode?: any,
+  allPreviousEpisodes?: any[],
   editedScenes?: any
 ): string {
   // Build comprehensive story bible context
@@ -613,13 +791,91 @@ IMPLEMENTATION GUIDANCE:
 - Maintain cinematic quality while honoring the director's creative vision
   ` : ''
 
-  // Previous episode context
-  const previousContext = previousChoice ? `
-PREVIOUS EPISODE CONTEXT:
-User's Previous Choice: "${previousChoice}"
-- This choice creates consequences and character reactions in the current episode
-- Reference this decision naturally in character dialogue and situations
-  ` : ''
+  // Build ALL previous episodes context for full story continuity
+  let allPreviousEpisodesContext = ''
+  if (allPreviousEpisodes && allPreviousEpisodes.length > 0) {
+    allPreviousEpisodesContext = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📺 ALL PREVIOUS EPISODES (FULL STORY CONTEXT - USE ALL OF THIS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: Reference specific events, character development, plot threads, relationships, and consequences from ALL previous episodes below.`
+    
+    // Sort episodes by episode number
+    const sortedEpisodes = [...allPreviousEpisodes].sort((a, b) => {
+      const aNum = a.episodeNumber || 0
+      const bNum = b.episodeNumber || 0
+      return aNum - bNum
+    })
+    
+    sortedEpisodes.forEach((ep: any) => {
+      const epNum = ep.episodeNumber || '?'
+      const epTitle = ep.title || ep.episodeTitle || `Episode ${epNum}`
+      const epSynopsis = ep.synopsis || ''
+      
+      allPreviousEpisodesContext += `\n\n📺 Episode ${epNum}: "${epTitle}"`
+      if (epSynopsis) {
+        allPreviousEpisodesContext += `\nSynopsis: ${epSynopsis}`
+      }
+      
+      // Include key scenes for context (limit to 2-3 most important scenes per episode to avoid token bloat)
+      const scenes = ep.scenes || []
+      if (scenes.length > 0) {
+        const keyScenes = scenes.slice(-2) // Last 2 scenes are usually most relevant
+        keyScenes.forEach((scene: any, index: number) => {
+          const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+          const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+          // Include scene preview (first 400 chars for better context)
+          const preview = sceneContent.substring(0, 400) + (sceneContent.length > 400 ? '...' : '')
+          allPreviousEpisodesContext += `\n\n  ${sceneTitle}:\n  ${preview}`
+        })
+      }
+    })
+    
+    allPreviousEpisodesContext += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ USE THIS CONTEXT: Reference character arcs, plot developments, relationships, choices, and consequences from the episodes above. Build continuity naturally.`
+  }
+  
+  // Build immediate previous episode context (full detail)
+  let previousEpisodeContext = ''
+  if (previousEpisode) {
+    const prevEpTitle = previousEpisode.title || previousEpisode.episodeTitle || `Episode ${episodeNumber - 1}`
+    const prevEpSynopsis = previousEpisode.synopsis || ''
+    const prevEpScenes = previousEpisode.scenes || []
+    
+    previousEpisodeContext = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📺 IMMEDIATE PREVIOUS EPISODE (Episode ${episodeNumber - 1}): "${prevEpTitle}"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: This is the episode immediately before the current one. Reference it extensively.`
+    
+    if (prevEpSynopsis) {
+      previousEpisodeContext += `\n\nSynopsis: ${prevEpSynopsis}`
+    }
+    
+    if (prevEpScenes.length > 0) {
+      previousEpisodeContext += `\n\nPrevious Episode Scenes (FULL CONTENT - Use for continuity):`
+      prevEpScenes.forEach((scene: any, index: number) => {
+        const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+        const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+        // Include full scene content for better context
+        previousEpisodeContext += `\n\n${sceneTitle}:\n${sceneContent}`
+      })
+    }
+  }
+  
+  // Previous choice context
+  const previousContext = previousChoice 
+    ? `${allPreviousEpisodesContext}${previousEpisodeContext}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 PREVIOUS CHOICE: "${previousChoice}"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 NARRATIVE PROGRESSION REQUIREMENTS (When Previous Choice Exists):
+- START from where the previous episode ended - reference specific events, characters, and situations from the previous episode above
+- Show the immediate aftermath and consequences of the previous episode's ending
+- Build GRADUALLY toward the chosen option - do NOT jump directly to showing its consequences
+- Show the journey, complications, and development that lead to the chosen option's narrative moment
+- Create a natural progression that feels like events unfolding, not a sudden jump
+- END on a specific emotional note (high/low, good/bad) that reflects the choice's impact
+- The chosen option should feel like the natural culmination of the episode's buildup, not the starting point`
+    : `${allPreviousEpisodesContext}${previousEpisodeContext}`
 
   // Edited scenes context (if any scenes were edited)
   const editedScenesContext = editedScenes && editedScenes.length > 0 ? `
@@ -636,7 +892,23 @@ IMPORTANT: These edited scenes represent the user's creative vision and should b
 
   return `Create Episode ${episodeNumber} of "${seriesTitle}" based on the provided beat sheet, vibe settings, and creative direction.
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📖 COMPLETE STORY BIBLE CONTEXT (USE ALL OF THIS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${storyBibleContext}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: The story bible above includes TECHNICAL SECTIONS marked as "(TECHNICAL)" - these are MANDATORY guidance:
+- TENSION STRATEGY: Use this to structure emotional peaks, escalation, and release moments
+- CHOICE ARCHITECTURE: Reference this when building toward meaningful character decisions
+- LIVING WORLD DYNAMICS: Incorporate background events, social dynamics, and world reactivity
+- TROPE ANALYSIS: Apply genre tropes authentically and subvert where appropriate
+- COHESION ANALYSIS: Maintain plot/character/thematic consistency with previous episodes
+- DIALOGUE STRATEGY: Match character voices, speech patterns, and subtext techniques
+- GENRE ENHANCEMENT: Follow visual style, pacing, and audience expectations
+- THEME INTEGRATION: Weave themes through character actions and plot, not just symbolism
+- PREMISE INTEGRATION: Ensure episode serves the core premise and maintains consistency
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 DETAILED CHARACTER WRITING GUIDANCE:${characters}
 
@@ -657,18 +929,40 @@ BEAT SHEET TO ADAPT:
 ${beatSheet}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+⚠️ **CRITICAL FIRST STEP:**
+1. COUNT how many beats are in the beat sheet above
+2. Write down that number
+3. Before returning your response, verify you included EXACTLY that many beats
+4. If the number doesn't match, you MUST add the missing beats
+
 ADAPTATION REQUIREMENTS (MANDATORY):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️ CRITICAL RULES - MUST FOLLOW:
 
-1. BEAT SHEET STRUCTURE:
-   - Use the beats above as structural guidance for the story flow
-   - THIS IS A 5-MINUTE SHORT-FORM EPISODE - create 2-3 scenes MAXIMUM
-   - 5-minute runtime = 2-3 deep scenes (each 2-2.5 minutes), NOT 4-5 shallow scenes
-   - Quality over quantity: FEWER scenes with MORE depth
-   - Combine multiple beats into single powerful, immersive scenes
-   - Each scene must be substantial enough to feel like a complete story moment
+1. BEAT SHEET STRUCTURE (CRITICAL - ABSOLUTE REQUIREMENT):
+   
+   ⚠️ **BEAT INCLUSION - ABSOLUTE MANDATE - NO EXCEPTIONS:**
+   - **EVERY SINGLE BEAT from the beat sheet MUST appear in the final episode**
+   - **NO BEATS CAN BE SKIPPED, OMITTED, REMOVED, OR IGNORED**
+   - **IF THE BEAT SHEET HAS 9 BEATS, ALL 9 MUST BE IN THE EPISODE**
+   - **IF THE BEAT SHEET HAS 6 BEATS, ALL 6 MUST BE IN THE EPISODE**
+   - **IF THE BEAT SHEET HAS 4 BEATS, ALL 4 MUST BE IN THE EPISODE**
+   - **COUNT THE BEATS IN THE BEAT SHEET - THAT IS YOUR MANDATORY MINIMUM SCENE COUNT**
+   - Each beat must be clearly represented - preferably as its own dedicated scene
+   - When combining beats, ensure ALL combined beats are FULLY present, not abbreviated
+   - **DO NOT REMOVE SCENES - DO NOT SKIP BEATS - DO NOT CONDENSE BEYOND RECOGNIZABILITY**
+   
+   ⚠️ **SCENE COUNT - UNLIMITED AND BEAT-DRIVEN:**
+   - **THERE IS NO SCENE LIMIT - use as many scenes as needed to include ALL beats**
+   - **IF THE BEAT SHEET HAS 9 BEATS, CREATE AT LEAST 9 SCENES (one per beat)**
+   - **IF THE BEAT SHEET HAS 6 BEATS, CREATE AT LEAST 6 SCENES (one per beat)**
+   - **THE SCENE COUNT MUST MATCH OR EXCEED THE BEAT COUNT**
+   - **DO NOT DEFAULT TO 3 SCENES - COUNT THE BEATS AND CREATE THAT MANY SCENES**
+   - **EACH BEAT DESERVES ITS OWN SCENE - DO NOT COMBINE UNLESS ABSOLUTELY NECESSARY**
+   - Each scene must be substantial and fully developed
+   - Quality AND completeness: Every scene must be deep AND every beat must be included
+   - **REMOVING SCENES IS FORBIDDEN - REMOVING BEATS IS FORBIDDEN**
 
 2. VIBE SETTINGS (NON-NEGOTIABLE):
    - Tone ${vibeSettings.tone}/100: ${getDetailedToneDirection(vibeSettings.tone)}
@@ -687,13 +981,32 @@ ADAPTATION REQUIREMENTS (MANDATORY):
    • Compelling branching choices that emerge organically from the story
    ${dialogueLanguage !== 'english' ? `• ALL DIALOGUE MUST BE IN ${dialogueLanguage.toUpperCase()} (narrative prose stays in English)` : ''}
 
-⚠️ BEFORE YOU RETURN YOUR RESPONSE:
-   - Verify you have 2-3 deep, substantial scenes appropriate for 5-minute runtime
+⚠️ BEFORE YOU RETURN YOUR RESPONSE - MANDATORY VERIFICATION:
+   
+   **STEP 1: BEAT VERIFICATION (CRITICAL - DO THIS FIRST):**
+   1. Count how many beats are in the beat sheet above
+   2. List each beat by name/number
+   3. Go through your scenes and verify EACH beat appears
+   4. If ANY beat is missing, ADD IT before returning
+   5. If you combined beats, verify BOTH beats are fully present in that scene
+   
+   **STEP 2: SCENE COUNT VERIFICATION:**
+   - COUNT the beats in the beat sheet: _____
+   - COUNT the scenes you created: _____
+   - **THE SCENE COUNT MUST MATCH OR EXCEED THE BEAT COUNT**
+   - **IF YOU HAVE 9 BEATS, YOU MUST HAVE AT LEAST 9 SCENES**
+   - **IF YOU HAVE 6 BEATS, YOU MUST HAVE AT LEAST 6 SCENES**
+   - **IF YOUR SCENE COUNT IS LESS THAN YOUR BEAT COUNT, YOU HAVE FAILED**
+   - Create additional scenes to match the beat count - one scene per beat minimum
+   
+   **STEP 3: QUALITY VERIFICATION:**
    - Check tone matches vibe setting (reread your content - is it actually dark/light as requested?)
    - Confirm pacing is appropriate (are scenes slow/fast as requested?)
    - Ensure ALL director's notes are incorporated
    - Confirm each scene is fully developed, not rushed or shallow
    ${dialogueLanguage !== 'english' ? `- VERIFY all dialogue is written in ${dialogueLanguage.toUpperCase()} with cultural authenticity` : ''}
+   
+   **IF YOU SKIP EVEN ONE BEAT, YOU HAVE FAILED. REVISE AND INCLUDE IT.**
 
 CRITICAL OUTPUT FORMAT:
 Return ONLY valid JSON in this exact structure:
@@ -708,7 +1021,7 @@ Return ONLY valid JSON in this exact structure:
       "title": "[Scene title]",
       "content": "[Full scene with rich descriptions, authentic dialogue, character actions. Apply vibe settings here - tone in atmosphere, pacing in scene flow, dialogue style in conversations.]"
     }
-    // Typically 2-3 scenes for 5-minute episodes
+    // ⚠️ CRITICAL: Create as many scenes as needed to include ALL beats. Scene count is unlimited - use however many scenes are required to represent EVERY beat from the beat sheet.
   ],
   "branchingOptions": [
     {
@@ -730,7 +1043,29 @@ Return ONLY valid JSON in this exact structure:
   "episodeRundown": "[Comprehensive analysis of episode's narrative significance, character development, and series impact]"
 }
 
-Transform the beat sheet into cinematic storytelling that perfectly executes the vibe settings and director's vision while maintaining the authentic voice and world of the series.`
+Transform the beat sheet into cinematic storytelling that perfectly executes the vibe settings and director's vision while maintaining the authentic voice and world of the series.
+
+⚠️ **FINAL VERIFICATION BEFORE RETURNING - MANDATORY:**
+1. Count beats in beat sheet: _____
+2. Count scenes you created: _____
+3. **SCENE COUNT MUST EQUAL OR EXCEED BEAT COUNT** - If you have 9 beats, you need 9+ scenes
+4. Count beats in your episode: _____
+5. **BEAT COUNT MUST MATCH BEAT SHEET COUNT EXACTLY** - If NO, add missing beats NOW.
+6. List each beat and where it appears:
+   - Beat 1: Scene _____ (MUST EXIST)
+   - Beat 2: Scene _____ (MUST EXIST)
+   - Beat 3: Scene _____ (MUST EXIST)
+   - Beat 4: Scene _____ (MUST EXIST)
+   - Beat 5: Scene _____ (MUST EXIST)
+   - Beat 6: Scene _____ (MUST EXIST)
+   - Beat 7: Scene _____ (MUST EXIST)
+   - Beat 8: Scene _____ (MUST EXIST)
+   - Beat 9: Scene _____ (MUST EXIST)
+   - [Continue for ALL beats - if beat sheet has 9 beats, list all 9]
+7. **IF ANY BEAT IS MISSING, YOU MUST ADD IT BEFORE RETURNING**
+8. **IF SCENE COUNT IS LESS THAN BEAT COUNT, YOU MUST CREATE MORE SCENES**
+
+**IF YOU RETURN WITHOUT ALL BEATS OR WITH FEWER SCENES THAN BEATS, YOU HAVE FAILED THE TASK.**`
 }
 
 // Helper function for dialogue language instructions

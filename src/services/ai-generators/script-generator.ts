@@ -16,6 +16,8 @@ import type { Episode } from '@/services/episode-service'
 interface ScriptGenerationParams {
   episode: Episode
   storyBible: any
+  previousEpisode?: any
+  allPreviousEpisodes?: any[]
   existingPreProductionData?: any
 }
 
@@ -50,13 +52,16 @@ interface ScriptElement {
  * Generate a professional screenplay from episode content
  */
 export async function generateScript(params: ScriptGenerationParams): Promise<GeneratedScript> {
-  const { episode, storyBible, existingPreProductionData } = params
+  const { episode, storyBible, previousEpisode, allPreviousEpisodes, existingPreProductionData } = params
+  
+  // Extract vibe settings from episode metadata if available
+  const vibeSettings = (episode as any).vibeSettings || (episode as any).generationSettings?.vibeSettings || null
 
   console.log('🎬 Generating screenplay for Episode', episode.episodeNumber)
   console.log('📄 Target: 5 pages (~5 minutes screen time)')
 
   // Build comprehensive context
-  const systemPrompt = buildSystemPrompt()
+  const systemPrompt = buildSystemPrompt(vibeSettings)
   const userPrompt = buildUserPrompt(params)
 
   try {
@@ -87,8 +92,22 @@ export async function generateScript(params: ScriptGenerationParams): Promise<Ge
 /**
  * Build system prompt for AI
  */
-function buildSystemPrompt(): string {
-  return `You are a professional Hollywood screenwriter adapting an existing episode outline into a production-ready screenplay.
+function buildSystemPrompt(vibeSettings?: { tone: number; pacing: number; dialogueStyle: number } | null): string {
+  const vibeGuidance = vibeSettings ? `
+  
+🎨 VIBE SETTINGS (APPLY THESE TO SCREENPLAY):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- TONE (${vibeSettings.tone}/100): ${getToneDescription(vibeSettings.tone)}
+- PACING (${vibeSettings.pacing}/100): ${getPacingDescription(vibeSettings.pacing)}
+- DIALOGUE STYLE (${vibeSettings.dialogueStyle}/100): ${getDialogueDescription(vibeSettings.dialogueStyle)}
+
+⚠️ CRITICAL: These vibe settings MUST be reflected in:
+  - Action descriptions (tone affects atmosphere, pacing affects scene rhythm)
+  - Dialogue style (sparse vs snappy, subtextual vs expository)
+  - Scene transitions (pacing affects how quickly scenes move)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ''
+  
+  return `You are a professional Hollywood screenwriter adapting an existing episode outline into a production-ready screenplay.${vibeGuidance}
 
 **ABSOLUTE RULES - NON-NEGOTIABLE:**
 
@@ -144,11 +163,17 @@ function buildSystemPrompt(): string {
    - Apply visual style and genre conventions from story bible when describing actions
    - Weave in thematic elements naturally through visual/action descriptions
 
-7. **USE STORY BIBLE CONTEXT:**
-   - DIALOGUE STRATEGY: Match character voices and speech patterns defined in story bible
-   - WORLD BUILDING: Incorporate setting atmosphere and details when describing locations
-   - GENRE ENHANCEMENT: Apply visual style guidance when writing action descriptions
+7. **USE STORY BIBLE CONTEXT (ALL TECHNICAL SECTIONS):**
+   - TENSION STRATEGY: Structure emotional peaks, escalation, and release moments in action descriptions
+   - DIALOGUE STRATEGY: Match character voices and speech patterns defined in story bible (MANDATORY)
+   - CHOICE ARCHITECTURE: Reference when building toward meaningful character decisions in dialogue
+   - LIVING WORLD DYNAMICS: Incorporate background events and social dynamics in action lines
+   - TROPE ANALYSIS: Apply genre tropes authentically in visual descriptions
+   - COHESION ANALYSIS: Maintain consistency with plot/character/theme from previous episodes
+   - GENRE ENHANCEMENT: Apply visual style guidance when writing action descriptions (MANDATORY)
    - THEME INTEGRATION: Subtly weave thematic symbols into visual descriptions
+   - PREMISE INTEGRATION: Ensure screenplay serves the core premise
+   - WORLD BUILDING: Incorporate setting atmosphere and details when describing locations
    - Remember: Use these to ENHANCE what's in the episode, NOT to add new story elements
 
 **REMEMBER:** You are adapting, NOT creating. If it's not in the episode, it doesn't go in the script. Period.`
@@ -223,16 +248,47 @@ ACTION LINES AND SLUG LINES remain in English - ONLY dialogue is in Chinese char
 }
 
 /**
+ * Helper functions for vibe settings descriptions
+ */
+function getToneDescription(value: number): string {
+  if (value < 20) return 'DARK/GRITTY: Emphasize shadows, moral ambiguity, harsh realities. Use muted descriptions, serious dialogue, and weighty consequences.'
+  if (value < 40) return 'DARK-LEANING: Thoughtful with serious undertones. Some humor but grounded in reality.'
+  if (value < 60) return 'BALANCED: Mix of serious moments with lighter beats. Natural humor emerges from character interactions.'
+  if (value < 80) return 'LIGHT-LEANING: Optimistic with occasional serious moments. Characters find hope and humor even in challenges.'
+  return 'LIGHT/COMEDIC: Emphasis on humor, wit, and positive outlook. Quick banter, comedic timing, and characters who find levity in situations.'
+}
+
+function getPacingDescription(value: number): string {
+  if (value < 20) return 'SLOW BURN: Extended character moments, contemplative pauses, detailed atmospheric descriptions. Let scenes breathe.'
+  if (value < 40) return 'DELIBERATE: Thoughtful pacing with purposeful scene development. Balance action with character moments.'
+  if (value < 60) return 'STEADY: Consistent forward momentum with varied scene lengths. Mix of quick and extended moments.'
+  if (value < 80) return 'ENERGETIC: Faster scene transitions, more dynamic action, snappy exchanges. Keep momentum building.'
+  return 'HIGH OCTANE: Rapid scene changes, intense action, quick-fire dialogue. Maximum energy and excitement.'
+}
+
+function getDialogueDescription(value: number): string {
+  if (value < 20) return 'SPARSE/SUBTEXTUAL: Characters say less but mean more. Heavy use of subtext, meaningful silences, and actions that speak louder than words.'
+  if (value < 40) return 'THOUGHTFUL: Measured dialogue with deeper meaning. Characters choose words carefully. Subtext is important.'
+  if (value < 60) return 'NATURAL: Authentic conversational flow. Mix of direct and indirect communication based on character and situation.'
+  if (value < 80) return 'ARTICULATE: Characters express themselves clearly and directly. More exposition when needed, but still natural.'
+  return 'SNAPPY/EXPOSITORY: Quick wit, rapid exchanges, characters who say exactly what they mean. Fast dialogue with clear information delivery.'
+}
+
+/**
  * Build user prompt with all context
  */
 function buildUserPrompt(params: ScriptGenerationParams): string {
-  const { episode, storyBible, existingPreProductionData } = params
+  const { episode, storyBible, previousEpisode, allPreviousEpisodes, existingPreProductionData } = params
   
   // Get dialogue language setting
   const dialogueLanguage = storyBible.dialogueLanguage || storyBible.generationSettings?.dialogueLanguage || 'english'
   const languageInstructions = getScriptLanguageInstructions(dialogueLanguage)
   
-  let prompt = `Generate a professional, industry-standard screenplay for this 5-minute episode.\n\n`
+  let prompt = `Generate a professional, industry-standard screenplay for this episode.\n\n`
+  prompt += `**EPISODE LENGTH:**\n`
+  prompt += `- Target runtime: 5 minutes (target: 5 pages)\n`
+  prompt += `- ONLY extend to 8 minutes (8 pages) if the story genuinely requires it\n`
+  prompt += `- If extending, ensure every additional minute serves a clear narrative purpose\n\n`
   
   // Add language instructions prominently if not English
   if (languageInstructions) {
@@ -275,9 +331,86 @@ function buildUserPrompt(params: ScriptGenerationParams): string {
     }
   }
   
-  // Add technical tabs for better adaptation context
+  // Add ALL technical tabs for comprehensive adaptation context
+  prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**STORY BIBLE TECHNICAL SECTIONS (MANDATORY GUIDANCE):**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: Use these technical sections to enhance screenplay adaptation. These provide critical guidance for authentic storytelling.\n\n`
+  
+  // Tension Strategy
+  if (storyBible.tensionStrategy) {
+    prompt += `**TENSION STRATEGY:**\n`
+    const tension = storyBible.tensionStrategy
+    if (tension.rawContent) {
+      prompt += `${tension.rawContent}\n\n`
+    } else {
+      if (tension.tensionCurve) prompt += `Tension Curve: ${tension.tensionCurve}\n`
+      if (tension.climaxPoints) prompt += `Climax Points: ${tension.climaxPoints}\n`
+      if (tension.escalationTechniques) prompt += `Escalation Techniques: ${tension.escalationTechniques}\n`
+      if (tension.emotionalBeats) prompt += `Emotional Beats: ${tension.emotionalBeats}\n`
+      prompt += `\n`
+    }
+  }
+  
+  // Choice Architecture
+  if (storyBible.choiceArchitecture) {
+    prompt += `**CHOICE ARCHITECTURE:**\n`
+    const choice = storyBible.choiceArchitecture
+    if (choice.rawContent) {
+      prompt += `${choice.rawContent}\n\n`
+    } else {
+      if (choice.keyDecisions) prompt += `Key Decisions: ${choice.keyDecisions}\n`
+      if (choice.moralChoices) prompt += `Moral Choices: ${choice.moralChoices}\n`
+      if (choice.consequenceMapping) prompt += `Consequence Mapping: ${choice.consequenceMapping}\n`
+      prompt += `\n`
+    }
+  }
+  
+  // Living World Dynamics
+  if (storyBible.livingWorldDynamics) {
+    prompt += `**LIVING WORLD DYNAMICS:**\n`
+    const living = storyBible.livingWorldDynamics
+    if (living.rawContent) {
+      prompt += `${living.rawContent}\n\n`
+    } else {
+      if (living.backgroundEvents) prompt += `Background Events: ${living.backgroundEvents}\n`
+      if (living.socialDynamics) prompt += `Social Dynamics: ${living.socialDynamics}\n`
+      if (living.economicFactors) prompt += `Economic Factors: ${living.economicFactors}\n`
+      prompt += `\n`
+    }
+  }
+  
+  // Trope Analysis
+  if (storyBible.tropeAnalysis) {
+    prompt += `**TROPE ANALYSIS:**\n`
+    const trope = storyBible.tropeAnalysis
+    if (trope.rawContent) {
+      prompt += `${trope.rawContent}\n\n`
+    } else {
+      if (trope.genreTropes) prompt += `Genre Tropes: ${trope.genreTropes}\n`
+      if (trope.subvertedTropes) prompt += `Subverted Tropes: ${trope.subvertedTropes}\n`
+      if (trope.originalElements) prompt += `Original Elements: ${trope.originalElements}\n`
+      prompt += `\n`
+    }
+  }
+  
+  // Cohesion Analysis
+  if (storyBible.cohesionAnalysis) {
+    prompt += `**COHESION ANALYSIS:**\n`
+    const cohesion = storyBible.cohesionAnalysis
+    if (cohesion.rawContent) {
+      prompt += `${cohesion.rawContent}\n\n`
+    } else {
+      if (cohesion.plotConsistency) prompt += `Plot Consistency: ${cohesion.plotConsistency}\n`
+      if (cohesion.characterConsistency) prompt += `Character Consistency: ${cohesion.characterConsistency}\n`
+      if (cohesion.thematicConsistency) prompt += `Thematic Consistency: ${cohesion.thematicConsistency}\n`
+      prompt += `\n`
+    }
+  }
+  
+  // Dialogue Strategy
   if (storyBible.dialogueStrategy) {
-    prompt += `**DIALOGUE STYLE GUIDE:**\n`
+    prompt += `**DIALOGUE STRATEGY:**\n`
     const dialogue = storyBible.dialogueStrategy
     if (dialogue.rawContent) {
       prompt += `${dialogue.rawContent}\n\n`
@@ -285,33 +418,98 @@ function buildUserPrompt(params: ScriptGenerationParams): string {
       if (dialogue.characterVoice) prompt += `Character Voice: ${dialogue.characterVoice}\n`
       if (dialogue.speechPatterns) prompt += `Speech Patterns: ${dialogue.speechPatterns}\n`
       if (dialogue.subtext) prompt += `Subtext: ${dialogue.subtext}\n`
+      if (dialogue.conflictDialogue) prompt += `Conflict Dialogue: ${dialogue.conflictDialogue}\n`
       prompt += `\n`
     }
   }
   
+  // Genre Enhancement
   if (storyBible.genreEnhancement) {
-    prompt += `**GENRE & VISUAL STYLE:**\n`
+    prompt += `**GENRE ENHANCEMENT:**\n`
     const genre = storyBible.genreEnhancement
     if (genre.rawContent) {
       prompt += `${genre.rawContent}\n\n`
     } else {
       if (genre.visualStyle) prompt += `Visual Style: ${genre.visualStyle}\n`
       if (genre.pacing) prompt += `Pacing: ${genre.pacing}\n`
+      if (genre.audienceExpectations) prompt += `Audience Expectations: ${genre.audienceExpectations}\n`
       prompt += `\n`
     }
   }
   
+  // Theme Integration
   if (storyBible.themeIntegration) {
     prompt += `**THEME INTEGRATION:**\n`
     const theme = storyBible.themeIntegration
     if (theme.rawContent) {
-      prompt += `${theme.rawContent.substring(0, 300)}\n\n`
+      prompt += `${theme.rawContent.substring(0, 400)}\n\n`
     } else {
-      if (theme.symbolicElements) prompt += `Symbolic Elements: ${theme.symbolicElements}\n\n`
+      if (theme.characterIntegration) prompt += `Character Integration: ${theme.characterIntegration}\n`
+      if (theme.plotIntegration) prompt += `Plot Integration: ${theme.plotIntegration}\n`
+      if (theme.symbolicElements) prompt += `Symbolic Elements: ${theme.symbolicElements}\n`
+      prompt += `\n`
     }
   }
   
+  // Premise Integration
+  if (storyBible.premiseIntegration) {
+    prompt += `**PREMISE INTEGRATION:**\n`
+    const premiseInt = storyBible.premiseIntegration
+    if (premiseInt.rawContent) {
+      prompt += `${premiseInt.rawContent.substring(0, 300)}\n\n`
+    } else {
+      if (premiseInt.coreQuestion) prompt += `Core Question: ${premiseInt.coreQuestion}\n`
+      if (premiseInt.episodicExpression) prompt += `Episodic Expression: ${premiseInt.episodicExpression}\n`
+      prompt += `\n`
+    }
+  }
+  
+  prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+  
+  // Previous episodes context (for continuity)
+  let previousEpisodesContext = ''
+  if (allPreviousEpisodes && allPreviousEpisodes.length > 0) {
+    previousEpisodesContext = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**PREVIOUS EPISODES CONTEXT (FOR CONTINUITY):**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: Reference specific events, character development, plot threads, and consequences from previous episodes when adapting dialogue and action descriptions.\n\n`
+    
+    // Sort episodes by episode number
+    const sortedEpisodes = [...allPreviousEpisodes].sort((a, b) => {
+      const aNum = a.episodeNumber || 0
+      const bNum = b.episodeNumber || 0
+      return aNum - bNum
+    })
+    
+    sortedEpisodes.forEach((ep: any) => {
+      const epNum = ep.episodeNumber || '?'
+      const epTitle = ep.title || ep.episodeTitle || `Episode ${epNum}`
+      const epSynopsis = ep.synopsis || ''
+      
+      previousEpisodesContext += `Episode ${epNum}: "${epTitle}"\n`
+      if (epSynopsis) {
+        previousEpisodesContext += `Synopsis: ${epSynopsis}\n`
+      }
+      previousEpisodesContext += `\n`
+    })
+    
+    previousEpisodesContext += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+  }
+  
+  // Immediate previous episode (full detail)
+  if (previousEpisode) {
+    const prevEpTitle = previousEpisode.title || previousEpisode.episodeTitle || `Episode ${episode.episodeNumber - 1}`
+    const prevEpSynopsis = previousEpisode.synopsis || ''
+    
+    previousEpisodesContext += `**IMMEDIATE PREVIOUS EPISODE (Episode ${episode.episodeNumber - 1}): "${prevEpTitle}"**\n`
+    if (prevEpSynopsis) {
+      previousEpisodesContext += `Synopsis: ${prevEpSynopsis}\n\n`
+    }
+    previousEpisodesContext += `⚠️ Reference this episode extensively for character development, plot continuity, and relationship dynamics.\n\n`
+  }
+  
   // Episode content (PRIORITY #1)
+  prompt += previousEpisodesContext
   prompt += `**EPISODE ${episode.episodeNumber}: ${episode.title || 'Untitled'}\n\n`
   
   if (episode.synopsis) {
@@ -417,7 +615,11 @@ function buildUserPrompt(params: ScriptGenerationParams): string {
   prompt += `2. **FORMAT**: Use proper screenplay formatting throughout\n`
   prompt += `   - Plain text only (no HTML, no markdown)\n`
   prompt += `   - Standard screenplay conventions\n\n`
-  prompt += `3. **LENGTH**: Target 5 pages (5 minutes screen time)\n\n`
+  prompt += `3. **LENGTH**: Target 5 pages (5 minutes screen time)\n`
+  prompt += `   - ONLY extend to 8 pages if the story genuinely requires it\n`
+  prompt += `   - If extending, ensure every additional page serves a clear narrative purpose\n`
+  prompt += `   - ONLY extend to 8 pages if the story genuinely requires it\n`
+  prompt += `   - If extending, ensure every additional page serves a clear narrative purpose\n\n`
   prompt += `4. **YOUR JOB**: Adapt the episode into a properly formatted screenplay\n`
   prompt += `   - Expand terse dialogue into natural speech (same meaning)\n`
   prompt += `   - Add cinematic action descriptions (visualize what's there)\n`

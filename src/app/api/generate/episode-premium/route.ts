@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateContent } from '@/services/azure-openai'
+import { EngineAIRouter } from '@/services/engine-ai-router'
 import { logger } from '@/services/console-logger'
 import { runComprehensiveEngines } from '@/services/comprehensive-engines'
 
@@ -123,18 +123,25 @@ RETURN VALID JSON:
 }
 `
     
-    const result = await generateContent(scriptPrompt, {
+    console.log('🚀 Using Gemini 3 Pro Preview for premium episode generation...')
+    
+    const result = await EngineAIRouter.generateContent({
+      prompt: scriptPrompt,
       systemPrompt,
       temperature: 0.9,
-      maxTokens: 8000
+      maxTokens: 8000,
+      engineId: 'episode-generator-premium',
+      forceProvider: 'gemini' // Use Gemini 3 Pro Preview for creative writing
     })
+    
+    console.log(`✅ [GEMINI] Premium episode generated: ${result.metadata.contentLength} chars using ${result.model}`)
     
     // Parse result
     let parsedEpisode
     try {
-      parsedEpisode = JSON.parse(result)
+      parsedEpisode = JSON.parse(result.content)
     } catch (error) {
-      const jsonMatch = result.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+      const jsonMatch = result.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
       if (jsonMatch) {
         parsedEpisode = JSON.parse(jsonMatch[1])
       } else {

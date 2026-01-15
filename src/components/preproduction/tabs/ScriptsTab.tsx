@@ -42,6 +42,30 @@ export function ScriptsTab({
         getEpisode(preProductionData.storyBibleId, preProductionData.episodeNumber, currentUserId),
         getStoryBible(preProductionData.storyBibleId, currentUserId)
       ])
+      
+      // Fetch all previous episodes for context
+      let previousEpisode: any = null
+      let allPreviousEpisodes: any[] = []
+      try {
+        const { getEpisodesForStoryBible } = await import('@/services/episode-service')
+        const allEpisodes = await getEpisodesForStoryBible(preProductionData.storyBibleId, currentUserId)
+        
+        // Sort by episode number
+        const sortedEpisodes = Object.values(allEpisodes)
+          .filter((ep: any) => ep.episodeNumber < preProductionData.episodeNumber)
+          .sort((a: any, b: any) => (a.episodeNumber || 0) - (b.episodeNumber || 0))
+        
+        allPreviousEpisodes = sortedEpisodes
+        
+        // Get immediate previous episode
+        if (sortedEpisodes.length > 0) {
+          previousEpisode = sortedEpisodes[sortedEpisodes.length - 1]
+        }
+        
+        console.log(`✅ Loaded ${allPreviousEpisodes.length} previous episodes for context`)
+      } catch (error) {
+        console.warn('⚠️  Could not load previous episodes:', error)
+      }
 
       if (!episode) {
         throw new Error(`Episode ${preProductionData.episodeNumber} not found`)
@@ -62,8 +86,10 @@ export function ScriptsTab({
           episodeNumber: preProductionData.episodeNumber,
           userId: currentUserId,
           // Pass the data directly to avoid server-side Firestore auth issues
-          episodeData: episode,
-          storyBibleData: storyBible
+          episodeData: episode, // This is the CURRENT/REWRITTEN episode data
+          storyBibleData: storyBible,
+          previousEpisode, // Immediate previous episode
+          allPreviousEpisodes // All previous episodes for full context
         })
       })
 

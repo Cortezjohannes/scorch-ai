@@ -64,7 +64,8 @@ export async function generateEpisodeWithIntelligentDefaults(
       episodeNumber,
       analyzedSettings.episodeGoal,
       previousChoice,
-      previousEpisode
+      previousEpisode,
+      allPreviousEpisodes
     )
     
     logger.milestone(`Beat sheet generated (${beatSheet.length} chars)`)
@@ -115,34 +116,59 @@ async function generateBeatSheet(
   episodeNumber: number,
   episodeGoal: string,
   previousChoice?: string,
-  previousEpisode?: any
+  previousEpisode?: any,
+  allPreviousEpisodes?: any[]
 ): Promise<string> {
-  const seriesTitle = storyBible.seriesTitle || 'Untitled Series'
-  const genre = storyBible.genre || 'Drama'
-  const premise = storyBible.premise?.premiseStatement || storyBible.premise || 'A story unfolds...'
+  // Build COMPREHENSIVE story bible context (including ALL technical tabs)
+  const storyBibleContext = buildComprehensiveStoryBibleContext(storyBible, episodeNumber)
   
-  // Get current arc info
-  let currentArcInfo = ''
-  if (storyBible.narrativeArcs && storyBible.narrativeArcs.length > 0) {
-    let episodeCount = 0
-    for (const arc of storyBible.narrativeArcs) {
-      const arcEpisodeCount = arc.episodes?.length || 10
-      if (episodeNumber <= episodeCount + arcEpisodeCount) {
-        currentArcInfo = `\nCurrent Arc: ${arc.title}\n${arc.summary}`
-        break
+  // Build ALL previous episodes context
+  let allPreviousEpisodesContext = ''
+  if (allPreviousEpisodes && allPreviousEpisodes.length > 0) {
+    allPreviousEpisodesContext = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📺 ALL PREVIOUS EPISODES (FULL STORY CONTEXT - USE ALL OF THIS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: Reference specific events, character development, plot threads, relationships, and consequences from ALL previous episodes below.`
+    
+    // Sort episodes by episode number
+    const sortedEpisodes = [...allPreviousEpisodes].sort((a, b) => {
+      const aNum = a.episodeNumber || 0
+      const bNum = b.episodeNumber || 0
+      return aNum - bNum
+    })
+    
+    sortedEpisodes.forEach((ep: any) => {
+      const epNum = ep.episodeNumber || '?'
+      const epTitle = ep.title || ep.episodeTitle || `Episode ${epNum}`
+      const epSynopsis = ep.synopsis || ''
+      allPreviousEpisodesContext += `\n\nEpisode ${epNum}: "${epTitle}"`
+      if (epSynopsis) {
+        allPreviousEpisodesContext += `\nSynopsis: ${epSynopsis}`
       }
-      episodeCount += arcEpisodeCount
-    }
+      
+      // Include key scenes for context
+      const scenes = ep.scenes || []
+      if (scenes.length > 0) {
+        const keyScenes = scenes.slice(-2) // Last 2 scenes are usually most relevant
+        keyScenes.forEach((scene: any, index: number) => {
+          const sceneTitle = scene.title || `Scene ${scene.sceneNumber || index + 1}`
+          const sceneContent = scene.content || scene.screenplay || scene.sceneContent || ''
+          const preview = sceneContent.substring(0, 200) + (sceneContent.length > 200 ? '...' : '')
+          allPreviousEpisodesContext += `\n\n  ${sceneTitle}:\n  ${preview}`
+        })
+      }
+    })
+    allPreviousEpisodesContext += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
   }
   
-  // Build previous episode context
+  // Build immediate previous episode context (full detail)
   let previousEpisodeContext = ''
   if (previousEpisode) {
     const prevEpTitle = previousEpisode.title || previousEpisode.episodeTitle || `Episode ${episodeNumber - 1}`
     const prevEpSynopsis = previousEpisode.synopsis || ''
     const prevEpScenes = previousEpisode.scenes || []
     
-    previousEpisodeContext = `\n\nPREVIOUS EPISODE (Episode ${episodeNumber - 1}): "${prevEpTitle}"`
+    previousEpisodeContext = `\n\n**IMMEDIATE PREVIOUS EPISODE (Episode ${episodeNumber - 1}): "${prevEpTitle}"**`
     
     if (prevEpSynopsis) {
       previousEpisodeContext += `\nSynopsis: ${prevEpSynopsis}`
@@ -158,6 +184,7 @@ async function generateBeatSheet(
         previousEpisodeContext += `\n\n${sceneTitle}:\n${contentPreview}`
       })
     }
+    previousEpisodeContext += `\n\n⚠️ Reference this episode extensively for character development, plot continuity, and relationship dynamics.\n`
   }
   
   const previousContext = previousChoice 
@@ -183,11 +210,19 @@ When a previous choice exists, the beat sheet MUST follow this progression:
 The episode should feel like a gradual progression toward the chosen option, not a sudden jump.`
     : previousEpisodeContext
   
-  const prompt = `Create a detailed beat sheet for Episode ${episodeNumber} of "${seriesTitle}".
+  const prompt = `Create a detailed beat sheet for Episode ${episodeNumber}.
 
-SERIES CONTEXT:
-Genre: ${genre}
-Premise: ${premise}${currentArcInfo}${previousContext}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📖 COMPREHENSIVE STORY BIBLE CONTEXT (INCLUDING ALL TECHNICAL TABS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${storyBibleContext}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${allPreviousEpisodesContext}
+
+${previousEpisodeContext}
+
+${previousChoice ? `\nPREVIOUS CHOICE: "${previousChoice}"\n` : ''}
 
 EPISODE GOAL:
 ${episodeGoal}
@@ -203,14 +238,21 @@ Format each beat clearly (e.g., "Beat 1:", "Beat 2:", etc.)`
 
   const systemPrompt = `You are a master story architect specializing in episode structure and narrative beats. You create detailed, flexible beat sheets that serve as the structural foundation for cinematic episodes.
 
-CRITICAL: Use the comprehensive story bible context (including tension strategy, dialogue patterns, genre conventions, trope analysis, theme integration, choice architecture, living world dynamics, and cohesion guidelines) to inform your beat sheet:
-- Apply the TENSION STRATEGY to structure rising/falling action and emotional beats
-- Consider CHOICE ARCHITECTURE when planning pivotal moments and decision points
-- Use TROPE ANALYSIS to balance genre expectations with fresh storytelling
-- Integrate THEME throughout the beats (don't save it for the end)
-- Reference DIALOGUE STRATEGY for character voice consistency
-- Incorporate LIVING WORLD elements to make the setting feel reactive and alive
-- Follow COHESION ANALYSIS guidelines to maintain consistency with previous episodes
+⚠️ CRITICAL REQUIREMENTS:
+1. **USE THE COMPLETE STORY BIBLE CONTEXT PROVIDED** - including ALL technical sections:
+   - TENSION STRATEGY: Structure rising/falling action and emotional beats according to the tension curve
+   - CHOICE ARCHITECTURE: Plan pivotal moments and decision points that align with the architecture
+   - TROPE ANALYSIS: Balance genre expectations with fresh storytelling using trope guidance
+   - THEME INTEGRATION: Weave themes throughout the beats (don't save it for the end)
+   - DIALOGUE STRATEGY: Reference character voices and speech patterns for consistency
+   - LIVING WORLD DYNAMICS: Incorporate reactive world elements and background events
+   - COHESION ANALYSIS: Follow guidelines to maintain consistency with previous episodes
+   - GENRE ENHANCEMENT: Apply visual style and pacing expectations
+   - PREMISE INTEGRATION: Ensure beats serve the core premise
+
+2. **REFERENCE ALL PREVIOUS EPISODES PROVIDED** - use specific events, character development, plot threads, and consequences from past episodes to inform your beat sheet structure.
+
+3. **MAINTAIN CONTINUITY** - build on established character arcs, relationships, and plot threads from previous episodes.
 
 Return ONLY the beat sheet content - no JSON, no explanations, just the structured beats.`
 
@@ -258,10 +300,12 @@ async function generateEpisodeFromBeats(
 
 🎬 NARRATIVE ARCHITECTURE:
 - Create multi-layered conflicts (internal vs external, character vs world, ideal vs reality)
-- Ensure character consistency using full story context
-- Build tension naturally through escalating stakes and challenges (follow TENSION STRATEGY from story bible)
-- Structure scenes for maximum emotional impact and pacing
-- Connect episodes through callbacks and character development arcs
+- **CRITICAL: Use the COMPLETE story bible context provided - including ALL technical sections (Tension Strategy, Choice Architecture, Living World, Trope Analysis, Cohesion, Dialogue Strategy, Genre Enhancement, Theme Integration, Premise Integration)**
+- **CRITICAL: Reference ALL previous episodes provided - use specific events, character development, plot threads, and consequences from past episodes**
+- Ensure character consistency using full story context from story bible AND previous episodes
+- Build tension naturally using the TENSION STRATEGY from the story bible technical sections
+- Structure scenes for maximum emotional impact and pacing according to story bible guidance
+- Connect episodes through callbacks, character development arcs, and continuity from previous episodes
 
 ✍️ PROSE & DIALOGUE:
 - Write rich narrative prose that reads like a great novel (NOT screenplay format)
@@ -915,24 +959,57 @@ BEAT SHEET:
 ${beatSheet}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎬 CRITICAL: This is a 5-MINUTE SHORT-FORM EPISODE (NOT a full TV episode!)
+⚠️ **CRITICAL FIRST STEP:**
+1. COUNT how many beats are in the beat sheet above
+2. Write down that number
+3. Before returning your response, verify you included EXACTLY that many beats
+4. If the number doesn't match, you MUST add the missing beats
+5. Scene count is UNLIMITED - use however many scenes are needed to include ALL beats
 
-🎯 LEVERAGE STORY BIBLE TECHNICAL TABS:
-The story bible contains rich technical guidance - USE IT:
-- TENSION STRATEGY: Follow the tension curve, use escalation techniques, place emotional beats strategically
-- DIALOGUE STRATEGY: Match character voices, use their speech patterns, incorporate subtext
-- CHOICE ARCHITECTURE: Build toward the meaningful choices defined in the architecture
-- LIVING WORLD: Include background events, show social dynamics, make the world feel reactive
-- TROPE ANALYSIS: Apply genre tropes authentically, subvert where appropriate
-- COHESION: Maintain consistency with plot/character/theme from previous episodes
-- THEME INTEGRATION: Weave theme through character actions and plot, not just symbolism
-- GENRE ENHANCEMENT: Match the visual style and pacing expectations
+🎬 CRITICAL: NO TIME LIMITATIONS - CREATE AS MANY SCENES AS NEEDED FOR ALL BEATS
+- The script generation will handle length compression later
+- Your ONLY job is to include ALL beats from the beat sheet
+- Create as many scenes as needed - if there are 9 beats, create 9+ scenes
 
-Transform the beat sheet into a complete, cinematic episode with 2-3 SUBSTANTIAL SCENES:
-- 5-minute runtime = 2-3 scenes MAXIMUM (each scene 2-2.5 minutes)
-- Fewer, deeper scenes are MUCH better than many shallow ones
-- Each scene must be rich, immersive, and fully developed
-- Combine multiple beats into single powerful scenes if needed
+🎯 LEVERAGE STORY BIBLE TECHNICAL TABS (MANDATORY):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ CRITICAL: The story bible context above includes TECHNICAL SECTIONS - these are MANDATORY guidance that MUST be used:
+
+- TENSION STRATEGY: Follow the tension curve, use escalation techniques, place emotional beats strategically. Structure rising/falling action according to this guidance.
+- DIALOGUE STRATEGY: Match character voices exactly, use their speech patterns, incorporate subtext techniques specified. This is not optional - character voices must match.
+- CHOICE ARCHITECTURE: Build toward the meaningful choices defined in the architecture. Reference key decisions, moral choices, and consequence mapping.
+- LIVING WORLD DYNAMICS: Include background events, show social dynamics, make the world feel reactive. Incorporate economic factors and cultural evolution as specified.
+- TROPE ANALYSIS: Apply genre tropes authentically, subvert where appropriate. Use trope mashups and original elements as defined.
+- COHESION ANALYSIS: Maintain consistency with plot/character/theme from previous episodes. Follow plot consistency, character consistency, and thematic consistency guidelines.
+- THEME INTEGRATION: Weave theme through character actions and plot, not just symbolism. Use character integration and plot integration techniques.
+- GENRE ENHANCEMENT: Match the visual style and pacing expectations. Follow audience expectations and genre pacing.
+- PREMISE INTEGRATION: Ensure episode serves the core premise and maintains consistency checks.
+
+⚠️ DO NOT IGNORE THESE TECHNICAL SECTIONS - They provide critical guidance for authentic storytelling.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Transform the beat sheet into a complete, cinematic episode:
+
+⚠️ **BEAT INCLUSION - ABSOLUTE MANDATE - NO EXCEPTIONS:**
+- **EVERY SINGLE BEAT from the beat sheet MUST appear in the final episode**
+- **NO BEATS CAN BE SKIPPED, OMITTED, REMOVED, OR IGNORED**
+- **IF THE BEAT SHEET HAS 9 BEATS, ALL 9 MUST BE IN THE EPISODE**
+- **IF THE BEAT SHEET HAS 6 BEATS, ALL 6 MUST BE IN THE EPISODE**
+- **COUNT THE BEATS IN THE BEAT SHEET - THAT IS YOUR MANDATORY MINIMUM SCENE COUNT**
+- Each beat must be clearly represented - preferably as its own dedicated scene
+- When combining beats, ensure ALL combined beats are FULLY present, not abbreviated
+- **DO NOT REMOVE SCENES - DO NOT SKIP BEATS - DO NOT CONDENSE BEYOND RECOGNIZABILITY**
+
+⚠️ **SCENE COUNT - UNLIMITED AND BEAT-DRIVEN:**
+- **THERE IS NO SCENE LIMIT - use as many scenes as needed to include ALL beats**
+- **IF THE BEAT SHEET HAS 9 BEATS, CREATE AT LEAST 9 SCENES (one per beat)**
+- **IF THE BEAT SHEET HAS 6 BEATS, CREATE AT LEAST 6 SCENES (one per beat)**
+- **THE SCENE COUNT MUST MATCH OR EXCEED THE BEAT COUNT**
+- **DO NOT DEFAULT TO 3 SCENES - COUNT THE BEATS AND CREATE THAT MANY SCENES**
+- **EACH BEAT DESERVES ITS OWN SCENE - DO NOT COMBINE UNLESS ABSOLUTELY NECESSARY**
+- Each scene must be substantial and fully developed
+- Quality AND completeness: Every scene must be deep AND every beat must be included
+- **REMOVING SCENES IS FORBIDDEN - REMOVING BEATS IS FORBIDDEN**
 
 ${previousChoice ? `\n📈 NARRATIVE FLOW (With Previous Choice):
 - Follow the beat sheet's gradual progression - start with aftermath, build to the choice

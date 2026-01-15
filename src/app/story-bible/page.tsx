@@ -2763,13 +2763,6 @@ Premise Strength: {typeof storyBible.premiseValidation.strength === 'string' ? s
                       
                       {/* Arc CRUD Buttons */}
                       <div className="flex gap-2">
-                        <button
-                          onClick={addNewArc}
-                          className={`px-4 py-2 ${prefix}-btn-primary font-semibold rounded-lg transition-colors flex items-center gap-2`}
-                          title="Add new arc"
-                        >
-                          ➕ Add Arc
-                        </button>
                         {storyBible.narrativeArcs.length > 1 && !isStoryBibleLocked && (
                           <button
                             onClick={() => deleteArc(currentArcIndex)}

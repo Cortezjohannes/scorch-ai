@@ -9,7 +9,6 @@ import { saveEpisode, getEpisode, deleteEpisode, getEpisodesForStoryBible } from
 import { saveEpisodeReflection, updateLockStatus } from '@/services/story-bible-firestore'
 import { episodeReflectionService } from '@/services/episode-reflection-service'
 import { storyBibleLock } from '@/services/story-bible-lock'
-import { extendSeriesWithArc } from '@/services/story-bible-service'
 import EpisodeGenerationModal from '@/components/EpisodeGenerationModal'
 import DuplicateEpisodeConfirmDialog from '@/components/DuplicateEpisodeConfirmDialog'
 import GenerationErrorModal from '@/components/modals/GenerationErrorModal'
@@ -113,14 +112,11 @@ export default function EpisodeGenerationSuite({
   } | null>(null)
 
   // Generation mode
-  const [generationMode, setGenerationMode] = useState<'quick' | 'advanced' | 'yolo'>('advanced')
+  const [generationMode, setGenerationMode] = useState<'advanced' | 'yolo'>('advanced')
 
   // Track if form has been initialized to prevent reset after inspiration choice
   const [formInitialized, setFormInitialized] = useState(false)
   const [isRewriteMode, setIsRewriteMode] = useState(false)
-  
-  // Extend series state
-  const [isExtendingSeries, setIsExtendingSeries] = useState(false)
 
   // Reset form when modal opens or episode number changes (but not if form was just filled by inspiration choice)
   useEffect(() => {
@@ -328,13 +324,7 @@ export default function EpisodeGenerationSuite({
     }
   }
 
-  // Auto-generate beat sheet for Quick mode (not YOLO - YOLO uses orchestrator)
-  useEffect(() => {
-    if (generationMode === 'quick' && !beatSheet && episodeGoal.trim() && !beatSheetGen.isGenerating) {
-      handleGenerateBeatSheet(undefined, false) // Don't auto-generate episode, just beat sheet
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generationMode, episodeGoal])
+  // Removed Quick mode - it was redundant with YOLO mode
 
   // Check for duplicate episodes before generation
   const checkForDuplicate = async (): Promise<boolean> => {
@@ -370,7 +360,7 @@ export default function EpisodeGenerationSuite({
     setShowGenerationModal(true)
 
     try {
-      // Get intelligent defaults for Quick/YOLO modes
+      // Get intelligent defaults for YOLO mode (Advanced uses user's vibe settings)
       const finalVibeSettings = generationMode === 'advanced' 
         ? vibeSettings 
         : await getIntelligentDefaults()
@@ -409,7 +399,14 @@ export default function EpisodeGenerationSuite({
           editCount: data.episode.editCount || 0,
           generatedAt: data.episode.generatedAt || new Date().toISOString(),
           lastModified: new Date().toISOString(),
-          status: 'completed' as const
+          status: 'completed' as const,
+          // Store vibe settings and generation settings for script generation
+          vibeSettings: finalVibeSettings,
+          generationSettings: {
+            vibeSettings: finalVibeSettings,
+            directorsNotes: generationMode === 'advanced' ? directorsNotes.trim() : '',
+            beatSheet: beatSheet.trim()
+          }
         }
         
         try {
@@ -741,31 +738,6 @@ export default function EpisodeGenerationSuite({
 
   const arcInfo = getArcInfo()
 
-  // Handle extending series
-  const handleExtendSeries = async () => {
-    if (!storyBible) {
-      alert('No story bible available')
-      return
-    }
-
-    try {
-      setIsExtendingSeries(true)
-      const updatedBible = await extendSeriesWithArc(storyBible, user?.id)
-      
-      // Notify parent component to update story bible (this will trigger stats recalculation)
-      if (onStoryBibleUpdate) {
-        onStoryBibleUpdate(updatedBible)
-      }
-      
-      alert(`✅ Series extended! Added Arc ${updatedBible.narrativeArcs?.length || 0} with ${updatedBible.narrativeArcs?.[updatedBible.narrativeArcs.length - 1]?.episodes?.length || 8} episodes`)
-    } catch (error: any) {
-      console.error('Error extending series:', error)
-      alert(`Failed to extend series: ${error.message}`)
-    } finally {
-      setIsExtendingSeries(false)
-    }
-  }
-
   // Check if we're near the end of the current arc (last 2 episodes)
   const isNearEndOfArc = arcInfo.episodeInArc >= arcInfo.totalInArc - 1
   const isLastArc = arcInfo.arcIndex === (storyBible?.narrativeArcs?.length || 1) - 1
@@ -818,43 +790,8 @@ export default function EpisodeGenerationSuite({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                  {/* Add Arc Button - Always visible */}
-                  <button
-                    onClick={handleExtendSeries}
-                    disabled={isExtendingSeries}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                      theme === 'dark' 
-                        ? 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50' 
-                        : 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50'
-                    }`}
-                    title="Add a new arc to extend your series"
-                  >
-                    {isExtendingSeries ? (
-                      <>
-                        <span className="animate-spin">⏳</span>
-                        <span className="hidden sm:inline">Adding...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>➕</span>
-                        <span className="hidden sm:inline">Add Arc</span>
-                        <span className="sm:hidden">Arc</span>
-                      </>
-                    )}
-                  </button>
                   {/* Mode Selector */}
                   <div className="flex gap-1">
-                    <button
-                      onClick={() => setGenerationMode('quick')}
-                      className={`px-2 md:px-3 py-1 rounded text-xs font-medium transition-all duration-200 ${
-                        generationMode === 'quick'
-                          ? `${prefix}-bg-accent ${prefix}-text-accent shadow-md`
-                          : `${prefix}-text-secondary hover:${prefix}-bg-secondary`
-                      }`}
-                      aria-pressed={generationMode === 'quick'}
-                    >
-                      Quick
-                    </button>
                     <button
                       onClick={() => setGenerationMode('advanced')}
                       className={`px-2 md:px-3 py-1 rounded text-xs font-medium transition-all duration-200 ${
@@ -924,29 +861,6 @@ export default function EpisodeGenerationSuite({
                   
                   <div>
                     <h3 className={`text-sm font-semibold ${prefix}-text-primary mb-2`}>Quick Actions</h3>
-                    {/* Add Arc Button */}
-                    <button
-                      onClick={handleExtendSeries}
-                      disabled={isExtendingSeries}
-                      className={`w-full mb-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                        theme === 'dark' 
-                          ? 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50' 
-                          : 'bg-[#6366F1] text-white hover:bg-[#4F46E5] shadow-lg shadow-indigo-500/20 disabled:opacity-50'
-                      }`}
-                      title="Add a new arc to extend your series"
-                    >
-                      {isExtendingSeries ? (
-                        <>
-                          <span className="animate-spin">⏳</span>
-                          <span>Adding Arc...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>➕</span>
-                          <span>Add Arc</span>
-                        </>
-                      )}
-                    </button>
                     {episodeNumber > 1 && (previousEpisode || allPreviousEpisodes.length > 0) && (
                       <button
                         onClick={async () => {
@@ -1187,55 +1101,6 @@ export default function EpisodeGenerationSuite({
                             '🚀 YOLO - Just Write It!'
                           )}
                         </motion.button>
-                      ) : generationMode === 'quick' ? (
-                        <>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={async () => {
-                              // If no beat sheet, generate it first, then auto-generate episode
-                              if (!beatSheet.trim()) {
-                                if (!episodeGoal.trim()) {
-                                  alert('Please enter an episode goal first')
-                                  return
-                                }
-                                await handleGenerateBeatSheet(undefined, true) // Auto-generate episode after beat sheet
-                              } else {
-                                // Beat sheet exists, generate episode
-                                await handleWriteScript()
-                              }
-                            }}
-                            disabled={scriptGen.isGenerating || beatSheetGen.isGenerating || !episodeGoal.trim()}
-                            className={`flex-1 px-4 md:px-6 py-3 rounded-lg font-bold text-base md:text-lg ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${prefix}-shadow-md hover:${prefix}-shadow-lg`}
-                          >
-                            {beatSheetGen.isGenerating ? (
-                              <span className="flex items-center justify-center gap-2">
-                                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-                                Generating Beat Sheet...
-                              </span>
-                            ) : scriptGen.isGenerating ? (
-                              <span className="flex items-center justify-center gap-2">
-                                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-                                Generating Episode...
-                              </span>
-                            ) : !beatSheet.trim() ? (
-                              '⚡ Generate with Smart Defaults'
-                            ) : (
-                              '✨ Generate Episode'
-                            )}
-                          </motion.button>
-                          {beatSheet && (
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => handleGenerateBeatSheet(undefined, false)}
-                              disabled={beatSheetGen.isGenerating}
-                              className={`px-4 md:px-6 py-3 rounded-lg font-medium border ${prefix}-border ${prefix}-text-secondary hover:${prefix}-bg-secondary disabled:opacity-50 transition-all duration-200`}
-                            >
-                              Regenerate Beat Sheet
-                            </motion.button>
-                          )}
-                        </>
                       ) : (
                         <>
                           <motion.button

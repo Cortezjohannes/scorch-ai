@@ -3,8 +3,9 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
-import { Episode } from '@/services/episode-service'
+import { X, Trash2 } from 'lucide-react'
+import { Episode, deleteEpisode } from '@/services/episode-service'
+import { useAuth } from '@/context/AuthContext'
 
 interface EpisodesModalProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface EpisodesModalProps {
   episodes: Record<number, Episode>
   storyBibleId: string
   theme: 'light' | 'dark'
+  onEpisodeDelete?: () => void // Callback to refresh episodes list
 }
 
 export default function EpisodesModal({
@@ -19,12 +21,16 @@ export default function EpisodesModal({
   onClose,
   episodes,
   storyBibleId,
-  theme
+  theme,
+  onEpisodeDelete
 }: EpisodesModalProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const prefix = theme === 'dark' ? 'dark' : 'light'
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'number' | 'date'>('number')
+  const [deletingEpisode, setDeletingEpisode] = useState<number | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null)
 
   const episodeList = Object.values(episodes)
 
@@ -52,6 +58,35 @@ export default function EpisodesModal({
   const handleEpisodeClick = (episode: Episode) => {
     router.push(`/episode/${episode.id}?storyBibleId=${storyBibleId}`)
     onClose()
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent, episodeNumber: number) => {
+    e.stopPropagation() // Prevent episode card click
+    setShowDeleteConfirm(episodeNumber)
+  }
+
+  const handleConfirmDelete = async (episodeNumber: number) => {
+    setDeletingEpisode(episodeNumber)
+    setShowDeleteConfirm(null)
+    
+    try {
+      await deleteEpisode(storyBibleId, episodeNumber, user?.id)
+      console.log(`✅ Episode ${episodeNumber} deleted successfully`)
+      
+      // Refresh episodes list
+      if (onEpisodeDelete) {
+        onEpisodeDelete()
+      }
+    } catch (error) {
+      console.error('Error deleting episode:', error)
+      alert(`Failed to delete episode: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setDeletingEpisode(null)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(null)
   }
 
   return (
@@ -185,19 +220,59 @@ export default function EpisodesModal({
                               )}
                             </div>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                            episode.status === 'completed' 
-                              ? `${prefix}-bg-accent ${prefix}-text-accent`
-                              : episode.status === 'pre-production-done'
-                              ? `${prefix}-bg-accent ${prefix}-text-accent`
-                              : episode.status === 'pre-production-ready'
-                              ? `${prefix}-bg-secondary ${prefix}-text-secondary border ${prefix}-border`
-                              : `${prefix}-bg-secondary ${prefix}-text-secondary`
-                          }`}>
-                            {episode.status === 'completed' ? '✓ Completed' :
-                             episode.status === 'pre-production-done' ? '✓ Pre-Prod' :
-                             episode.status === 'pre-production-ready' ? 'Active' : 'Draft'}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                              episode.status === 'completed' 
+                                ? `${prefix}-bg-accent ${prefix}-text-accent`
+                                : episode.status === 'pre-production-done'
+                                ? `${prefix}-bg-accent ${prefix}-text-accent`
+                                : episode.status === 'pre-production-ready'
+                                ? `${prefix}-bg-secondary ${prefix}-text-secondary border ${prefix}-border`
+                                : `${prefix}-bg-secondary ${prefix}-text-secondary`
+                            }`}>
+                              {episode.status === 'completed' ? '✓ Completed' :
+                               episode.status === 'pre-production-done' ? '✓ Pre-Prod' :
+                               episode.status === 'pre-production-ready' ? 'Active' : 'Draft'}
+                            </span>
+                            {showDeleteConfirm === episode.episodeNumber ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleConfirmDelete(episode.episodeNumber)
+                                  }}
+                                  disabled={deletingEpisode === episode.episodeNumber}
+                                  className={`px-2 py-1 text-xs font-medium rounded ${prefix}-bg-red-500 ${prefix}-text-white hover:${prefix}-bg-red-600 disabled:opacity-50 transition-colors`}
+                                  title="Confirm delete"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCancelDelete()
+                                  }}
+                                  className={`px-2 py-1 text-xs font-medium rounded ${prefix}-bg-secondary ${prefix}-text-secondary hover:${prefix}-bg-tertiary transition-colors`}
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => handleDeleteClick(e, episode.episodeNumber)}
+                                disabled={deletingEpisode === episode.episodeNumber}
+                                className={`p-1.5 rounded ${prefix}-text-secondary hover:${prefix}-text-red-500 hover:${prefix}-bg-red-500/10 transition-colors disabled:opacity-50`}
+                                title="Delete episode"
+                              >
+                                {deletingEpisode === episode.episodeNumber ? (
+                                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {episode.synopsis && (
                           <p className={`text-xs ${prefix}-text-secondary line-clamp-3 leading-relaxed`}>

@@ -22,9 +22,10 @@ interface QuickAccessCardsProps {
   userId?: string
   userName?: string
   totalEpisodes?: number
+  onEpisodesRefresh?: () => void // Callback to refresh episodes list
 }
 
-export default function QuickAccessCards({ storyBibleId, storyBible, episodes, theme, onOpenGenerationSuite, userId, userName, totalEpisodes = 0 }: QuickAccessCardsProps) {
+export default function QuickAccessCards({ storyBibleId, storyBible, episodes, theme, onOpenGenerationSuite, userId, userName, totalEpisodes = 0, onEpisodesRefresh }: QuickAccessCardsProps) {
   const router = useRouter()
   const prefix = theme === 'dark' ? 'dark' : 'light'
   const { setIsOpen } = useChat()
@@ -348,6 +349,7 @@ export default function QuickAccessCards({ storyBibleId, storyBible, episodes, t
         episodes={episodes}
         storyBibleId={storyBibleId}
         theme={theme}
+        onEpisodeDelete={onEpisodesRefresh}
       />
       
       <PostProductionArcSelector

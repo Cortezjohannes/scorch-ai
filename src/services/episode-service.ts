@@ -8,6 +8,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  where,
   Timestamp
 } from 'firebase/firestore'
 
@@ -403,7 +404,7 @@ export async function findRecoverableEpisodes(
 }
 
 /**
- * Delete an episode
+ * Delete an episode and its pre-production data
  */
 export async function deleteEpisode(
   storyBibleId: string,
@@ -415,18 +416,68 @@ export async function deleteEpisode(
   }
 
   if (userId) {
-    // Delete from Firestore
+    // Delete episode from Firestore
     try {
       const episodesRef = collection(db, 'users', userId, 'storyBibles', storyBibleId, 'episodes')
       const snapshot = await getDocs(episodesRef)
       
+      let episodeId: string | null = null
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data()
         if (data.episodeNumber === episodeNumber && data.storyBibleId === storyBibleId) {
+          episodeId = docSnap.id
           await deleteDoc(docSnap.ref)
           console.log(`✅ Episode ${episodeNumber} deleted from Firestore`)
-          return
+          break
         }
+      }
+      
+      // Delete episode reflection if it exists
+      if (episodeId) {
+        try {
+          const reflectionRef = doc(db, 'users', userId, 'storyBibles', storyBibleId, 'reflections', episodeId)
+          const reflectionSnap = await getDoc(reflectionRef)
+          if (reflectionSnap.exists()) {
+            await deleteDoc(reflectionRef)
+            console.log(`✅ Episode reflection for episode ${episodeNumber} deleted from Firestore`)
+          }
+        } catch (reflectionError) {
+          console.error('Error deleting episode reflection from Firestore:', reflectionError)
+          // Don't throw - episode deletion should succeed even if reflection deletion fails
+        }
+      }
+      
+      // Delete pre-production data for this episode
+      try {
+        const preProductionRef = collection(db, 'users', userId, 'storyBibles', storyBibleId, 'preproduction')
+        const preProdQuery = query(
+          preProductionRef,
+          where('type', '==', 'episode'),
+          where('episodeNumber', '==', episodeNumber)
+        )
+        const preProdSnapshot = await getDocs(preProdQuery)
+        
+        for (const docSnap of preProdSnapshot.docs) {
+          await deleteDoc(docSnap.ref)
+          console.log(`✅ Pre-production for episode ${episodeNumber} deleted from Firestore`)
+        }
+        
+        // Also try V2 format (episode_ prefix)
+        const v2DocId = `episode_${episodeNumber}`
+        try {
+          const v2DocRef = doc(preProductionRef, v2DocId)
+          const v2DocSnap = await getDoc(v2DocRef)
+          if (v2DocSnap.exists()) {
+            await deleteDoc(v2DocRef)
+            console.log(`✅ Pre-production V2 for episode ${episodeNumber} deleted from Firestore`)
+          }
+        } catch (v2Error) {
+          // V2 doc might not exist, that's okay
+          console.log(`ℹ️  No V2 pre-production found for episode ${episodeNumber}`)
+        }
+      } catch (preProdError) {
+        console.error('Error deleting pre-production from Firestore:', preProdError)
+        // Don't throw - episode deletion should succeed even if pre-prod deletion fails
       }
     } catch (error) {
       console.error('Error deleting episode from Firestore:', error)
@@ -450,6 +501,46 @@ export async function deleteEpisode(
         console.error('Error deleting localStorage episode:', e)
         throw e
       }
+    }
+    
+    // Delete pre-production from localStorage
+    try {
+      const preProdKeys = [
+        'greenlit-preproduction',
+        'scorched-preproduction',
+        'reeled-preproduction',
+        'preproduction'
+      ]
+      
+      for (const key of preProdKeys) {
+        const storedPreProd = localStorage.getItem(key)
+        if (storedPreProd) {
+          try {
+            const allPreProduction = JSON.parse(storedPreProd)
+            const episodeKey = `episode-${episodeNumber}`
+            
+            if (allPreProduction[episodeKey]) {
+              delete allPreProduction[episodeKey]
+              localStorage.setItem(key, JSON.stringify(allPreProduction))
+              console.log(`✅ Pre-production for episode ${episodeNumber} deleted from localStorage (${key})`)
+            }
+            
+            // Also check V2 format
+            const v2Key = `episode_${episodeNumber}`
+            if (allPreProduction[v2Key]) {
+              delete allPreProduction[v2Key]
+              localStorage.setItem(key, JSON.stringify(allPreProduction))
+              console.log(`✅ Pre-production V2 for episode ${episodeNumber} deleted from localStorage (${key})`)
+            }
+          } catch (e) {
+            // Continue to next key
+            console.log(`ℹ️  No pre-production found in ${key}`)
+          }
+        }
+      }
+    } catch (preProdError) {
+      console.error('Error deleting pre-production from localStorage:', preProdError)
+      // Don't throw - episode deletion should succeed even if pre-prod deletion fails
     }
   }
 }

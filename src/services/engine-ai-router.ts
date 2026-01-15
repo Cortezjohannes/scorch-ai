@@ -3,7 +3,7 @@
  * Routes engines to the optimal AI provider based on their purpose and strengths
  * 
  * 🔄 FALLBACK MECHANISM:
- * - Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro (for 429 rate limit errors)
+ * - Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro → Final Fallback: Azure GPT 4.1
  */
 
 import { generateContent as generateContentWithAzure } from './azure-openai'
@@ -116,8 +116,8 @@ export class EngineAIRouter {
   }
 
   /**
-   * Generate with Gemini with automatic 429 fallback
-   * Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro
+   * Generate with Gemini with automatic fallback chain
+   * Primary: gemini-3-pro-preview → Fallback: gemini-2.5-pro → Final Fallback: Azure GPT 4.1 (handled by outer catch)
    * For ai-shot-detector: Uses gemini-2.5-pro directly
    */
   private static async generateWithGemini(
@@ -128,78 +128,98 @@ export class EngineAIRouter {
     engineId?: string
   ): Promise<EngineResponse> {
     
-    // Use Gemini 2.5 for AI shot detector, otherwise use configured model
-    const primaryModel = engineId === 'ai-shot-detector' ? 'gemini-2.5-pro' : GEMINI_CONFIG.getModel('stable');
+    // Use Gemini 2.5 for AI shot detector, otherwise use Gemini 3.0 preview
+    const primaryModel = engineId === 'ai-shot-detector' ? 'gemini-2.5-pro' : 'gemini-3-pro-preview'
+    const fallbackModel = 'gemini-2.5-pro'
     
-    // Gemini 2.5 Pro has 8192 max output tokens, but we'll use a safe limit
-    const geminiMaxTokens = engineId === 'ai-shot-detector' ? 8192 : 8192
+    // Gemini models have 8192 max output tokens, but we'll use a safe limit
+    const geminiMaxTokens = 8192
     
     const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt
     
     // Helper to generate with a specific model
     const generateWithModel = async (modelName: string): Promise<EngineResponse> => {
-    const genAI = getGeminiInstance()
-    const model = genAI.getGenerativeModel({ 
+      const genAI = getGeminiInstance()
+      const model = genAI.getGenerativeModel({ 
         model: modelName,
-      generationConfig: {
-        temperature: Math.min(temperature, 1), // Gemini max temp is 1
-        maxOutputTokens: Math.min(maxTokens, geminiMaxTokens),
-        topP: 0.95,
+        generationConfig: {
+          temperature: Math.min(temperature, 1), // Gemini max temp is 1
+          maxOutputTokens: Math.min(maxTokens, geminiMaxTokens),
+          topP: 0.95,
+        }
+      })
+      
+      // Log if we're hitting token limits
+      if (maxTokens > geminiMaxTokens) {
+        console.warn(`⚠️  Requested ${maxTokens} tokens but Gemini max is ${geminiMaxTokens}. Response may be truncated.`)
       }
-    })
-    
-    // Log if we're hitting token limits
-    if (maxTokens > geminiMaxTokens) {
-      console.warn(`⚠️  Requested ${maxTokens} tokens but Gemini max is ${geminiMaxTokens}. Response may be truncated.`)
-    }
-    
-    const result = await model.generateContent(fullPrompt)
-    const response = await result.response
-    let text = ''
-    
-    try {
-      text = response.text()
-    } catch (error: any) {
-      console.error(`❌ Error getting text from Gemini response:`, error)
-      // Check if response was blocked or filtered
+      
+      const result = await model.generateContent(fullPrompt)
+      const response = await result.response
+      let text = ''
+      
+      try {
+        text = response.text()
+      } catch (error: any) {
+        console.error(`❌ Error getting text from Gemini response:`, error)
+        // Check if response was blocked or filtered
+        const finishReason = (response as any).candidates?.[0]?.finishReason
+        const safetyRatings = (response as any).candidates?.[0]?.safetyRatings
+        if (finishReason === 'SAFETY' || safetyRatings) {
+          throw new Error(`Gemini response blocked by safety filters. Finish reason: ${finishReason}`)
+        }
+        throw new Error(`Failed to extract text from Gemini response: ${error.message}`)
+      }
+      
+      // Check if response was truncated
       const finishReason = (response as any).candidates?.[0]?.finishReason
-      const safetyRatings = (response as any).candidates?.[0]?.safetyRatings
-      if (finishReason === 'SAFETY' || safetyRatings) {
-        throw new Error(`Gemini response blocked by safety filters. Finish reason: ${finishReason}`)
+      const isTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH'
+      
+      if (isTruncated) {
+        console.warn(`⚠️  Gemini response truncated (finishReason: ${finishReason})`)
+        console.warn(`  Response length: ${text.length} characters`)
+        if (text.length === 0) {
+          console.error(`❌ Response is empty after truncation. This may indicate the prompt is too long or the model hit a limit.`)
+          throw new Error('Gemini response was truncated and is empty. Try reducing prompt length or increasing maxTokens.')
+        }
       }
-      throw new Error(`Failed to extract text from Gemini response: ${error.message}`)
-    }
-    
-    // Check if response was truncated
-    const finishReason = (response as any).candidates?.[0]?.finishReason
-    const isTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH'
-    
-    if (isTruncated) {
-      console.warn(`⚠️  Gemini response truncated (finishReason: ${finishReason})`)
-      console.warn(`  Response length: ${text.length} characters`)
-      if (text.length === 0) {
-        console.error(`❌ Response is empty after truncation. This may indicate the prompt is too long or the model hit a limit.`)
-        throw new Error('Gemini response was truncated and is empty. Try reducing prompt length or increasing maxTokens.')
-      }
-    }
-    
-    return {
-      content: text,
-      provider: 'gemini',
+      
+      return {
+        content: text,
+        provider: 'gemini',
         model: modelName,
-      metadata: {
-        contentLength: text.length,
-        thinkingTokens: response.usageMetadata?.promptTokenCount || 0,
-        completionTime: 0, // Will be set by caller
-        truncated: isTruncated,
-        finishReason: finishReason
-      }
+        metadata: {
+          contentLength: text.length,
+          thinkingTokens: response.usageMetadata?.promptTokenCount || 0,
+          completionTime: 0, // Will be set by caller
+          truncated: isTruncated,
+          finishReason: finishReason
+        }
       }
     }
     
-    // Generate with primary model
-    console.log(`🚀 [ENGINE ROUTER] Using primary Gemini model: ${primaryModel}`)
-    return await generateWithModel(primaryModel)
+    // Try primary model (Gemini 3.0 preview)
+    try {
+      console.log(`🚀 [ENGINE ROUTER] Trying primary Gemini model: ${primaryModel}`)
+      return await generateWithModel(primaryModel)
+    } catch (primaryError) {
+      console.error(`❌ [ENGINE ROUTER] Primary Gemini model ${primaryModel} failed:`, primaryError instanceof Error ? primaryError.message : String(primaryError))
+      
+      // Skip fallback for ai-shot-detector (it already uses 2.5)
+      if (engineId === 'ai-shot-detector') {
+        throw primaryError
+      }
+      
+      // Try fallback model (Gemini 2.5 pro)
+      try {
+        console.log(`🔄 [ENGINE ROUTER] Falling back to Gemini 2.5 Pro: ${fallbackModel}`)
+        return await generateWithModel(fallbackModel)
+      } catch (fallbackError) {
+        console.error(`❌ [ENGINE ROUTER] Fallback Gemini model ${fallbackModel} also failed:`, fallbackError instanceof Error ? fallbackError.message : String(fallbackError))
+        // Re-throw to trigger outer catch which will try Azure GPT 4.1
+        throw new Error(`Both Gemini models failed. Primary (${primaryModel}): ${primaryError instanceof Error ? primaryError.message : String(primaryError)}. Fallback (${fallbackModel}): ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`)
+      }
+    }
   }
 
   /**

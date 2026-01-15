@@ -63,9 +63,10 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
   console.log(`   API Key present: ${apiKey ? 'Yes' : 'No'}, length: ${apiKey.length}`);
   
   try {
-    // Create an AbortController with 120 second timeout
+    // Create an AbortController with 180 second timeout (3 minutes)
+    // Increased for episode generation with comprehensive context
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 180 second timeout
     
     // Make a direct fetch request with timeout
     const response = await fetch(url, {
@@ -120,7 +121,7 @@ async function makeDirectAzureRequest(prompt: string, systemPrompt: string, temp
   } catch (error) {
     // Check if error is due to timeout/abort
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('❌ Azure OpenAI API call timed out after 120 seconds');
+      console.error('❌ Azure OpenAI API call timed out after 180 seconds');
       throw new Error('AI service timeout - request took too long to respond');
     }
     

@@ -74,9 +74,31 @@ export async function POST(request: NextRequest) {
     console.log('  Provider: Gemini 3 Pro Preview (via EngineAIRouter)')
     console.log('  Target: 5 pages (~5 minutes)')
     
+    // Get previous episodes for context (if available)
+    let previousEpisode: any = null
+    let allPreviousEpisodes: any[] = []
+    
+    try {
+      // Try to get previous episodes from the request body (client should pass these)
+      if (body.previousEpisode) {
+        previousEpisode = body.previousEpisode
+      }
+      if (body.allPreviousEpisodes && Array.isArray(body.allPreviousEpisodes)) {
+        allPreviousEpisodes = body.allPreviousEpisodes
+      } else {
+        // Fallback: Try to fetch previous episodes if not provided
+        // This would require episode-service to have a method to get all episodes
+        console.log('⚠️  Previous episodes not provided - script will generate without full context')
+      }
+    } catch (error) {
+      console.warn('⚠️  Could not load previous episodes:', error)
+    }
+    
     const generatedScript = await generateScript({
       episode,
       storyBible,
+      previousEpisode,
+      allPreviousEpisodes,
       existingPreProductionData
     })
 

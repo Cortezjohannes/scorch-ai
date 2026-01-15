@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { EditableField } from '../shared/EditableField'
 
 interface ScriptElement {
@@ -36,83 +37,325 @@ interface ScriptRendererProps {
   onUpdate?: (updatedScript: GeneratedScript) => Promise<void>
 }
 
+// Convert script structure to plain text
+function scriptToText(script: GeneratedScript): string {
+  let text = `${script.title}\n\nEpisode ${script.episodeNumber}\n\n`
+  
+  script.pages.forEach((page) => {
+    page.elements.forEach((element) => {
+      switch (element.type) {
+        case 'slug':
+          text += `\n${element.content}\n`
+          break
+        case 'action':
+          text += `${element.content}\n`
+          break
+        case 'character':
+          text += `\n${element.content}\n`
+          break
+        case 'dialogue':
+          text += `${element.content}\n`
+          break
+        case 'parenthetical':
+          text += `${element.content}\n`
+          break
+        case 'transition':
+          text += `\n${element.content}\n`
+          break
+        case 'page-break':
+          text += `\n--- PAGE BREAK ---\n`
+          break
+      }
+    })
+  })
+  
+  return text.trim()
+}
+
+// Parse plain text back to script structure
+function textToScript(text: string, originalScript: GeneratedScript): GeneratedScript {
+  const lines = text.split('\n')
+  const pages: ScriptPage[] = []
+  let currentPage: ScriptElement[] = []
+  let pageNumber = 1
+  let sceneNumber = 1
+  
+  // Skip title and episode number lines
+  let i = 0
+  while (i < lines.length && (lines[i].trim() === '' || !lines[i].match(/^(INT\.|EXT\.)/i))) {
+    i++
+  }
+  
+  for (; i < lines.length; i++) {
+    const line = lines[i].trim()
+    
+    if (!line) {
+      if (currentPage.length > 0) {
+        currentPage.push({ type: 'action', content: '' })
+      }
+      continue
+    }
+    
+    // Page break
+    if (line.includes('PAGE BREAK')) {
+      if (currentPage.length > 0) {
+        pages.push({ pageNumber: pageNumber++, elements: currentPage })
+        currentPage = []
+      }
+      continue
+    }
+    
+    // Scene heading (slug)
+    if (line.match(/^(INT\.|EXT\.)/i)) {
+      if (currentPage.length > 0 && pages.length === 0) {
+        // First page
+        pages.push({ pageNumber: pageNumber++, elements: currentPage })
+        currentPage = []
+      }
+      currentPage.push({
+        type: 'slug',
+        content: line,
+        metadata: { sceneNumber: sceneNumber++ }
+      })
+      continue
+    }
+    
+    // Transition
+    if (line.match(/^(CUT TO:|FADE TO:|FADE OUT:|DISSOLVE TO:)/i)) {
+      currentPage.push({ type: 'transition', content: line })
+      continue
+    }
+    
+    // Parenthetical
+    if (line.startsWith('(') && line.endsWith(')')) {
+      currentPage.push({ type: 'parenthetical', content: line })
+      continue
+    }
+    
+    // Character name (all caps, short line, followed by dialogue)
+    if (line.match(/^[A-Z\s]+$/) && line.length > 2 && line.length < 40 && 
+        i + 1 < lines.length && lines[i + 1].trim() && 
+        !lines[i + 1].trim().match(/^(INT\.|EXT\.|CUT TO:|FADE)/i)) {
+      currentPage.push({
+        type: 'character',
+        content: line,
+        metadata: { characterName: line }
+      })
+      // Next line is dialogue
+      if (i + 1 < lines.length) {
+        i++
+        currentPage.push({ type: 'dialogue', content: lines[i].trim() })
+      }
+      continue
+    }
+    
+    // Check if previous element was character (then this is dialogue)
+    if (currentPage.length > 0 && currentPage[currentPage.length - 1].type === 'character') {
+      currentPage.push({ type: 'dialogue', content: line })
+      continue
+    }
+    
+    // Default to action
+    currentPage.push({ type: 'action', content: line })
+  }
+  
+  // Add last page
+  if (currentPage.length > 0) {
+    pages.push({ pageNumber: pageNumber, elements: currentPage })
+  }
+  
+  // Update metadata
+  const sceneCount = pages.reduce((count, page) => 
+    count + page.elements.filter(el => el.type === 'slug').length, 0
+  )
+  
+  const characterCount = new Set(
+    pages.flatMap(page => 
+      page.elements
+        .filter(el => el.type === 'character' && el.metadata?.characterName)
+        .map(el => el.metadata!.characterName!)
+    )
+  ).size
+  
+  return {
+    ...originalScript,
+    pages,
+    metadata: {
+      ...originalScript.metadata,
+      pageCount: pages.length,
+      sceneCount
+    }
+  }
+}
+
 export function ScriptRenderer({ script, showPageNumbers = true, onUpdate }: ScriptRendererProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleStartEdit = () => {
+    setEditText(scriptToText(script))
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditText('')
+  }
+
+  const handleSaveEdit = async () => {
+    if (!onUpdate) return
+    
+    setIsSaving(true)
+    try {
+      const updatedScript = textToScript(editText, script)
+      await onUpdate(updatedScript)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Error saving script:', error)
+      alert('Failed to save script. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div 
       className="screenplay-container bg-[#1a1a1a] text-[#e7e7e7] p-12 rounded-lg border border-[#36393f] max-w-4xl mx-auto"
       style={{ fontFamily: 'Courier, monospace', fontSize: '12pt', lineHeight: '1.6' }}
     >
-      {/* Title Page */}
-      <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-[#36393f]">
-        {onUpdate ? (
-          <EditableField
-            value={script.title}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...script,
-                  title: newValue as string
-                })
-              }
-            }}
-            placeholder="Enter script title..."
-            className="text-4xl font-bold mb-4 uppercase text-center"
-          />
-        ) : (
-          <h1 className="text-4xl font-bold mb-4 uppercase text-[#e7e7e7]">{script.title}</h1>
-        )}
-        <div className="text-xl mb-8 text-[#e7e7e7]">Episode {script.episodeNumber}</div>
-        <div className="text-sm text-[#e7e7e7]/70 space-y-2">
-          <div>{script.metadata.sceneCount} Scenes</div>
-          <div>{script.metadata.characterCount} Characters</div>
-          <div>Runtime: ~{script.metadata.estimatedRuntime}</div>
-        </div>
-      </div>
-
-      {/* Script Pages */}
-      {script.pages.map((page) => (
-        <div key={page.pageNumber} className="screenplay-page mb-12 relative">
-          {showPageNumbers && (
-            <div className="absolute -top-6 right-0 text-[#e7e7e7]/50 text-xs">
-              Page {page.pageNumber}
+      {/* Edit Mode Toggle */}
+      {onUpdate && (
+        <div className="mb-6 flex justify-end">
+          {!isEditing ? (
+            <button
+              onClick={handleStartEdit}
+              className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors flex items-center gap-2"
+            >
+              <span>✏️</span>
+              <span>Edit Script</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+                className="px-4 py-2 bg-[#2a2a2a] text-[#e7e7e7] font-medium rounded-lg hover:bg-[#36393f] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving}
+                className="px-4 py-2 bg-[#10B981] text-black font-medium rounded-lg hover:bg-[#059669] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>💾</span>
+                    <span>Save Script</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
-          
-          <div className="space-y-4">
-            {page.elements.map((element, idx) => (
-              <ScriptElementRenderer 
-                key={idx} 
-                element={element} 
-                onUpdate={onUpdate ? async (updatedElement: ScriptElement) => {
-                  console.log('📝 Script element edited:', {
-                    type: updatedElement.type,
-                    contentPreview: updatedElement.content.substring(0, 50),
-                    pageNumber: page.pageNumber,
-                    elementIndex: idx
-                  })
-                  const updatedPages = [...script.pages]
-                  const pageIndex = script.pages.findIndex(p => p.pageNumber === page.pageNumber)
-                  if (pageIndex >= 0) {
-                    updatedPages[pageIndex] = {
-                      ...updatedPages[pageIndex],
-                      elements: updatedPages[pageIndex].elements.map((el, i) => i === idx ? updatedElement : el)
-                    }
-                    await onUpdate({
-                      ...script,
-                      pages: updatedPages
-                    })
-                  }
-                } : undefined}
-              />
-            ))}
-          </div>
         </div>
-      ))}
+      )}
 
-      {/* Metadata Footer */}
-      <div className="text-center text-xs text-[#e7e7e7]/50 mt-12 pt-8 border-t border-[#36393f]">
-        Generated on {new Date(script.metadata.generatedAt).toLocaleDateString()}
-      </div>
+      <AnimatePresence mode="wait">
+        {isEditing ? (
+          <motion.div
+            key="edit-mode"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4"
+          >
+            {/* Title Editor */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-[#e7e7e7]/70 mb-2">
+                Script Title
+              </label>
+              <input
+                type="text"
+                value={editText.split('\n')[0]}
+                onChange={(e) => {
+                  const lines = editText.split('\n')
+                  lines[0] = e.target.value
+                  setEditText(lines.join('\n'))
+                }}
+                className="w-full bg-[#2a2a2a] border border-[#36393f] rounded-lg px-4 py-2 text-[#e7e7e7] text-2xl font-bold uppercase"
+                placeholder="Enter script title..."
+              />
+            </div>
+
+            {/* Full Script Text Editor */}
+            <div>
+              <label className="block text-sm font-medium text-[#e7e7e7]/70 mb-2">
+                Script Content
+              </label>
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full h-[600px] bg-[#2a2a2a] border border-[#36393f] rounded-lg px-4 py-3 text-[#e7e7e7] font-mono text-sm leading-relaxed resize-none"
+                placeholder="Enter your script content here..."
+                style={{ fontFamily: 'Courier, monospace', fontSize: '12pt', lineHeight: '1.6' }}
+              />
+              <p className="text-xs text-[#e7e7e7]/50 mt-2">
+                Format: Scene headings (INT./EXT.), Character names in ALL CAPS, Dialogue, Action lines, etc.
+              </p>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="view-mode"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Title Page */}
+            <div className="screenplay-title-page text-center py-20 mb-12 border-b-2 border-[#36393f]">
+              <h1 className="text-4xl font-bold mb-4 uppercase text-[#e7e7e7]">{script.title}</h1>
+              <div className="text-xl mb-8 text-[#e7e7e7]">Episode {script.episodeNumber}</div>
+              <div className="text-sm text-[#e7e7e7]/70 space-y-2">
+                <div>{script.metadata.sceneCount} Scenes</div>
+                <div>{script.metadata.characterCount} Characters</div>
+                <div>Runtime: ~{script.metadata.estimatedRuntime}</div>
+              </div>
+            </div>
+
+            {/* Script Pages */}
+            {script.pages.map((page) => (
+              <div key={page.pageNumber} className="screenplay-page mb-12 relative">
+                {showPageNumbers && (
+                  <div className="absolute -top-6 right-0 text-[#e7e7e7]/50 text-xs">
+                    Page {page.pageNumber}
+                  </div>
+                )}
+                
+                <div className="space-y-4">
+                  {page.elements.map((element, idx) => (
+                    <ScriptElementRenderer 
+                      key={idx} 
+                      element={element} 
+                      onUpdate={undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Metadata Footer */}
+            <div className="text-center text-xs text-[#e7e7e7]/50 mt-12 pt-8 border-t border-[#36393f]">
+              Generated on {new Date(script.metadata.generatedAt).toLocaleDateString()}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -124,25 +367,10 @@ function ScriptElementRenderer({
   element: ScriptElement
   onUpdate?: (updatedElement: ScriptElement) => Promise<void>
 }) {
+  // Read-only view only - editing is done at the script level
   switch (element.type) {
     case 'slug':
-      return onUpdate ? (
-        <div className="screenplay-slug font-bold uppercase tracking-wide text-base py-2">
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string
-                })
-              }
-            }}
-            placeholder="Enter scene heading..."
-            className="font-bold uppercase"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-slug font-bold uppercase tracking-wide text-base py-2">
           {element.content}
         </div>
@@ -150,123 +378,35 @@ function ScriptElementRenderer({
 
     case 'action':
       if (!element.content.trim()) return <div className="h-4" />
-      return onUpdate ? (
-        <div className="screenplay-action leading-relaxed">
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string
-                })
-              }
-            }}
-            multiline
-            rows={2}
-            placeholder="Enter action..."
-            className="leading-relaxed"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-action leading-relaxed">
           {element.content}
         </div>
       )
 
     case 'character':
-      return onUpdate ? (
-        <div className="screenplay-character font-bold uppercase mb-1" style={{ marginLeft: '3.7in', width: '2.5in' }}>
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string,
-                  metadata: {
-                    ...element.metadata,
-                    characterName: newValue as string
-                  }
-                })
-              }
-            }}
-            placeholder="Enter character name..."
-            className="font-bold uppercase"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-character font-bold uppercase mb-1" style={{ marginLeft: '3.7in', width: '2.5in' }}>
           {element.content}
         </div>
       )
 
     case 'dialogue':
-      return onUpdate ? (
-        <div className="screenplay-dialogue" style={{ marginLeft: '2.5in', width: '3.5in', textAlign: 'justify' }}>
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string
-                })
-              }
-            }}
-            multiline
-            rows={3}
-            placeholder="Enter dialogue..."
-            className="text-justify"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-dialogue" style={{ marginLeft: '2.5in', width: '3.5in', textAlign: 'justify' }}>
           {element.content}
         </div>
       )
 
     case 'parenthetical':
-      return onUpdate ? (
-        <div className="screenplay-parenthetical text-center max-w-xs mx-auto italic text-sm">
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string
-                })
-              }
-            }}
-            placeholder="Enter parenthetical..."
-            className="text-center italic"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-parenthetical text-center max-w-xs mx-auto italic text-sm">
           {element.content}
         </div>
       )
 
     case 'transition':
-      return onUpdate ? (
-        <div className="screenplay-transition text-right font-bold uppercase my-4">
-          <EditableField
-            value={element.content}
-            onSave={async (newValue) => {
-              if (onUpdate) {
-                await onUpdate({
-                  ...element,
-                  content: newValue as string
-                })
-              }
-            }}
-            placeholder="Enter transition..."
-            className="text-right font-bold uppercase"
-          />
-        </div>
-      ) : (
+      return (
         <div className="screenplay-transition text-right font-bold uppercase my-4">
           {element.content}
         </div>

@@ -13,6 +13,7 @@ import DashboardStats from '@/components/dashboard/DashboardStats'
 import QuickAccessCards from '@/components/dashboard/QuickAccessCards'
 import EpisodeGenerationSuite from '@/components/workspace/EpisodeGenerationSuite'
 import ShareInvestorMaterialsModal from '@/components/share/ShareInvestorMaterialsModal'
+import ExtendSeriesWarningModal from '@/components/modals/ExtendSeriesWarningModal'
 import { useChat } from '@/context/ChatContext'
 
 export default function DashboardPage() {
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   
   // Extend series state
   const [isExtendingSeries, setIsExtendingSeries] = useState(false)
+  const [showExtendSeriesWarning, setShowExtendSeriesWarning] = useState(false)
   
   // Window dimensions for particles
   const [windowHeight, setWindowHeight] = useState(800)
@@ -75,16 +77,29 @@ export default function DashboardPage() {
     console.log('showGenerationSuite set to true')
   }
 
-  const handleGenerationComplete = async () => {
-    setShowGenerationSuite(false)
+  const handleEpisodesRefresh = async () => {
     // Reload episodes and recalculate stats
     const storyBibleId = storyBible?.id || searchParams.get('id')
-    if (storyBibleId && user?.id && storyBible) {
-      const loadedEpisodes = await getEpisodesForStoryBible(storyBibleId, user.id)
+    if (storyBibleId) {
+      let userIdToUse = user?.id
+      if (!userIdToUse && typeof window !== 'undefined') {
+        try {
+          const { auth } = await import('@/lib/firebase')
+          const currentUser = auth.currentUser
+          if (currentUser) {
+            userIdToUse = currentUser.uid
+          }
+        } catch (authError) {
+          console.error('Error checking Firebase auth:', authError)
+        }
+      }
+      
+      const loadedEpisodes = await getEpisodesForStoryBible(storyBibleId, userIdToUse)
       setEpisodes(loadedEpisodes)
+      
+      // Recalculate stats
       const episodeList = Object.values(loadedEpisodes)
       
-      // Recalculate all stats (same logic as in useEffect)
       let totalEpisodes = 0
       if (storyBible?.narrativeArcs) {
         totalEpisodes = storyBible.narrativeArcs.reduce((sum: number, arc: any) => {
@@ -95,19 +110,21 @@ export default function DashboardPage() {
       const generatedEpisodes = episodeList.length
       
       let preProductionCompleted = 0
-      for (const episode of episodeList) {
-        try {
-          const preProd = await getEpisodePreProduction(user.id, storyBibleId, episode.episodeNumber)
-          if (preProd) {
-            preProductionCompleted++
+      if (userIdToUse) {
+        for (const episode of episodeList) {
+          try {
+            const preProd = await getEpisodePreProduction(userIdToUse, storyBibleId, episode.episodeNumber)
+            if (preProd) {
+              preProductionCompleted++
+            }
+          } catch (error) {
+            // Continue
           }
-        } catch (error) {
-          // Continue
         }
       }
       
       let arcsReadyForProduction = 0
-      if (storyBible?.narrativeArcs) {
+      if (storyBible?.narrativeArcs && userIdToUse) {
         for (let arcIndex = 0; arcIndex < storyBible.narrativeArcs.length; arcIndex++) {
           const episodeNumbers = getEpisodeRangeForArc(storyBible, arcIndex)
           
@@ -119,7 +136,7 @@ export default function DashboardPage() {
             }
             
             try {
-              const preProd = await getEpisodePreProduction(user.id, storyBibleId, epNum)
+              const preProd = await getEpisodePreProduction(userIdToUse, storyBibleId, epNum)
               if (!preProd) {
                 allEpisodesHavePreProd = false
                 break
@@ -132,7 +149,7 @@ export default function DashboardPage() {
           
           if (allEpisodesHavePreProd) {
             try {
-              const actorMaterials = await getActorMaterials(user.id, storyBibleId, arcIndex)
+              const actorMaterials = await getActorMaterials(userIdToUse, storyBibleId, arcIndex)
               if (actorMaterials) {
                 arcsReadyForProduction++
               }
@@ -146,10 +163,15 @@ export default function DashboardPage() {
       setStats({ 
         totalEpisodes, 
         generatedEpisodes, 
-        preProductionCompleted, 
-        arcsReadyForProduction 
+        preProductionCompleted,
+        arcsReadyForProduction
       })
     }
+  }
+
+  const handleGenerationComplete = async () => {
+    setShowGenerationSuite(false)
+    await handleEpisodesRefresh()
   }
 
   const handleExtendSeries = async () => {
@@ -528,7 +550,7 @@ export default function DashboardPage() {
           {storyBible?.narrativeArcs && storyBible.narrativeArcs.length > 0 && (
             <>
               <button
-                onClick={handleExtendSeries}
+                onClick={() => setShowExtendSeriesWarning(true)}
                 disabled={isExtendingSeries}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
                   theme === 'dark' 
@@ -597,6 +619,7 @@ export default function DashboardPage() {
             userId={user?.id}
             userName={user?.displayName || user?.email || undefined}
             totalEpisodes={stats.totalEpisodes}
+            onEpisodesRefresh={handleEpisodesRefresh}
           />
 
           {/* Series Progress Bar */}
@@ -686,6 +709,16 @@ export default function DashboardPage() {
           ownerName={user?.displayName || user?.email || undefined}
         />
       )}
+
+      {/* Extend Series Warning Modal */}
+      <ExtendSeriesWarningModal
+        isOpen={showExtendSeriesWarning}
+        onConfirm={() => {
+          setShowExtendSeriesWarning(false)
+          handleExtendSeries()
+        }}
+        onCancel={() => setShowExtendSeriesWarning(false)}
+      />
 
     </div>
   )

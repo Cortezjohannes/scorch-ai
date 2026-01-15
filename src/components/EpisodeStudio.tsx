@@ -578,6 +578,13 @@ export default function EpisodeStudio({ storyBible, episodeNumber, previousChoic
           storyBibleId, // REQUIRED - tie to story bible
           _generationComplete: true, // Set true immediately - generation is done
           generationType: data.episode.generationType || (premiumMode ? 'premium-enhanced' : 'standard'),
+          // Store vibe settings and generation settings for script generation
+          vibeSettings: vibeSettings,
+          generationSettings: {
+            vibeSettings: vibeSettings,
+            directorsNotes: directorsNotes.trim(),
+            beatSheet: beatSheet.trim()
+          },
           version: data.episode.version || 1,
           editCount: data.episode.editCount || 0,
           generatedAt: data.episode.generatedAt || new Date().toISOString(),

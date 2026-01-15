@@ -3,8 +3,9 @@ import { NextRequest } from 'next/server'
 import { logger } from '@/services/console-logger'
 import { generateEpisodeWithIntelligentDefaults } from '@/services/episode-generation-orchestrator'
 
-// Set maximum execution time to 5 minutes (300 seconds)
-export const maxDuration = 300
+// Set maximum execution time to 10 minutes (600 seconds)
+// Orchestrator makes 3 sequential AI calls (analysis, beat sheet, episode) with comprehensive context
+export const maxDuration = 600
 
 // Legacy imports - kept for deprecated functions below (not used in main flow)
 import { generateContent, generateStructuredContent } from '@/services/azure-openai'
