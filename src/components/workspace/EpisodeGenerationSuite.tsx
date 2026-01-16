@@ -755,6 +755,7 @@ export default function EpisodeGenerationSuite({
     } finally {
       // Always reset guard when done (success or error)
       setIsGeneratingGuard(false)
+      setGuardStartTime(null)
     }
   }
 
@@ -1093,6 +1094,7 @@ export default function EpisodeGenerationSuite({
     } finally {
       // Always reset guard when done (success or error)
       setIsGeneratingGuard(false)
+      setGuardStartTime(null)
     }
   }
 
