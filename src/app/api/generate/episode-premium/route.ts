@@ -30,6 +30,13 @@ export async function POST(request: NextRequest) {
       previousChoice 
     } = body
     
+    // Detect mobile device from User-Agent (iPad fix)
+    const userAgent = request.headers.get('user-agent') || ''
+    const isMobile = /iPad|iPhone|Android|Mobile/i.test(userAgent)
+    if (isMobile) {
+      console.log('📱 Mobile device detected (iPad/iPhone) - will send lightweight response')
+    }
+    
     // Validation
     const validationErrors = []
     
@@ -180,13 +187,31 @@ RETURN VALID JSON:
     logger.milestone('✅ Premium episode generation complete')
     
     // Add completion flags
-    const enhancedEpisode = {
+    let enhancedEpisode = {
       ...parsedEpisode,
       _generationComplete: true,
       generationType: 'premium-enhanced'
     }
     
-    // Calculate response size BEFORE sending
+    // For mobile devices: Strip heavy engine data to prevent response size issues
+    if (isMobile) {
+      console.log('📱 Stripping verbose engine data for mobile device...')
+      const { comprehensiveEngineNotes, engineMetadata, ...lightweightEpisode } = enhancedEpisode
+      enhancedEpisode = {
+        ...lightweightEpisode,
+        _generationComplete: true,
+        generationType: 'premium-enhanced',
+        // Keep only essential engine metadata
+        engineSummary: engineMetadata ? {
+          successfulEngines: engineMetadata.successfulEngines,
+          totalEngines: engineMetadata.totalEngines,
+          successRate: engineMetadata.successRate
+        } : undefined
+      }
+      console.log('✅ Engine data stripped for mobile compatibility')
+    }
+    
+    // Prepare response object
     const responseObj = {
       success: true,
       episode: enhancedEpisode,
@@ -196,13 +221,14 @@ RETURN VALID JSON:
       generationMethod: 'premium-enhanced'
     }
     
+    // Calculate response size BEFORE sending
     const responseSize = JSON.stringify(responseObj).length
     const responseSizeMB = (responseSize / (1024 * 1024)).toFixed(2)
     console.log(`📦 Response size: ${responseSizeMB}MB (${responseSize} bytes)`)
     
-    // Warn if response is very large (iPad may struggle)
+    // Warn if response is STILL very large
     if (responseSize > 5 * 1024 * 1024) { // > 5MB
-      console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - iPad may have difficulty`)
+      console.warn(`⚠️ Response is STILL very large (${responseSizeMB}MB) even after stripping`)
     }
     
     return NextResponse.json(responseObj)

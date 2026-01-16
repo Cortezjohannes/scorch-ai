@@ -253,10 +253,23 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
     logger.milestone('Script generation complete')
     
     // Add completion flags for proper loading screen detection
-    const enhancedEpisode = {
+    let enhancedEpisode = {
       ...parsedEpisode,
       _generationComplete: true,
       generationType: 'standard'
+    }
+    
+    // For mobile devices: Strip any heavy data to prevent response size issues
+    if (isMobile) {
+      console.log('📱 Optimizing episode data for mobile device...')
+      // Remove any potentially large fields
+      const { comprehensiveEngineNotes, engineMetadata, rawAIResponse, ...lightweightEpisode } = enhancedEpisode
+      enhancedEpisode = {
+        ...lightweightEpisode,
+        _generationComplete: true,
+        generationType: 'standard'
+      }
+      console.log('✅ Episode data optimized for mobile compatibility')
     }
     
     // Prepare response object
@@ -272,12 +285,11 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
     const responseSize = JSON.stringify(responseObj).length
     const responseSizeMB = (responseSize / (1024 * 1024)).toFixed(2)
     
-    console.log(`📦 Response size: ${responseSizeMB}MB (${responseSize} bytes)`)
+    console.log(`📦 Response size: ${responseSizeMB}MB (${responseSize} bytes)${isMobile ? ' (mobile-optimized)' : ''})`)
     
-    // Warn if response is very large (iPad may struggle)
+    // Warn if response is STILL very large
     if (responseSize > 5 * 1024 * 1024) { // > 5MB
-      console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - iPad may have difficulty receiving this`)
-      console.warn(`   Consider reducing engine note verbosity or splitting the response`)
+      console.warn(`⚠️ Response is STILL very large (${responseSizeMB}MB) even after optimization`)
     }
     
     return NextResponse.json(responseObj)
