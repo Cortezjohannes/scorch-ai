@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
       editedScenes 
     } = body
     
+    // Detect mobile device from User-Agent (iPad fix)
+    const userAgent = request.headers.get('user-agent') || ''
+    const isMobile = /iPad|iPhone|Android|Mobile/i.test(userAgent)
+    if (isMobile) {
+      console.log('📱 Mobile device detected (iPad/iPhone) - will send lightweight response')
+    }
+    
     // Enhanced request validation
     const validationErrors = []
     
