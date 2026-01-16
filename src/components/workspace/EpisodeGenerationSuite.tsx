@@ -554,15 +554,39 @@ export default function EpisodeGenerationSuite({
         throw new Error(errorMessage)
       }
 
-      // Parse response with better error handling
+      // Parse response with enhanced error handling for iPad
       let data: any
       let responseText: string
       try {
+        console.log('📥 Starting to read response body...')
+        const readStartTime = Date.now()
+        
+        // Read response text with timeout monitoring
         responseText = await response.text()
+        
+        const readDuration = Date.now() - readStartTime
+        console.log(`✅ Response body read in ${readDuration}ms`)
+        
         if (!responseText || responseText.trim().length === 0) {
           throw new Error('Empty response body received from API')
         }
+        
+        // Log response size (iPad diagnostic)
+        const responseSizeMB = (responseText.length / (1024 * 1024)).toFixed(2)
+        console.log(`📦 Response size: ${responseSizeMB}MB (${responseText.length} bytes)`)
+        
+        // Warn if response is very large (iPad issue indicator)
+        if (responseText.length > 5 * 1024 * 1024) {
+          console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - this may cause iPad parsing issues`)
+        }
+        
+        console.log('🔄 Parsing JSON response...')
+        const parseStartTime = Date.now()
+        
         data = JSON.parse(responseText)
+        
+        const parseDuration = Date.now() - parseStartTime
+        console.log(`✅ JSON parsed in ${parseDuration}ms`)
         console.log('✅ API Response received:', { 
           success: data.success, 
           hasEpisode: !!data.episode,
@@ -570,7 +594,16 @@ export default function EpisodeGenerationSuite({
         })
       } catch (parseError) {
         console.error('❌ Failed to parse API response:', parseError)
-        console.error('Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        console.error('   Response text length:', responseText?.length || 0)
+        console.error('   Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        console.error('   Response text (last 500 chars):', responseText?.substring(responseText.length - 500) || 'N/A')
+        
+        // Check if response was truncated (iPad issue)
+        if (responseText && responseText.length > 0 && !responseText.trim().endsWith('}')) {
+          console.error('❌ Response appears to be truncated - iPad may have cut off the response mid-stream')
+          throw new Error(`Response truncated (${(responseText.length / (1024 * 1024)).toFixed(2)}MB received, incomplete JSON). This is a known iPad issue with large responses.`)
+        }
+        
         throw new Error(`Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`)
       }
       
@@ -871,15 +904,39 @@ export default function EpisodeGenerationSuite({
         throw new Error(errorMessage)
       }
 
-      // Parse response with better error handling
+      // Parse response with enhanced error handling for iPad
       let data: any
       let responseText: string
       try {
+        console.log('📥 Starting to read response body...')
+        const readStartTime = Date.now()
+        
+        // Read response text with timeout monitoring
         responseText = await response.text()
+        
+        const readDuration = Date.now() - readStartTime
+        console.log(`✅ Response body read in ${readDuration}ms`)
+        
         if (!responseText || responseText.trim().length === 0) {
           throw new Error('Empty response body received from API')
         }
+        
+        // Log response size (iPad diagnostic)
+        const responseSizeMB = (responseText.length / (1024 * 1024)).toFixed(2)
+        console.log(`📦 Response size: ${responseSizeMB}MB (${responseText.length} bytes)`)
+        
+        // Warn if response is very large (iPad issue indicator)
+        if (responseText.length > 5 * 1024 * 1024) {
+          console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - this may cause iPad parsing issues`)
+        }
+        
+        console.log('🔄 Parsing JSON response...')
+        const parseStartTime = Date.now()
+        
         data = JSON.parse(responseText)
+        
+        const parseDuration = Date.now() - parseStartTime
+        console.log(`✅ JSON parsed in ${parseDuration}ms`)
         console.log('✅ API Response received:', { 
           success: data.success, 
           hasEpisode: !!data.episode,
@@ -887,7 +944,16 @@ export default function EpisodeGenerationSuite({
         })
       } catch (parseError) {
         console.error('❌ Failed to parse API response:', parseError)
-        console.error('Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        console.error('   Response text length:', responseText?.length || 0)
+        console.error('   Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        console.error('   Response text (last 500 chars):', responseText?.substring(responseText.length - 500) || 'N/A')
+        
+        // Check if response was truncated (iPad issue)
+        if (responseText && responseText.length > 0 && !responseText.trim().endsWith('}')) {
+          console.error('❌ Response appears to be truncated - iPad may have cut off the response mid-stream')
+          throw new Error(`Response truncated (${(responseText.length / (1024 * 1024)).toFixed(2)}MB received, incomplete JSON). This is a known iPad issue with large responses.`)
+        }
+        
         throw new Error(`Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`)
       }
       

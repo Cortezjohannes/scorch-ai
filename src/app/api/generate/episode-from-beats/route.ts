@@ -259,13 +259,28 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
       generationType: 'standard'
     }
     
-    return NextResponse.json({
+    // Prepare response object
+    const responseObj = {
       success: true,
       episode: enhancedEpisode,
       beatSheet,
       vibeSettings,
       directorsNotes
-    })
+    }
+    
+    // Calculate response size BEFORE sending (iPad diagnostic)
+    const responseSize = JSON.stringify(responseObj).length
+    const responseSizeMB = (responseSize / (1024 * 1024)).toFixed(2)
+    
+    console.log(`📦 Response size: ${responseSizeMB}MB (${responseSize} bytes)`)
+    
+    // Warn if response is very large (iPad may struggle)
+    if (responseSize > 5 * 1024 * 1024) { // > 5MB
+      console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - iPad may have difficulty receiving this`)
+      console.warn(`   Consider reducing engine note verbosity or splitting the response`)
+    }
+    
+    return NextResponse.json(responseObj)
     
   } catch (error) {
     console.error('❌ Script generation error:', error)
