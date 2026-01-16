@@ -114,6 +114,23 @@ export default function EpisodeGenerationSuite({
   
   // Guard to prevent multiple simultaneous generation attempts (fixes infinite loop)
   const [isGeneratingGuard, setIsGeneratingGuard] = useState(false)
+  const [guardStartTime, setGuardStartTime] = useState<number | null>(null)
+  
+  // Auto-reset guard after 10 minutes (prevents stuck guard on iPad)
+  useEffect(() => {
+    if (isGeneratingGuard && guardStartTime) {
+      const timeout = setTimeout(() => {
+        const elapsed = Date.now() - guardStartTime
+        if (elapsed > 10 * 60 * 1000) { // 10 minutes
+          console.warn('⚠️ Guard timeout - auto-resetting after 10 minutes')
+          setIsGeneratingGuard(false)
+          setGuardStartTime(null)
+        }
+      }, 10 * 60 * 1000)
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [isGeneratingGuard, guardStartTime])
 
   // Removed generationMode - YOLO is now a pilot writer function for episode 1 only
 
@@ -382,11 +399,21 @@ export default function EpisodeGenerationSuite({
   const doWriteScript = async () => {
     // GUARD: Prevent multiple simultaneous generation attempts
     if (isGeneratingGuard) {
-      console.warn('⚠️ Generation already in progress, ignoring duplicate call')
-      return
+      const elapsed = guardStartTime ? Date.now() - guardStartTime : 0
+      console.warn(`⚠️ Generation already in progress (${Math.round(elapsed / 1000)}s elapsed), ignoring duplicate call`)
+      // If guard has been stuck for more than 2 minutes, reset it (iPad recovery)
+      if (elapsed > 2 * 60 * 1000) {
+        console.warn('⚠️ Guard appears stuck - resetting for iPad recovery')
+        setIsGeneratingGuard(false)
+        setGuardStartTime(null)
+        // Continue with generation after reset
+      } else {
+        return
+      }
     }
     
     setIsGeneratingGuard(true)
+    setGuardStartTime(Date.now())
     setScriptGen({ isGenerating: true, error: null })
     setShowGenerationModal(false) // Close error modal if open
     setShowErrorModal(false)
@@ -666,11 +693,13 @@ export default function EpisodeGenerationSuite({
           
           // Reset guard after successful save (loader will handle completion)
           setIsGeneratingGuard(false)
+          setGuardStartTime(null)
         } catch (saveError: any) {
           console.error('❌ Failed to save episode:', saveError)
           setShowGenerationModal(false)
           setScriptGen({ isGenerating: false, error: null })
           setIsGeneratingGuard(false) // Reset guard on save error
+          setGuardStartTime(null)
           
           if (saveError.message?.includes('AUTH_EXPIRED')) {
             const message = saveError.message.replace('AUTH_EXPIRED:', '')
@@ -718,6 +747,7 @@ export default function EpisodeGenerationSuite({
         retryFunction: () => {
           // Reset guard before retrying
           setIsGeneratingGuard(false)
+          setGuardStartTime(null)
           doWriteScript()
         }
       })
@@ -749,11 +779,21 @@ export default function EpisodeGenerationSuite({
   const doYOLO = async () => {
     // GUARD: Prevent multiple simultaneous generation attempts
     if (isGeneratingGuard) {
-      console.warn('⚠️ Generation already in progress, ignoring duplicate call')
-      return
+      const elapsed = guardStartTime ? Date.now() - guardStartTime : 0
+      console.warn(`⚠️ Generation already in progress (${Math.round(elapsed / 1000)}s elapsed), ignoring duplicate call`)
+      // If guard has been stuck for more than 2 minutes, reset it (iPad recovery)
+      if (elapsed > 2 * 60 * 1000) {
+        console.warn('⚠️ Guard appears stuck - resetting for iPad recovery')
+        setIsGeneratingGuard(false)
+        setGuardStartTime(null)
+        // Continue with generation after reset
+      } else {
+        return
+      }
     }
     
     setIsGeneratingGuard(true)
+    setGuardStartTime(Date.now())
     setScriptGen({ isGenerating: true, error: null })
     setShowGenerationModal(false) // Close error modal if open
     setShowErrorModal(false)
@@ -1008,6 +1048,7 @@ export default function EpisodeGenerationSuite({
         
         // Reset guard after successful save (loader will handle completion)
         setIsGeneratingGuard(false)
+        setGuardStartTime(null)
       } else {
         throw new Error(data.error || 'Failed to generate episode')
       }
@@ -1044,6 +1085,7 @@ export default function EpisodeGenerationSuite({
         retryFunction: () => {
           // Reset guard before retrying
           setIsGeneratingGuard(false)
+          setGuardStartTime(null)
           doYOLO()
         }
       })
@@ -1769,6 +1811,7 @@ export default function EpisodeGenerationSuite({
             onClose={() => {
               setShowErrorModal(false)
               setIsGeneratingGuard(false) // Reset guard on close
+              setGuardStartTime(null)
             }}
             errorMessage={errorModalData?.message || ''}
             generationType={errorModalData?.type || 'episode'}

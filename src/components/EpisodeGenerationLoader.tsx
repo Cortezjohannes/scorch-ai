@@ -117,16 +117,23 @@ export default function EpisodeGenerationLoader({
   // Check episodeData prop FIRST (immediate detection - this is the primary method)
   // This is the main way completion is detected - episodeData is set after Firestore save
   useEffect(() => {
-    // Debug logging
+    // Debug logging (more frequent on iPad to help diagnose)
     if (episodeData) {
-      console.log(`🔍 EpisodeData check for episode ${episodeNumber}:`, {
+      const logData = {
         hasEpisodeData: !!episodeData,
         hasCompletionFlag: episodeData._generationComplete === true,
         episodeNumber: episodeData.episodeNumber,
         title: episodeData.title,
         scenes: episodeData.scenes?.length || 0,
-        isComplete: isComplete
-      })
+        isComplete: isComplete,
+        storyBibleId: episodeData.storyBibleId
+      }
+      console.log(`🔍 EpisodeData check for episode ${episodeNumber}:`, logData)
+      
+      // On iPad, log more frequently to help debug
+      if (typeof window !== 'undefined' && /iPad|iPhone/i.test(navigator.userAgent)) {
+        console.log(`📱 iPad detected - episodeData details:`, logData)
+      }
     }
     
     if (episodeData && episodeData._generationComplete === true && !isComplete) {
@@ -143,6 +150,8 @@ export default function EpisodeGenerationLoader({
       setCurrentPhaseIndex(phases.length - 1)
       
       // Trigger completion callback immediately (loader handles redirect)
+      // Reduced delay for iPad (faster redirect)
+      const delay = typeof window !== 'undefined' && /iPad|iPhone/i.test(navigator.userAgent) ? 300 : 500
       setTimeout(() => {
         console.log(`📞 Calling onComplete callback for episode ${episodeNumber} (from episodeData)`)
         if (onComplete) {
@@ -150,7 +159,14 @@ export default function EpisodeGenerationLoader({
         } else {
           console.warn('⚠️ No onComplete callback provided to loader')
         }
-      }, 500) // Reduced delay for faster redirect
+      }, delay)
+    } else if (episodeData && !episodeData._generationComplete) {
+      // Log when episodeData exists but missing completion flag (iPad diagnostic)
+      console.warn(`⚠️ Episode data exists but missing _generationComplete flag:`, {
+        hasEpisodeData: !!episodeData,
+        episodeNumber: episodeData.episodeNumber,
+        title: episodeData.title
+      })
     }
   }, [episodeData, episodeNumber, isComplete, onComplete, phases.length])
   
