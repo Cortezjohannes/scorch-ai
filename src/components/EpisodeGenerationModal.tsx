@@ -8,6 +8,7 @@ interface EpisodeGenerationModalProps {
   seriesTitle: string
   isPremiumMode: boolean
   episodeData?: any | null  // Episode data from API response
+  storyBibleId?: string  // Story bible ID for Firestore polling
   onComplete?: () => void // Optional - may handle redirect elsewhere
 }
 
@@ -17,6 +18,7 @@ export default function EpisodeGenerationModal({
   seriesTitle,
   isPremiumMode,
   episodeData,
+  storyBibleId,
   onComplete
 }: EpisodeGenerationModalProps) {
   if (!isOpen) return null
@@ -29,6 +31,7 @@ export default function EpisodeGenerationModal({
           seriesTitle={seriesTitle}
           isPremiumMode={isPremiumMode}
           episodeData={episodeData}
+          storyBibleId={storyBibleId}
           onComplete={onComplete}
         />
       </div>

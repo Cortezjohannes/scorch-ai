@@ -27,6 +27,15 @@ export interface Episode {
   generatedAt: string
   lastModified: string
   ownerId?: string
+  metadata?: {
+    plotThreads?: string[]
+    continuityChecker?: {
+      callbacks: string[]
+      chekhovsGuns: string[]
+    }
+    worldBuildingRef?: string
+    suggestedDirection?: string
+  }
   [key: string]: any // Allow other properties from existing structure
 }
 
@@ -782,5 +791,201 @@ export function hasLocalEpisodes(storyBibleId?: string): boolean {
       return false
     }
   })
+}
+
+/**
+ * Episode Ideas/Suggestions Interface
+ */
+export interface EpisodeIdeas {
+  id: string
+  storyBibleId: string
+  episodeNumber: number
+  choices: Array<{
+    id: number
+    text: string
+    description?: string
+    isCanonical: boolean
+  }>
+  generatedAt: string
+  lastModified: string
+  ownerId?: string
+}
+
+const EPISODE_IDEAS_LOCALSTORAGE_KEY = 'episode-ideas'
+
+/**
+ * Save episode ideas to Firestore (if userId provided) or localStorage
+ */
+export async function saveEpisodeIdeas(
+  episodeIdeas: Omit<EpisodeIdeas, 'id' | 'generatedAt' | 'lastModified'>,
+  storyBibleId: string,
+  userId?: string
+): Promise<EpisodeIdeas> {
+  if (!storyBibleId) {
+    throw new Error('storyBibleId is required to save episode ideas')
+  }
+
+  // If userId not provided, try to get it from Firebase auth directly
+  let finalUserId = userId
+  if (!finalUserId && typeof window !== 'undefined') {
+    try {
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        finalUserId = currentUser.uid
+        console.log('🔍 saveEpisodeIdeas: userId not provided, using auth.currentUser:', finalUserId)
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not check Firebase auth in saveEpisodeIdeas:', error)
+    }
+  }
+
+  const now = new Date().toISOString()
+  const ideasId = `ideas_ep_${episodeIdeas.episodeNumber}`
+  
+  const updatedIdeas: EpisodeIdeas = {
+    ...episodeIdeas,
+    id: ideasId,
+    storyBibleId,
+    generatedAt: now,
+    lastModified: now,
+    ownerId: finalUserId
+  }
+
+  if (finalUserId) {
+    // AUTHENTICATED: Firestore ONLY
+    try {
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        throw new Error('AUTH_EXPIRED:Your session has expired. Please sign in again to continue.')
+      }
+      
+      if (currentUser.uid !== finalUserId) {
+        throw new Error(`Auth mismatch: currentUser.uid (${currentUser.uid}) !== userId (${finalUserId})`)
+      }
+      
+      const docRef = doc(db, 'users', finalUserId, 'storyBibles', storyBibleId, 'episodeIdeas', ideasId)
+      
+      const dataToSave = {
+        ...updatedIdeas,
+        generatedAt: Timestamp.fromDate(new Date(updatedIdeas.generatedAt)),
+        lastModified: Timestamp.fromDate(new Date(updatedIdeas.lastModified))
+      }
+      
+      await setDoc(docRef, dataToSave)
+      console.log(`✅ Episode ideas for episode ${episodeIdeas.episodeNumber} saved to Firestore`)
+    } catch (error: any) {
+      console.error('❌ FAILED to save episode ideas to Firestore:', {
+        error: error.message,
+        code: error.code,
+        userId,
+        storyBibleId,
+        episodeNumber: episodeIdeas.episodeNumber
+      })
+      throw new Error(`Failed to save episode ideas to Firestore: ${error.message}`)
+    }
+  } else {
+    // GUEST: localStorage only
+    if (typeof window === 'undefined') {
+      throw new Error('Cannot save episode ideas: localStorage not available (server-side)')
+    }
+    const stored = localStorage.getItem(EPISODE_IDEAS_LOCALSTORAGE_KEY)
+    const allIdeas = stored ? JSON.parse(stored) : {}
+    const key = `${storyBibleId}_${episodeIdeas.episodeNumber}`
+    allIdeas[key] = updatedIdeas
+    localStorage.setItem(EPISODE_IDEAS_LOCALSTORAGE_KEY, JSON.stringify(allIdeas))
+    console.log(`⚠️ GUEST MODE: Episode ideas for episode ${episodeIdeas.episodeNumber} saved to localStorage only`)
+  }
+
+  return updatedIdeas
+}
+
+/**
+ * Get episode ideas for a specific episode
+ */
+export async function getEpisodeIdeas(
+  storyBibleId: string,
+  episodeNumber: number,
+  userId?: string
+): Promise<EpisodeIdeas | null> {
+  if (!storyBibleId) {
+    console.warn('storyBibleId is required to get episode ideas')
+    return null
+  }
+
+  // If userId not provided, try to get it from Firebase auth directly
+  let finalUserId = userId
+  if (!finalUserId && typeof window !== 'undefined') {
+    try {
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        finalUserId = currentUser.uid
+        console.log('🔍 getEpisodeIdeas: userId not provided, using auth.currentUser:', finalUserId)
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not check Firebase auth in getEpisodeIdeas:', error)
+    }
+  }
+
+  if (finalUserId) {
+    // AUTHENTICATED: Try Firestore first, fallback to localStorage
+    try {
+      const ideasId = `ideas_ep_${episodeNumber}`
+      const docRef = doc(db, 'users', finalUserId, 'storyBibles', storyBibleId, 'episodeIdeas', ideasId)
+      const docSnap = await getDoc(docRef)
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        const ideas: EpisodeIdeas = {
+          ...data,
+          id: docSnap.id,
+          generatedAt: data.generatedAt?.toDate?.()?.toISOString() || data.generatedAt,
+          lastModified: data.lastModified?.toDate?.()?.toISOString() || data.lastModified,
+        } as EpisodeIdeas
+        
+        console.log(`✅ Loaded episode ideas for episode ${episodeNumber} from Firestore`)
+        return ideas
+      }
+      
+      console.log(`ℹ️  No episode ideas found in Firestore for episode ${episodeNumber}`)
+      // Fallback to localStorage
+      return getEpisodeIdeasFromLocalStorage(storyBibleId, episodeNumber)
+    } catch (error) {
+      console.error('❌ Error loading episode ideas from Firestore, trying localStorage:', error)
+      return getEpisodeIdeasFromLocalStorage(storyBibleId, episodeNumber)
+    }
+  } else {
+    // GUEST: localStorage only
+    return getEpisodeIdeasFromLocalStorage(storyBibleId, episodeNumber)
+  }
+}
+
+/**
+ * Helper to get episode ideas from localStorage
+ */
+function getEpisodeIdeasFromLocalStorage(storyBibleId: string, episodeNumber: number): EpisodeIdeas | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  
+  try {
+    const stored = localStorage.getItem(EPISODE_IDEAS_LOCALSTORAGE_KEY)
+    if (!stored) {
+      return null
+    }
+    
+    const allIdeas = JSON.parse(stored)
+    const key = `${storyBibleId}_${episodeNumber}`
+    const ideas = allIdeas[key]
+    
+    if (ideas) {
+      console.log(`✅ Loaded episode ideas for episode ${episodeNumber} from localStorage`)
+      return ideas as EpisodeIdeas
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Error loading episode ideas from localStorage:', error)
+    return null
+  }
 }
 

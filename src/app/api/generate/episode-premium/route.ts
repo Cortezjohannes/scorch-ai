@@ -186,14 +186,26 @@ RETURN VALID JSON:
       generationType: 'premium-enhanced'
     }
     
-    return NextResponse.json({
+    // Calculate response size BEFORE sending
+    const responseObj = {
       success: true,
       episode: enhancedEpisode,
       beatSheet,
       vibeSettings,
       directorsNotes,
       generationMethod: 'premium-enhanced'
-    })
+    }
+    
+    const responseSize = JSON.stringify(responseObj).length
+    const responseSizeMB = (responseSize / (1024 * 1024)).toFixed(2)
+    console.log(`📦 Response size: ${responseSizeMB}MB (${responseSize} bytes)`)
+    
+    // Warn if response is very large (iPad may struggle)
+    if (responseSize > 5 * 1024 * 1024) { // > 5MB
+      console.warn(`⚠️ Response is very large (${responseSizeMB}MB) - iPad may have difficulty`)
+    }
+    
+    return NextResponse.json(responseObj)
     
   } catch (error) {
     console.error('❌ Premium episode generation error:', error)

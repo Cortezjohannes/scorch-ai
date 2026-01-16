@@ -15,6 +15,7 @@ import GenerationErrorModal from '@/components/modals/GenerationErrorModal'
 import VibeSettingsPanel from './generation/VibeSettingsPanel'
 import BeatSheetEditor from './generation/BeatSheetEditor'
 import ContextPanel from './generation/ContextPanel'
+import CharacterDetailModal from '@/components/story-bible/CharacterDetailModal'
 
 interface EpisodeGenerationSuiteProps {
   isOpen: boolean
@@ -110,13 +111,21 @@ export default function EpisodeGenerationSuite({
     type: 'beat sheet' | 'episode'
     retryFunction: () => void
   } | null>(null)
+  
+  // Guard to prevent multiple simultaneous generation attempts (fixes infinite loop)
+  const [isGeneratingGuard, setIsGeneratingGuard] = useState(false)
 
-  // Generation mode
-  const [generationMode, setGenerationMode] = useState<'advanced' | 'yolo'>('advanced')
+  // Removed generationMode - YOLO is now a pilot writer function for episode 1 only
 
   // Track if form has been initialized to prevent reset after inspiration choice
   const [formInitialized, setFormInitialized] = useState(false)
   const [isRewriteMode, setIsRewriteMode] = useState(false)
+
+  // Character modal state
+  const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [selectedCharacterIndex, setSelectedCharacterIndex] = useState<number | null>(null)
+  const [editingField, setEditingField] = useState<{type: string, index?: number | string, field?: string, subfield?: string} | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   // Reset form when modal opens or episode number changes (but not if form was just filled by inspiration choice)
   useEffect(() => {
@@ -327,13 +336,22 @@ export default function EpisodeGenerationSuite({
   // Removed Quick mode - it was redundant with YOLO mode
 
   // Check for duplicate episodes before generation
+  // Made non-blocking with timeout for iPad/mobile compatibility
   const checkForDuplicate = async (): Promise<boolean> => {
     if (!storyBibleId) return false
+    
+    // Use Promise.race to add timeout (5 seconds max for duplicate check)
+    const duplicateCheck = getEpisode(storyBibleId, episodeNumber, user?.id)
+    const timeout = new Promise<null>((resolve) => 
+      setTimeout(() => resolve(null), 5000)
+    )
+    
     try {
-      const existing = await getEpisode(storyBibleId, episodeNumber, user?.id)
+      const existing = await Promise.race([duplicateCheck, timeout])
       return !!existing
     } catch (error) {
-      console.error('Error checking for duplicate:', error)
+      console.error('Error checking for duplicate (non-blocking):', error)
+      // Don't block generation if duplicate check fails - just log and continue
       return false
     }
   }
@@ -345,46 +363,216 @@ export default function EpisodeGenerationSuite({
       return
     }
 
+    // Check for duplicate (non-blocking - won't fail generation if check fails)
+    try {
     const isDuplicate = await checkForDuplicate()
     if (isDuplicate) {
       setPendingGeneration(() => () => doWriteScript())
       setShowDuplicateDialog(true)
       return
+      }
+    } catch (error) {
+      // If duplicate check fails, log but don't block generation
+      console.warn('⚠️ Duplicate check failed, proceeding with generation:', error)
     }
 
     await doWriteScript()
   }
 
   const doWriteScript = async () => {
+    // GUARD: Prevent multiple simultaneous generation attempts
+    if (isGeneratingGuard) {
+      console.warn('⚠️ Generation already in progress, ignoring duplicate call')
+      return
+    }
+    
+    setIsGeneratingGuard(true)
     setScriptGen({ isGenerating: true, error: null })
+    setShowGenerationModal(false) // Close error modal if open
+    setShowErrorModal(false)
     setShowGenerationModal(true)
 
     try {
-      // Get intelligent defaults for YOLO mode (Advanced uses user's vibe settings)
-      const finalVibeSettings = generationMode === 'advanced' 
-        ? vibeSettings 
-        : await getIntelligentDefaults()
+      // Validate inputs BEFORE making any requests
+      console.log('🚀 Starting episode generation...')
+      console.log('📋 Pre-flight checks:', {
+        hasStoryBible: !!storyBible,
+        episodeNumber,
+        hasBeatSheet: !!beatSheet?.trim(),
+        beatSheetLength: beatSheet?.trim().length || 0,
+        endpoint: premiumMode ? '/api/generate/episode-premium' : '/api/generate/episode-from-beats'
+      })
+      
+      // Critical validations
+      if (!storyBible) {
+        throw new Error('Story bible is required but missing')
+      }
+      
+      if (!beatSheet || !beatSheet.trim()) {
+        throw new Error('Beat sheet is required but missing')
+      }
+      
+      if (!episodeNumber || episodeNumber < 1) {
+        throw new Error(`Invalid episode number: ${episodeNumber}`)
+      }
+      
+      // Use user's vibe settings for advanced mode
+      const finalVibeSettings = vibeSettings
       
       const endpoint = premiumMode ? '/api/generate/episode-premium' : '/api/generate/episode-from-beats'
       
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storyBible,
-          episodeNumber,
-          beatSheet: beatSheet.trim(),
-          vibeSettings: finalVibeSettings,
-          directorsNotes: generationMode === 'advanced' ? directorsNotes.trim() : '',
-          previousChoice,
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      // Validate endpoint exists (basic check)
+      if (!endpoint.startsWith('/api/')) {
+        throw new Error(`Invalid endpoint: ${endpoint}`)
+      }
+      
+      // Prepare request body
+      // NOTE: episode-premium endpoint doesn't accept previousEpisode/allPreviousEpisodes
+      const requestBody = premiumMode ? {
+        storyBible,
+        episodeNumber,
+        beatSheet: beatSheet.trim(),
+        vibeSettings: finalVibeSettings,
+        directorsNotes: directorsNotes.trim(),
+        previousChoice
+        // Don't send previousEpisode/allPreviousEpisodes to premium endpoint
+      } : {
+        storyBible,
+        episodeNumber,
+        beatSheet: beatSheet.trim(),
+        vibeSettings: finalVibeSettings,
+        directorsNotes: directorsNotes.trim(),
+        previousChoice,
+        previousEpisode,
+        allPreviousEpisodes
+      }
+      
+      // Validate request body can be stringified
+      let bodyString: string
+      try {
+        bodyString = JSON.stringify(requestBody)
+        console.log('✅ Request body stringified successfully, size:', new Blob([bodyString]).size, 'bytes')
+      } catch (stringifyError) {
+        console.error('❌ Failed to stringify request body:', stringifyError)
+        throw new Error(`Failed to prepare request: ${stringifyError instanceof Error ? stringifyError.message : 'Unknown error'}`)
+      }
+      
+      // Validate request body size (iPad/mobile may have limits)
+      const bodySizeMB = new Blob([bodyString]).size / (1024 * 1024)
+      if (bodySizeMB > 5) {
+        console.warn(`⚠️ Large request body: ${bodySizeMB.toFixed(2)}MB - may cause issues on mobile`)
+      }
+      
+      // For iPad: Try without AbortController first (it may be causing immediate failures)
+      // iPad Safari/Chrome have known issues with AbortController on large requests
+      let response: Response | undefined
+      let lastError: Error | null = null
+      
+      console.log(`📡 Making fetch request to: ${endpoint}`)
+      console.log(`📡 Request method: POST`)
+      console.log(`📡 Request body size: ${bodySizeMB.toFixed(2)}MB`)
+      console.log(`📡 iPad mode: Skipping AbortController for better compatibility`)
+      
+      // Retry logic for iPad network issues (up to 3 attempts)
+      // Try WITHOUT AbortController first (iPad compatibility)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`🔄 Retry attempt ${attempt} for episode generation...`)
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+          }
+          
+          // Build fetch options - NO AbortController for iPad compatibility
+          const fetchOptions: RequestInit = {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+            },
+            body: bodyString,
+            // Explicitly don't use keepalive on iPad (can cause issues)
+            keepalive: false,
+            // Don't use AbortController - iPad has issues with it on large requests
+          }
+          
+          console.log(`📡 Fetch attempt ${attempt + 1} starting (no AbortController)...`)
+          const fetchStartTime = Date.now()
+          
+          // Make the fetch request
+          response = await fetch(endpoint, fetchOptions)
+          
+          const fetchDuration = Date.now() - fetchStartTime
+          console.log(`✅ Fetch attempt ${attempt + 1} succeeded in ${fetchDuration}ms`)
+          console.log(`✅ Response status: ${response.status} ${response.statusText}`)
+          
+          // If we got a response, break out of retry loop
+          break
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr))
+          const errorDetails = {
+            name: lastError.name,
+            message: lastError.message,
+            stack: lastError.stack?.substring(0, 300)
+          }
+          console.error(`❌ Fetch attempt ${attempt + 1} failed:`, errorDetails)
+          
+          // Check for specific error types
+          if (lastError.name === 'TypeError' && lastError.message === 'Failed to fetch') {
+            console.error('❌ Network error - request may be blocked or endpoint unreachable')
+            console.error('   Check: 1) Network connection 2) Endpoint exists 3) CORS settings 4) Request size limits')
+          }
+          
+          // Don't retry on 4xx errors (client errors)
+          if (lastError.message.includes('status: 4')) {
+            console.error('❌ Client error (4xx), not retrying')
+            throw lastError
+          }
+          
+          // On last attempt, throw the error
+          if (attempt === 2) {
+            console.error('❌ All fetch attempts failed')
+            throw lastError
+          }
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('Failed to get response after retries')
       }
 
-      const data = await response.json()
+      if (!response.ok) {
+        // Try to get error details from response
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+          console.error('❌ API Error Response:', errorData)
+        } catch (e) {
+          // If we can't parse the error, use the status text
+          errorMessage = `${errorMessage} - ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+
+      // Parse response with better error handling
+      let data: any
+      let responseText: string
+      try {
+        responseText = await response.text()
+        if (!responseText || responseText.trim().length === 0) {
+          throw new Error('Empty response body received from API')
+        }
+        data = JSON.parse(responseText)
+        console.log('✅ API Response received:', { 
+          success: data.success, 
+          hasEpisode: !!data.episode,
+          episodeScenes: data.episode?.scenes?.length || 0 
+        })
+      } catch (parseError) {
+        console.error('❌ Failed to parse API response:', parseError)
+        console.error('Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        throw new Error(`Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`)
+      }
       
       if (data.success && data.episode) {
         const storyBibleId = storyBible?.id || `bible_${storyBible?.seriesTitle?.replace(/\s+/g, '_').toLowerCase()}`
@@ -404,7 +592,7 @@ export default function EpisodeGenerationSuite({
           vibeSettings: finalVibeSettings,
           generationSettings: {
             vibeSettings: finalVibeSettings,
-            directorsNotes: generationMode === 'advanced' ? directorsNotes.trim() : '',
+            directorsNotes: directorsNotes.trim(),
             beatSheet: beatSheet.trim()
           }
         }
@@ -435,24 +623,21 @@ export default function EpisodeGenerationSuite({
             }
           }
           
+          // Set episode data - this will trigger completion detection in the loader
+          console.log(`✅ Episode saved to Firestore, setting episodeData for loader detection`)
           setGeneratedEpisodeData(savedEpisode)
           
-          setTimeout(() => {
-            setShowGenerationModal(false)
-            setScriptGen({ isGenerating: false, error: null })
-            
-            setTimeout(() => {
-              const episodeUrl = storyBibleId 
-                ? `/episode/${episodeNumber}?storyBibleId=${storyBibleId}`
-                : `/episode/${episodeNumber}`
-              router.push(episodeUrl)
-              onComplete?.()
-            }, 300)
-          }, 1500)
+          // DON'T close modal yet - let the loader detect completion and handle redirect
+          // The loader will call onComplete which will close modal and redirect
+          setScriptGen({ isGenerating: false, error: null })
+          
+          // Reset guard after successful save (loader will handle completion)
+          setIsGeneratingGuard(false)
         } catch (saveError: any) {
           console.error('❌ Failed to save episode:', saveError)
           setShowGenerationModal(false)
           setScriptGen({ isGenerating: false, error: null })
+          setIsGeneratingGuard(false) // Reset guard on save error
           
           if (saveError.message?.includes('AUTH_EXPIRED')) {
             const message = saveError.message.replace('AUTH_EXPIRED:', '')
@@ -468,8 +653,25 @@ export default function EpisodeGenerationSuite({
         throw new Error(data.error || 'Failed to generate script')
       }
     } catch (error) {
-      console.error('Script generation error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate script'
+      console.error('❌ Script generation error:', error)
+      
+      // Provide more specific error messages with iPad/mobile context
+      let errorMessage = 'Failed to generate script'
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+          errorMessage = 'Generation timed out after 10 minutes. The API may still be processing - check Cloud Run logs to verify if content was generated. If you\'re on mobile, try keeping the app in the foreground.'
+        } else if (error.message.includes('Failed to parse')) {
+          errorMessage = `Response parsing failed: ${error.message}. This may indicate the API response was incomplete or malformed. Try again.`
+        } else if (error.message.includes('Empty response')) {
+          errorMessage = 'Received empty response from API. Check Cloud Run logs to verify if content was generated. This can happen on mobile devices with poor network connections.'
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = `Network error: ${error.message}. This is common on mobile devices. Please check your connection and try again.`
+        } else if (error.message.includes('status: 5')) {
+          errorMessage = 'Server error occurred. The API may be overloaded. Please try again in a moment.'
+        } else {
+          errorMessage = error.message
+        }
+      }
       
       setShowGenerationModal(false)
       setScriptGen({ 
@@ -480,48 +682,214 @@ export default function EpisodeGenerationSuite({
       setErrorModalData({
         message: errorMessage,
         type: 'episode',
-        retryFunction: () => doWriteScript()
+        retryFunction: () => {
+          // Reset guard before retrying
+          setIsGeneratingGuard(false)
+          doWriteScript()
+        }
       })
       setShowErrorModal(true)
+    } finally {
+      // Always reset guard when done (success or error)
+      setIsGeneratingGuard(false)
     }
   }
 
   // YOLO Mode: One-click generation with intelligent defaults
   const handleYOLO = async () => {
+    // Check for duplicate (non-blocking - won't fail generation if check fails)
+    try {
     const isDuplicate = await checkForDuplicate()
     if (isDuplicate) {
       setPendingGeneration(() => () => doYOLO())
       setShowDuplicateDialog(true)
       return
+      }
+    } catch (error) {
+      // If duplicate check fails, log but don't block generation
+      console.warn('⚠️ Duplicate check failed, proceeding with YOLO generation:', error)
     }
 
     await doYOLO()
   }
 
   const doYOLO = async () => {
+    // GUARD: Prevent multiple simultaneous generation attempts
+    if (isGeneratingGuard) {
+      console.warn('⚠️ Generation already in progress, ignoring duplicate call')
+      return
+    }
+    
+    setIsGeneratingGuard(true)
     setScriptGen({ isGenerating: true, error: null })
+    setShowGenerationModal(false) // Close error modal if open
+    setShowErrorModal(false)
     setShowGenerationModal(true)
 
     try {
-      // Use orchestrator for intelligent defaults
-      const response = await fetch('/api/generate/episode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Validate inputs BEFORE making any requests
+      console.log('🚀 Starting YOLO episode generation...')
+      console.log('📋 Pre-flight checks:', {
+        hasStoryBible: !!storyBible,
+        episodeNumber,
+        endpoint: '/api/generate/episode'
+      })
+      
+      // Critical validations
+      if (!storyBible) {
+        throw new Error('Story bible is required but missing')
+      }
+      
+      if (!episodeNumber || episodeNumber < 1) {
+        throw new Error(`Invalid episode number: ${episodeNumber}`)
+      }
+      
+      // Use orchestrator for pilot generation with comprehensive story bible context
+      // For episode 1, this generates a pilot based on ALL story bible tabs
+      
+      const endpoint = '/api/generate/episode'
+      
+      // Validate endpoint exists (basic check)
+      if (!endpoint.startsWith('/api/')) {
+        throw new Error(`Invalid endpoint: ${endpoint}`)
+      }
+      
+      // Prepare request body
+      const requestBody = {
           storyBible,
           episodeNumber,
           previousChoice,
-          previousEpisode,
-          allPreviousEpisodes,
+        previousEpisode: null, // Episode 1 has no previous episode
+        allPreviousEpisodes: [], // Episode 1 has no previous episodes
           useIntelligentDefaults: true
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      // Validate request body can be stringified
+      let bodyString: string
+      try {
+        bodyString = JSON.stringify(requestBody)
+        console.log('✅ Request body stringified successfully, size:', new Blob([bodyString]).size, 'bytes')
+      } catch (stringifyError) {
+        console.error('❌ Failed to stringify request body:', stringifyError)
+        throw new Error(`Failed to prepare request: ${stringifyError instanceof Error ? stringifyError.message : 'Unknown error'}`)
+      }
+      
+      // Validate request body size (iPad/mobile may have limits)
+      const bodySizeMB = new Blob([bodyString]).size / (1024 * 1024)
+      if (bodySizeMB > 5) {
+        console.warn(`⚠️ Large request body: ${bodySizeMB.toFixed(2)}MB - may cause issues on mobile`)
+      }
+      
+      // For iPad: Try without AbortController first (it may be causing immediate failures)
+      // iPad Safari/Chrome have known issues with AbortController on large requests
+      let response: Response | undefined
+      let lastError: Error | null = null
+      
+      console.log(`📡 Making fetch request to: ${endpoint}`)
+      console.log(`📡 Request method: POST`)
+      console.log(`📡 Request body size: ${bodySizeMB.toFixed(2)}MB`)
+      console.log(`📡 iPad mode: Skipping AbortController for better compatibility`)
+      
+      // Retry logic for iPad network issues (up to 3 attempts)
+      // Try WITHOUT AbortController first (iPad compatibility)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`🔄 Retry attempt ${attempt} for YOLO generation...`)
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+          }
+          
+          // Build fetch options - NO AbortController for iPad compatibility
+          const fetchOptions: RequestInit = {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+            },
+            body: bodyString,
+            // Explicitly don't use keepalive on iPad (can cause issues)
+            keepalive: false,
+            // Don't use AbortController - iPad has issues with it on large requests
+          }
+          
+          console.log(`📡 Fetch attempt ${attempt + 1} starting (no AbortController)...`)
+          const fetchStartTime = Date.now()
+          
+          // Make the fetch request
+          response = await fetch(endpoint, fetchOptions)
+          
+          const fetchDuration = Date.now() - fetchStartTime
+          console.log(`✅ Fetch attempt ${attempt + 1} succeeded in ${fetchDuration}ms`)
+          console.log(`✅ Response status: ${response.status} ${response.statusText}`)
+          
+          // If we got a response, break out of retry loop
+          break
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr : new Error(String(fetchErr))
+          const errorDetails = {
+            name: lastError.name,
+            message: lastError.message,
+            stack: lastError.stack?.substring(0, 300)
+          }
+          console.error(`❌ Fetch attempt ${attempt + 1} failed:`, errorDetails)
+          
+          // Check for specific error types
+          if (lastError.name === 'TypeError' && lastError.message === 'Failed to fetch') {
+            console.error('❌ Network error - request may be blocked or endpoint unreachable')
+            console.error('   Check: 1) Network connection 2) Endpoint exists 3) CORS settings 4) Request size limits')
+          }
+          
+          // Don't retry on 4xx errors (client errors)
+          if (lastError.message.includes('status: 4')) {
+            console.error('❌ Client error (4xx), not retrying')
+            throw lastError
+          }
+          
+          // On last attempt, throw the error
+          if (attempt === 2) {
+            console.error('❌ All fetch attempts failed')
+            throw lastError
+          }
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('Failed to get response after retries')
       }
 
-      const data = await response.json()
+      if (!response.ok) {
+        // Try to get error details from response
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+          console.error('❌ API Error Response:', errorData)
+        } catch (e) {
+          // If we can't parse the error, use the status text
+          errorMessage = `${errorMessage} - ${response.statusText}`
+        }
+        throw new Error(errorMessage)
+      }
+
+      // Parse response with better error handling
+      let data: any
+      let responseText: string
+      try {
+        responseText = await response.text()
+        if (!responseText || responseText.trim().length === 0) {
+          throw new Error('Empty response body received from API')
+        }
+        data = JSON.parse(responseText)
+        console.log('✅ API Response received:', { 
+          success: data.success, 
+          hasEpisode: !!data.episode,
+          episodeScenes: data.episode?.scenes?.length || 0 
+        })
+      } catch (parseError) {
+        console.error('❌ Failed to parse API response:', parseError)
+        console.error('Response text (first 500 chars):', responseText?.substring(0, 500) || 'No response text available')
+        throw new Error(`Failed to parse API response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`)
+      }
       
       if (data.success && data.episode) {
         const storyBibleId = storyBible?.id || `bible_${storyBible?.seriesTitle?.replace(/\s+/g, '_').toLowerCase()}`
@@ -564,26 +932,39 @@ export default function EpisodeGenerationSuite({
           }
         }
         
+        // Set episode data - this will trigger completion detection in the loader
+        console.log(`✅ YOLO Episode saved to Firestore, setting episodeData for loader detection`)
         setGeneratedEpisodeData(savedEpisode)
         
-        setTimeout(() => {
-          setShowGenerationModal(false)
-          setScriptGen({ isGenerating: false, error: null })
-          
-          setTimeout(() => {
-            const episodeUrl = storyBibleId 
-              ? `/episode/${episodeNumber}?storyBibleId=${storyBibleId}`
-              : `/episode/${episodeNumber}`
-            router.push(episodeUrl)
-            onComplete?.()
-          }, 300)
-        }, 1500)
+        // DON'T close modal yet - let the loader detect completion and handle redirect
+        // The loader will call onComplete which will close modal and redirect
+        setScriptGen({ isGenerating: false, error: null })
+        
+        // Reset guard after successful save (loader will handle completion)
+        setIsGeneratingGuard(false)
       } else {
         throw new Error(data.error || 'Failed to generate episode')
       }
     } catch (error) {
-      console.error('YOLO generation error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate episode'
+      console.error('❌ YOLO generation error:', error)
+      
+      // Provide more specific error messages with iPad/mobile context
+      let errorMessage = 'Failed to generate episode'
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+          errorMessage = 'Generation timed out after 10 minutes. The API may still be processing - check Cloud Run logs to verify if content was generated. If you\'re on mobile, try keeping the app in the foreground.'
+        } else if (error.message.includes('Failed to parse')) {
+          errorMessage = `Response parsing failed: ${error.message}. This may indicate the API response was incomplete or malformed. Try again.`
+        } else if (error.message.includes('Empty response')) {
+          errorMessage = 'Received empty response from API. Check Cloud Run logs to verify if content was generated. This can happen on mobile devices with poor network connections.'
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = `Network error: ${error.message}. This is common on mobile devices. Please check your connection and try again.`
+        } else if (error.message.includes('status: 5')) {
+          errorMessage = 'Server error occurred. The API may be overloaded. Please try again in a moment.'
+        } else {
+          errorMessage = error.message
+        }
+      }
       
       setShowGenerationModal(false)
       setScriptGen({ 
@@ -594,9 +975,16 @@ export default function EpisodeGenerationSuite({
       setErrorModalData({
         message: errorMessage,
         type: 'episode',
-        retryFunction: () => doYOLO()
+        retryFunction: () => {
+          // Reset guard before retrying
+          setIsGeneratingGuard(false)
+          doYOLO()
+        }
       })
       setShowErrorModal(true)
+    } finally {
+      // Always reset guard when done (success or error)
+      setIsGeneratingGuard(false)
     }
   }
 
@@ -790,31 +1178,6 @@ export default function EpisodeGenerationSuite({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-                  {/* Mode Selector */}
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setGenerationMode('advanced')}
-                      className={`px-2 md:px-3 py-1 rounded text-xs font-medium transition-all duration-200 ${
-                        generationMode === 'advanced'
-                          ? `${prefix}-bg-accent ${prefix}-text-accent shadow-md`
-                          : `${prefix}-text-secondary hover:${prefix}-bg-secondary`
-                      }`}
-                      aria-pressed={generationMode === 'advanced'}
-                    >
-                      Advanced
-                    </button>
-                    <button
-                      onClick={() => setGenerationMode('yolo')}
-                      className={`px-2 md:px-3 py-1 rounded text-xs font-medium transition-all duration-200 ${
-                        generationMode === 'yolo'
-                          ? `${prefix}-bg-accent ${prefix}-text-accent shadow-md`
-                          : `${prefix}-text-secondary hover:${prefix}-bg-secondary`
-                      }`}
-                      aria-pressed={generationMode === 'yolo'}
-                    >
-                      YOLO
-                    </button>
-                  </div>
                   <button
                     onClick={onClose}
                     disabled={scriptGen.isGenerating || beatSheetGen.isGenerating}
@@ -836,39 +1199,71 @@ export default function EpisodeGenerationSuite({
                       <div className={`text-xs ${prefix}-text-secondary mb-1`}>Arc</div>
                       <div className={`text-sm font-medium ${prefix}-text-primary`}>{arcInfo.arcTitle}</div>
                     </div>
-                    {storyBible?.mainCharacters && (
-                      <div className={`p-3 rounded-lg ${prefix}-card ${prefix}-border`}>
-                        <div className={`text-xs ${prefix}-text-secondary mb-2`}>Characters</div>
-                        <div className="flex gap-1 flex-wrap">
-                          {storyBible.mainCharacters.slice(0, 4).map((char: any, idx: number) => (
-                            <div
+                  </div>
+
+                  {/* Character Context - Scrollable list above Quick Actions */}
+                  <div className="mb-4">
+                    <h3 className={`text-sm font-semibold ${prefix}-text-primary mb-2`}>Character Context</h3>
+                    <div className={`text-xs ${prefix}-text-tertiary mb-2`}>Click any character to view details</div>
+                    <div className={`max-h-64 overflow-y-auto ${prefix}-card ${prefix}-border rounded-lg p-2`}>
+                      {storyBible?.mainCharacters && storyBible.mainCharacters.length > 0 ? (
+                        <div className="space-y-2">
+                          {storyBible.mainCharacters.map((char: any, idx: number) => (
+                            <button
                               key={idx}
-                              className="w-6 h-6 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border border-[#10B981]/40 flex items-center justify-center text-xs font-bold text-[#10B981]"
-                              title={char.name}
+                              onClick={() => {
+                                setSelectedCharacterIndex(idx)
+                                setShowCharacterModal(true)
+                              }}
+                              className={`w-full p-2.5 rounded-lg ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 hover:border-[#10B981]/50 border-2 border-transparent transition-all duration-200 text-left cursor-pointer group`}
+                              title={`Click to view ${char.name || 'character'} details`}
                             >
-                              {char.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#10B981]/20 to-[#059669]/20 border-2 border-[#10B981]/40 group-hover:border-[#10B981] group-hover:scale-105 transition-all flex items-center justify-center text-xs font-bold text-[#10B981] flex-shrink-0">
+                                  {char.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
                             </div>
-                          ))}
-                          {storyBible.mainCharacters.length > 4 && (
-                            <div className="w-6 h-6 rounded-full bg-[#36393f] flex items-center justify-center text-xs text-[#e7e7e7]/50">
-                              +{storyBible.mainCharacters.length - 4}
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-sm font-medium ${prefix}-text-primary truncate group-hover:text-[#10B981] transition-colors flex items-center gap-1.5`}>
+                                    {char.name || 'Unnamed Character'}
+                                    <span className="text-[#10B981] opacity-0 group-hover:opacity-100 transition-opacity text-xs">→</span>
+                                  </div>
+                                  {char.title && (
+                                    <div className={`text-xs ${prefix}-text-secondary line-clamp-1 truncate`}>
+                                      {char.title}
                             </div>
                           )}
                         </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={`text-sm ${prefix}-text-secondary text-center py-4`}>
+                          No characters defined
                       </div>
                     )}
+                    </div>
                   </div>
                   
                   <div>
                     <h3 className={`text-sm font-semibold ${prefix}-text-primary mb-2`}>Quick Actions</h3>
-                    {episodeNumber > 1 && (previousEpisode || allPreviousEpisodes.length > 0) && (
+                    {episodeNumber === 1 ? (
+                      <button
+                        onClick={handleYOLO}
+                        disabled={scriptGen.isGenerating}
+                        className={`w-full px-3 py-2 rounded-lg text-sm font-medium mb-2 ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-wait`}
+                      >
+                        {scriptGen.isGenerating ? '🤖 Writing Pilot...' : 'Help me write the pilot'}
+                      </button>
+                    ) : (
+                      (previousEpisode || allPreviousEpisodes.length > 0) && (
                       <button
                         onClick={async () => {
                           setGeneratingChoices(true)
                           setShowInspirationOptions(true)
                           
                           try {
-                            // Generate NEW choice recommendations based on all previous episodes
+                            // Generate episode ideas based on all previous episodes and comprehensive story bible
                             const response = await fetch('/api/generate/choice-recommendations', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -876,24 +1271,26 @@ export default function EpisodeGenerationSuite({
                                 storyBible,
                                 episodeNumber,
                                 previousEpisode,
-                                allPreviousEpisodes
+                                allPreviousEpisodes,
+                                storyBibleId,
+                                userId: user?.id
                               })
                             })
                             
                             if (!response.ok) {
-                              throw new Error('Failed to generate choice recommendations')
+                                throw new Error('Failed to generate episode ideas')
                             }
                             
                             const data = await response.json()
                             
                             if (data.success && data.choices) {
                               setPreviousEpisodeOptions(data.choices)
-                              console.log(`✅ Generated ${data.choices.length} new choice recommendations`)
+                                console.log(`✅ Generated ${data.choices.length} episode ideas`)
                             } else {
                               throw new Error('Invalid response format')
                             }
                           } catch (error) {
-                            console.error('Error generating choice recommendations:', error)
+                              console.error('Error generating episode ideas:', error)
                             // Fallback to previous episode's choices if generation fails
                             if (previousEpisode?.branchingOptions) {
                               setPreviousEpisodeOptions(previousEpisode.branchingOptions)
@@ -905,8 +1302,9 @@ export default function EpisodeGenerationSuite({
                         disabled={generatingChoices}
                         className={`w-full px-3 py-2 rounded-lg text-sm font-medium mb-2 ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-wait`}
                       >
-                        {generatingChoices ? '🤖 Analyzing Story...' : 'Use Previous Episode Choice'}
+                          {generatingChoices ? '🤖 Analyzing Story...' : 'Generate Episode Ideas'}
                       </button>
+                      )
                     )}
                     {episodeNumber > 1 && (
                       <button
@@ -1002,14 +1400,12 @@ export default function EpisodeGenerationSuite({
                       </div>
                     </div>
 
-                    {/* Vibe Settings (Advanced Mode Only) */}
-                    {generationMode === 'advanced' && (
+                    {/* Vibe Settings */}
                       <VibeSettingsPanel
                         vibeSettings={vibeSettings}
                         onSettingsChange={setVibeSettings}
                         theme={theme}
                       />
-                    )}
 
                     {/* Beat Sheet */}
                     <div>
@@ -1046,8 +1442,7 @@ export default function EpisodeGenerationSuite({
                       />
                     </div>
 
-                    {/* Director's Notes (Advanced Mode Only) */}
-                    {generationMode === 'advanced' && (
+                    {/* Director's Notes */}
                       <div className="relative">
                         <label className={`text-sm font-semibold ${prefix}-text-primary mb-2 block`}>
                           Director's Notes
@@ -1066,7 +1461,6 @@ export default function EpisodeGenerationSuite({
                           placeholder="Any specific direction, tone notes, or production considerations..."
                         />
                       </div>
-                    )}
 
                     {/* Premium Mode Toggle */}
                     <div className="flex items-center gap-3">
@@ -1084,25 +1478,6 @@ export default function EpisodeGenerationSuite({
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      {generationMode === 'yolo' ? (
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={handleYOLO}
-                          disabled={scriptGen.isGenerating}
-                          className={`flex-1 px-4 md:px-6 py-3 rounded-lg font-bold text-base md:text-lg ${prefix}-btn-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${prefix}-shadow-md hover:${prefix}-shadow-lg`}
-                        >
-                          {scriptGen.isGenerating ? (
-                            <span className="flex items-center justify-center gap-2">
-                              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-                              Generating...
-                            </span>
-                          ) : (
-                            '🚀 YOLO - Just Write It!'
-                          )}
-                        </motion.button>
-                      ) : (
-                        <>
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1137,8 +1512,6 @@ export default function EpisodeGenerationSuite({
                               'Generate Beat Sheet'
                             )}
                           </motion.button>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1153,6 +1526,10 @@ export default function EpisodeGenerationSuite({
                     episodeNumber={episodeNumber}
                     arcInfo={arcInfo}
                     theme={theme}
+                    storyBibleId={storyBibleId}
+                    allPreviousEpisodes={allPreviousEpisodes}
+                    episodeGoal={episodeGoal}
+                    beatSheet={beatSheet}
                   />
                 </div>
               </div>
@@ -1178,7 +1555,7 @@ export default function EpisodeGenerationSuite({
                 >
                   <div className="flex items-center justify-between mb-4 flex-shrink-0">
                     <h3 className={`text-xl font-bold ${prefix}-text-primary`}>
-                      AI-Generated Choice Recommendations
+                      AI-Generated Episode Ideas
                     </h3>
                     <button
                       onClick={() => setShowInspirationOptions(false)}
@@ -1188,8 +1565,8 @@ export default function EpisodeGenerationSuite({
                     </button>
                   </div>
                   <p className={`text-sm ${prefix}-text-secondary mb-6 flex-shrink-0`}>
-                    Based on analysis of all previous episodes, here are 3 intelligent choice recommendations for Episode {episodeNumber}. 
-                    Each choice references specific events, characters, and plot threads from your story. 
+                    Based on comprehensive analysis of all story bible tabs and all previous episodes, here are 3 episode ideas for Episode {episodeNumber} that continue the story naturally. 
+                    Each idea references specific events, characters, callbacks, and plot threads from your complete story. 
                     Select one to continue your narrative.
                   </p>
                   <div className="flex-1 overflow-y-auto min-h-0">
@@ -1259,8 +1636,39 @@ export default function EpisodeGenerationSuite({
             seriesTitle={storyBible?.seriesTitle || 'Series'}
             isPremiumMode={premiumMode}
             episodeData={generatedEpisodeData}
+            storyBibleId={storyBibleId || storyBible?.id}
             onComplete={() => {
+              // Modal completion - close modal and redirect
+              console.log('✅ Modal onComplete called - closing modal and redirecting')
               setShowGenerationModal(false)
+              setScriptGen({ isGenerating: false, error: null })
+              
+              // Build episode URL and redirect
+              const storyBibleIdForRedirect = storyBibleId || storyBible?.id || `bible_${storyBible?.seriesTitle?.replace(/\s+/g, '_').toLowerCase()}`
+              const episodeUrl = storyBibleIdForRedirect 
+                ? `/episode/${episodeNumber}?storyBibleId=${storyBibleIdForRedirect}`
+                : `/episode/${episodeNumber}`
+              
+              console.log(`🔄 Redirecting to: ${episodeUrl}`)
+              
+              // Redirect immediately
+              setTimeout(() => {
+                try {
+                  router.push(episodeUrl)
+                  console.log('✅ Router.push called successfully')
+                  // Fallback check
+                  setTimeout(() => {
+                    if (window.location.pathname !== episodeUrl.split('?')[0]) {
+                      console.warn('⚠️ Router.push may have failed, using window.location')
+                      window.location.href = episodeUrl
+                    }
+                  }, 1000)
+                } catch (err) {
+                  console.error('❌ Redirect error:', err)
+                  window.location.href = episodeUrl
+                }
+              }, 300)
+              
               onComplete?.()
             }}
           />
@@ -1268,7 +1676,7 @@ export default function EpisodeGenerationSuite({
           {/* Duplicate Dialog */}
           <DuplicateEpisodeConfirmDialog
             isOpen={showDuplicateDialog}
-            onClose={() => setShowDuplicateDialog(false)}
+            episodeNumber={episodeNumber}
             onConfirm={async () => {
               // Close the dialog immediately
               setShowDuplicateDialog(false)
@@ -1292,16 +1700,73 @@ export default function EpisodeGenerationSuite({
           {/* Error Modal */}
           <GenerationErrorModal
             isOpen={showErrorModal}
-            onClose={() => setShowErrorModal(false)}
+            onClose={() => {
+              setShowErrorModal(false)
+              setIsGeneratingGuard(false) // Reset guard on close
+            }}
             errorMessage={errorModalData?.message || ''}
             generationType={errorModalData?.type || 'episode'}
             onRetry={() => {
-              if (errorModalData?.retryFunction) {
-                errorModalData.retryFunction()
+              // Prevent infinite loops - only retry if guard is not active
+              if (isGeneratingGuard) {
+                console.warn('⚠️ Generation already in progress, ignoring retry')
+                setShowErrorModal(false)
+                return
               }
-              setShowErrorModal(false)
+              
+              setShowErrorModal(false) // Close modal first
+              
+              if (errorModalData?.retryFunction) {
+                // Small delay to ensure modal closes before retry
+                setTimeout(() => {
+                  errorModalData.retryFunction()
+                }, 200)
+              }
             }}
           />
+
+          {/* Character Detail Modal */}
+          {showCharacterModal && selectedCharacterIndex !== null && storyBible?.mainCharacters?.[selectedCharacterIndex] && (
+            <CharacterDetailModal
+              isOpen={showCharacterModal}
+              onClose={() => {
+                setShowCharacterModal(false)
+                setSelectedCharacterIndex(null)
+                setEditingField(null)
+                setEditValue('')
+              }}
+              character={storyBible.mainCharacters[selectedCharacterIndex]}
+              characterIndex={selectedCharacterIndex}
+              onSave={async () => {
+                // Read-only in episode generation suite - no save action
+                console.log('Character view is read-only in episode generation suite')
+              }}
+              onDelete={() => {
+                // Read-only - no delete action
+                console.log('Character view is read-only in episode generation suite')
+              }}
+              isLocked={true}
+              theme={theme}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEditing={(type, field, currentValue, index, subfield) => {
+                setEditingField({ type, field, index, subfield })
+                setEditValue(currentValue)
+              }}
+              onSaveEdit={() => {
+                // Read-only - no save
+                setEditingField(null)
+                setEditValue('')
+              }}
+              onCancelEditing={() => {
+                setEditingField(null)
+                setEditValue('')
+              }}
+              onEditValueChange={(value) => {
+                setEditValue(value)
+              }}
+            />
+          )}
         </>
       )}
     </AnimatePresence>

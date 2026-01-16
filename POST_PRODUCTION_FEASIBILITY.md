@@ -511,3 +511,4 @@ export function exportEDL(editSequence: EditDecisionList): string {
 **The UI and organization features are 80% of the value** - the actual video processing can be added as a backend service when needed.
 
 
+

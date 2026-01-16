@@ -1,7 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { getEpisode, saveEpisode } from '@/services/episode-service'
+import { useAuth } from '@/context/AuthContext'
 
 interface ContextPanelProps {
   previousEpisode: any | null
@@ -16,6 +18,10 @@ interface ContextPanelProps {
     totalInArc: number
   }
   theme: 'light' | 'dark'
+  storyBibleId?: string
+  allPreviousEpisodes?: any[]
+  episodeGoal?: string
+  beatSheet?: string
 }
 
 export default function ContextPanel({
@@ -25,19 +31,41 @@ export default function ContextPanel({
   storyBible,
   episodeNumber,
   arcInfo,
-  theme
+  theme,
+  storyBibleId,
+  allPreviousEpisodes = [],
+  episodeGoal = '',
+  beatSheet = ''
 }: ContextPanelProps) {
   const prefix = theme === 'dark' ? 'dark' : 'light'
+  const { user } = useAuth()
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     recap: true,
-    characters: true,
-    plotThreads: true,
+    continuity: false,
     worldBuilding: false,
-    themes: false,
-    arcProgress: true,
-    continuity: false
+    plotThreads: false,
+    suggestedDirection: false,
+    arcProgress: true
   })
+
+  // AI-generated content state
+  const [plotThreads, setPlotThreads] = useState<string[]>([])
+  const [loadingPlotThreads, setLoadingPlotThreads] = useState(false)
+  const [continuityChecker, setContinuityChecker] = useState<{ callbacks: string[], chekhovsGuns: string[] } | null>(null)
+  const [loadingContinuity, setLoadingContinuity] = useState(false)
+  const [worldBuildingRef, setWorldBuildingRef] = useState<string>('')
+  const [loadingWorldBuilding, setLoadingWorldBuilding] = useState(false)
+  const [suggestedDirection, setSuggestedDirection] = useState<string>('')
+  const [loadingSuggestedDirection, setLoadingSuggestedDirection] = useState(false)
+
+  // Calculate arc progress
+  const calculateArcProgress = () => {
+    const progress = (arcInfo.episodeInArc / arcInfo.totalInArc) * 100
+    return Math.round(progress)
+  }
+
+  const arcProgress = calculateArcProgress()
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
@@ -46,131 +74,288 @@ export default function ContextPanel({
     }))
   }
 
-  // Get characters for this episode
-  const getEpisodeCharacters = () => {
-    if (!storyBible?.narrativeArcs?.[arcInfo.arcIndex]?.episodes?.[arcInfo.episodeInArc - 1]) {
-      return storyBible?.mainCharacters?.slice(0, 4) || []
-    }
-    
-    const episode = storyBible.narrativeArcs[arcInfo.arcIndex].episodes[arcInfo.episodeInArc - 1]
-    const characterNames = episode?.characters || []
-    
-    if (characterNames.length === 0) {
-      return storyBible?.mainCharacters?.slice(0, 4) || []
-    }
-    
-    return characterNames.map((name: string) => {
-      const char = storyBible?.mainCharacters?.find((c: any) => 
-        c.name?.toLowerCase() === name.toLowerCase()
-      )
-      return char || { name, description: '' }
-    }).slice(0, 4)
-  }
+  // Load metadata from Firestore on mount
+  useEffect(() => {
+    const loadMetadata = async () => {
+      if (!storyBibleId || !user?.id) return
 
-  // Get active plot threads
-  const getPlotThreads = () => {
-    const threads: string[] = []
-    
-    if (previousEpisode) {
-      if (previousEpisode.branchingOptions) {
-        threads.push('Branching narrative choices pending')
-      }
-      if (previousEpisode.scenes?.some((s: any) => s.content?.includes('?'))) {
-        threads.push('Unresolved questions from previous episode')
+      try {
+        const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
+        if (episode?.metadata) {
+          if (episode.metadata.plotThreads) {
+            setPlotThreads(episode.metadata.plotThreads)
+          }
+          if (episode.metadata.continuityChecker) {
+            setContinuityChecker(episode.metadata.continuityChecker)
+          }
+          if (episode.metadata.worldBuildingRef) {
+            setWorldBuildingRef(episode.metadata.worldBuildingRef)
+          }
+          if (episode.metadata.suggestedDirection) {
+            setSuggestedDirection(episode.metadata.suggestedDirection)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading episode metadata:', error)
       }
     }
-    
-    if (storyBible?.narrativeArcs?.[arcInfo.arcIndex]?.description) {
-      threads.push(`Arc focus: ${storyBible.narrativeArcs[arcInfo.arcIndex].description.substring(0, 50)}...`)
-    }
-    
-    return threads.length > 0 ? threads : ['No active plot threads identified']
-  }
 
-  // Get world-building quick ref
-  const getWorldBuildingRef = () => {
-    const refs: { category: string; items: string[] }[] = []
-    
-    if (storyBible?.locations && storyBible.locations.length > 0) {
-      refs.push({
-        category: 'Locations',
-        items: storyBible.locations.slice(0, 3).map((loc: any) => loc.name || loc)
-      })
-    }
-    
-    if (storyBible?.worldBuilding) {
-      const world = storyBible.worldBuilding
-      if (world.rules || world.magicSystem || world.technology) {
-        refs.push({
-          category: 'World Rules',
-          items: [
-            world.rules ? 'Custom rules established' : '',
-            world.magicSystem ? 'Magic system active' : '',
-            world.technology ? 'Technology defined' : ''
-          ].filter(Boolean)
+    loadMetadata()
+  }, [storyBibleId, episodeNumber, user?.id])
+
+  // Generate plot threads
+  const generatePlotThreads = async () => {
+    if (loadingPlotThreads || plotThreads.length > 0) return
+
+    setLoadingPlotThreads(true)
+    try {
+      const response = await fetch('/api/generate/plot-threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBible,
+          episodeNumber,
+          previousEpisode,
+          allPreviousEpisodes,
+          episodeGoal
         })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate plot threads')
       }
-    }
-    
-    return refs
-  }
 
-  // Get themes
-  const getThemes = () => {
-    const themes: string[] = []
-    
-    if (storyBible?.themes && storyBible.themes.length > 0) {
-      themes.push(...storyBible.themes.slice(0, 3))
-    } else if (storyBible?.premise) {
-      themes.push('Series premise themes')
-    }
-    
-    if (storyBible?.narrativeArcs?.[arcInfo.arcIndex]?.themes) {
-      themes.push(...storyBible.narrativeArcs[arcInfo.arcIndex].themes.slice(0, 2))
-    }
-    
-    return themes.length > 0 ? themes : ['Themes to be explored']
-  }
+      const data = await response.json()
+      if (data.success && data.plotThreads) {
+        setPlotThreads(data.plotThreads)
 
-  // Calculate arc progress
-  const calculateArcProgress = () => {
-    // This would ideally come from actual episode data
-    // For now, estimate based on episode number
-    const progress = (arcInfo.episodeInArc / arcInfo.totalInArc) * 100
-    return Math.round(progress)
-  }
-
-  // Get continuity suggestions
-  const getContinuitySuggestions = () => {
-    const suggestions: string[] = []
-    
-    if (previousEpisode) {
-      if (previousEpisode.scenes?.length > 0) {
-        const lastScene = previousEpisode.scenes[previousEpisode.scenes.length - 1]
-        if (lastScene.content) {
-          suggestions.push('Consider callback to previous episode\'s final scene')
+        // Save to Firestore ONLY if episode exists and has content
+        if (storyBibleId && user?.id) {
+          try {
+            const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
+            // Only save metadata if episode exists AND has actual content (scenes)
+            if (episode && episode.scenes && episode.scenes.length > 0) {
+              await saveEpisode({
+                ...episode,
+                metadata: {
+                  ...episode?.metadata,
+                  plotThreads: data.plotThreads
+                }
+              }, storyBibleId, user.id)
+              console.log('✅ Saved plot threads to Firestore')
+            } else {
+              console.log('⚠️ Episode not yet created or empty - keeping plot threads in memory only')
+            }
+          } catch (error) {
+            console.error('Error saving plot threads to Firestore:', error)
+          }
         }
       }
-      
-      if (previousEpisode.branchingOptions) {
-        suggestions.push('Reference the choice made in previous episode')
-      }
+    } catch (error) {
+      console.error('Error generating plot threads:', error)
+      setPlotThreads(['Failed to generate plot threads'])
+    } finally {
+      setLoadingPlotThreads(false)
     }
-    
-    if (episodeNumber > 1) {
-      suggestions.push('Maintain character voice consistency')
-      suggestions.push('Continue established plot threads')
-    }
-    
-    return suggestions.length > 0 ? suggestions : ['No specific continuity notes']
   }
 
-  const episodeCharacters = getEpisodeCharacters()
-  const plotThreads = getPlotThreads()
-  const worldBuildingRef = getWorldBuildingRef()
-  const themes = getThemes()
-  const arcProgress = calculateArcProgress()
-  const continuitySuggestions = getContinuitySuggestions()
+  // Generate continuity checker
+  const generateContinuityChecker = async () => {
+    if (loadingContinuity || continuityChecker) return
+
+    setLoadingContinuity(true)
+    try {
+      const response = await fetch('/api/generate/continuity-checker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBible,
+          episodeNumber,
+          previousEpisode,
+          allPreviousEpisodes
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate continuity checker')
+      }
+
+      const data = await response.json()
+      if (data.success && data.continuityChecker) {
+        setContinuityChecker(data.continuityChecker)
+
+        // Save to Firestore ONLY if episode exists and has content
+        if (storyBibleId && user?.id) {
+          try {
+            const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
+            // Only save metadata if episode exists AND has actual content (scenes)
+            if (episode && episode.scenes && episode.scenes.length > 0) {
+              await saveEpisode({
+                ...episode,
+                metadata: {
+                  ...episode?.metadata,
+                  continuityChecker: data.continuityChecker
+                }
+              }, storyBibleId, user.id)
+              console.log('✅ Saved continuity checker to Firestore')
+            } else {
+              console.log('⚠️ Episode not yet created or empty - keeping continuity checker in memory only')
+            }
+          } catch (error) {
+            console.error('Error saving continuity checker to Firestore:', error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating continuity checker:', error)
+      setContinuityChecker({
+        callbacks: ['Failed to generate continuity checker'],
+        chekhovsGuns: []
+      })
+    } finally {
+      setLoadingContinuity(false)
+    }
+  }
+
+  // Generate world building reference
+  const generateWorldBuildingRef = async () => {
+    if (loadingWorldBuilding || worldBuildingRef) return
+
+    setLoadingWorldBuilding(true)
+    try {
+      const response = await fetch('/api/generate/world-building-ref', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBible,
+          episodeNumber,
+          allPreviousEpisodes
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate world building reference')
+      }
+
+      const data = await response.json()
+      if (data.success && data.worldBuildingRef) {
+        setWorldBuildingRef(data.worldBuildingRef)
+
+        // Save to Firestore ONLY if episode exists and has content
+        if (storyBibleId && user?.id) {
+          try {
+            const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
+            // Only save metadata if episode exists AND has actual content (scenes)
+            if (episode && episode.scenes && episode.scenes.length > 0) {
+              await saveEpisode({
+                ...episode,
+                metadata: {
+                  ...episode?.metadata,
+                  worldBuildingRef: data.worldBuildingRef
+                }
+              }, storyBibleId, user.id)
+              console.log('✅ Saved world building ref to Firestore')
+            } else {
+              console.log('⚠️ Episode not yet created or empty - keeping world building ref in memory only')
+            }
+          } catch (error) {
+            console.error('Error saving world building ref to Firestore:', error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating world building reference:', error)
+      setWorldBuildingRef('Failed to generate world building reference')
+    } finally {
+      setLoadingWorldBuilding(false)
+    }
+  }
+
+  // Generate suggested direction
+  const generateSuggestedDirection = async () => {
+    if (loadingSuggestedDirection || suggestedDirection) return
+
+    setLoadingSuggestedDirection(true)
+    try {
+      const response = await fetch('/api/generate/suggested-direction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyBible,
+          episodeNumber,
+          previousEpisode,
+          allPreviousEpisodes,
+          episodeGoal,
+          beatSheet
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate suggested direction')
+      }
+
+      const data = await response.json()
+      if (data.success && data.suggestedDirection) {
+        setSuggestedDirection(data.suggestedDirection)
+
+        // Save to Firestore ONLY if episode exists and has content
+        if (storyBibleId && user?.id) {
+          try {
+            const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
+            // Only save metadata if episode exists AND has actual content (scenes)
+            if (episode && episode.scenes && episode.scenes.length > 0) {
+              await saveEpisode({
+                ...episode,
+                metadata: {
+                  ...episode?.metadata,
+                  suggestedDirection: data.suggestedDirection
+                }
+              }, storyBibleId, user.id)
+              console.log('✅ Saved suggested direction to Firestore')
+            } else {
+              console.log('⚠️ Episode not yet created or empty - keeping suggested direction in memory only')
+            }
+          } catch (error) {
+            console.error('Error saving suggested direction to Firestore:', error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generating suggested direction:', error)
+      setSuggestedDirection('Failed to generate suggested direction')
+    } finally {
+      setLoadingSuggestedDirection(false)
+    }
+  }
+
+  // Auto-generate on section expand if not already loaded
+  useEffect(() => {
+    if (expandedSections.plotThreads && plotThreads.length === 0 && !loadingPlotThreads && storyBibleId && user?.id) {
+      generatePlotThreads()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSections.plotThreads, plotThreads.length, loadingPlotThreads])
+
+  useEffect(() => {
+    if (expandedSections.continuity && !continuityChecker && !loadingContinuity && storyBibleId && user?.id) {
+      generateContinuityChecker()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSections.continuity, continuityChecker, loadingContinuity])
+
+  useEffect(() => {
+    if (expandedSections.worldBuilding && !worldBuildingRef && !loadingWorldBuilding && storyBibleId && user?.id) {
+      generateWorldBuildingRef()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSections.worldBuilding, worldBuildingRef, loadingWorldBuilding])
+
+  useEffect(() => {
+    if (expandedSections.suggestedDirection && !suggestedDirection && !loadingSuggestedDirection && storyBibleId && user?.id) {
+      generateSuggestedDirection()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSections.suggestedDirection, suggestedDirection, loadingSuggestedDirection])
 
   return (
     <div className="space-y-4">
@@ -220,42 +405,100 @@ export default function ContextPanel({
         )}
       </motion.div>
 
-      {/* Character Context - Green accent */}
+      {/* Continuity Checker - Orange accent - Moved to top */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className={`rounded-lg border-l-4 border-[#10B981] ${prefix}-card ${prefix}-border overflow-hidden`}
+        className={`rounded-lg border-l-4 border-orange-500 ${prefix}-card ${prefix}-border overflow-hidden`}
       >
         <button
-          onClick={() => toggleSection('characters')}
+          onClick={() => toggleSection('continuity')}
           className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
         >
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#10B981]"></div>
-            <span className={`text-sm font-semibold ${prefix}-text-primary`}>Character Context</span>
+            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+            <span className={`text-sm font-semibold ${prefix}-text-primary`}>Continuity Checker</span>
+            {loadingContinuity && (
+              <span className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin ml-2"></span>
+            )}
           </div>
           <span className={`text-xs ${prefix}-text-tertiary`}>
-            {expandedSections.characters ? '▼' : '▶'}
+            {expandedSections.continuity ? '▼' : '▶'}
           </span>
         </button>
-        {expandedSections.characters && (
+        {expandedSections.continuity && (
           <div className={`p-3 ${prefix}-bg-primary space-y-3`}>
-            {episodeCharacters.length > 0 ? (
-              episodeCharacters.map((char: any, idx: number) => (
-                <div key={idx} className={`p-2 rounded ${prefix}-bg-secondary`}>
-                  <div className={`text-sm font-medium ${prefix}-text-primary mb-1`}>
-                    {char.name}
+            {loadingContinuity ? (
+              <div className={`text-sm ${prefix}-text-secondary`}>Generating continuity analysis...</div>
+            ) : continuityChecker ? (
+              <>
+                <div>
+                  <div className={`text-xs font-semibold ${prefix}-text-primary mb-2`}>Callbacks Needed:</div>
+                  <div className="space-y-1">
+                    {continuityChecker.callbacks.map((callback, idx) => (
+                      <div key={idx} className={`text-sm ${prefix}-text-secondary flex items-start gap-2`}>
+                        <span className="text-orange-500">↩</span>
+                        <span>{callback}</span>
+                      </div>
+                    ))}
                   </div>
-                  {char.description && (
-                    <div className={`text-xs ${prefix}-text-secondary line-clamp-2`}>
-                      {char.description}
+                </div>
+                <div>
+                  <div className={`text-xs font-semibold ${prefix}-text-primary mb-2`}>Chekhov's Guns:</div>
+                  <div className="space-y-1">
+                    {continuityChecker.chekhovsGuns.map((gun, idx) => (
+                      <div key={idx} className={`text-sm ${prefix}-text-secondary flex items-start gap-2`}>
+                        <span className="text-orange-500">🔫</span>
+                        <span>{gun}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={`text-sm ${prefix}-text-secondary`}>
+                Click to generate continuity analysis
                     </div>
                   )}
                 </div>
-              ))
+        )}
+      </motion.div>
+
+      {/* World-Building Reference - Indigo accent - Below Continuity */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className={`rounded-lg border-l-4 border-indigo-500 ${prefix}-card ${prefix}-border overflow-hidden`}
+      >
+        <button
+          onClick={() => toggleSection('worldBuilding')}
+          className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+            <span className={`text-sm font-semibold ${prefix}-text-primary`}>World-Building Ref</span>
+            {loadingWorldBuilding && (
+              <span className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin ml-2"></span>
+            )}
+          </div>
+          <span className={`text-xs ${prefix}-text-tertiary`}>
+            {expandedSections.worldBuilding ? '▼' : '▶'}
+          </span>
+        </button>
+        {expandedSections.worldBuilding && (
+          <div className={`p-3 ${prefix}-bg-primary`}>
+            {loadingWorldBuilding ? (
+              <div className={`text-sm ${prefix}-text-secondary`}>Generating world building reference...</div>
+            ) : worldBuildingRef ? (
+              <p className={`text-sm ${prefix}-text-secondary leading-relaxed`}>
+                {worldBuildingRef}
+              </p>
             ) : (
-              <div className={`text-sm ${prefix}-text-secondary`}>No characters specified for this episode</div>
+              <div className={`text-sm ${prefix}-text-secondary`}>
+                Click to generate world building reference
+              </div>
             )}
           </div>
         )}
@@ -265,7 +508,7 @@ export default function ContextPanel({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.3 }}
         className={`rounded-lg border-l-4 border-[#E2C376] ${prefix}-card ${prefix}-border overflow-hidden`}
       >
         <button
@@ -275,6 +518,9 @@ export default function ContextPanel({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#E2C376]"></div>
             <span className={`text-sm font-semibold ${prefix}-text-primary`}>Plot Threads</span>
+            {loadingPlotThreads && (
+              <span className="w-3 h-3 border-2 border-[#E2C376] border-t-transparent rounded-full animate-spin ml-2"></span>
+            )}
           </div>
           <span className={`text-xs ${prefix}-text-tertiary`}>
             {expandedSections.plotThreads ? '▼' : '▶'}
@@ -282,12 +528,59 @@ export default function ContextPanel({
         </button>
         {expandedSections.plotThreads && (
           <div className={`p-3 ${prefix}-bg-primary space-y-2`}>
-            {plotThreads.map((thread, idx) => (
+            {loadingPlotThreads ? (
+              <div className={`text-sm ${prefix}-text-secondary`}>Generating plot threads...</div>
+            ) : plotThreads.length > 0 ? (
+              plotThreads.map((thread, idx) => (
               <div key={idx} className={`text-sm ${prefix}-text-secondary flex items-start gap-2`}>
                 <span className="text-[#E2C376]">•</span>
                 <span>{thread}</span>
+                </div>
+              ))
+            ) : (
+              <div className={`text-sm ${prefix}-text-secondary`}>
+                Click to generate plot threads
               </div>
-            ))}
+            )}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Suggested Direction - Teal/Green accent */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className={`rounded-lg border-l-4 border-teal-500 ${prefix}-card ${prefix}-border overflow-hidden`}
+      >
+        <button
+          onClick={() => toggleSection('suggestedDirection')}
+          className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+            <span className={`text-sm font-semibold ${prefix}-text-primary`}>Suggested Direction</span>
+            {loadingSuggestedDirection && (
+              <span className="w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full animate-spin ml-2"></span>
+            )}
+          </div>
+          <span className={`text-xs ${prefix}-text-tertiary`}>
+            {expandedSections.suggestedDirection ? '▼' : '▶'}
+          </span>
+        </button>
+        {expandedSections.suggestedDirection && (
+          <div className={`p-3 ${prefix}-bg-primary`}>
+            {loadingSuggestedDirection ? (
+              <div className={`text-sm ${prefix}-text-secondary`}>Generating suggested directions...</div>
+            ) : suggestedDirection ? (
+              <div className={`text-sm ${prefix}-text-secondary leading-relaxed whitespace-pre-line`}>
+                {suggestedDirection}
+              </div>
+            ) : (
+              <div className={`text-sm ${prefix}-text-secondary`}>
+                Click to generate suggested directions
+              </div>
+            )}
           </div>
         )}
       </motion.div>
@@ -296,7 +589,7 @@ export default function ContextPanel({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.4 }}
         className={`rounded-lg border-l-4 border-purple-500 ${prefix}-card ${prefix}-border overflow-hidden`}
       >
         <button
@@ -348,112 +641,6 @@ export default function ContextPanel({
           </div>
         )}
       </motion.div>
-
-      {/* Continuity Checker - Red/Orange accent */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className={`rounded-lg border-l-4 border-orange-500 ${prefix}-card ${prefix}-border overflow-hidden`}
-      >
-        <button
-          onClick={() => toggleSection('continuity')}
-          className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-            <span className={`text-sm font-semibold ${prefix}-text-primary`}>Continuity Checker</span>
-          </div>
-          <span className={`text-xs ${prefix}-text-tertiary`}>
-            {expandedSections.continuity ? '▼' : '▶'}
-          </span>
-        </button>
-        {expandedSections.continuity && (
-          <div className={`p-3 ${prefix}-bg-primary space-y-2`}>
-            {continuitySuggestions.map((suggestion, idx) => (
-              <div key={idx} className={`text-sm ${prefix}-text-secondary flex items-start gap-2`}>
-                <span className="text-orange-500">💡</span>
-                <span>{suggestion}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </motion.div>
-
-      {/* World-Building Quick Ref - Purple accent */}
-      {worldBuildingRef.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className={`rounded-lg border-l-4 border-indigo-500 ${prefix}-card ${prefix}-border overflow-hidden`}
-        >
-          <button
-            onClick={() => toggleSection('worldBuilding')}
-            className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-              <span className={`text-sm font-semibold ${prefix}-text-primary`}>World-Building Ref</span>
-            </div>
-            <span className={`text-xs ${prefix}-text-tertiary`}>
-              {expandedSections.worldBuilding ? '▼' : '▶'}
-            </span>
-          </button>
-          {expandedSections.worldBuilding && (
-            <div className={`p-3 ${prefix}-bg-primary space-y-3`}>
-              {worldBuildingRef.map((ref, idx) => (
-                <div key={idx}>
-                  <div className={`text-xs font-semibold ${prefix}-text-primary mb-1`}>
-                    {ref.category}
-                  </div>
-                  <div className="space-y-1">
-                    {ref.items.map((item, itemIdx) => (
-                      <div key={itemIdx} className={`text-xs ${prefix}-text-secondary`}>
-                        • {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* Themes & Tone - Red accent */}
-      {themes.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className={`rounded-lg border-l-4 border-red-500 ${prefix}-card ${prefix}-border overflow-hidden`}
-        >
-          <button
-            onClick={() => toggleSection('themes')}
-            className={`w-full p-3 flex items-center justify-between ${prefix}-bg-secondary hover:${prefix}-bg-secondary/80 transition-colors`}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span className={`text-sm font-semibold ${prefix}-text-primary`}>Themes & Tone</span>
-            </div>
-            <span className={`text-xs ${prefix}-text-tertiary`}>
-              {expandedSections.themes ? '▼' : '▶'}
-            </span>
-          </button>
-          {expandedSections.themes && (
-            <div className={`p-3 ${prefix}-bg-primary space-y-2`}>
-              {themes.map((theme, idx) => (
-                <div key={idx} className={`text-sm ${prefix}-text-secondary flex items-start gap-2`}>
-                  <span className="text-red-500">🎭</span>
-                  <span>{theme}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </motion.div>
-      )}
     </div>
   )
 }
-

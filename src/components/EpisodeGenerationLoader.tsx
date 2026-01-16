@@ -3,12 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ChatSuggestionButton from '@/components/chat/ChatSuggestionButton'
+import { useAuth } from '@/context/AuthContext'
+import { getEpisode } from '@/services/episode-service'
 
 interface EpisodeGenerationLoaderProps {
   episodeNumber: number
   seriesTitle: string
   isPremiumMode?: boolean
   episodeData?: any | null  // Episode data from API response
+  storyBibleId?: string  // Story bible ID for Firestore polling
   onComplete?: () => void
 }
 
@@ -90,8 +93,10 @@ export default function EpisodeGenerationLoader({
   seriesTitle,
   isPremiumMode = false,
   episodeData,
+  storyBibleId: propStoryBibleId,
   onComplete
 }: EpisodeGenerationLoaderProps) {
+  const { user } = useAuth()
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -101,14 +106,53 @@ export default function EpisodeGenerationLoader({
   const phases = isPremiumMode ? PREMIUM_PHASES : GENERATION_PHASES
   const currentPhase = phases[currentPhaseIndex]
   
+  // Use prop storyBibleId or extract from episodeData
+  const storyBibleId = propStoryBibleId || episodeData?.storyBibleId
+  
   // Client-side mount detection
   useEffect(() => {
     setIsMounted(true)
   }, [])
   
-  // REMOVED: Don't check episodeData for completion flag
-  // We only want to detect completion via localStorage AFTER the episode is saved
-  // This prevents premature redirects before the save completes
+  // Check episodeData prop FIRST (immediate detection - this is the primary method)
+  // This is the main way completion is detected - episodeData is set after Firestore save
+  useEffect(() => {
+    // Debug logging
+    if (episodeData) {
+      console.log(`🔍 EpisodeData check for episode ${episodeNumber}:`, {
+        hasEpisodeData: !!episodeData,
+        hasCompletionFlag: episodeData._generationComplete === true,
+        episodeNumber: episodeData.episodeNumber,
+        title: episodeData.title,
+        scenes: episodeData.scenes?.length || 0,
+        isComplete: isComplete
+      })
+    }
+    
+    if (episodeData && episodeData._generationComplete === true && !isComplete) {
+      console.log(`✅ Episode ${episodeNumber} complete via episodeData prop!`)
+      console.log(`   Episode details:`, {
+        episodeNumber: episodeData.episodeNumber,
+        title: episodeData.title,
+        scenes: episodeData.scenes?.length || 0,
+        storyBibleId: episodeData.storyBibleId,
+        generationType: episodeData.generationType
+      })
+      setIsComplete(true)
+      setProgress(100)
+      setCurrentPhaseIndex(phases.length - 1)
+      
+      // Trigger completion callback immediately (loader handles redirect)
+      setTimeout(() => {
+        console.log(`📞 Calling onComplete callback for episode ${episodeNumber} (from episodeData)`)
+        if (onComplete) {
+          onComplete()
+        } else {
+          console.warn('⚠️ No onComplete callback provided to loader')
+        }
+      }, 500) // Reduced delay for faster redirect
+    }
+  }, [episodeData, episodeNumber, isComplete, onComplete, phases.length])
   
   // Elapsed time counter
   useEffect(() => {
@@ -143,60 +187,64 @@ export default function EpisodeGenerationLoader({
     return () => clearInterval(interval)
   }, [currentPhase, currentPhaseIndex, phases.length])
   
-  // Poll localStorage for completed episode
+  // Poll Firestore for completed episode (NO localStorage - Firestore only)
   useEffect(() => {
-    console.log(`🔄 Starting to poll for episode ${episodeNumber} completion...`)
+    // Skip polling if we already have episodeData prop with completion flag
+    if (episodeData?._generationComplete) {
+      console.log(`✅ Episode ${episodeNumber} already complete via episodeData prop, skipping Firestore poll`)
+      return
+    }
+    
+    // Skip polling if no user or storyBibleId (can't poll Firestore without these)
+    if (!user?.id || !storyBibleId) {
+      console.log(`⚠️ Cannot poll Firestore: missing user (${!!user?.id}) or storyBibleId (${!!storyBibleId})`)
+      return
+    }
+    
+    console.log(`🔄 Starting to poll Firestore for episode ${episodeNumber} completion...`)
     let completionTriggered = false
     
-    const pollInterval = setInterval(() => {
+    const pollInterval = setInterval(async () => {
       try {
-        const savedEpisodes = localStorage.getItem('greenlit-episodes') || 
-                             localStorage.getItem('scorched-episodes') || 
-                             localStorage.getItem('reeled-episodes')
+        // Poll Firestore directly
+        const episode = await getEpisode(storyBibleId, episodeNumber, user.id)
         
-        if (savedEpisodes) {
-          const episodes = JSON.parse(savedEpisodes)
-          const episode = episodes[episodeNumber]
+        // Log polling status every 5 seconds
+        if (Date.now() % 5000 < 1000) {
+          console.log(`🔍 Firestore polling status for episode ${episodeNumber}:`, {
+            episodeExists: !!episode,
+            hasCompletionFlag: episode?._generationComplete === true,
+            episodeNumber: episode?.episodeNumber
+          })
+        }
+        
+        // Check if episode is complete with proper flags
+        if (episode && episode._generationComplete === true && !completionTriggered) {
+          completionTriggered = true
+          console.log(`✅ Episode ${episodeNumber} generation complete from Firestore! Triggering callback...`)
+          setIsComplete(true)
+          setProgress(100)
+          setCurrentPhaseIndex(phases.length - 1)
           
-          // Log polling status every 5 seconds
-          if (Date.now() % 5000 < 1000) {
-            console.log(`🔍 Polling status for episode ${episodeNumber}:`, {
-              episodeExists: !!episode,
-              hasCompletionFlag: episode?._generationComplete === true,
-              episodeNumber: episode?.episodeNumber
-            })
-          }
+          // Clear the interval immediately
+          clearInterval(pollInterval)
           
-          // Check if episode is complete with proper flags
-          if (episode && episode._generationComplete === true && !completionTriggered) {
-            completionTriggered = true
-            console.log(`✅ Episode ${episodeNumber} generation complete! Triggering callback...`)
-            setIsComplete(true)
-            setProgress(100)
-            setCurrentPhaseIndex(phases.length - 1)
-            
-            // Clear the interval immediately
-            clearInterval(pollInterval)
-            
-            // Trigger completion callback after a brief moment
-            setTimeout(() => {
-              console.log(`📞 Calling onComplete callback for episode ${episodeNumber}`)
-              onComplete?.()
-            }, 1500)
-          }
-        } else {
-          console.log(`⚠️ No episodes found in localStorage during polling`)
+          // Trigger completion callback after a brief moment
+          setTimeout(() => {
+            console.log(`📞 Calling onComplete callback for episode ${episodeNumber}`)
+            onComplete?.()
+          }, 500) // Reduced delay for faster redirect
         }
       } catch (error) {
-        console.error('Error polling for episode completion:', error)
+        console.error('Error polling Firestore for episode completion:', error)
       }
-    }, 1000) // Poll every second
+    }, 2000) // Poll every 2 seconds
     
     return () => {
-      console.log(`🛑 Stopped polling for episode ${episodeNumber}`)
+      console.log(`🛑 Stopped polling Firestore for episode ${episodeNumber}`)
       clearInterval(pollInterval)
     }
-  }, [episodeNumber, onComplete, phases.length])
+  }, [episodeNumber, episodeData, onComplete, phases.length, user?.id, storyBibleId])
   
   // Format elapsed time as MM:SS
   const formatTime = (seconds: number) => {

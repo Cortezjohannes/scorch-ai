@@ -1403,6 +1403,7 @@ export function EpisodePreProductionShell({
     const steps: GenerationStep[] = [
       { id: 'script', label: 'Script', status: 'pending' },
       { id: 'breakdown', label: 'Script Breakdown', status: 'pending' },
+      { id: 'analysis', label: 'Script Analysis', status: 'pending' },
       { id: 'storyboards', label: 'Storyboards', status: 'pending' },
       { id: 'storyboard-images', label: 'Storyboard Images', status: 'pending' },
       { id: 'shotlist', label: 'Shot List', status: 'pending' },
@@ -1475,9 +1476,38 @@ export function EpisodePreProductionShell({
       await handleTabUpdate('scriptBreakdown', breakdownResult.breakdown)
 
       updateStepStatus('breakdown', 'completed')
-      setGenerationProgress(15)
+      setGenerationProgress(25)
 
-      // 3. Generate Storyboards
+      // 3. Generate Script Analysis
+      updateStepStatus('analysis', 'generating')
+      setCurrentGenerationStep('analysis')
+
+      const analysisResponse = await fetch('/api/generate/script-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preProductionId,
+          storyBibleId,
+          episodeNumber,
+          scriptData: scriptResult.script,
+          storyBibleData: storyBible
+        })
+      })
+
+      if (!analysisResponse.ok) {
+        const errorData = await analysisResponse.json().catch(() => ({ error: 'Unknown error' }))
+        const errorMessage = errorData.details || errorData.error || 'Failed to generate analysis'
+        console.error('❌ Analysis generation failed:', errorMessage)
+        throw new Error(errorMessage)
+      }
+
+      const analysisResult = await analysisResponse.json()
+      await handleTabUpdate('scriptAnalysis', analysisResult.analysis)
+
+      updateStepStatus('analysis', 'completed')
+      setGenerationProgress(30)
+
+      // 4. Generate Storyboards
       updateStepStatus('storyboards', 'generating')
       setCurrentGenerationStep('storyboards')
 
@@ -1519,9 +1549,9 @@ export function EpisodePreProductionShell({
       latestStoryboardsRef.current = storyboardsResult.storyboards
 
       updateStepStatus('storyboards', 'completed')
-      setGenerationProgress(25)
+      setGenerationProgress(35)
 
-      // 3.5. Generate images for all storyboard frames
+      // 4.5. Generate images for all storyboard frames
       // Wait for at least 10 images before continuing, then let the rest generate in background
       updateStepStatus('storyboard-images', 'generating')
       setCurrentGenerationStep('storyboard-images')
@@ -1558,7 +1588,7 @@ export function EpisodePreProductionShell({
               const progressPercent = progress.total > 0 
                 ? Math.round((progress.current / progress.total) * 100)
                 : 0
-              setGenerationProgress(25 + Math.round(progressPercent * 0.3)) // 25-55% for images
+              setGenerationProgress(35 + Math.round(progressPercent * 0.2)) // 35-55% for images
             }
             
             // Always update background progress for banner (even after modal dismisses)
@@ -1611,7 +1641,7 @@ export function EpisodePreProductionShell({
       // Continue with remaining images in background (don't await)
       // The promise will complete on its own and update the banner
 
-      // 4. Generate Shot List (continue while images generate in background)
+      // 5. Generate Shot List (continue while images generate in background)
       updateStepStatus('shotlist', 'generating')
       setCurrentGenerationStep('shotlist')
 
@@ -1642,7 +1672,7 @@ export function EpisodePreProductionShell({
       updateStepStatus('shotlist', 'completed')
       setGenerationProgress(70)
 
-      // 5. Generate Marketing
+      // 6. Generate Marketing
       updateStepStatus('marketing', 'generating')
       setCurrentGenerationStep('marketing')
 

@@ -128,8 +128,10 @@ export class EngineAIRouter {
     engineId?: string
   ): Promise<EngineResponse> {
     
-    // Use Gemini 2.5 for AI shot detector, otherwise use Gemini 3.0 preview
-    const primaryModel = engineId === 'ai-shot-detector' ? 'gemini-2.5-pro' : 'gemini-3-pro-preview'
+    // Use Gemini 2.5 for AI shot detector and episode ideas generator, otherwise use Gemini 3.0 preview
+    const primaryModel = (engineId === 'ai-shot-detector' || engineId === 'episode-ideas-generator') 
+      ? 'gemini-2.5-pro' 
+      : 'gemini-3-pro-preview'
     const fallbackModel = 'gemini-2.5-pro'
     
     // Gemini models have 8192 max output tokens, but we'll use a safe limit
@@ -175,13 +177,22 @@ export class EngineAIRouter {
       const finishReason = (response as any).candidates?.[0]?.finishReason
       const isTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH'
       
+      // Log token usage for debugging
+      const usageMetadata = (response as any).usageMetadata
+      if (usageMetadata) {
+        console.log(`📊 Gemini token usage: ${usageMetadata.promptTokenCount || 0} input tokens, ${usageMetadata.candidatesTokenCount || 0} output tokens, ${usageMetadata.totalTokenCount || 0} total`)
+      }
+      
       if (isTruncated) {
         console.warn(`⚠️  Gemini response truncated (finishReason: ${finishReason})`)
         console.warn(`  Response length: ${text.length} characters`)
+        console.warn(`  Max output tokens was: ${Math.min(maxTokens, geminiMaxTokens)}`)
         if (text.length === 0) {
           console.error(`❌ Response is empty after truncation. This may indicate the prompt is too long or the model hit a limit.`)
           throw new Error('Gemini response was truncated and is empty. Try reducing prompt length or increasing maxTokens.')
         }
+      } else {
+        console.log(`✅ Gemini response complete (finishReason: ${finishReason || 'STOP'})`)
       }
       
       return {
@@ -205,8 +216,8 @@ export class EngineAIRouter {
     } catch (primaryError) {
       console.error(`❌ [ENGINE ROUTER] Primary Gemini model ${primaryModel} failed:`, primaryError instanceof Error ? primaryError.message : String(primaryError))
       
-      // Skip fallback for ai-shot-detector (it already uses 2.5)
-      if (engineId === 'ai-shot-detector') {
+      // Skip fallback for ai-shot-detector and episode-ideas-generator (they already use 2.5)
+      if (engineId === 'ai-shot-detector' || engineId === 'episode-ideas-generator') {
         throw primaryError
       }
       

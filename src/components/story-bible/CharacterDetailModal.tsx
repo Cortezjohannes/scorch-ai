@@ -86,7 +86,7 @@ export default function CharacterDetailModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
           />
 
           {/* Modal */}
@@ -94,7 +94,7 @@ export default function CharacterDetailModal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-4 md:inset-8 lg:inset-16 z-50 overflow-hidden"
+            className="fixed inset-4 md:inset-8 lg:inset-16 z-[200] overflow-hidden"
           >
             <div className={`h-full ${prefix}-bg-primary ${prefix}-border rounded-xl shadow-2xl flex flex-col overflow-hidden`}>
               {/* Header */}

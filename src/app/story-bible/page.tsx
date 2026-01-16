@@ -2274,6 +2274,7 @@ export default function StoryBiblePage() {
             </div>
           </div>
         </div>
+      </div>
 
       {/* Split Panel Layout */}
       <div className="flex-1 flex overflow-hidden">
@@ -2289,8 +2290,8 @@ export default function StoryBiblePage() {
               onImport={importStoryBible}
               isLocked={isStoryBibleLocked}
             />
-              )}
-            </div>
+          )}
+        </div>
             
         {/* Mobile Sidebar Overlay */}
         {showMobileSidebar && (

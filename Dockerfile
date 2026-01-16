@@ -27,6 +27,7 @@ RUN if [ ! -d .next/standalone ] && [ -d .next/server ]; then \
       echo "Creating standalone structure manually from .next/server..."; \
       mkdir -p .next/standalone/.next; \
       cp -r .next/server .next/standalone/.next/server; \
+      cp -r .next/server/* .next/standalone/.next/server/ 2>/dev/null || true; \
       cp -r .next/static .next/standalone/.next/static 2>/dev/null || true; \
       cp .next/BUILD_ID .next/standalone/.next/ 2>/dev/null || echo "build-$(date +%s)" > .next/standalone/.next/BUILD_ID; \
       cp .next/routes-manifest.json .next/standalone/.next/ 2>/dev/null || true; \
@@ -38,6 +39,8 @@ RUN if [ ! -d .next/standalone ] && [ -d .next/server ]; then \
       cp .next/images-manifest.json .next/standalone/.next/ 2>/dev/null || echo '{"version":1,"images":{"deviceSizes":[640,750,828,1080,1200,1920,2048,3840],"imageSizes":[16,32,48,64,96,128,256,384],"path":"/_next/image","loader":"default"},"domainRegexes":[]}' > .next/standalone/.next/images-manifest.json; \
       cp .next/app-path-routes-manifest.json .next/standalone/.next/ 2>/dev/null || true; \
       cp .next/package.json .next/standalone/.next/ 2>/dev/null || true; \
+      cp .next/next-font-manifest.json .next/standalone/.next/ 2>/dev/null || echo '{}' > .next/standalone/.next/next-font-manifest.json; \
+      cp .next/FONT_MANIFEST .next/standalone/.next/ 2>/dev/null || true; \
       cp package.json .next/standalone/; \
       cp next.config.js .next/standalone/ 2>/dev/null || true; \
       cp -r node_modules .next/standalone/ 2>/dev/null || true; \
@@ -56,6 +59,9 @@ RUN if [ ! -d .next/standalone ] && [ -d .next/server ]; then \
 # Verify standalone exists (either from Next.js build or manual creation)
 RUN test -d .next/standalone || (echo "ERROR: Standalone directory not found" && exit 1) && \
     test -f .next/standalone/server.js || (echo "ERROR: server.js not found in standalone" && exit 1)
+
+# Ensure .next/static exists (create empty if build failed)
+RUN mkdir -p .next/static || true
 
 # Production image - minimal runtime
 FROM node:20-alpine AS runner
@@ -78,6 +84,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Copy the standalone directory from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Copy static files (directory exists even if empty from failed build)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Ensure sharp is available in standalone (it should be in node_modules already, but verify)
