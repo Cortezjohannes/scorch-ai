@@ -260,23 +260,39 @@ You create episodes that are enjoyable to READ and REVIEW, making the narrative 
     logger.milestone('Script generation complete')
     
     // Add completion flags for proper loading screen detection
-    let enhancedEpisode = {
+    const enhancedEpisode = {
       ...parsedEpisode,
       _generationComplete: true,
       generationType: 'standard'
     }
     
-    // For mobile devices: Strip any heavy data to prevent response size issues
+    // For mobile devices: Compress verbose data instead of removing it
+    // This keeps all data but reduces size for iPad compatibility
     if (isMobile) {
-      console.log('📱 Optimizing episode data for mobile device...')
-      // Remove any potentially large fields
-      const { comprehensiveEngineNotes, engineMetadata, rawAIResponse, ...lightweightEpisode } = enhancedEpisode
-      enhancedEpisode = {
-        ...lightweightEpisode,
-        _generationComplete: true,
-        generationType: 'standard'
+      console.log('📱 Compressing episode data for mobile device (keeping all data, just optimized)...')
+      
+      // Compress engine notes if they exist
+      if (enhancedEpisode.comprehensiveEngineNotes) {
+        const compressedNotes: any = {}
+        Object.keys(enhancedEpisode.comprehensiveEngineNotes).forEach(key => {
+          const originalNote = enhancedEpisode.comprehensiveEngineNotes[key]
+          if (typeof originalNote === 'string' && originalNote.length > 200) {
+            compressedNotes[key] = originalNote.substring(0, 200) + '... [truncated for mobile]'
+          } else {
+            compressedNotes[key] = originalNote
+          }
+        })
+        enhancedEpisode.comprehensiveEngineNotes = compressedNotes
       }
-      console.log('✅ Episode data optimized for mobile compatibility')
+      
+      // Compress raw AI response if it exists (keep first 500 chars)
+      if (enhancedEpisode.rawAIResponse && typeof enhancedEpisode.rawAIResponse === 'string') {
+        if (enhancedEpisode.rawAIResponse.length > 500) {
+          enhancedEpisode.rawAIResponse = enhancedEpisode.rawAIResponse.substring(0, 500) + '... [truncated for mobile]'
+        }
+      }
+      
+      console.log('✅ Episode data compressed for mobile (all data preserved, size reduced)')
     }
     
     // Prepare response object

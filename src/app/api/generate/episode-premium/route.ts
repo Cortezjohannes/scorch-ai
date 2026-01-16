@@ -187,28 +187,31 @@ RETURN VALID JSON:
     logger.milestone('✅ Premium episode generation complete')
     
     // Add completion flags
-    let enhancedEpisode = {
+    const enhancedEpisode = {
       ...parsedEpisode,
       _generationComplete: true,
       generationType: 'premium-enhanced'
     }
     
-    // For mobile devices: Strip heavy engine data to prevent response size issues
-    if (isMobile) {
-      console.log('📱 Stripping verbose engine data for mobile device...')
-      const { comprehensiveEngineNotes, engineMetadata, ...lightweightEpisode } = enhancedEpisode
-      enhancedEpisode = {
-        ...lightweightEpisode,
-        _generationComplete: true,
-        generationType: 'premium-enhanced',
-        // Keep only essential engine metadata
-        engineSummary: engineMetadata ? {
-          successfulEngines: engineMetadata.successfulEngines,
-          totalEngines: engineMetadata.totalEngines,
-          successRate: engineMetadata.successRate
-        } : undefined
-      }
-      console.log('✅ Engine data stripped for mobile compatibility')
+    // For mobile devices: Compress/truncate engine notes instead of removing them
+    // This keeps the data but reduces size significantly
+    if (isMobile && enhancedEpisode.comprehensiveEngineNotes) {
+      console.log('📱 Compressing engine notes for mobile device (keeping all data, just shorter)...')
+      const compressedNotes: any = {}
+      
+      // Compress each engine note to first 200 chars + summary
+      Object.keys(enhancedEpisode.comprehensiveEngineNotes).forEach(key => {
+        const originalNote = enhancedEpisode.comprehensiveEngineNotes[key]
+        if (typeof originalNote === 'string' && originalNote.length > 200) {
+          // Keep first 200 chars + "..." indicator
+          compressedNotes[key] = originalNote.substring(0, 200) + '... [truncated for mobile]'
+        } else {
+          compressedNotes[key] = originalNote
+        }
+      })
+      
+      enhancedEpisode.comprehensiveEngineNotes = compressedNotes
+      console.log('✅ Engine notes compressed for mobile (data preserved, size reduced)')
     }
     
     // Prepare response object
